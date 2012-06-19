@@ -419,7 +419,13 @@ void Cvar_SetQuick (cvar_t *var, const char *value)
 void Cvar_Set (const char *var_name, const char *value)
 {
 	cvar_t *var;
-	var = Cvar_FindVar (var_name);
+	
+	if(!strcmp(var_name, "r_glsl")) {
+		Con_Printf("Cvar_Set: Attempted to set %s, updating vid_gl20 instead to preserve Nexuiz compatibility\n", var_name);
+		var = Cvar_FindVar("vid_gl20");
+	} else
+		var = Cvar_FindVar(var_name);
+	
 	if (var == NULL)
 	{
 		Con_Printf("Cvar_Set: variable %s not found\n", var_name);
@@ -564,6 +570,13 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 	if (developer_extra.integer)
 		Con_DPrintf("Cvar_Get(\"%s\", \"%s\", %i);\n", name, value, flags);
 
+	if(!strcmp(name, "r_glsl")) {
+		Con_Printf("Cvar_Set: Attempted to set %s, updating vid_gl20 instead to preserve Nexuiz compatibility\n", name);
+		cvar = Cvar_FindVar("vid_gl20");
+		Cvar_SetQuick(cvar, value);
+		return cvar;
+	}
+
 // first check to see if it has already been defined
 	cvar = Cvar_FindVar (name);
 	if (cvar)
@@ -642,7 +655,7 @@ Handles variable inspection and changing from the console
 qboolean	Cvar_Command (void)
 {
 	cvar_t			*v;
-
+	
 // check variables
 	v = Cvar_FindVar (Cmd_Argv(0));
 	if (!v)
@@ -658,7 +671,7 @@ qboolean	Cvar_Command (void)
 	if (developer_extra.integer)
 		Con_DPrint("Cvar_Command: ");
 
-	if (v->flags & CVAR_READONLY)
+	if (v->flags & CVAR_READONLY && strcmp(v->name, "r_glsl"))
 	{
 		Con_Printf("%s is read-only\n", v->name);
 		return true;
@@ -895,7 +908,7 @@ void Cvar_Set_f (void)
 
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
-	if (cvar && cvar->flags & CVAR_READONLY)
+	if (cvar && cvar->flags & CVAR_READONLY && strcmp(cvar->name, "r_glsl"))
 	{
 		Con_Printf("Set: %s is read-only\n", cvar->name);
 		return;
@@ -921,7 +934,7 @@ void Cvar_SetA_f (void)
 
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
-	if (cvar && cvar->flags & CVAR_READONLY)
+	if (cvar && cvar->flags & CVAR_READONLY && strcmp(cvar->name, "r_glsl"))
 	{
 		Con_Printf("SetA: %s is read-only\n", cvar->name);
 		return;
