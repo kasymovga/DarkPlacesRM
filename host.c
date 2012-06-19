@@ -1225,7 +1225,7 @@ static void Host_Init (void)
 
 	// construct a version string for the corner of the console
 	os = DP_OS_NAME;
-	dpsnprintf (engineversion, sizeof (engineversion), "%s %s %s", gamename, os, buildstring);
+	dpsnprintf (engineversion, sizeof (engineversion), "DarkPlacesRM %s (Running %s) %s", os, gamename, buildstring);
 	Con_Printf("%s\n", engineversion);
 
 	// initialize process nice level

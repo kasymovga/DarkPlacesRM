@@ -195,6 +195,8 @@ cvar_t sv_autodemo_perclient_discardable = {CVAR_SAVE, "sv_autodemo_perclient_di
 
 cvar_t halflifebsp = {0, "halflifebsp", "0", "indicates the current map is hlbsp format (useful to know because of different bounding box sizes)"};
 
+cvar_t dprm_version = {CVAR_READONLY, "dprm_version", "1", "The DarkPlacesRM version"};
+
 server_t sv;
 server_static_t svs;
 
@@ -605,6 +607,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_autodemo_perclient_discardable);
 
 	Cvar_RegisterVariable (&halflifebsp);
+	Cvar_RegisterVariable (&dprm_version);
 
 	sv_mempool = Mem_AllocPool("server", 0, NULL);
 }
@@ -928,7 +931,7 @@ void SV_SendServerinfo (client_t *client)
 
 	SZ_Clear (&client->netconnection->message);
 	MSG_WriteByte (&client->netconnection->message, svc_print);
-	dpsnprintf (message, sizeof (message), "\nServer: %s build %s (progs %i crc)\n", gamename, buildstring, prog->filecrc);
+	dpsnprintf (message, sizeof (message), "\nServer: DarkPlacesRM build %s, running %s (progs %i crc)\n", buildstring, gamename, prog->filecrc);
 	MSG_WriteString (&client->netconnection->message,message);
 
 	SV_StopDemoRecording(client); // to split up demos into different files

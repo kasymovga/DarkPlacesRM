@@ -107,7 +107,7 @@ static void Host_Status_f (void)
 		if (svs.clients[i].active)
 			players++;
 	print ("host:     %s\n", Cvar_VariableString ("hostname"));
-	print ("version:  %s build %s\n", gamename, buildstring);
+	print ("version:  DarkPlacesRM build %s (Running %s)\n", buildstring, gamename);
 	print ("protocol: %i (%s)\n", Protocol_NumberForEnum(sv.protocol), Protocol_NameForEnum(sv.protocol));
 	print ("map:      %s\n", sv.name);
 	print ("timing:   %s\n", Host_TimingReport(vabuf, sizeof(vabuf)));
@@ -1328,7 +1328,7 @@ static void Host_Playerskin_f (void)
 
 static void Host_Version_f (void)
 {
-	Con_Printf("Version: %s build %s\n", gamename, buildstring);
+	Con_Printf("Version: DarkPlacesRM build %s (Running %s)\n", buildstring, gamename);
 }
 
 static void Host_Say(qboolean teamonly)
