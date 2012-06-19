@@ -931,7 +931,7 @@ void SV_SendServerinfo (client_t *client)
 
 	SZ_Clear (&client->netconnection->message);
 	MSG_WriteByte (&client->netconnection->message, svc_print);
-	dpsnprintf (message, sizeof (message), "\nServer: DarkPlacesRM build %s, running %s (progs %i crc)\n", buildstring, gamename, prog->filecrc);
+	dpsnprintf (message, sizeof (message), "\nServer: DarkPlacesRM " DP_OS_NAME " build %s, running %s (progs %i crc)\n", buildstring, gamename, prog->filecrc);
 	MSG_WriteString (&client->netconnection->message,message);
 
 	SV_StopDemoRecording(client); // to split up demos into different files
