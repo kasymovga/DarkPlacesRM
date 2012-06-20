@@ -586,13 +586,13 @@ static void Cmd_Toggle_f(void)
 		// Acquire Potential CVar
 		cvar_t* cvCVar = Cvar_FindVar( Cmd_Argv(1) );
 		
-		if (cvCVar->flags & CVAR_READONLY) {
-			Con_Printf("%s is read-only\n", cvCVar->name);
-			return;
-		}
-		
 		if(cvCVar != NULL)
 		{ // Valid CVar
+			if(cvCVar->flags & CVAR_READONLY) {
+				Con_Printf("%s is read-only\n", cvCVar->name);
+				return;
+			}
+			
 			if(nNumArgs == 2)
 			{ // Default Usage
 				if(cvCVar->integer)
