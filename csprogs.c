@@ -251,7 +251,8 @@ static void CSQC_SetGlobals (void)
 		VectorCopy(cl.punchvector, PRVM_clientglobalvector(view_punchvector));
 		PRVM_clientglobalfloat(maxclients) = cl.maxclients;
 
-		PRVM_clientglobalfloat(player_localentnum) = cl.viewentity;
+        // Removed for Nexuiz 2.5.2 compatibility
+		// PRVM_clientglobalfloat(player_localentnum) = cl.viewentity;
 
 		CSQC_R_RecalcView();
 	CSQC_END
