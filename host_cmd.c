@@ -2530,6 +2530,12 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 		return;
 	}
 
+    if (!Cmd_Args())
+    {
+        Con_Printf ("Usage: rcon <command>\n");
+        return;
+    }
+
 	e = strchr(rcon_password.string, ' ');
 	n = e ? e-rcon_password.string : (int)strlen(rcon_password.string);
 
