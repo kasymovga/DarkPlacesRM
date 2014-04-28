@@ -224,6 +224,7 @@ const char *vm_sv_extensions =
 "TENEBRAE_GFX_DLIGHTS "
 "TW_SV_STEPCONTROL "
 "ZQ_PAUSE "
+"DP_RM_IRC "
 //"EXT_CSQC " // not ready yet
 ;
 
@@ -3735,26 +3736,26 @@ NULL,							// #546
 NULL,							// #547
 NULL,							// #548
 NULL,							// #549
-NULL,							// #550
-NULL,							// #551
-NULL,							// #552
-NULL,							// #553
-NULL,							// #554
-NULL,							// #555
-NULL,							// #556
-NULL,							// #557
-NULL,							// #558
-NULL,							// #559
-NULL,							// #560
-NULL,							// #561
-NULL,							// #562
-NULL,							// #563
-NULL,							// #564
-NULL,							// #565
-NULL,							// #566
-NULL,							// #567
-NULL,							// #568
-NULL,							// #569
+VM_IRC_CreateSession,			// #550 float(void) IRC_CreateSession = #550; (DP_RM_IRC)
+VM_IRC_ConnectSession,			// #551 float(float handle, string server, float port, string password, string nick, string username, string realname) IRC_ConnectSession = #551; (DP_RM_IRC)
+VM_IRC_SessionExists,			// #552 float(float handle) IRC_SessionExists = #552; (DP_RM_IRC)
+VM_IRC_SessionIsConnected,		// #553 float(float handle) IRC_SessionIsConnected = #553; (DP_RM_IRC)
+VM_IRC_SendRaw,					// #554 float(float handle, string command) IRC_SendRaw = #554; (DP_RM_IRC)
+VM_IRC_StrError,				// #555 string(float errno) IRC_StrError = #555; (DP_RM_IRC)
+VM_IRC_JoinChannel,				// #556 float(float handle, string channel) IRC_JoinChannel = #556; (DP_RM_IRC)
+VM_IRC_PartChannel,				// #557 float(float handle, string channel) IRC_PartChannel = #557; (DP_RM_IRC)
+VM_IRC_Topic,					// #558 float(float handle, string channel, string topic) IRC_Topic = #558; (DP_RM_IRC)
+VM_IRC_CurrentNick,				// #559 string(float handle) IRC_CurrentNick = #559; (DP_RM_IRC)
+VM_IRC_Privmsg,					// #560 float(float handle, string targ, string msg) IRC_Privmsg = #560; (DP_RM_IRC)
+VM_IRC_Notice,					// #561 float(float handle, string targ, string msg) IRC_Notice = #561; (DP_RM_IRC)
+VM_IRC_Quit,					// #562 float(float handle, string reason) IRC_Quit = #562; (DP_RM_IRC)
+VM_IRC_TerminateSession,		// #563 float(float handle) IRC_TerminateSession = #563; (DP_RM_IRC)
+VM_IRC_DP2IRC,					// #564 string(string str) IRC_DP2IRC = #564; (DP_RM_IRC)
+VM_IRC_IRC2DP,					// #565 string(string str) IRC_IRC2DP = #565; (DP_RM_IRC)
+VM_IRC_ChangeNick,				// #566 float(float handle, string nick) IRC_ChangeNick = #566; (DP_RM_IRC)
+VM_IRC_ChannelMode,				// #567 float(float handle, string channel, string mode) IRC_ChannelMode = #567; (DP_RM_IRC)
+VM_IRC_UserMode,				// #568 float(float handle, string mode) IRC_UserMode = #568; (DP_RM_IRC)
+VM_IRC_MaskMatches,				// #569 float(string mask, string pattern) IRC_MaskMatches = #567; (DP_RM_IRC)
 NULL,							// #570
 NULL,							// #571
 NULL,							// #572

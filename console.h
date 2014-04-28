@@ -32,6 +32,9 @@ void Con_Rcon_Redirect_Init(lhnetsocket_t *sock, lhnetaddress_t *dest, qboolean 
 void Con_Rcon_Redirect_End(void);
 void Con_Rcon_Redirect_Abort(void);
 
+char Sys_Con_NearestColor(const unsigned char _r, const unsigned char _g, const unsigned char _b);
+char Con_Qfont_Translate(char c);
+
 /// If the line width has changed, reformat the buffer.
 void Con_CheckResize (void);
 void Con_Init (void);

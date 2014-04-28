@@ -884,6 +884,10 @@ static char qfont_table[256] = {
 	'x',  'y',  'z',  '{',  '|',  '}',  '~',  '<'
 };
 
+char Con_Qfont_Translate(char c) {
+    return qfont_table[(int)c];
+}
+
 void Con_Rcon_Redirect_Init(lhnetsocket_t *sock, lhnetaddress_t *dest, qboolean proquakeprotocol)
 {
 	rcon_redirect_sock = sock;
@@ -979,7 +983,7 @@ static void Con_Rcon_AddChar(int c)
  * @param _b Blue (0-255)
  * @return A quake color character.
  */
-static char Sys_Con_NearestColor(const unsigned char _r, const unsigned char _g, const unsigned char _b)
+char Sys_Con_NearestColor(const unsigned char _r, const unsigned char _g, const unsigned char _b)
 {
 	float r = ((float)_r)/255.0;
 	float g = ((float)_g)/255.0;

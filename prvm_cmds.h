@@ -484,4 +484,26 @@ void VM_physics_enable(prvm_prog_t *prog);
 void VM_physics_addforce(prvm_prog_t *prog);
 void VM_physics_addtorque(prvm_prog_t *prog);
 
+// irc
+void VM_IRC_CreateSession(prvm_prog_t *prog);
+void VM_IRC_ConnectSession(prvm_prog_t *prog);
+void VM_IRC_SessionIsConnected(prvm_prog_t *prog);
+void VM_IRC_SessionExists(prvm_prog_t *prog);
+void VM_IRC_SendRaw(prvm_prog_t *prog);
+void VM_IRC_StrError(prvm_prog_t *prog);
+void VM_IRC_JoinChannel(prvm_prog_t *prog);
+void VM_IRC_PartChannel(prvm_prog_t *prog);
+void VM_IRC_Topic(prvm_prog_t *prog);
+void VM_IRC_CurrentNick(prvm_prog_t *prog);
+void VM_IRC_Privmsg(prvm_prog_t *prog);
+void VM_IRC_Notice(prvm_prog_t *prog);
+void VM_IRC_Quit(prvm_prog_t *prog);
+void VM_IRC_TerminateSession(prvm_prog_t *prog);
+void VM_IRC_DP2IRC(prvm_prog_t *prog);
+void VM_IRC_IRC2DP(prvm_prog_t *prog);
+void VM_IRC_ChangeNick(prvm_prog_t *prog);
+void VM_IRC_ChannelMode(prvm_prog_t *prog);
+void VM_IRC_UserMode(prvm_prog_t *prog);
+void VM_IRC_MaskMatches(prvm_prog_t *prog);
+
 #endif
