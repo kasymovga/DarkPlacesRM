@@ -644,8 +644,11 @@ IRC_JoinChannel
 Joins a channel.
 ====================
 */
-int IRC_JoinChannel(int handle, const char *chan) {
-    return IRC_SendRaw(handle, "JOIN %s", chan);
+int IRC_JoinChannel(int handle, const char *chan, const char *key) {
+    if(key)
+        return IRC_SendRaw(handle, "JOIN %s :%s", chan, key);
+    else
+        return IRC_SendRaw(handle, "JOIN %s", chan);
 }
 
 /*

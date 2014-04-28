@@ -37,7 +37,7 @@ qboolean IRC_SessionExists(int handle);
 void IRC_Translate_DP2IRC(const char *msg, char *out, size_t outsize);
 void IRC_Translate_IRC2DP(const char *msg, char *out, size_t outsize);
 int IRC_SendRaw(int handle, const char *fmt, ...);
-int IRC_JoinChannel(int handle, const char *chan);
+int IRC_JoinChannel(int handle, const char *chan, const char *key);
 int IRC_PartChannel(int handle, const char *chan);
 int IRC_Topic(int handle, const char *chan, const char *topic);
 int IRC_Privmsg(int handle, const char *targ, const char *msg);

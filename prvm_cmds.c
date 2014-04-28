@@ -7338,8 +7338,8 @@ void VM_IRC_StrError(prvm_prog_t *prog) {
 }
 
 void VM_IRC_JoinChannel(prvm_prog_t *prog) {
-    VM_SAFEPARMCOUNT(2, VM_IRC_JoinChannel);
-    PRVM_G_FLOAT(OFS_RETURN) = IRC_JoinChannel((int)PRVM_G_FLOAT(OFS_PARM0), (const char*)PRVM_G_STRING(OFS_PARM1));
+    VM_SAFEPARMCOUNT(3, VM_IRC_JoinChannel);
+    PRVM_G_FLOAT(OFS_RETURN) = IRC_JoinChannel((int)PRVM_G_FLOAT(OFS_PARM0), (const char*)PRVM_G_STRING(OFS_PARM1), (const char*)PRVM_G_STRING(OFS_PARM2));
 }
 
 void VM_IRC_PartChannel(prvm_prog_t *prog) {
