@@ -621,6 +621,9 @@ int IRC_SendRaw(int handle, const char *fmt, ...) {
     dpvsnprintf(cmd, sizeof(cmd), fmt, args);
     va_end(args);
     
+    if(developer.integer)
+        Con_DPrintf("IRC_SendRaw(%i): %s\n", handle, cmd);
+        
     if(!IS_VALID_IRC_SESSION(handle)) {
         IRC_Printf("IRC_SendRaw: %i is not a valid session\n", handle);
         return -1;
