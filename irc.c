@@ -485,7 +485,7 @@ void IRC_Translate_DP2IRC(const char *msg, char *sout, size_t outsize) {
     const char *in;
     char outbuf[MAX_INPUTLINE * 3];
     char *out;
-    int color, lastcolor;
+    int color, lastcolor = 0;
     
     // Based on Con_MaskPrint() from console.c
     
