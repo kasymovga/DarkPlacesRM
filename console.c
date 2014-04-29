@@ -884,8 +884,8 @@ static char qfont_table[256] = {
 	'x',  'y',  'z',  '{',  '|',  '}',  '~',  '<'
 };
 
-char Con_Qfont_Translate(char c) {
-    return qfont_table[(int)c];
+char Con_Qfont_Translate(unsigned char c) {
+    return qfont_table[c];
 }
 
 void Con_Rcon_Redirect_Init(lhnetsocket_t *sock, lhnetaddress_t *dest, qboolean proquakeprotocol)
