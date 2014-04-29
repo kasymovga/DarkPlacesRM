@@ -803,7 +803,7 @@ void IRC_Frame(void) {
     int maxfd = 0;
     int i, err;
     
-    if(!irc_initialized.integer)
+    if(!irc_initialized.integer || !irc_enabled.integer)
         return;
     
     tv.tv_usec = 0;
