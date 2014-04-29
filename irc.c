@@ -363,6 +363,7 @@ int IRC_ConnectSession(int handle, const char *server, unsigned short port, cons
     if(server_password)
         strlcpy(s->password, server_password, sizeof(s->password));
     
+    irc_disconnect(s->session);
     if(irc_connect(s->session, server, port, server_password, nick, username, realname)) {
         err = irc_errno(s->session);
         IRC_Printf("Connection error on session %i: %s\n", handle, irc_strerror(err));
@@ -412,8 +413,9 @@ void IRC_DisconnectSession(int handle, const char *reason) {
     s = &irc_sessions[handle];
     IRC_Translate_DP2IRC(reason, fmtmsg, sizeof(fmtmsg));
     irc_cmd_quit(s->session, fmtmsg);
-    if(IRC_SessionIsConnected(handle))
-        irc_disconnect(s->session);
+    
+    //if(IRC_SessionIsConnected(handle))
+    //    irc_disconnect(s->session);
         
     IRC_Printf("Session %i disconnected\n", handle);
 }
@@ -439,6 +441,7 @@ int IRC_ReconnectSession(int handle) {
         IRC_DisconnectSession(handle, "Reconnecting");
     
     s = &irc_sessions[handle];
+    irc_disconnect(s->session);
     if(irc_connect(s->session, s->server, s->port, s->password, s->nick, s->username, s->realname)) {
         err = irc_errno(s->session);
         IRC_Printf("Connection error on session %i: %s\n", handle, irc_strerror(err));
