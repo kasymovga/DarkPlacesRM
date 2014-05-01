@@ -105,8 +105,7 @@ typedef void (*irc_eventcode_callback_t) (void *session, unsigned int event, con
 typedef void (*irc_event_dcc_chat_t) (void *session, const char *nick, const char *addr, unsigned int dccid);
 typedef void (*irc_event_dcc_send_t) (void *session, const char *nick, const char *addr, const char *filename, unsigned long size, unsigned int dccid);
 
-typedef struct
-{
+typedef struct {
     irc_event_callback_t        event_connect;
     irc_event_callback_t        event_nick;
     irc_event_callback_t        event_quit;
@@ -362,6 +361,8 @@ int IRC_ConnectSession(int handle, const char *server, unsigned short port, cons
     strlcpy(s->realname, realname, sizeof(s->realname));
     if(server_password)
         strlcpy(s->password, server_password, sizeof(s->password));
+    else
+        memset(s->password, 0, sizeof(s->password));
     
     irc_disconnect(s->session);
     if(irc_connect(s->session, server, port, server_password, nick, username, realname)) {
@@ -632,7 +633,7 @@ int IRC_SendRaw(int handle, const char *fmt, ...) {
         return -1;
     }
     
-    if(irc_send_raw(irc_sessions[handle].session, cmd)) {
+    if(irc_send_raw(irc_sessions[handle].session, "%s", cmd)) {
         err = irc_errno(irc_sessions[handle].session);
         if(err) {
             IRC_Printf("IRC_SendRaw: Error: %s\n", irc_strerror(err));
@@ -769,6 +770,7 @@ IRC_MaskMatches
 Checks if a hostmask matches a given pattern
 ====================
 */
+
 qboolean IRC_MaskMatches(const char *mask, const char *pattern) {
     const char *m, *p;
     size_t ml, pl;
@@ -781,6 +783,8 @@ qboolean IRC_MaskMatches(const char *mask, const char *pattern) {
     
     for(m = mask, p = pattern; *m && *p; ++m) {
         if(*p == '*') {
+            if(!p[1])
+                return true;
             if(*m == p[1])
                 p += 2;
             continue;
