@@ -406,7 +406,7 @@ void IRC_DisconnectSession(int handle, const char *reason) {
     irc_session_t *s;
     char fmtmsg[MAX_INPUTLINE];
     if(!IRC_SessionIsConnected(handle)) {
-        IRC_Printf("Attempted to disconnect an unconnected session %i", handle);
+        IRC_Printf("Attempted to disconnect an unconnected session %i\n", handle);
         return;
     }
     
