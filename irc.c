@@ -10,7 +10,7 @@ This program is free software; you can redistribute it and/or blah blah blah I d
 
 // cvars
 cvar_t irc_initialized = {CVAR_READONLY, "irc_initialized", "0", "Indicates that the IRC module has been successfully initialized"};
-cvar_t irc_enabled = {CVAR_SAVE, "irc_enabled", "1", "Allows IRC sessions to be created"};
+cvar_t irc_enabled = {CVAR_SAVE, "irc_enabled", "1", "Allows IRC sessions to be created and IRC events to be processed"};
 cvar_t irc_eventlog = {CVAR_SAVE, "irc_eventlog", "0", "Print all IRC events to the console"};
 cvar_t irc_translate_dp2irc_qfont = {CVAR_SAVE, "irc_translate_dp2irc_qfont", "1", "Convert graphical quake characters into a rough ascii equivalent when sending human-readable IRC messages"};
 cvar_t irc_translate_dp2irc_color = {CVAR_SAVE, "irc_translate_dp2irc_color", "2", "0 = leave color codes as they are, 1 = strip color codes, 2 = convert color codes to mirc equivalents"};
