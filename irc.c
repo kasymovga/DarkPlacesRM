@@ -29,21 +29,6 @@ static int          (*irc_add_select_descriptors)           (void *session, fd_s
 static int          (*irc_process_select_descriptors)       (void *session, fd_set *in_set, fd_set *out_set);
 static int          (*irc_send_raw)                         (void *session, const char *format, ...);
 static int          (*irc_cmd_quit)                         (void *session, const char *reason);
-static int          (*irc_cmd_join)                         (void *session, const char *channel, const char *key);
-static int          (*irc_cmd_part)                         (void *session, const char *channel);
-static int          (*irc_cmd_invite)                       (void *session, const char *nick, const char *channel);
-static int          (*irc_cmd_names)                        (void *session, const char *channel);
-static int          (*irc_cmd_list)                         (void *session, const char *channel);
-static int          (*irc_cmd_topic)                        (void *session, const char *channel, const char *topic);
-static int          (*irc_cmd_channel_mode)                 (void *session, const char *channel, const char *mode);
-static int          (*irc_cmd_user_mode)                    (void *session, const char *mode);
-static int          (*irc_cmd_nick)                         (void *session, const char *newnick);
-static int          (*irc_cmd_whois)                        (void *session, const char *nick);
-static int          (*irc_cmd_msg)                          (void *session, const char *nch, const char *text);
-static int          (*irc_cmd_me)                           (void *session, const char *nch, const char *text);
-static int          (*irc_cmd_notice)                       (void *session, const char *nch, const char *text);
-static int          (*irc_cmd_kick)                         (void *session, const char *nick, const char *channel, const char *reason);
-static int          (*irc_cmd_ctcp_request)                 (void *session, const char *nick, const char *request);
 static int          (*irc_cmd_ctcp_reply)                   (void *session, const char *nick, const char *reply);
 static void         (*irc_target_get_nick)                  (const char *target, char *nick, size_t size);
 static void         (*irc_target_get_host)                  (const char *target, char *nick, size_t size);
@@ -68,21 +53,6 @@ static dllfunction_t irc_funcs[] = {
     {"irc_process_select_descriptors",                      (void**) &irc_process_select_descriptors},
     {"irc_send_raw",                                        (void**) &irc_send_raw},
     {"irc_cmd_quit",                                        (void**) &irc_cmd_quit},
-    {"irc_cmd_join",                                        (void**) &irc_cmd_join},
-    {"irc_cmd_part",                                        (void**) &irc_cmd_part},
-    {"irc_cmd_invite",                                      (void**) &irc_cmd_invite},
-    {"irc_cmd_names",                                       (void**) &irc_cmd_names},
-    {"irc_cmd_list",                                        (void**) &irc_cmd_list},
-    {"irc_cmd_topic",                                       (void**) &irc_cmd_topic},
-    {"irc_cmd_channel_mode",                                (void**) &irc_cmd_channel_mode},
-    {"irc_cmd_user_mode",                                   (void**) &irc_cmd_user_mode},
-    {"irc_cmd_nick",                                        (void**) &irc_cmd_nick},
-    {"irc_cmd_whois",                                       (void**) &irc_cmd_whois},
-    {"irc_cmd_msg",                                         (void**) &irc_cmd_msg},
-    {"irc_cmd_me",                                          (void**) &irc_cmd_me},
-    {"irc_cmd_notice",                                      (void**) &irc_cmd_notice},
-    {"irc_cmd_kick",                                        (void**) &irc_cmd_kick},
-    {"irc_cmd_ctcp_request",                                (void**) &irc_cmd_ctcp_request},
     {"irc_cmd_ctcp_reply",                                  (void**) &irc_cmd_ctcp_reply},
     {"irc_target_get_nick",                                 (void**) &irc_target_get_nick},
     {"irc_target_get_host",                                 (void**) &irc_target_get_host},
@@ -96,7 +66,7 @@ static dllfunction_t irc_funcs[] = {
     {"irc_color_strip_from_mirc",                           (void**) &irc_color_strip_from_mirc},
     {"irc_color_convert_from_mirc",                         (void**) &irc_color_convert_from_mirc},
     {"irc_color_convert_to_mirc",                           (void**) &irc_color_convert_to_mirc},
-
+    
     {NULL, NULL}
 };
 
