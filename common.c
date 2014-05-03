@@ -1445,7 +1445,7 @@ typedef struct gamemode_info_s
 
 static const gamemode_info_t gamemode_info [GAME_COUNT] =
 {// game				basegame				prog_name			cmdline				gamename				basegame	modgame			screenshot		userdir				   // commandline option
-{ GAME_NORMAL,			GAME_NORMAL,			"",					"-quake",			"DarkPlaces-Quake",		"id1",		NULL,			"dp",			"darkplaces"		}, // COMMANDLINEOPTION: Game: -quake runs the game Quake (default)
+{ GAME_NORMAL,			GAME_NORMAL,			"quake",			"-quake",			"DarkPlaces-Quake",		"id1",		NULL,			"dp",			"darkplaces"		}, // COMMANDLINEOPTION: Game: -quake runs the game Quake (default)
 { GAME_HIPNOTIC,		GAME_NORMAL,			"hipnotic",			"-hipnotic",		"Darkplaces-Hipnotic",	"id1",		"hipnotic",		"dp",			"darkplaces"		}, // COMMANDLINEOPTION: Game: -hipnotic runs Quake mission pack 1: The Scourge of Armagon
 { GAME_ROGUE,			GAME_NORMAL,			"rogue",			"-rogue",			"Darkplaces-Rogue",		"id1",		"rogue",		"dp",			"darkplaces"		}, // COMMANDLINEOPTION: Game: -rogue runs Quake mission pack 2: The Dissolution of Eternity
 { GAME_NEHAHRA,			GAME_NORMAL,			"nehahra",			"-nehahra",			"DarkPlaces-Nehahra",	"id1",		"nehahra",		"dp",			"darkplaces"		}, // COMMANDLINEOPTION: Game: -nehahra runs The Seal of Nehahra movie and game
@@ -1468,10 +1468,10 @@ static const gamemode_info_t gamemode_info [GAME_COUNT] =
 { GAME_DARSANA,			GAME_DARSANA,			"darsana",			"-darsana",			"Darsana",				"ddata",	NULL, 			"darsana",		"darsana"			}, // COMMANDLINEOPTION: Game: -darsana runs the game Darsana
 { GAME_CONTAGIONTHEORY,	GAME_CONTAGIONTHEORY,	"contagiontheory",	"-contagiontheory",	"Contagion Theory",		"ctdata",	NULL, 			"ct",			"contagiontheory"	}, // COMMANDLINEOPTION: Game: -contagiontheory runs the game Contagion Theory
 { GAME_EDU2P,			GAME_EDU2P,				"edu2p",			"-edu2p",			"EDU2 Prototype",		"id1",		"edu2",			"edu2_p",		"edu2prototype"		}, // COMMANDLINEOPTION: Game: -edu2p runs the game Edu2 prototype
-{ GAME_PROPHECY,		GAME_PROPHECY,			"prophecy",		"-prophecy",		"Prophecy",			"gamedata",		NULL,			"phcy",		"prophecy"			}, // COMMANDLINEOPTION: Game: -prophecy runs the game Prophecy
+{ GAME_PROPHECY,		GAME_PROPHECY,			"prophecy",		    "-prophecy",		"Prophecy",			    "gamedata",	NULL,			"phcy",		    "prophecy"			}, // COMMANDLINEOPTION: Game: -prophecy runs the game Prophecy
 { GAME_BLOODOMNICIDE,	GAME_BLOODOMNICIDE,		"omnicide",			"-omnicide",		"Blood Omnicide",		"kain",		NULL,			"omnicide",		"omnicide"			}, // COMMANDLINEOPTION: Game: -omnicide runs the game Blood Omnicide
 { GAME_STEELSTORM,		GAME_STEELSTORM,		"steelstorm",		"-steelstorm",		"Steel-Storm",			"gamedata",	NULL,			"ss",			"steelstorm"		}, // COMMANDLINEOPTION: Game: -steelstorm runs the game Steel Storm
-{ GAME_STEELSTORM2,		GAME_STEELSTORM2,		"steelstorm2",		"-steelstorm2",		"Steel Storm 2",			"gamedata",	NULL,			"ss2",			"steelstorm2"		}, // COMMANDLINEOPTION: Game: -steelstorm2 runs the game Steel Storm 2
+{ GAME_STEELSTORM2,		GAME_STEELSTORM2,		"steelstorm2",		"-steelstorm2",		"Steel Storm 2",		"gamedata",	NULL,			"ss2",			"steelstorm2"		}, // COMMANDLINEOPTION: Game: -steelstorm2 runs the game Steel Storm 2
 { GAME_TOMESOFMEPHISTOPHELES,		GAME_TOMESOFMEPHISTOPHELES,		"tomesofmephistopheles",		"-tomesofmephistopheles",		"Tomes of Mephistopheles",			"gamedata",	NULL,			"tom",			"tomesofmephistopheles"		}, // COMMANDLINEOPTION: Game: -steelstorm runs the game Steel Storm
 { GAME_STRAPBOMB,		GAME_STRAPBOMB,			"strapbomb",		"-strapbomb",		"Strap-on-bomb Car",	"id1",		NULL,			"strap",		"strapbomb"			}, // COMMANDLINEOPTION: Game: -strapbomb runs the game Strap-on-bomb Car
 { GAME_MOONHELM,		GAME_MOONHELM,			"moonhelm",			"-moonhelm",		"MoonHelm",				"data",		NULL,			"mh",			"moonhelm"			}, // COMMANDLINEOPTION: Game: -moonhelm runs the game MoonHelm
@@ -1482,7 +1482,7 @@ void COM_InitGameType (void)
 {
 	char name [MAX_OSPATH];
 	int i;
-	int index = 0;
+	int index = GAME_NEXUIZ;
 
 	// check executable filename for keywords, but do it SMARTLY - only check the last path element
 	FS_StripExtension(FS_FileWithoutPath(com_argv[0]), name, sizeof (name));
