@@ -222,7 +222,8 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	# XXX: is this /usr on all systems? How do I invoke the correct sdl-config?
 	SDL_CONFIG=/usr/$(TARGET)/bin/sdl-config
 	SDLCONFIG_CFLAGS=$(SDLCONFIG_UNIXCFLAGS)
-	SDLCONFIG_LIBS=$(SDLCONFIG_UNIXLIBS)
+	#SDLCONFIG_LIBS=$(SDLCONFIG_UNIXLIBS)
+	SDLCONFIG_LIBS=-Wl,-Bstatic `$(SDL_CONFIG) --static-libs` -Wl,-Bdynamic
 	SDLCONFIG_STATICLIBS=$(SDLCONFIG_UNIXSTATICLIBS)
 
 	EXE_CL=$(EXE_WINCL)-$(MINGWARCH).exe
