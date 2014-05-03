@@ -227,12 +227,12 @@ LDFLAGS_UNIXSDL_PRELOAD=-lz -ljpeg -lpng -logg -ltheora -lvorbis -lvorbisenc -lv
 CFLAGS_UNIX_PRELOAD=-DPREFER_PRELOAD
 
 LDFLAGS_UNIXSDL=$(SDLCONFIG_LIBS) $(LIB_SND_MODPLUG)
-EXE_UNIXCL=darkplaces-glx
-EXE_UNIXSV=darkplaces-dedicated
-EXE_UNIXSDL=darkplaces-sdl
-EXE_UNIXCLNEXUIZ=nexuiz-glx
-EXE_UNIXSVNEXUIZ=nexuiz-dedicated
-EXE_UNIXSDLNEXUIZ=nexuiz-sdl
+EXE_UNIXCL=darkplaces-rm-glx
+EXE_UNIXSV=darkplaces-rm-dedicated
+EXE_UNIXSDL=darkplaces-rm-sdl
+EXE_UNIXCLNEXUIZ=nexuiz-dprm-glx
+EXE_UNIXSVNEXUIZ=nexuiz-dprm-dedicated
+EXE_UNIXSDLNEXUIZ=nexuiz-dprm-sdl
 
 CMD_UNIXRM=rm -rf
 
@@ -262,8 +262,8 @@ LDFLAGS_MACOSXSDL=$(LDFLAGS_UNIXCOMMON) -ldl -framework IOKit $(SDLCONFIG_STATIC
 
 OBJ_AGL= builddate.c sys_linux.o vid_agl.o thread_null.o $(OBJ_SOUND) $(OBJ_CD) $(OBJ_COMMON)
 
-EXE_MACOSXCL=darkplaces-agl
-EXE_MACOSXCLNEXUIZ=nexuiz-agl
+EXE_MACOSXCL=darkplaces-rm-agl
+EXE_MACOSXCLNEXUIZ=nexuiz-dprm-agl
 
 
 ##### SunOS specific variables #####
@@ -307,12 +307,12 @@ OBJ_WGL= builddate.c sys_win.o vid_wgl.o thread_null.o $(OBJ_SND_WIN) $(OBJ_WINC
 LDFLAGS_WINCL=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_GMP) $(LIB_CRYPTO_RIJNDAEL) -mwindows -lwinmm -luser32 -lgdi32 -ldxguid -ldinput -lcomctl32 -lws2_32 $(LDFLAGS_D3D) $(LIB_JPEG)
 LDFLAGS_WINSV=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_GMP) $(LIB_CRYPTO_RIJNDAEL) -mconsole -lwinmm -lws2_32 $(LIB_JPEG)
 LDFLAGS_WINSDL=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_GMP) $(LIB_CRYPTO_RIJNDAEL) $(SDLCONFIG_LIBS) $(LIB_SND_MODPLUG) -lwinmm -lws2_32 $(LIB_JPEG)
-EXE_WINCL=darkplaces.exe
-EXE_WINSV=darkplaces-dedicated.exe
-EXE_WINSDL=darkplaces-sdl.exe
-EXE_WINCLNEXUIZ=nexuiz.exe
-EXE_WINSVNEXUIZ=nexuiz-dedicated.exe
-EXE_WINSDLNEXUIZ=nexuiz-sdl.exe
+EXE_WINCL=darkplaces-rm-d3d
+EXE_WINSV=darkplaces-rm-dedicated
+EXE_WINSDL=darkplaces-rm-sdl
+EXE_WINCLNEXUIZ=nexuiz-dprm
+EXE_WINSVNEXUIZ=nexuiz-dprm-dedicated
+EXE_WINSDLNEXUIZ=nexuiz-dprm-sdl
 
 
 ##### Commands #####
@@ -589,6 +589,7 @@ clean:
 	-$(CMD_RM) $(EXE_SDLNEXUIZ)
 	-$(CMD_RM) *.o
 	-$(CMD_RM) *.d
+	-$(CMD_RM) *.exe
 
 clean-profile: clean
 	-$(CMD_RM) *.gcda

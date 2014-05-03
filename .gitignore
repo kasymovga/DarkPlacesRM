@@ -7,6 +7,10 @@ darkplaces-agl
 darkplaces-glx
 darkplaces-sdl
 darkplaces-dedicated
+darkplaces-rm-agl
+darkplaces-rm-glx
+darkplaces-rm-sdl
+darkplaces-rm-dedicated
 gmon.out
 *.ncb
 *.opt

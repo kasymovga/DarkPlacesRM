@@ -30,8 +30,11 @@ endif  # ifndef DP_MAKE_TARGET
 ifneq ($(DP_MAKE_TARGET), mingw)
 	DP_ARCH:=$(shell uname)
 	DP_MACHINE:=$(shell uname -m)
+else
+	ifndef MINGWARCH
+		MINGWARCH=i686
+	endif
 endif
-
 
 # Command used to delete files
 ifdef windir
@@ -190,23 +193,6 @@ endif
 endif
 
 # Win32 configuration
-ifeq ($(WIN32RELEASE), 1)
-#	TARGET=i686-pc-mingw32
-#	CC=$(TARGET)-g++
-#	WINDRES=$(TARGET)-windres
-	CPUOPTIMIZATIONS=-march=i686 -fno-math-errno -ffinite-math-only -fno-rounding-math -fno-signaling-nans -fno-trapping-math
-#       CPUOPTIMIZATIONS+=-DUSE_WSPIAPI_H -DSUPPORTIPV6
-	LDFLAGS_WINCOMMON=-Wl,--large-address-aware
-else
-	LDFLAGS_WINCOMMON=
-endif
-
-ifeq ($(WIN64RELEASE), 1)
-#	TARGET=x86_64-pc-mingw32
-#	CC=$(TARGET)-g++
-#	WINDRES=$(TARGET)-windres
-endif
-
 ifeq ($(D3D), 1)
 	CFLAGS_D3D=-DSUPPORTD3D -DSUPPORTDIRECTX
 	CFLAGS_WARNINGS=-Wall
@@ -217,8 +203,11 @@ else
 	LDFLAGS_D3D=
 endif
 
-
 ifeq ($(DP_MAKE_TARGET), mingw)
+	TARGET=$(MINGWARCH)-w64-mingw32
+	CC=$(TARGET)-gcc
+	WINDRES=$(TARGET)-windres
+
 	DEFAULT_SNDAPI=WIN
 	OBJ_CD=$(OBJ_WINCD)
 
@@ -230,20 +219,32 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	LDFLAGS_SV=$(LDFLAGS_WINSV)
 	LDFLAGS_SDL=$(LDFLAGS_WINSDL)
 
+	# XXX: is this /usr on all systems? How do I invoke the correct sdl-config?
+	SDL_CONFIG=/usr/$(TARGET)/bin/sdl-config
 	SDLCONFIG_CFLAGS=$(SDLCONFIG_UNIXCFLAGS)
 	SDLCONFIG_LIBS=$(SDLCONFIG_UNIXLIBS)
 	SDLCONFIG_STATICLIBS=$(SDLCONFIG_UNIXSTATICLIBS)
 
-	EXE_CL=$(EXE_WINCL)
-	EXE_SV=$(EXE_WINSV)
-	EXE_SDL=$(EXE_WINSDL)
-	EXE_CLNEXUIZ=$(EXE_WINCLNEXUIZ)
-	EXE_SVNEXUIZ=$(EXE_WINSVNEXUIZ)
-	EXE_SDLNEXUIZ=$(EXE_WINSDLNEXUIZ)
+	EXE_CL=$(EXE_WINCL)-$(MINGWARCH).exe
+	EXE_SV=$(EXE_WINSV)-$(MINGWARCH).exe
+	EXE_SDL=$(EXE_WINSDL)-$(MINGWARCH).exe
+	EXE_CLNEXUIZ=$(EXE_WINCLNEXUIZ)-$(MINGWARCH).exe
+	EXE_SVNEXUIZ=$(EXE_WINSVNEXUIZ)-$(MINGWARCH).exe
+	EXE_SDLNEXUIZ=$(EXE_WINSDLNEXUIZ)-$(MINGWARCH).exe
 
+	ifeq ($(MINGWARCH), i686)
+		CPUOPTIMIZATIONS=-march=i686 -fno-math-errno -ffinite-math-only -fno-rounding-math -fno-signaling-nans -fno-trapping-math
+		LDFLAGS_WINCOMMON=-Wl,--large-address-aware
+	else
+		CPUOPTIMIZATIONS=
+		LDFLAGS_WINCOMMON=
+	endif
+	
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	LIB_JPEG=-ljpeg
+	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
+	#LIB_JPEG=-ljpeg
+	CFLAGS_LIBJPEG=""
+	LIB_JPEG=""
 endif
 
 ##### Sound configuration #####
