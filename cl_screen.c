@@ -2305,7 +2305,7 @@ void CL_UpdateScreen(void)
 
 	loadingscreendone = false;
 
-	if(gamemode == GAME_NEXUIZ || gamemode == GAME_XONOTIC)
+	if(gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS || gamemode == GAME_XONOTIC)
 	{
 		// play a bit with the palette (experimental)
 		palette_rgb_pantscolormap[15][0] = (unsigned char) (128 + 127 * sin(cl.time / exp(1.0f) + 0.0f*M_PI/3.0f));

@@ -1072,7 +1072,7 @@ static void CL_ClientMovement_Physics_Swim(cl_clientmovement_state_t *s)
 				s->velocity[2] =  80;
 			else
 			{
-				if (gamemode == GAME_NEXUIZ || gamemode == GAME_XONOTIC)
+				if (gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS || gamemode == GAME_XONOTIC)
 					s->velocity[2] = 200;
 				else
 					s->velocity[2] = 100;
@@ -1546,7 +1546,7 @@ void CL_UpdateMoveVars(void)
 
 	if(!(cl.moveflags & MOVEFLAG_VALID))
 	{
-		if(gamemode == GAME_NEXUIZ)
+		if(gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS)
 			cl.moveflags = MOVEFLAG_Q2AIRACCELERATE;
 	}
 

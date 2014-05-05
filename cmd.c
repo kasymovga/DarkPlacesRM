@@ -508,7 +508,7 @@ static void Cmd_Exec(const char *filename)
 		// rogue mission pack has a guardian boss that does not wake up if findradius returns one of the entities around its spawn area
 		if (gamemode == GAME_ROGUE)
 			Cbuf_InsertText("\nsv_gameplayfix_findradiusdistancetobox 0\n\n");
-		if (gamemode == GAME_NEXUIZ)
+		if (gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS)
 			Cbuf_InsertText("\nsv_gameplayfix_q2airaccelerate 1\nsv_gameplayfix_stepmultipletimes 1\n\n");
 		if (gamemode == GAME_TENEBRAE)
 			Cbuf_InsertText("\nr_shadow_gloss 2\nr_shadow_bumpscale_basetexture 4\n\n");
