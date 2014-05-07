@@ -201,7 +201,7 @@ static void IRC_Callback_Default(void *session, const char *event, const char *o
         irc_target_get_nick(origin, nick, sizeof(nick));
         if(!strcmp(s->nick, nick))  // our nickname changed
             strlcpy(s->nick, params[0], sizeof(s->nick));
-    } else if(!strcmp(event, "CTCP")) {
+    } else if(!strcmp(event, "CTCP") && !strncmp(params[0], "VERSION", 7)) {
         char ctcpreply[sizeof(engineversion) + 8];
         irc_target_get_nick(origin, nick, sizeof(nick));
         strlcpy(ctcpreply, "VERSION ", sizeof(ctcpreply));
