@@ -7,6 +7,7 @@ This program is free software; you can redistribute it and/or blah blah blah I d
 
 #include "quakedef.h"
 #include "irc.h"
+#include "ft2.h"
 
 // cvars
 cvar_t irc_initialized = {CVAR_READONLY, "irc_initialized", "0", "Indicates that the IRC module has been successfully initialized"};
@@ -553,10 +554,28 @@ void IRC_Translate_DP2IRC(const char *msg, char *sout, size_t outsize) {
                     break;
             }
         } else
-            *out++ = irc_translate_dp2irc_qfont.integer? Con_Qfont_Translate(*in) : *in;
+            *out++ = (utf8_enable.integer || !irc_translate_dp2irc_qfont.integer)? *in : Con_Qfont_Translate(*in);
     }
     
     *out++ = 0;
+    
+    if(utf8_enable.integer && irc_translate_dp2irc_qfont.integer) {
+        char *p;
+        const char *q;
+        p = outbuf;
+        while(*p) {
+            int ch = u8_getchar(p, &q);
+            if(ch >= 0xE000 && ch <= 0xE0FF) {
+                *p = Con_Qfont_Translate(ch - 0xE000);
+                if(q > p+1)
+                    memmove(p+1, q, strlen(q)+1);
+                p = p + 1;
+            }
+            else
+                p = p + (q - p);
+        }
+    }
+    
     strlcpy(sout, outbuf, outsize);
 }
 
