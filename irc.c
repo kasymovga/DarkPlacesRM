@@ -553,7 +553,7 @@ void IRC_Translate_DP2IRC(const char *msg, char *sout, size_t outsize) {
                     break;
             }
         } else
-            *out++ = irc_translate_dp2irc_color.integer? Con_Qfont_Translate(*in) : *in;
+            *out++ = irc_translate_dp2irc_qfont.integer? Con_Qfont_Translate(*in) : *in;
     }
     
     *out++ = 0;
