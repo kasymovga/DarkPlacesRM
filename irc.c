@@ -587,14 +587,76 @@ Formats an IRC message to display it in DP  (see irc_translate_irc2dp_* cvars)
 ====================
 */
 void IRC_Translate_IRC2DP(const char *msg, char *sout, size_t outsize) {
-    // TODO: implement mirc->quake color code translation
-    
-    if(!irc_translate_irc2dp_color.integer)
+    if(!irc_translate_irc2dp_color.integer) {
         strlcpy(sout, msg, outsize);
-    else {
-        char *f = irc_color_strip_from_mirc(msg);
-        strlcpy(sout, f, outsize);
-        free(f);
+    } else {
+        char out[MAX_INPUTLINE], *o;
+        const char *m;
+        int lastcolor = -1;
+        
+        for(o = out, m = msg; *m; ++m) {
+            switch(*m) {
+                case 0x02:      // bold
+                case 0x1f:      // underline
+                case 0x16:      // reverse
+                    continue;
+                    
+                case 0x0f:      // reset colors
+                    // XXX: this assumes that the text should be white by default
+                    *o++ = '^'; *o++ = '7';
+                    break;
+                    
+                case 0x03:      // set color
+                    if(isdigit(m[1])) {
+                        int clr = m[1] - 0x30;
+                        ++m;
+                        
+                        if(isdigit(m[1])) {
+                            clr = clr * 10 + m[1] - 0x30;
+                            ++m;
+                        }
+                        
+                        // ignore the background color
+                        if(m[1] == ',' && isdigit(m[2])) {
+                            m += 2;
+                            if(isdigit(m[1]))
+                                ++m;
+                        }
+                        
+                        if(clr == lastcolor || clr > 15 || irc_translate_irc2dp_color.integer < 2)
+                            continue;
+                        
+                        *o++ = '^';
+                        switch(lastcolor = clr) {
+                            // TODO: maybe use DP's ^xRBG color codes to represent these better
+                            
+                            case 0:      *o++ = '7'; break;     // white
+                            case 1:      *o++ = '0'; break;     // black
+                            case 2:      *o++ = '4'; break;     // blue (navy)
+                            case 3:      *o++ = '2'; break;     // green
+                            case 4:      *o++ = '1'; break;     // red
+                            case 5:      *o++ = '1'; break;     // brown (maroon)
+                            case 6:      *o++ = '6'; break;     // purple
+                            case 7:      *o++ = '3'; break;     // orange (olive)
+                            case 8:      *o++ = '3'; break;     // yellow
+                            case 9:      *o++ = '2'; break;     // light green (lime)
+                            case 10:     *o++ = '5'; break;     // teal (a green/blue cyan)
+                            case 11:     *o++ = '5'; break;     // light cyan
+                            case 12:     *o++ = '4'; break;     // light blue
+                            case 13:     *o++ = '6'; break;     // pink (light purple)
+                            case 14:     *o++ = '9'; break;     // grey
+                            case 15:     *o++ = '8'; break;     // light grey (silver)
+                        }
+                    }
+                    break;
+                default:
+                    *o++ = *m;
+                    break;
+            }
+        }
+        
+        *o++ = 0;
+        strlcpy(sout, out, outsize);
     }
 }
 
