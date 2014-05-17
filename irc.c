@@ -586,7 +586,8 @@ void IRC_Translate_IRC2DP(const char *msg, char *sout, size_t outsize) {
     } else {
         char out[MAX_INPUTLINE], *o;
         const char *m;
-        int lastcolor = -1;
+        char lastcolor = '7';
+        char newcolor;
         
         for(o = out, m = msg; *m; ++m) {
             switch(*m) {
@@ -597,7 +598,10 @@ void IRC_Translate_IRC2DP(const char *msg, char *sout, size_t outsize) {
                     
                 case 0x0f:      // reset colors
                     // XXX: this assumes that the text should be white by default
-                    *o++ = '^'; *o++ = '7';
+                    if(lastcolor != '7') {
+                        *o++ = '^'; *o++ = '7';
+                        lastcolor = '7';
+                    }
                     break;
                     
                 case 0x03:      // set color
@@ -617,29 +621,34 @@ void IRC_Translate_IRC2DP(const char *msg, char *sout, size_t outsize) {
                                 ++m;
                         }
                         
-                        if(clr == lastcolor || clr > 15 || irc_translate_irc2dp_color.integer < 2)
+                        if(clr > 15 || irc_translate_irc2dp_color.integer < 2)
                             continue;
                         
-                        *o++ = STRING_COLOR_TAG;
-                        switch(lastcolor = clr) {
+                        switch(clr) {
                             // TODO: maybe use DP's ^xRBG color codes to represent these better
                             
-                            case 0:      *o++ = '7'; break;     // white
-                            case 1:      *o++ = '0'; break;     // black
-                            case 2:      *o++ = '4'; break;     // blue (navy)
-                            case 3:      *o++ = '2'; break;     // green
-                            case 4:      *o++ = '1'; break;     // red
-                            case 5:      *o++ = '1'; break;     // brown (maroon)
-                            case 6:      *o++ = '6'; break;     // purple
-                            case 7:      *o++ = '3'; break;     // orange (olive)
-                            case 8:      *o++ = '3'; break;     // yellow
-                            case 9:      *o++ = '2'; break;     // light green (lime)
-                            case 10:     *o++ = '5'; break;     // teal (a green/blue cyan)
-                            case 11:     *o++ = '5'; break;     // light cyan
-                            case 12:     *o++ = '4'; break;     // light blue
-                            case 13:     *o++ = '6'; break;     // pink (light purple)
-                            case 14:     *o++ = '9'; break;     // grey
-                            case 15:     *o++ = '8'; break;     // light grey (silver)
+                            case 0:      newcolor = '7'; break;     // white
+                            case 1:      newcolor = '0'; break;     // black
+                            case 2:      newcolor = '4'; break;     // blue (navy)
+                            case 3:      newcolor = '2'; break;     // green
+                            case 4:      newcolor = '1'; break;     // red
+                            case 5:      newcolor = '1'; break;     // brown (maroon)
+                            case 6:      newcolor = '6'; break;     // purple
+                            case 7:      newcolor = '3'; break;     // orange (olive)
+                            case 8:      newcolor = '3'; break;     // yellow
+                            case 9:      newcolor = '2'; break;     // light green (lime)
+                            case 10:     newcolor = '5'; break;     // teal (a green/blue cyan)
+                            case 11:     newcolor = '5'; break;     // light cyan
+                            case 12:     newcolor = '4'; break;     // light blue
+                            case 13:     newcolor = '6'; break;     // pink (light purple)
+                            case 14:     newcolor = '9'; break;     // grey
+                            case 15:     newcolor = '8'; break;     // light grey (silver)
+                        }
+                        
+                        if(newcolor != lastcolor) {
+                            *o++ = STRING_COLOR_TAG;
+                            *o++ = newcolor;
+                            lastcolor = newcolor;
                         }
                     }
                     break;
