@@ -297,7 +297,17 @@ endif
 
 ##### Extra CFLAGS #####
 
+DP_FS_BASEDIR_NEXUIZ?=/usr/share/games/nexuiz
 CFLAGS_MAKEDEP?=-MMD
+
+ifneq ($(DP_MAKE_TARGET), mingw)
+ifndef DP_FS_BASEDIR
+ifeq ($(ISNEXUIZ), 1)
+	DP_FS_BASEDIR=$(DP_FS_BASEDIR_NEXUIZ)
+endif
+endif
+endif
+
 ifdef DP_FS_BASEDIR
 	CFLAGS_FS=-DDP_FS_BASEDIR='\"$(DP_FS_BASEDIR)\"'
 else

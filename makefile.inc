@@ -314,8 +314,14 @@ EXE_WINCLNEXUIZ=nexuiz-dprm
 EXE_WINSVNEXUIZ=nexuiz-dprm-dedicated
 EXE_WINSDLNEXUIZ=nexuiz-dprm-sdl
 
-
 ##### Commands #####
+
+INSTALL=/usr/bin/install
+INSTALLICON=$(INSTALL) -TDm644
+
+ifndef PREFIX
+	PREFIX=/usr
+endif
 
 .PHONY : clean clean-profile help \
 	 debug profile release \
@@ -396,7 +402,7 @@ cl-release-profile :
 cl-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE="$(EXE_CLNEXUIZ)" LDFLAGS_COMMON="$(LDFLAGS_CL)" LEVEL=1
+		EXE="$(EXE_CLNEXUIZ)" LDFLAGS_COMMON="$(LDFLAGS_CL)" LEVEL=1 ISNEXUIZ=1
 
 sv-debug :
 	$(MAKE) bin-debug \
@@ -421,7 +427,7 @@ sv-release-profile :
 sv-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE="$(EXE_SVNEXUIZ)" LDFLAGS_COMMON="$(LDFLAGS_SV)" LEVEL=1
+		EXE="$(EXE_SVNEXUIZ)" LDFLAGS_COMMON="$(LDFLAGS_SV)" LEVEL=1 ISNEXUIZ=1
 
 sdl-debug :
 	$(MAKE) bin-debug \
@@ -446,7 +452,7 @@ sdl-release-profile :
 sdl-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE="$(EXE_SDLNEXUIZ)" LDFLAGS_COMMON="$(LDFLAGS_SDL)" LEVEL=1
+		EXE="$(EXE_SDLNEXUIZ)" LDFLAGS_COMMON="$(LDFLAGS_SDL)" LEVEL=1 ISNEXUIZ=1
 
 bin-debug :
 	$(CHECKLEVEL1)
@@ -594,3 +600,28 @@ clean:
 clean-profile: clean
 	-$(CMD_RM) *.gcda
 	-$(CMD_RM) *.gcno
+
+install:
+	if test -e $(EXE_CL); then $(INSTALL) $(EXE_CL) "$(PREFIX)/bin"; fi
+	if test -e $(EXE_SDL); then $(INSTALL) $(EXE_SDL) "$(PREFIX)/bin"; fi
+	if test -e $(EXE_SV); then $(INSTALL) $(EXE_SV) "$(PREFIX)/bin"; fi
+	if test -e $(EXE_CLNEXUIZ); then \
+		$(INSTALL) $(EXE_CLNEXUIZ) "$(PREFIX)/bin"; \
+		./nex-makedesktop.sh "Nexuiz (DPRM-GLX)" "$(PREFIX)/bin/$(EXE_CLNEXUIZ)" > "$(PREFIX)/share/applications/$(EXE_CLNEXUIZ).desktop"; \
+	fi
+	if test -e $(EXE_SDLNEXUIZ); \
+		then $(INSTALL) $(EXE_SDLNEXUIZ) "$(PREFIX)/bin"; \
+		./nex-makedesktop.sh "Nexuiz (DPRM-SDL)" "$(PREFIX)/bin/$(EXE_SDLNEXUIZ)" > "$(PREFIX)/share/applications/$(EXE_SDLNEXUIZ).desktop"; \
+	fi
+	if test -e $(EXE_SVNEXUIZ); then $(INSTALL) $(EXE_SVNEXUIZ) "$(PREFIX)/bin"; fi
+	if test -e $(EXE_CLNEXUIZ) || test -e $(EXE_SDLNEXUIZ); then \
+		$(INSTALLICON) nexuiz.xpm "$(PREFIX)/share/pixmaps/nexuiz-dprm.xpm"; \
+		$(INSTALLICON) nexuiz16x16.png "$(PREFIX)/share/icons/hicolor/16x16/apps/nexuiz-dprm.png"; \
+		$(INSTALLICON) nexuiz24x24.png "$(PREFIX)/share/icons/hicolor/24x24/apps/nexuiz-dprm.png"; \
+		$(INSTALLICON) nexuiz32x32.png "$(PREFIX)/share/icons/hicolor/32x32/apps/nexuiz-dprm.png"; \
+		$(INSTALLICON) nexuiz48x48.png "$(PREFIX)/share/icons/hicolor/48x48/apps/nexuiz-dprm.png"; \
+		$(INSTALLICON) nexuiz256x256.png "$(PREFIX)/share/icons/hicolor/256x256/apps/nexuiz-dprm.png"; \
+		gtk-update-icon-cache -f -t "$(PREFIX)/share/icons/hicolor" || true; \
+		gtk-update-icon-cache-3.0 -f -t "$(PREFIX)/share/icons/hicolor" || true; \
+	fi
+

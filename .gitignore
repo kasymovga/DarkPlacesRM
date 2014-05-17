@@ -11,6 +11,9 @@ darkplaces-rm-agl
 darkplaces-rm-glx
 darkplaces-rm-sdl
 darkplaces-rm-dedicated
+nexuiz-dprm-sdl
+nexuiz-dprm-glx
+nexuiz-dprm-dedicated
 gmon.out
 *.ncb
 *.opt
