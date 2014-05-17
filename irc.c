@@ -626,7 +626,7 @@ void IRC_Translate_IRC2DP(const char *msg, char *sout, size_t outsize) {
                         if(clr == lastcolor || clr > 15 || irc_translate_irc2dp_color.integer < 2)
                             continue;
                         
-                        *o++ = '^';
+                        *o++ = STRING_COLOR_TAG;
                         switch(lastcolor = clr) {
                             // TODO: maybe use DP's ^xRBG color codes to represent these better
                             
@@ -649,6 +649,10 @@ void IRC_Translate_IRC2DP(const char *msg, char *sout, size_t outsize) {
                         }
                     }
                     break;
+                case STRING_COLOR_TAG:
+                    if(isdigit(m[1]) || m[1] == STRING_COLOR_TAG ||
+                      (m[1] == STRING_COLOR_RGB_TAG_CHAR && isxdigit(m[2]) && isxdigit(m[3]) && isxdigit(m[4])))
+                        *o++ = STRING_COLOR_TAG;
                 default:
                     *o++ = *m;
                     break;
