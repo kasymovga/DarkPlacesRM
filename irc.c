@@ -40,9 +40,6 @@ static int          (*irc_errno)                            (void *session);
 // static const char*  (*irc_strerror)                         (int ircerrno);
 static void         (*irc_option_set)                       (void *session, unsigned int option);
 static void         (*irc_option_reset)                     (void *session, unsigned int option);
-static char*        (*irc_color_strip_from_mirc)            (const char *message);
-static char*        (*irc_color_convert_from_mirc)          (const char *message);
-static char*        (*irc_color_convert_to_mirc)            (const char *message);
 
 static dllfunction_t irc_funcs[] = {
     {"irc_create_session",                                  (void**) &irc_create_session},
@@ -64,9 +61,6 @@ static dllfunction_t irc_funcs[] = {
     {"irc_strerror",                                        (void**) &irc_strerror},
     {"irc_option_set",                                      (void**) &irc_option_set},
     {"irc_option_reset",                                    (void**) &irc_option_reset},
-    {"irc_color_strip_from_mirc",                           (void**) &irc_color_strip_from_mirc},
-    {"irc_color_convert_from_mirc",                         (void**) &irc_color_convert_from_mirc},
-    {"irc_color_convert_to_mirc",                           (void**) &irc_color_convert_to_mirc},
     
     {NULL, NULL}
 };
