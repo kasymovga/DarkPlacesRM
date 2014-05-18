@@ -82,8 +82,10 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	LIB_JPEG=-ljpeg
+	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
+	#LIB_JPEG=-ljpeg
+	CFLAGS_LIBJPEG=""
+	LIB_JPEG=""
 endif
 
 # Mac OS X configuration
@@ -155,8 +157,10 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	LIB_JPEG=-ljpeg
+	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
+	#LIB_JPEG=-ljpeg
+	CFLAGS_LIBJPEG=""
+	LIB_JPEG=""
 endif
 
 # BSD configuration
@@ -188,8 +192,10 @@ endif
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	LIB_JPEG=-ljpeg
+	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
+	#LIB_JPEG=-ljpeg
+	CFLAGS_LIBJPEG=""
+	LIB_JPEG=""
 endif
 
 # Win32 configuration
