@@ -587,7 +587,7 @@ void IRC_Translate_IRC2DP(const char *msg, char *sout, size_t outsize) {
         char out[MAX_INPUTLINE], *o;
         const char *m;
         char lastcolor = '7';
-        char newcolor;
+        char newcolor = lastcolor;
         
         for(o = out, m = msg; *m; ++m) {
             switch(*m) {
