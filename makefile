@@ -320,6 +320,21 @@ else
 	CFLAGS_FS=
 endif
 
+ifndef DP_JPEG_VERSION
+ifeq ($(DP_MAKE_TARGET), mingw)
+	DP_JPEG_VERSION=62
+else
+ifeq ($(wildcard /usr/lib/libjpeg.so.8),)
+ifeq ($(wildcard /usr/lib/*/libjpeg.so.8),)
+	DP_JPEG_VERSION=62
+endif
+endif
+	DP_JPEG_VERSION?=80
+endif
+endif
+
+CFLAGS_LIBJPEG+=-DJPEG_LIB_VERSION="${DP_JPEG_VERSION}"
+
 CFLAGS_PRELOAD=
 ifneq ($(DP_MAKE_TARGET), mingw)
 ifdef DP_PRELOAD_DEPENDENCIES
