@@ -351,17 +351,20 @@ help:
 	@echo "* $(MAKE) cl-release          : make client (release version)"
 	@echo "* $(MAKE) cl-release-profile  : make client (release version)"
 	@echo "* $(MAKE) cl-nexuiz           : make client with nexuiz icon (release version)"
+	@echo
 	@echo "* $(MAKE) sv-debug            : make dedicated server (debug version)"
 	@echo "* $(MAKE) sv-profile          : make dedicated server (profile version)"
 	@echo "* $(MAKE) sv-release          : make dedicated server (release version)"
 	@echo "* $(MAKE) sv-release-profile  : make dedicated server (release version)"
-	@echo "* $(MAKE) sv-nexuiz           : make dedicated server with nexuiz icon"
-	@echo "                             (release version)"
+	@echo "* $(MAKE) sv-nexuiz           : make dedicated server with nexuiz icon (release version)"
+	@echo
 	@echo "* $(MAKE) sdl-debug           : make SDL client (debug version)"
 	@echo "* $(MAKE) sdl-profile         : make SDL client (profile version)"
-	@echo "* $(MAKE) sdl-profile-profile : make SDL client (profile version)"
 	@echo "* $(MAKE) sdl-release         : make SDL client (release version)"
+	@echo "* $(MAKE) sdl-release-profile : make SDL client (profile version)"
 	@echo "* $(MAKE) sdl-nexuiz          : make SDL client with nexuiz icon (release version)"
+	@echo
+	@echo "* $(MAKE) install             : install built executables into PREFIX (currently ${PREFIX})" 
 	@echo
 
 debug :
