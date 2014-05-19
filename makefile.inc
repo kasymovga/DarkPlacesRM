@@ -612,8 +612,8 @@ install:
 		$(INSTALL) $(EXE_CLNEXUIZ) "$(PREFIX)/bin"; \
 		./nex-makedesktop.sh "Nexuiz (DPRM-GLX)" "$(PREFIX)/bin/$(EXE_CLNEXUIZ)" > "$(PREFIX)/share/applications/$(EXE_CLNEXUIZ).desktop"; \
 	fi
-	if test -e $(EXE_SDLNEXUIZ); \
-		then $(INSTALL) $(EXE_SDLNEXUIZ) "$(PREFIX)/bin"; \
+	if test -e $(EXE_SDLNEXUIZ); then \
+		$(INSTALL) $(EXE_SDLNEXUIZ) "$(PREFIX)/bin"; \
 		./nex-makedesktop.sh "Nexuiz (DPRM-SDL)" "$(PREFIX)/bin/$(EXE_SDLNEXUIZ)" > "$(PREFIX)/share/applications/$(EXE_SDLNEXUIZ).desktop"; \
 	fi
 	if test -e $(EXE_SVNEXUIZ); then $(INSTALL) $(EXE_SVNEXUIZ) "$(PREFIX)/bin"; fi
