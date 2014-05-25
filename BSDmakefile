@@ -7,8 +7,13 @@ DP_MAKE_TARGET=bsd
 .endif
 DP_ARCH != uname
 
-# Command used to delete files
+# Makefile name
+MAKEFILE=BSDmakefile
+
+# Commands
 CMD_RM=$(CMD_UNIXRM)
+CMD_CP=$(CMD_UNIXCP)
+CMD_MKDIR=$(CMD_UNIXMKDIR)
 
 # default targets
 TARGETS_DEBUG=sv-debug cl-debug sdl-debug
@@ -16,6 +21,32 @@ TARGETS_PROFILE=sv-profile cl-profile sdl-profile
 TARGETS_RELEASE=sv-release cl-release sdl-release
 TARGETS_RELEASE_PROFILE=sv-release-profile cl-release-profile sdl-release-profile
 TARGETS_NEXUIZ=sv-nexuiz cl-nexuiz sdl-nexuiz
+
+# Link options
+DP_LINK_ZLIB?=shared
+DP_LINK_JPEG?=shared
+DP_LINK_ODE?=dlopen
+DP_LINK_CRYPTO?=dlopen
+DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+
+###### Optional features #####
+DP_CDDA?=enabled
+.if $(DP_CDDA) == "enabled"
+  OBJ_SDLCD=$(OBJ_CD_COMMON) cd_sdl.o
+  OBJ_BSDCD=$(OBJ_CD_COMMON) cd_bsd.o
+.else
+  OBJ_SDLCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
+  OBJ_BSDCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
+.endif
+
+DP_VIDEO_CAPTURE?=enabled
+.if $(DP_VIDEO_CAPTURE) == "enabled"
+  CFLAGS_VIDEO_CAPTURE=-DCONFIG_VIDEO_CAPTURE
+  OBJ_VIDEO_CAPTURE = cap_avi.o cap_ogg.o
+.else
+  CFLAGS_VIDEO_CAPTURE=
+  OBJ_VIDEO_CAPTURE =
+.endif
 
 # X11 libs
 UNIX_X11LIBPATH=/usr/X11R6/lib
@@ -50,9 +81,50 @@ EXE_CLNEXUIZ=$(EXE_UNIXCLNEXUIZ)
 EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
 
-# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
+# set these to "" if you want to use dynamic loading instead
+# zlib
+.if $(DP_LINK_ZLIB) == "shared"
+CFLAGS_LIBZ=-DLINK_TO_ZLIB
+LIB_Z=-lz
+.else
+CFLAGS_LIBZ=
+LIB_Z=
+.endif
+
+# jpeg
+.if $(DP_LINK_JPEG) == "shared"
 CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
 LIB_JPEG=-ljpeg
+.else
+CFLAGS_LIBJPEG=
+LIB_JPEG=
+.endif
+
+# ode
+.if $(DP_LINK_ODE) == "shared"
+ODE_CONFIG?=ode-config
+LIB_ODE=`$(ODE_CONFIG) --libs`
+CFLAGS_ODE=`$(ODE_CONFIG) --cflags` -DUSEODE -DLINK_TO_LIBODE
+.else
+LIB_ODE=
+CFLAGS_ODE=-DUSEODE
+.endif
+
+# d0_blind_id
+.if $(DP_LINK_CRYPTO) == "shared"
+LIB_CRYPTO=-ld0_blind_id
+CFLAGS_CRYPTO=-DLINK_TO_CRYPTO
+.else
+LIB_CRYPTO=
+CFLAGS_CRYPTO=
+.endif
+.if $(DP_LINK_CRYPTO_RIJNDAEL) == "shared"
+LIB_CRYPTO_RIJNDAEL=-ld0_rijndael
+CFLAGS_CRYPTO_RIJNDAEL=-DLINK_TO_CRYPTO_RIJNDAEL
+.else
+LIB_CRYPTO_RIJNDAEL=
+CFLAGS_CRYPTO_RIJNDAEL=
+.endif
 
 .endif
 
@@ -104,7 +176,7 @@ CFLAGS_PRELOAD=$(CFLAGS_UNIX_PRELOAD)
 
 MAKE:=$(MAKE) -f BSDmakefile
 
-DO_LD=$(CC) -o $@ $> $(LDFLAGS)
+DO_LD=$(CC) -o ../../../$@ $> $(LDFLAGS)
 
 
 ##### Definitions shared by all makefiles #####

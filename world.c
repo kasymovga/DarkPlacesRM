@@ -365,7 +365,7 @@ cvar_t physics_ode = {0, "physics_ode", "0", "run ODE physics (VERY experimental
 // LordHavoc: this large chunk of definitions comes from the ODE library
 // include files.
 
-#ifdef ODE_STATIC
+#ifdef LINK_TO_LIBODE
 #include "ode/ode.h"
 #else
 #ifdef WINAPI
@@ -1470,14 +1470,20 @@ dllhandle_t ode_dll = NULL;
 static void World_Physics_Init(void)
 {
 #ifdef USEODE
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 	const char* dllnames [] =
 	{
 # if defined(WIN32)
+		"libode3.dll",
+		"libode2.dll",
 		"libode1.dll",
 # elif defined(MACOSX)
+		"libode.3.dylib",
+		"libode.2.dylib",
 		"libode.1.dylib",
 # else
+		"libode.so.3",
+		"libode.so.2",
 		"libode.so.1",
 # endif
 		NULL
@@ -1514,14 +1520,14 @@ static void World_Physics_Init(void)
 	Cvar_RegisterVariable(&physics_ode_allowconvex);
 	Cvar_RegisterVariable(&physics_ode);
 
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 	// Load the DLL
 	if (Sys_LoadLibrary (dllnames, &ode_dll, odefuncs))
 #endif
 	{
 		dInitODE();
 //		dInitODE2(0);
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 # ifdef dSINGLE
 		if (!dCheckConfiguration("ODE_single_precision"))
 # else
@@ -1553,12 +1559,12 @@ static void World_Physics_Init(void)
 static void World_Physics_Shutdown(void)
 {
 #ifdef USEODE
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 	if (ode_dll)
 #endif
 	{
 		dCloseODE();
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 		Sys_UnloadLibrary(&ode_dll);
 		ode_dll = NULL;
 #endif
@@ -1610,7 +1616,7 @@ static void World_Physics_EnableODE(world_t *world)
 	dVector3 center, extents;
 	if (world->physics.ode)
 		return;
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 	if (!ode_dll)
 		return;
 #endif
@@ -1716,9 +1722,9 @@ void World_Physics_RemoveFromEntity(world_t *world, prvm_edict_t *ed)
 
 void World_Physics_ApplyCmd(prvm_edict_t *ed, edict_odefunc_t *f)
 {
+#ifdef USEODE
 	dBodyID body = (dBodyID)ed->priv.server->ode_body;
 
-#ifdef USEODE
 	switch(f->type)
 	{
 	case ODEFUNC_ENABLE:
@@ -2154,7 +2160,7 @@ static void World_Physics_Frame_BodyFromEntity(world_t *world, prvm_edict_t *ed)
 	qboolean *mapped, *used, convex_compatible;
 	int numplanes = 0, numpoints = 0, i;
 
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 	if (!ode_dll)
 		return;
 #endif
@@ -3006,11 +3012,11 @@ static void nearCallback (void *data, dGeomID o1, dGeomID o2)
 
 void World_Physics_Frame(world_t *world, double frametime, double gravity)
 {
+#ifdef USEODE
 	prvm_prog_t *prog = world->prog;
 	double tdelta, tdelta2, tdelta3, simulationtime, collisiontime;
 
 	tdelta = Sys_DirtyTime();
-#ifdef USEODE
 	if (world->physics.ode && physics_ode.integer)
 	{
 		int i;

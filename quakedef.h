@@ -162,8 +162,8 @@ extern char engineversion[128];
 #define	MAX_DLIGHTS				256 ///< max number of dynamic lights (rocket flashes, etc) in scene at once
 #define	MAX_CACHED_PICS			1024 ///< max number of 2D pics loaded at once
 #define	CACHEPICHASHSIZE		256 ///< number of hash buckets for accelerating 2D pic name lookups
-#define	MAX_PARTICLEEFFECTNAME	256 ///< maximum number of unique names of particle effects (for particleeffectnum)
-#define	MAX_PARTICLEEFFECTINFO	4096 ///< maximum number of unique particle effects (each name may associate with several of these)
+#define	MAX_PARTICLEEFFECTNAME	4096 ///< maximum number of unique names of particle effects (for particleeffectnum)
+#define	MAX_PARTICLEEFFECTINFO	8192 ///< maximum number of unique particle effects (each name may associate with several of these)
 #define	MAX_PARTICLETEXTURES	256 ///< maximum number of unique particle textures in the particle font
 #define	MAXCLVIDEOS				65 ///< maximum number of video streams being played back at once (1 is reserved for the playvideo command)
 #define	MAX_DYNAMIC_TEXTURE_COUNT	64 ///< maximum number of dynamic textures (web browsers, playvideo, etc)
@@ -396,7 +396,9 @@ extern char engineversion[128];
 #include "input.h"
 #include "keys.h"
 #include "console.h"
+#ifdef CONFIG_MENU
 #include "menu.h"
+#endif
 #include "csprogs.h"
 
 extern qboolean noclip_anglehack;
@@ -417,7 +419,23 @@ extern cvar_t sessionid;
     DP_OS_STR	- "identifier" of the OS, more suited for code to use
     DP_ARCH_STR	- "identifier" of the processor architecture
  */
-#if defined(__linux__)
+#if defined(__ANDROID__) /* must come first because it also defines linux */
+# define DP_OS_NAME		"Android"
+# define DP_OS_STR		"android"
+# define USE_GLES2		1
+# define LINK_TO_ZLIB	1
+# define LINK_TO_LIBVORBIS 1
+# define DP_MOBILETOUCH	1
+# define DP_FREETYPE_STATIC 1
+#elif defined(TARGET_OS_IPHONE) /* must come first because it also defines MACOSX */
+# define DP_OS_NAME		"iPhoneOS"
+# define DP_OS_STR		"iphoneos"
+# define USE_GLES2		1
+# define LINK_TO_ZLIB	1
+# define LINK_TO_LIBVORBIS 1
+# define DP_MOBILETOUCH	1
+# define DP_FREETYPE_STATIC 1
+#elif defined(__linux__)
 # define DP_OS_NAME		"Linux"
 # define DP_OS_STR		"linux"
 #elif defined(_WIN64)
@@ -435,10 +453,6 @@ extern cvar_t sessionid;
 #elif defined(__OpenBSD__)
 # define DP_OS_NAME		"OpenBSD"
 # define DP_OS_STR		"openbsd"
-#elif defined(TARGET_OS_IPHONE)
-# define DP_OS_NAME		"iPhoneOS"
-# define DP_OS_STR		"iphoneos"
-# define USE_GLES2		1
 #elif defined(MACOSX)
 # define DP_OS_NAME		"Mac OS X"
 # define DP_OS_STR		"osx"

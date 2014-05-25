@@ -36,11 +36,18 @@ else
 	endif
 endif
 
-# Command used to delete files
+# Makefile name
+MAKEFILE=makefile
+
+# Commands
 ifdef windir
 	CMD_RM=del
+	CMD_CP=copy /y
+	CMD_MKDIR=mkdir
 else
 	CMD_RM=$(CMD_UNIXRM)
+	CMD_CP=$(CMD_UNIXCP)
+	CMD_MKDIR=$(CMD_UNIXMKDIR)
 endif
 
 # 64bits AMD CPUs use another lib directory
@@ -56,6 +63,29 @@ TARGETS_PROFILE=sv-profile cl-profile sdl-profile
 TARGETS_RELEASE=sv-release cl-release sdl-release
 TARGETS_RELEASE_PROFILE=sv-release-profile cl-release-profile sdl-release-profile
 TARGETS_NEXUIZ=sv-nexuiz cl-nexuiz sdl-nexuiz
+
+###### Optional features #####
+DP_CDDA?=enabled
+ifeq ($(DP_CDDA), enabled)
+	OBJ_SDLCD=$(OBJ_CD_COMMON) cd_sdl.o
+	OBJ_LINUXCD=$(OBJ_CD_COMMON) cd_linux.o
+	OBJ_BSDCD=$(OBJ_CD_COMMON) cd_bsd.o
+	OBJ_WINCD=$(OBJ_CD_COMMON) cd_win.o
+else
+	OBJ_SDLCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
+	OBJ_LINUXCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
+	OBJ_BSDCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
+	OBJ_WINCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
+endif
+
+DP_VIDEO_CAPTURE?=enabled
+ifeq ($(DP_VIDEO_CAPTURE), enabled)
+	CFLAGS_VIDEO_CAPTURE=-DCONFIG_VIDEO_CAPTURE
+	OBJ_VIDEO_CAPTURE= cap_avi.o cap_ogg.o
+else
+	CFLAGS_VIDEO_CAPTURE=
+	OBJ_VIDEO_CAPTURE=
+endif
 
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
@@ -80,12 +110,12 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	EXE_CLNEXUIZ=$(EXE_UNIXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
-
-	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	#LIB_JPEG=-ljpeg
-	CFLAGS_LIBJPEG=""
-	LIB_JPEG=""
+	
+	DP_LINK_ZLIB?=dlopen
+	DP_LINK_JPEG?=dlopen
+	DP_LINK_ODE?=dlopen
+	DP_LINK_CRYPTO?=dlopen
+	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 endif
 
 # Mac OS X configuration
@@ -116,10 +146,11 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 		CFLAGS_MAKEDEP=
 	endif
 
-	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	# we don't currently link to libjpeg on Mac because the OS does not have an easy way to load libjpeg and we provide our own in the .app
-	CFLAGS_LIBJPEG=
-	LIB_JPEG=
+	DP_LINK_ZLIB?=shared
+	DP_LINK_JPEG?=dlopen
+	DP_LINK_ODE?=dlopen
+	DP_LINK_CRYPTO?=dlopen
+	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 
 	# on OS X, we don't build the CL by default because it uses deprecated
 	# and not-implemented-in-64bit Carbon
@@ -155,12 +186,13 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	EXE_CLNEXUIZ=$(EXE_UNIXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
-
-	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	#LIB_JPEG=-ljpeg
-	CFLAGS_LIBJPEG=""
-	LIB_JPEG=""
+	
+	DP_LINK_ZLIB?=dlopen
+	DP_LINK_JPEG?=dlopen
+	DP_LINK_ODE?=dlopen
+	DP_LINK_CRYPTO?=dlopen
+	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+>>>>>>> xon/master
 endif
 
 # BSD configuration
@@ -190,12 +222,13 @@ endif
 	EXE_CLNEXUIZ=$(EXE_UNIXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
-
-	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	#LIB_JPEG=-ljpeg
-	CFLAGS_LIBJPEG=""
-	LIB_JPEG=""
+	
+	DP_LINK_ZLIB?=dlopen
+	DP_LINK_JPEG?=dlopen
+	DP_LINK_ODE?=dlopen
+	DP_LINK_CRYPTO?=dlopen
+	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+>>>>>>> xon/master
 endif
 
 # Win32 configuration
@@ -231,7 +264,7 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	#SDLCONFIG_LIBS=$(SDLCONFIG_UNIXLIBS)
 	SDLCONFIG_LIBS=-Wl,-Bstatic `$(SDL_CONFIG) --static-libs` -Wl,-Bdynamic
 	SDLCONFIG_STATICLIBS=$(SDLCONFIG_UNIXSTATICLIBS)
-
+	
 	EXE_CL=$(EXE_WINCL)-$(MINGWARCH).exe
 	EXE_SV=$(EXE_WINSV)-$(MINGWARCH).exe
 	EXE_SDL=$(EXE_WINSDL)-$(MINGWARCH).exe
@@ -247,11 +280,61 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 		LDFLAGS_WINCOMMON=
 	endif
 	
-	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	#LIB_JPEG=-ljpeg
-	CFLAGS_LIBJPEG=""
-	LIB_JPEG=""
+	DP_LINK_ZLIB?=dlopen
+	DP_LINK_JPEG?=shared
+	DP_LINK_ODE?=dlopen
+	DP_LINK_CRYPTO?=dlopen
+	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+endif
+
+# set these to "" if you want to use dynamic loading instead
+# zlib
+ifeq ($(DP_LINK_ZLIB), shared)
+	CFLAGS_LIBZ=-DLINK_TO_ZLIB
+	LIB_Z=-lz
+endif
+ifeq ($(DP_LINK_ZLIB), dlopen)
+	CFLAGS_LIBZ=
+	LIB_Z=
+endif
+
+# jpeg
+ifeq ($(DP_LINK_JPEG), shared)
+	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
+	LIB_JPEG=-ljpeg
+endif
+ifeq ($(DP_LINK_JPEG), dlopen)
+	CFLAGS_LIBJPEG=
+	LIB_JPEG=
+endif
+
+# ode
+ifeq ($(DP_LINK_ODE), shared)
+	ODE_CONFIG?=ode-config
+	LIB_ODE=`$(ODE_CONFIG) --libs`
+	CFLAGS_ODE=`$(ODE_CONFIG) --cflags` -DUSEODE -DLINK_TO_LIBODE
+endif
+ifeq ($(DP_LINK_ODE), dlopen)
+	LIB_ODE=
+	CFLAGS_ODE=-DUSEODE
+endif
+
+# d0_blind_id
+ifeq ($(DP_LINK_CRYPTO), shared)
+	LIB_CRYPTO=-ld0_blind_id
+	CFLAGS_CRYPTO=-DLINK_TO_CRYPTO
+endif
+ifeq ($(DP_LINK_CRYPTO), dlopen)
+	LIB_CRYPTO=
+	CFLAGS_CRYPTO=
+endif
+ifeq ($(DP_LINK_CRYPTO_RIJNDAEL), shared)
+	LIB_CRYPTO_RIJNDAEL=-ld0_rijndael
+	CFLAGS_CRYPTO_RIJNDAEL=-DLINK_TO_CRYPTO_RIJNDAEL
+endif
+ifeq ($(DP_LINK_CRYPTO_RIJNDAEL), dlopen)
+	LIB_CRYPTO_RIJNDAEL=
+	CFLAGS_CRYPTO_RIJNDAEL=
 endif
 
 ##### Sound configuration #####
@@ -315,7 +398,7 @@ endif
 endif
 
 ifdef DP_FS_BASEDIR
-	CFLAGS_FS=-DDP_FS_BASEDIR='\"$(DP_FS_BASEDIR)\"'
+	CFLAGS_FS=-DDP_FS_BASEDIR=\"$(DP_FS_BASEDIR)\"
 else
 	CFLAGS_FS=
 endif
@@ -349,7 +432,7 @@ endif
 
 ##### GNU Make specific definitions #####
 
-DO_LD=$(CC) -o $@ $^ $(LDFLAGS)
+DO_LD=$(CC) -o ../../../$@ $^ $(LDFLAGS)
 
 
 ##### Definitions shared by all makefiles #####

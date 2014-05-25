@@ -221,13 +221,13 @@ void CSQC_UpdateNetworkTimes(double newtime, double oldtime)
 }
 
 //[515]: set globals before calling R_UpdateView, WEIRD CRAP
-static void CSQC_SetGlobals (void)
+static void CSQC_SetGlobals (double frametime)
 {
 	vec3_t pmove_org;
 	prvm_prog_t *prog = CLVM_prog;
 	CSQC_BEGIN
 		PRVM_clientglobalfloat(time) = cl.time;
-		PRVM_clientglobalfloat(frametime) = max(0, cl.time - cl.oldtime);
+		PRVM_clientglobalfloat(frametime) = frametime;
 		PRVM_clientglobalfloat(servercommandframe) = cls.servermovesequence;
 		PRVM_clientglobalfloat(clientcommandframe) = cl.movecmd[0].sequence;
 		VectorCopy(cl.viewangles, PRVM_clientglobalvector(input_angles));
@@ -434,7 +434,7 @@ qboolean CSQC_AddRenderEdict(prvm_edict_t *ed, int edictnum)
 // 1 = keyup, key, character (EXT_CSQC)
 // 2 = mousemove relative, x, y (EXT_CSQC)
 // 3 = mousemove absolute, x, y (DP_CSQC)
-qboolean CL_VM_InputEvent (int eventtype, int x, int y)
+qboolean CL_VM_InputEvent (int eventtype, float x, float y)
 {
 	prvm_prog_t *prog = CLVM_prog;
 	qboolean r;
@@ -461,7 +461,7 @@ qboolean CL_VM_InputEvent (int eventtype, int x, int y)
 
 extern r_refdef_view_t csqc_original_r_refdef_view;
 extern r_refdef_view_t csqc_main_r_refdef_view;
-qboolean CL_VM_UpdateView (void)
+qboolean CL_VM_UpdateView (double frametime)
 {
 	prvm_prog_t *prog = CLVM_prog;
 	vec3_t emptyvector;
@@ -479,7 +479,7 @@ qboolean CL_VM_UpdateView (void)
 		//VectorCopy(cl.viewangles, oldangles);
 		PRVM_clientglobalfloat(time) = cl.time;
 		PRVM_clientglobaledict(self) = cl.csqc_server2csqcentitynumber[cl.playerentity];
-		CSQC_SetGlobals();
+		CSQC_SetGlobals(frametime);
 		// clear renderable entity and light lists to prevent crashes if the
 		// CSQC_UpdateView function does not call R_ClearScene as it should
 		r_refdef.scene.numentities = 0;
@@ -1004,7 +1004,19 @@ void CL_VM_Init (void)
 	if (!cls.demoplayback || csqc_usedemoprogs.integer)
 	{
 		csprogsfn = va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, requiredsize, requiredcrc);
-		csprogsdata = FS_LoadFile(csprogsfn, tempmempool, true, &csprogsdatasize);
+		if(cls.caughtcsprogsdata && cls.caughtcsprogsdatasize == requiredsize && CRC_Block(cls.caughtcsprogsdata, (size_t)cls.caughtcsprogsdatasize) == requiredcrc)
+		{
+			Con_DPrintf("Using buffered \"%s\"\n", csprogsfn);
+			csprogsdata = cls.caughtcsprogsdata;
+			csprogsdatasize = cls.caughtcsprogsdatasize;
+			cls.caughtcsprogsdata = NULL;
+			cls.caughtcsprogsdatasize = 0;
+		}
+		else
+		{
+			Con_DPrintf("Not using buffered \"%s\" (buffered: %p, %d)\n", csprogsfn, cls.caughtcsprogsdata, (int) cls.caughtcsprogsdatasize);
+			csprogsdata = FS_LoadFile(csprogsfn, tempmempool, true, &csprogsdatasize);
+		}
 	}
 	if (!csprogsdata)
 	{
@@ -1074,7 +1086,7 @@ void CL_VM_Init (void)
 	prog->error_cmd             = Host_Error;
 	prog->ExecuteProgram        = CLVM_ExecuteProgram;
 
-	PRVM_Prog_Load(prog, csprogsfn, cl_numrequiredfunc, cl_required_func, CL_REQFIELDS, cl_reqfields, CL_REQGLOBALS, cl_reqglobals);
+	PRVM_Prog_Load(prog, csprogsfn, csprogsdata, csprogsdatasize, cl_numrequiredfunc, cl_required_func, CL_REQFIELDS, cl_reqfields, CL_REQGLOBALS, cl_reqglobals);
 
 	if (!prog->loaded)
 	{
@@ -1127,6 +1139,8 @@ void CL_VM_Init (void)
 	PRVM_clientedictstring(prog->edicts, message) = PRVM_SetEngineString(prog, cl.worldmessage);
 	VectorCopy(cl.world.mins, PRVM_clientedictvector(prog->edicts, mins));
 	VectorCopy(cl.world.maxs, PRVM_clientedictvector(prog->edicts, maxs));
+	VectorCopy(cl.world.mins, PRVM_clientedictvector(prog->edicts, absmin));
+	VectorCopy(cl.world.maxs, PRVM_clientedictvector(prog->edicts, absmax));
 
 	// call the prog init
 	prog->ExecuteProgram(prog, PRVM_clientfunction(CSQC_Init), "QC function CSQC_Init is missing");
@@ -1149,10 +1163,13 @@ void CL_VM_ShutDown (void)
 	if(!cl.csqc_loaded)
 		return;
 	CSQC_BEGIN
-		PRVM_clientglobalfloat(time) = cl.time;
-		PRVM_clientglobaledict(self) = 0;
-		if (PRVM_clientfunction(CSQC_Shutdown))
-			prog->ExecuteProgram(prog, PRVM_clientfunction(CSQC_Shutdown), "QC function CSQC_Shutdown is missing");
+		if (prog->loaded)
+		{
+			PRVM_clientglobalfloat(time) = cl.time;
+			PRVM_clientglobaledict(self) = 0;
+			if (PRVM_clientfunction(CSQC_Shutdown))
+				prog->ExecuteProgram(prog, PRVM_clientfunction(CSQC_Shutdown), "QC function CSQC_Shutdown is missing");
+		}
 		PRVM_Prog_Reset(prog);
 	CSQC_END
 	Con_DPrint("CSQC ^1unloaded\n");

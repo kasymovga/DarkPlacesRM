@@ -19,6 +19,7 @@ const char *vm_sv_extensions =
 "DP_CON_SET "
 "DP_CON_SETA "
 "DP_CON_STARTMAP "
+"DP_COVERAGE "
 "DP_CRYPTO "
 "DP_CSQC_BINDMAPS "
 "DP_CSQC_ENTITYWORLDOBJECT "
@@ -550,12 +551,15 @@ static void VM_SV_sound(prvm_prog_t *prog)
 		flags = 0;
 		if(channel >= 8 && channel <= 15) // weird QW feature
 		{
-			flags |= CHANFLAG_RELIABLE;
+			flags |= CHANNELFLAG_RELIABLE;
 			channel -= 8;
 		}
 	}
 	else
-		flags = PRVM_G_FLOAT(OFS_PARM6);
+	{
+		// LordHavoc: we only let the qc set certain flags, others are off-limits
+		flags = (int)PRVM_G_FLOAT(OFS_PARM6) & (CHANNELFLAG_RELIABLE | CHANNELFLAG_FORCELOOP | CHANNELFLAG_PAUSED);
+	}
 
 	if (volume < 0 || volume > 255)
 	{
@@ -577,7 +581,7 @@ static void VM_SV_sound(prvm_prog_t *prog)
 		return;
 	}
 
-	SV_StartSound (entity, channel, sample, volume, attenuation, flags & CHANFLAG_RELIABLE, pitchchange);
+	SV_StartSound (entity, channel, sample, volume, attenuation, flags & CHANNELFLAG_RELIABLE, pitchchange);
 }
 
 /*
@@ -651,7 +655,7 @@ static void VM_SV_traceline(prvm_prog_t *prog)
 	if (VEC_IS_NAN(v1[0]) || VEC_IS_NAN(v1[1]) || VEC_IS_NAN(v1[2]) || VEC_IS_NAN(v2[0]) || VEC_IS_NAN(v2[1]) || VEC_IS_NAN(v2[2]))
 		prog->error_cmd("%s: NAN errors detected in traceline('%f %f %f', '%f %f %f', %i, entity %i)\n", prog->name, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], move, PRVM_EDICT_TO_PROG(ent));
 
-	trace = SV_TraceLine(v1, v2, move, ent, SV_GenericHitSuperContentsMask(ent));
+	trace = SV_TraceLine(v1, v2, move, ent, SV_GenericHitSuperContentsMask(ent), collision_extendtracelinelength.value);
 
 	VM_SetTraceGlobals(prog, &trace);
 }
@@ -690,7 +694,7 @@ static void VM_SV_tracebox(prvm_prog_t *prog)
 	if (VEC_IS_NAN(v1[0]) || VEC_IS_NAN(v1[1]) || VEC_IS_NAN(v1[2]) || VEC_IS_NAN(v2[0]) || VEC_IS_NAN(v2[1]) || VEC_IS_NAN(v2[2]))
 		prog->error_cmd("%s: NAN errors detected in tracebox('%f %f %f', '%f %f %f', '%f %f %f', '%f %f %f', %i, entity %i)\n", prog->name, v1[0], v1[1], v1[2], m1[0], m1[1], m1[2], m2[0], m2[1], m2[2], v2[0], v2[1], v2[2], move, PRVM_EDICT_TO_PROG(ent));
 
-	trace = SV_TraceBox(v1, m1, m2, v2, move, ent, SV_GenericHitSuperContentsMask(ent));
+	trace = SV_TraceBox(v1, m1, m2, v2, move, ent, SV_GenericHitSuperContentsMask(ent), collision_extendtraceboxlength.value);
 
 	VM_SetTraceGlobals(prog, &trace);
 }
@@ -726,7 +730,7 @@ static trace_t SV_Trace_Toss(prvm_prog_t *prog, prvm_edict_t *tossent, prvm_edic
 		VectorCopy(PRVM_serveredictvector(tossent, origin), tossentorigin);
 		VectorCopy(PRVM_serveredictvector(tossent, mins), tossentmins);
 		VectorCopy(PRVM_serveredictvector(tossent, maxs), tossentmaxs);
-		trace = SV_TraceBox(tossentorigin, tossentmins, tossentmaxs, end, MOVE_NORMAL, tossent, SV_GenericHitSuperContentsMask(tossent));
+		trace = SV_TraceBox(tossentorigin, tossentmins, tossentmaxs, end, MOVE_NORMAL, tossent, SV_GenericHitSuperContentsMask(tossent), collision_extendmovelength.value);
 		VectorCopy (trace.endpos, PRVM_serveredictvector(tossent, origin));
 		PRVM_serveredictvector(tossent, velocity)[2] -= gravity;
 
@@ -1149,25 +1153,22 @@ static void VM_SV_droptofloor(prvm_prog_t *prog)
 	end[2] -= 256;
 
 	if (sv_gameplayfix_droptofloorstartsolid_nudgetocorrect.integer)
-		if (sv_gameplayfix_unstickentities.integer)
-			SV_UnstickEntity(ent);
+		SV_NudgeOutOfSolid(ent);
 
 	VectorCopy(PRVM_serveredictvector(ent, origin), entorigin);
 	VectorCopy(PRVM_serveredictvector(ent, mins), entmins);
 	VectorCopy(PRVM_serveredictvector(ent, maxs), entmaxs);
-	trace = SV_TraceBox(entorigin, entmins, entmaxs, end, MOVE_NORMAL, ent, SV_GenericHitSuperContentsMask(ent));
+	trace = SV_TraceBox(entorigin, entmins, entmaxs, end, MOVE_NORMAL, ent, SV_GenericHitSuperContentsMask(ent), collision_extendmovelength.value);
 	if (trace.startsolid && sv_gameplayfix_droptofloorstartsolid.integer)
 	{
 		vec3_t offset, org;
 		VectorSet(offset, 0.5f * (PRVM_serveredictvector(ent, mins)[0] + PRVM_serveredictvector(ent, maxs)[0]), 0.5f * (PRVM_serveredictvector(ent, mins)[1] + PRVM_serveredictvector(ent, maxs)[1]), PRVM_serveredictvector(ent, mins)[2]);
 		VectorAdd(PRVM_serveredictvector(ent, origin), offset, org);
-		trace = SV_TraceLine(org, end, MOVE_NORMAL, ent, SV_GenericHitSuperContentsMask(ent));
+		trace = SV_TraceLine(org, end, MOVE_NORMAL, ent, SV_GenericHitSuperContentsMask(ent), collision_extendmovelength.value);
 		VectorSubtract(trace.endpos, offset, trace.endpos);
 		if (trace.startsolid)
 		{
 			Con_DPrintf("droptofloor at %f %f %f - COULD NOT FIX BADLY PLACED ENTITY\n", PRVM_serveredictvector(ent, origin)[0], PRVM_serveredictvector(ent, origin)[1], PRVM_serveredictvector(ent, origin)[2]);
-			if (sv_gameplayfix_unstickentities.integer)
-				SV_UnstickEntity(ent);
 			SV_LinkEdict(ent);
 			PRVM_serveredictfloat(ent, flags) = (int)PRVM_serveredictfloat(ent, flags) | FL_ONGROUND;
 			PRVM_serveredictedict(ent, groundentity) = 0;
@@ -1177,8 +1178,8 @@ static void VM_SV_droptofloor(prvm_prog_t *prog)
 		{
 			Con_DPrintf("droptofloor at %f %f %f - FIXED BADLY PLACED ENTITY\n", PRVM_serveredictvector(ent, origin)[0], PRVM_serveredictvector(ent, origin)[1], PRVM_serveredictvector(ent, origin)[2]);
 			VectorCopy (trace.endpos, PRVM_serveredictvector(ent, origin));
-			if (sv_gameplayfix_unstickentities.integer)
-				SV_UnstickEntity(ent);
+			if (sv_gameplayfix_droptofloorstartsolid_nudgetocorrect.integer)
+				SV_NudgeOutOfSolid(ent);
 			SV_LinkEdict(ent);
 			PRVM_serveredictfloat(ent, flags) = (int)PRVM_serveredictfloat(ent, flags) | FL_ONGROUND;
 			PRVM_serveredictedict(ent, groundentity) = PRVM_EDICT_TO_PROG(trace.ent);
@@ -1189,10 +1190,9 @@ static void VM_SV_droptofloor(prvm_prog_t *prog)
 	}
 	else
 	{
-		if (trace.fraction != 1)
+		if (!trace.allsolid && trace.fraction < 1)
 		{
-			if (trace.fraction < 1)
-				VectorCopy (trace.endpos, PRVM_serveredictvector(ent, origin));
+			VectorCopy (trace.endpos, PRVM_serveredictvector(ent, origin));
 			SV_LinkEdict(ent);
 			PRVM_serveredictfloat(ent, flags) = (int)PRVM_serveredictfloat(ent, flags) | FL_ONGROUND;
 			PRVM_serveredictedict(ent, groundentity) = PRVM_EDICT_TO_PROG(trace.ent);
@@ -1312,7 +1312,7 @@ static void VM_SV_aim(prvm_prog_t *prog)
 // try sending a trace straight
 	VectorCopy (PRVM_serverglobalvector(v_forward), dir);
 	VectorMA (start, 2048, dir, end);
-	tr = SV_TraceLine(start, end, MOVE_NORMAL, ent, SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY);
+	tr = SV_TraceLine(start, end, MOVE_NORMAL, ent, SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY, collision_extendmovelength.value);
 	if (tr.ent && PRVM_serveredictfloat(((prvm_edict_t *)tr.ent), takedamage) == DAMAGE_AIM
 	&& (!teamplay.integer || PRVM_serveredictfloat(ent, team) <=0 || PRVM_serveredictfloat(ent, team) != PRVM_serveredictfloat(((prvm_edict_t *)tr.ent), team)) )
 	{
@@ -1344,7 +1344,7 @@ static void VM_SV_aim(prvm_prog_t *prog)
 		dist = DotProduct (dir, PRVM_serverglobalvector(v_forward));
 		if (dist < bestdist)
 			continue;	// to far to turn
-		tr = SV_TraceLine(start, end, MOVE_NORMAL, ent, SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY);
+		tr = SV_TraceLine(start, end, MOVE_NORMAL, ent, SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY, collision_extendmovelength.value);
 		if (tr.ent == check)
 		{	// can shoot at this one
 			bestdist = dist;
@@ -2907,13 +2907,12 @@ static void VM_SV_skel_build(prvm_prog_t *prog)
 	int firstbone = PRVM_G_FLOAT(OFS_PARM4) - 1;
 	int lastbone = PRVM_G_FLOAT(OFS_PARM5) - 1;
 	dp_model_t *model = SV_GetModelByIndex(modelindex);
-	float blendfrac;
 	int numblends;
 	int bonenum;
 	int blendindex;
 	framegroupblend_t framegroupblend[MAX_FRAMEGROUPBLENDS];
 	frameblend_t frameblend[MAX_FRAMEBLENDS];
-	matrix4x4_t blendedmatrix;
+	matrix4x4_t bonematrix;
 	matrix4x4_t matrix;
 	PRVM_G_FLOAT(OFS_RETURN) = 0;
 	if (skeletonindex < 0 || skeletonindex >= MAX_EDICTS || !(skeleton = prog->skeletons[skeletonindex]))
@@ -2923,19 +2922,18 @@ static void VM_SV_skel_build(prvm_prog_t *prog)
 	lastbone = min(lastbone, skeleton->model->num_bones - 1);
 	VM_GenerateFrameGroupBlend(prog, framegroupblend, ed);
 	VM_FrameBlendFromFrameGroupBlend(frameblend, framegroupblend, model, sv.time);
-	blendfrac = 1.0f - retainfrac;
 	for (numblends = 0;numblends < MAX_FRAMEBLENDS && frameblend[numblends].lerp;numblends++)
-		frameblend[numblends].lerp *= blendfrac;
+		;
 	for (bonenum = firstbone;bonenum <= lastbone;bonenum++)
 	{
-		memset(&blendedmatrix, 0, sizeof(blendedmatrix));
-		Matrix4x4_Accumulate(&blendedmatrix, &skeleton->relativetransforms[bonenum], retainfrac);
+		memset(&bonematrix, 0, sizeof(bonematrix));
 		for (blendindex = 0;blendindex < numblends;blendindex++)
 		{
 			Matrix4x4_FromBonePose7s(&matrix, model->num_posescale, model->data_poses7s + 7 * (frameblend[blendindex].subframe * model->num_bones + bonenum));
-			Matrix4x4_Accumulate(&blendedmatrix, &matrix, frameblend[blendindex].lerp);
+			Matrix4x4_Accumulate(&bonematrix, &matrix, frameblend[blendindex].lerp);
 		}
-		skeleton->relativetransforms[bonenum] = blendedmatrix;
+		Matrix4x4_Normalize3(&bonematrix, &bonematrix);
+		Matrix4x4_Interpolate(&skeleton->relativetransforms[bonenum], &bonematrix, &skeleton->relativetransforms[bonenum], retainfrac);
 	}
 	PRVM_G_FLOAT(OFS_RETURN) = skeletonindex + 1;
 }
@@ -3827,6 +3825,9 @@ NULL,							// #637
 NULL,							// #638
 VM_digest_hex,						// #639
 NULL,							// #640
+NULL,							// #641
+VM_coverage,						// #642
+NULL,							// #643
 };
 
 const int vm_sv_numbuiltins = sizeof(vm_sv_builtins) / sizeof(prvm_builtin_t);
@@ -3839,7 +3840,8 @@ void SVVM_init_cmd(prvm_prog_t *prog)
 void SVVM_reset_cmd(prvm_prog_t *prog)
 {
 	World_End(&sv.world);
-	if(PRVM_serverfunction(SV_Shutdown))
+
+	if(prog->loaded && PRVM_serverfunction(SV_Shutdown))
 	{
 		func_t s = PRVM_serverfunction(SV_Shutdown);
 		PRVM_serverglobalfloat(time) = sv.time;

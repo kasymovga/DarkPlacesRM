@@ -1022,16 +1022,16 @@ string(string format, ...) sprintf = #627;
 //you know sprintf :P
 //supported stuff:
 //  %
-//  optional: <argpos>$ for the argument to format
+//  optional: <argpos>$ for the argument to format (the arg counter then is not increased)
 //  flags: #0- +
-//  optional: <width>, *, or *<argpos>$ for the field width
-//  optional: .<precision>, .*, or .*<argpos>$ for the precision
-//  length modifiers: h for forcing a float, l for forcing an int/entity (by default, %d etc. cast a float to int)
+//  optional: <width>, *, or *<argpos>$ for the field width (width is read before value and precision)
+//  optional: .<precision>, .*, or .*<argpos>$ for the precision (precision is read before value)
+//  length modifiers: h for forcing a float, l for forcing an entity (by default, %d etc. cast a float to int), ll for forcing an int
 //  conversions:
-//    d takes a float if no length is specified or h is, and an int/entity if l is specified as length, and cast it to an int
-//    i takes an int/entity if no length is specified or i is, and a float if h is specified as length, and cast it to an int
-//    ouxXc take a float if no length is specified or h is, and an int/entity if l is specified as length, and cast it to an unsigned int
-//    eEfFgG take a float if no length is specified or h is, and an int/entity if l is specified as length, and cast it to a double
+//    d takes a float if no length is specified or h is, and an entity if l is specified as length, and an int if ll is specified as length, and cast it to an int
+//    i takes an entity if no length is specified or l is, and a float if h is specified as length, and an int if ll is specified as length, and cast it to an int
+//    ouxXc take a float if no length is specified or h is, and an entity if l is specified as length, and an int if ll is specified as length, and cast it to an unsigned int
+//    eEfFgG take a float if no length is specified or h is, and an entity if l is specified as length, and an int if ll is specified as length, and cast it to a double
 //    s takes a string
 //    vV takes a vector, and processes the three components as if it were a gG for all three components, separated by space
 //    For conversions s and c, the flag # makes precision and width interpreted
@@ -2544,7 +2544,11 @@ void(float pause) setpause = #531;
 //
 //Note: it is worth considering that network-related functions may be called during the pause (including customizeentityforclient for example), and it is also important to consider the continued use of the KRIMZON_SV_PARSECLIENTCOMMAND extension while paused (chatting players, etc), players may also join/leave during the pause.  In other words, the only things that are not called are think and other time-related functions.
 
-
+//DP_COVERAGE
+//idea: divVerent
+//darkplaces implementation: divVerent
+//function definitions:
+void coverage() = #642;  // Reports a coverage event. The engine counts for each of the calls to this builtin whether it has been called.
 
 
 // EXPERIMENTAL (not finalized) EXTENSIONS:

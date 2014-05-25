@@ -381,6 +381,8 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 		}
 		else if (!strcmp(var->name, "_cl_rate"))
 			CL_SetInfo("rate", va(vabuf, sizeof(vabuf), "%i", var->integer), true, false, false, false);
+		else if (!strcmp(var->name, "_cl_rate_burstsize"))
+			CL_SetInfo("rate_burstsize", va(vabuf, sizeof(vabuf), "%i", var->integer), true, false, false, false);
 		else if (!strcmp(var->name, "_cl_playerskin"))
 			CL_SetInfo("playerskin", var->string, true, false, false, false);
 		else if (!strcmp(var->name, "_cl_playermodel"))
@@ -395,8 +397,10 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 			if(var->integer <= 0)
 				Cvar_Set("rcon_password", "");
 		}
+#ifdef CONFIG_MENU
 		else if (!strcmp(var->name, "net_slist_favorites"))
 			NetConn_UpdateFavorites();
+#endif
 	}
 
 	Cvar_UpdateAutoCvar(var);
@@ -760,6 +764,7 @@ void Cvar_RestoreInitState(void)
 			if (!(c->flags & CVAR_ALLOCATED))
 			{
 				Con_DPrintf("Cvar_RestoreInitState: Unable to destroy cvar \"%s\", it was registered after init!\n", c->name);
+				cp = &c->next;
 				continue;
 			}
 			// remove this cvar, it did not exist at init

@@ -13,8 +13,9 @@
 const char *vm_m_extensions =
 "BX_WAL_SUPPORT "
 "DP_CINEMATIC_DPV "
-"DP_CSQC_BINDMAPS "
+"DP_COVERAGE "
 "DP_CRYPTO "
+"DP_CSQC_BINDMAPS "
 "DP_GFX_FONTS "
 "DP_GFX_FONTS_FREETYPE "
 "DP_UTF8 "
@@ -176,11 +177,27 @@ static void VM_M_getresolution(prvm_prog_t *prog)
 
 	fs = ((prog->argc <= 1) || ((int)PRVM_G_FLOAT(OFS_PARM1)));
 
-	if(nr < 0 || nr >= (fs ? video_resolutions_count : video_resolutions_hardcoded_count))
+	if(nr < -1 || nr >= (fs ? video_resolutions_count : video_resolutions_hardcoded_count))
 	{
 		PRVM_G_VECTOR(OFS_RETURN)[0] = 0;
 		PRVM_G_VECTOR(OFS_RETURN)[1] = 0;
 		PRVM_G_VECTOR(OFS_RETURN)[2] = 0;
+	}
+	else if(nr == -1)
+	{
+		vid_mode_t *m = VID_GetDesktopMode();
+		if (m)
+		{
+			PRVM_G_VECTOR(OFS_RETURN)[0] = m->width;
+			PRVM_G_VECTOR(OFS_RETURN)[1] = m->height;
+			PRVM_G_VECTOR(OFS_RETURN)[2] = m->pixelheight_num / (prvm_vec_t) m->pixelheight_denom;
+		}
+		else
+		{
+			PRVM_G_VECTOR(OFS_RETURN)[0] = 0;
+			PRVM_G_VECTOR(OFS_RETURN)[1] = 0;
+			PRVM_G_VECTOR(OFS_RETURN)[2] = 0;
+		}
 	}
 	else
 	{
@@ -398,6 +415,9 @@ static void VM_M_setserverlistmasknumber(prvm_prog_t *prog)
 		case SLIF_FREESLOTS:
 			mask->info.freeslots = number;
 			break;
+		case SLIF_CATEGORY:
+			mask->info.category = number;
+			break;
 		case SLIF_ISFAVORITE:
 			mask->info.isfavorite = number != 0;
 			break;
@@ -433,7 +453,7 @@ string	getserverliststring(float field, float hostnr)
 */
 static void VM_M_getserverliststring(prvm_prog_t *prog)
 {
-	serverlist_entry_t *cache;
+	const serverlist_entry_t *cache;
 	int hostnr;
 
 	VM_SAFEPARMCOUNT(2, VM_M_getserverliststring);
@@ -442,12 +462,19 @@ static void VM_M_getserverliststring(prvm_prog_t *prog)
 
 	hostnr = (int)PRVM_G_FLOAT(OFS_PARM1);
 
-	if(hostnr < 0 || hostnr >= serverlist_viewcount)
+	if(hostnr == -1 && serverlist_callbackentry)
 	{
-		Con_Print("VM_M_getserverliststring: bad hostnr passed!\n");
-		return;
+		cache = serverlist_callbackentry;
 	}
-	cache = ServerList_GetViewEntry(hostnr);
+	else
+	{
+		if(hostnr < 0 || hostnr >= serverlist_viewcount)
+		{
+			Con_Print("VM_M_getserverliststring: bad hostnr passed!\n");
+			return;
+		}
+		cache = ServerList_GetViewEntry(hostnr);
+	}
 	switch( (int) PRVM_G_FLOAT(OFS_PARM0) ) {
 		case SLIF_CNAME:
 			PRVM_G_INT( OFS_RETURN ) = PRVM_SetTempString( prog, cache->info.cname );
@@ -491,7 +518,7 @@ float	getserverlistnumber(float field, float hostnr)
 */
 static void VM_M_getserverlistnumber(prvm_prog_t *prog)
 {
-	serverlist_entry_t *cache;
+	const serverlist_entry_t *cache;
 	int hostnr;
 
 	VM_SAFEPARMCOUNT(2, VM_M_getserverliststring);
@@ -500,12 +527,19 @@ static void VM_M_getserverlistnumber(prvm_prog_t *prog)
 
 	hostnr = (int)PRVM_G_FLOAT(OFS_PARM1);
 
-	if(hostnr < 0 || hostnr >= serverlist_viewcount)
+	if(hostnr == -1 && serverlist_callbackentry)
 	{
-		Con_Print("VM_M_getserverliststring: bad hostnr passed!\n");
-		return;
+		cache = serverlist_callbackentry;
 	}
-	cache = ServerList_GetViewEntry(hostnr);
+	else
+	{
+		if(hostnr < 0 || hostnr >= serverlist_viewcount)
+		{
+			Con_Print("VM_M_getserverliststring: bad hostnr passed!\n");
+			return;
+		}
+		cache = ServerList_GetViewEntry(hostnr);
+	}
 	switch( (int) PRVM_G_FLOAT(OFS_PARM0) ) {
 		case SLIF_MAXPLAYERS:
 			PRVM_G_FLOAT( OFS_RETURN ) = cache->info.maxplayers;
@@ -527,6 +561,9 @@ static void VM_M_getserverlistnumber(prvm_prog_t *prog)
 			break;
 		case SLIF_PROTOCOL:
 			PRVM_G_FLOAT( OFS_RETURN ) = cache->info.protocol;
+			break;
+		case SLIF_CATEGORY:
+			PRVM_G_FLOAT( OFS_RETURN ) = cache->info.category;
 			break;
 		case SLIF_ISFAVORITE:
 			PRVM_G_FLOAT( OFS_RETURN ) = cache->info.isfavorite;
@@ -560,8 +597,11 @@ refreshserverlist()
 */
 static void VM_M_refreshserverlist(prvm_prog_t *prog)
 {
-	VM_SAFEPARMCOUNT( 0, VM_M_refreshserverlist );
-	ServerList_QueryList(false, true, false, false);
+	qboolean do_reset = false;
+	VM_SAFEPARMCOUNTRANGE( 0, 1, VM_M_refreshserverlist );
+	if (prog->argc >= 1 && PRVM_G_FLOAT(OFS_PARM0))
+		do_reset = true;
+	ServerList_QueryList(do_reset, true, false, false);
 }
 
 /*
@@ -607,6 +647,8 @@ static void VM_M_getserverlistindexforkey(prvm_prog_t *prog)
 		PRVM_G_FLOAT( OFS_RETURN ) = SLIF_FREESLOTS;
 	else if( !strcmp( key, "protocol" ) )
 		PRVM_G_FLOAT( OFS_RETURN ) = SLIF_PROTOCOL;
+	else if( !strcmp( key, "category" ) )
+		PRVM_G_FLOAT( OFS_RETURN ) = SLIF_CATEGORY;
 	else if( !strcmp( key, "isfavorite" ) )
 		PRVM_G_FLOAT( OFS_RETURN ) = SLIF_ISFAVORITE;
 	else
@@ -1396,11 +1438,11 @@ VM_gecko_resize,					// #492 void gecko_resize( string name, float w, float h )
 VM_gecko_get_texture_extent,	// #493 vector gecko_get_texture_extent( string name )
 VM_crc16,						// #494 float(float caseinsensitive, string s, ...) crc16 = #494 (DP_QC_CRC16)
 VM_cvar_type,					// #495 float(string name) cvar_type = #495; (DP_QC_CVAR_TYPE)
-NULL,									// #496
-NULL,									// #497
-NULL,									// #498
-NULL,									// #499
-NULL,									// #500
+VM_numentityfields,				// #496 float() numentityfields = #496; (QP_QC_ENTITYDATA)
+VM_entityfieldname,				// #497 string(float fieldnum) entityfieldname = #497; (DP_QC_ENTITYDATA)
+VM_entityfieldtype,				// #498 float(float fieldnum) entityfieldtype = #498; (DP_QC_ENTITYDATA)
+VM_getentityfieldstring,		// #499 string(float fieldnum, entity ent) getentityfieldstring = #499; (DP_QC_ENTITYDATA)
+VM_putentityfieldstring,		// #500 float(float fieldnum, entity ent, string s) putentityfieldstring = #500; (DP_QC_ENTITYDATA)
 NULL,									// #501
 NULL,									// #502
 VM_whichpack,					// #503 string(string) whichpack = #503;
@@ -1542,6 +1584,7 @@ NULL,							// #638
 VM_digest_hex,						// #639
 NULL,							// #640
 VM_M_crypto_getmyidstatus,				// #641 float(float i) crypto_getmyidstatus
+VM_coverage,						// #642
 NULL
 };
 

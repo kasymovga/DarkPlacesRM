@@ -141,9 +141,8 @@ typedef struct server_s
 	server_floodaddress_t connectfloodaddresses[MAX_CONNECTFLOODADDRESSES];
 	server_floodaddress_t getstatusfloodaddresses[MAX_GETSTATUSFLOODADDRESSES];
 
-#define SV_MAX_PARTICLEEFFECTNAME 256
 	qboolean particleeffectnamesloaded;
-	char particleeffectname[SV_MAX_PARTICLEEFFECTNAME][MAX_QPATH];
+	char particleeffectname[MAX_PARTICLEEFFECTNAME][MAX_QPATH];
 
 	int writeentitiestoclient_stats_culled_pvs;
 	int writeentitiestoclient_stats_culled_trace;
@@ -191,13 +190,20 @@ typedef struct client_s
 	qboolean active;
 	/// false = don't do ClientDisconnect on drop
 	qboolean clientconnectcalled;
-	/// false = don't send datagrams
+	/// false = don't allow spawn
+	qboolean prespawned;
+	/// false = don't allow begin
 	qboolean spawned;
+	/// false = don't send datagrams
+	qboolean begun;
 	/// 1 = send svc_serverinfo and advance to 2, 2 doesn't send, then advances to 0 (allowing unlimited sending) when prespawn is received
 	int sendsignon;
 
 	/// requested rate in bytes per second
 	int rate;
+
+	/// temporarily exceed rate by this amount of bytes
+	int rate_burstsize;
 
 	/// realtime this client connected
 	double connecttime;
@@ -256,7 +262,6 @@ typedef struct client_s
 	unsigned int csqcentitysendflags[MAX_EDICTS];
 
 #define NUM_CSQCENTITYDB_FRAMES 256
-	unsigned char csqcentityglobalhistory[MAX_EDICTS]; // set to 1 if the entity was ever csqc networked to the client, and never reset back to 0
 	csqcentityframedb_t csqcentityframehistory[NUM_CSQCENTITYDB_FRAMES];
 	int csqcentityframehistory_next;
 	int csqcentityframe_lastreset;
@@ -458,7 +463,6 @@ extern cvar_t sv_gameplayfix_nogravityonground;
 extern cvar_t sv_gameplayfix_setmodelrealbox;
 extern cvar_t sv_gameplayfix_slidemoveprojectiles;
 extern cvar_t sv_gameplayfix_stepdown;
-extern cvar_t sv_gameplayfix_stepwhilejumping;
 extern cvar_t sv_gameplayfix_stepmultipletimes;
 extern cvar_t sv_gameplayfix_nostepmoveonsteepslopes;
 extern cvar_t sv_gameplayfix_swiminbmodels;
@@ -563,12 +567,16 @@ void SV_LinkEdict_TouchAreaGrid_Call(prvm_edict_t *touch, prvm_edict_t *ent); //
  * returns true if it found a better place
  */
 qboolean SV_UnstickEntity (prvm_edict_t *ent);
+/*! move an entity that is stuck out of the surface it is stuck in (can move large amounts)
+ * returns true if it found a better place
+ */
+qboolean SV_NudgeOutOfSolid(prvm_edict_t *ent);
 
 /// calculates hitsupercontentsmask for a generic qc entity
 int SV_GenericHitSuperContentsMask(const prvm_edict_t *edict);
 /// traces a box move against worldmodel and all entities in the specified area
-trace_t SV_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int type, prvm_edict_t *passedict, int hitsupercontentsmask);
-trace_t SV_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_t *passedict, int hitsupercontentsmask);
+trace_t SV_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int type, prvm_edict_t *passedict, int hitsupercontentsmask, float extend);
+trace_t SV_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_t *passedict, int hitsupercontentsmask, float extend);
 trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int hitsupercontentsmask);
 int SV_EntitiesInBox(const vec3_t mins, const vec3_t maxs, int maxedicts, prvm_edict_t **resultedicts);
 

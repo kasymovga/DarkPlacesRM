@@ -15,9 +15,10 @@ void		end_sys_fields;
 
 void() m_init;
 void(float keynr, float ascii) m_keydown;
-void() m_draw;
+void(float width, float height) m_draw;
 void(float mode) m_toggle;
 void() m_shutdown;
+// optional: float(float) m_gethostcachecategory;
 
 /////////////////////////////////////////////////////////
 // sys constants
@@ -96,7 +97,7 @@ float ERR_BADFILENAME 			= -4; // fopen
 float ERR_NULLSTRING			= -1;
 float ERR_BADDRAWFLAG			= -2;
 float ERR_BADSCALE				= -3;
-float ERR_BADSIZE				= ERR_BADSCALE;
+float ERR_BADSIZE				= -3; // same as ERR_BADSCALE
 float ERR_NOTCACHED				= -4;
 
 // server list stuff
@@ -253,7 +254,7 @@ vector	stov(string s)  = #55;
 string	strzone(string s)  = #56;
 void	strunzone(string s) = #57;
 
-float	tokenize(string s)  = #58
+float	tokenize(string s)  = #58;
 string	argv(float n)  = #59;
 
 float	isserver(void)  = #60;
@@ -504,6 +505,37 @@ float(string url, float id) uri_get = #513;
 float(string url, float id, string content_type, string data) uri_post = #513;
 float(string url, float id, string content_type, string delim, float buf) uri_postbuf = #513;
 
+//DP_QC_ENTITYDATA
+//idea: KrimZon
+//darkplaces implementation: KrimZon
+//builtin definitions:
+float() numentityfields = #496;
+string(float fieldnum) entityfieldname = #497;
+float(float fieldnum) entityfieldtype = #498;
+string(float fieldnum, entity ent) getentityfieldstring = #499;
+float(float fieldnum, entity ent, string s) putentityfieldstring = #500;
+//constants:
+//Returned by entityfieldtype
+float FIELD_STRING   = 1;
+float FIELD_FLOAT    = 2;
+float FIELD_VECTOR   = 3;
+float FIELD_ENTITY   = 4;
+float FIELD_FUNCTION = 6;
+//description:
+//Versatile functions intended for storing data from specific entities between level changes, but can be customized for some kind of partial savegame.
+//WARNING: .entity fields cannot be saved and restored between map loads as they will leave dangling pointers.
+//numentityfields returns the number of entity fields. NOT offsets. Vectors comprise 4 fields: v, v_x, v_y and v_z.
+//entityfieldname returns the name as a string, eg. "origin" or "classname" or whatever.
+//entityfieldtype returns a value that the constants represent, but the field may be of another type in more exotic progs.dat formats or compilers.
+//getentityfieldstring returns data as would be written to a savegame, eg... "0.05" (float), "0 0 1" (vector), or "Hello World!" (string). Function names can also be returned.
+//putentityfieldstring puts the data returned by getentityfieldstring back into the entity.
+
+//DP_COVERAGE
+//idea: divVerent
+//darkplaces implementation: divVerent
+//function definitions:
+void coverage() = #642;  // Reports a coverage event. The engine counts for each of the calls to this builtin whether it has been called.
+
 // assorted undocumented extensions
 string(string, float) netaddress_resolve = #625;
 string(string search, string replace, string subject) strreplace = #484;
@@ -536,8 +568,11 @@ void 	resethostcachemasks(void) = #615;
 void 	sethostcachemaskstring(float mask, float fld, string str, float op) = #616;
 void	sethostcachemasknumber(float mask, float fld, float num, float op) = #617;
 void 	resorthostcache(void) = #618;
-void	sethostcachesort(float fld, float descending) = #619;
-void	refreshhostcache(void) = #620;
+float SLSF_DESCENDING = 1;
+float SLSF_FAVORITES = 2;
+float SLSF_CATEGORIES = 4;
+void	sethostcachesort(float fld, float slsf) = #619;
+void	refreshhostcache(...) = #620;  // optional boolean argument "clear_list"
 float	gethostcachenumber(float fld, float hostnr) = #621;
 float	gethostcacheindexforkey(string key) = #622;
 void	addwantedhostcachekey(string key) = #623;
