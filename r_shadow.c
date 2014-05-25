@@ -4136,9 +4136,11 @@ static void R_Shadow_PrepareLight(rtlight_t *rtlight)
 
 	// cache all the animated entities that cast a shadow but are not visible
 	for (i = 0;i < numshadowentities;i++)
-		R_AnimCache_GetEntity(shadowentities[i], false, false);
+		if (!shadowentities[i]->animcache_vertex3f)
+			R_AnimCache_GetEntity(shadowentities[i], false, false);
 	for (i = 0;i < numshadowentities_noselfshadow;i++)
-		R_AnimCache_GetEntity(shadowentities_noselfshadow[i], false, false);
+		if (!shadowentities_noselfshadow[i]->animcache_vertex3f)
+			R_AnimCache_GetEntity(shadowentities_noselfshadow[i], false, false);
 
 	// allocate some temporary memory for rendering this light later in the frame
 	// reusable buffers need to be copied, static data can be used as-is
@@ -4673,10 +4675,6 @@ void R_Shadow_DrawLights(void)
 	R_Shadow_RenderMode_End();
 }
 
-#define MAX_MODELSHADOWS 1024
-static int r_shadow_nummodelshadows;
-static entity_render_t *r_shadow_modelshadows[MAX_MODELSHADOWS];
-
 void R_Shadow_PrepareModelShadows(void)
 {
 	int i;
@@ -4685,7 +4683,6 @@ void R_Shadow_PrepareModelShadows(void)
 	vec3_t shadowdir, shadowforward, shadowright, shadoworigin, shadowfocus, shadowmins, shadowmaxs;
 	entity_render_t *ent;
 
-	r_shadow_nummodelshadows = 0;
 	if (!r_refdef.scene.numentities)
 		return;
 
@@ -4696,18 +4693,11 @@ void R_Shadow_PrepareModelShadows(void)
 			break;
 		// fall through
 	case R_SHADOW_SHADOWMODE_STENCIL:
-		if (!vid.stencil)
-			return;
 		for (i = 0;i < r_refdef.scene.numentities;i++)
 		{
 			ent = r_refdef.scene.entities[i];
-			if (ent->model && ent->model->DrawShadowVolume != NULL && (!ent->model->brush.submodel || r_shadows_castfrombmodels.integer) && (ent->flags & RENDER_SHADOW))
-			{
-				if (r_shadow_nummodelshadows >= MAX_MODELSHADOWS)
-					break;
-				r_shadow_modelshadows[r_shadow_nummodelshadows++] = ent;
+			if (!ent->animcache_vertex3f && ent->model && ent->model->DrawShadowVolume != NULL && (!ent->model->brush.submodel || r_shadows_castfrombmodels.integer) && (ent->flags & RENDER_SHADOW))
 				R_AnimCache_GetEntity(ent, false, false);
-			}
 		}
 		return;
 	default:
@@ -4752,13 +4742,8 @@ void R_Shadow_PrepareModelShadows(void)
 		if (!BoxesOverlap(ent->mins, ent->maxs, shadowmins, shadowmaxs))
 			continue;
 		// cast shadows from anything of the map (submodels are optional)
-		if (ent->model && ent->model->DrawShadowMap != NULL && (!ent->model->brush.submodel || r_shadows_castfrombmodels.integer) && (ent->flags & RENDER_SHADOW))
-		{
-			if (r_shadow_nummodelshadows >= MAX_MODELSHADOWS)
-				break;
-			r_shadow_modelshadows[r_shadow_nummodelshadows++] = ent;
+		if (!ent->animcache_vertex3f && ent->model && ent->model->DrawShadowMap != NULL && (!ent->model->brush.submodel || r_shadows_castfrombmodels.integer) && (ent->flags & RENDER_SHADOW))
 			R_AnimCache_GetEntity(ent, false, false);
-		}
 	}
 }
 
@@ -4778,7 +4763,7 @@ void R_DrawModelShadowMaps(int fbo, rtexture_t *depthtexture, rtexture_t *colort
 	GLuint shadowfbo = 0;
 	float clearcolor[4];
 
-	if (!r_shadow_nummodelshadows)
+	if (!r_refdef.scene.numentities)
 		return;
 
 	switch (r_shadow_shadowmode)
@@ -4876,23 +4861,28 @@ void R_DrawModelShadowMaps(int fbo, rtexture_t *depthtexture, rtexture_t *colort
 	// outside the usable area
 	GL_Scissor(viewport.x + r_shadow_shadowmapborder, viewport.y + r_shadow_shadowmapborder, viewport.width - 2*r_shadow_shadowmapborder, viewport.height - 2*r_shadow_shadowmapborder);
 
-	for (i = 0;i < r_shadow_nummodelshadows;i++)
+	for (i = 0;i < r_refdef.scene.numentities;i++)
 	{
-		ent = r_shadow_modelshadows[i];
-		relativethrowdistance = r_shadows_throwdistance.value * Matrix4x4_ScaleFromMatrix(&ent->inversematrix);
-		Matrix4x4_Transform(&ent->inversematrix, shadoworigin, relativelightorigin);
-		Matrix4x4_Transform3x3(&ent->inversematrix, shadowdir, relativelightdirection);
-		Matrix4x4_Transform3x3(&ent->inversematrix, shadowforward, relativeforward);
-		Matrix4x4_Transform3x3(&ent->inversematrix, shadowright, relativeright);
-		relativeshadowmins[0] = relativelightorigin[0] - r_shadows_throwdistance.value * fabs(relativelightdirection[0]) - radius * (fabs(relativeforward[0]) + fabs(relativeright[0]));
-		relativeshadowmins[1] = relativelightorigin[1] - r_shadows_throwdistance.value * fabs(relativelightdirection[1]) - radius * (fabs(relativeforward[1]) + fabs(relativeright[1]));
-		relativeshadowmins[2] = relativelightorigin[2] - r_shadows_throwdistance.value * fabs(relativelightdirection[2]) - radius * (fabs(relativeforward[2]) + fabs(relativeright[2]));
-		relativeshadowmaxs[0] = relativelightorigin[0] + r_shadows_throwdistance.value * fabs(relativelightdirection[0]) + radius * (fabs(relativeforward[0]) + fabs(relativeright[0]));
-		relativeshadowmaxs[1] = relativelightorigin[1] + r_shadows_throwdistance.value * fabs(relativelightdirection[1]) + radius * (fabs(relativeforward[1]) + fabs(relativeright[1]));
-		relativeshadowmaxs[2] = relativelightorigin[2] + r_shadows_throwdistance.value * fabs(relativelightdirection[2]) + radius * (fabs(relativeforward[2]) + fabs(relativeright[2]));
-		RSurf_ActiveModelEntity(ent, false, false, false);
-		ent->model->DrawShadowMap(0, ent, relativelightorigin, relativelightdirection, relativethrowdistance, ent->model->nummodelsurfaces, ent->model->sortedmodelsurfaces, NULL, relativeshadowmins, relativeshadowmaxs);
-		rsurface.entity = NULL; // used only by R_GetCurrentTexture and RSurf_ActiveWorldEntity/RSurf_ActiveModelEntity
+		ent = r_refdef.scene.entities[i];
+
+		// cast shadows from anything of the map (submodels are optional)
+		if (ent->model && ent->model->DrawShadowMap != NULL && (!ent->model->brush.submodel || r_shadows_castfrombmodels.integer) && (ent->flags & RENDER_SHADOW))
+		{
+			relativethrowdistance = r_shadows_throwdistance.value * Matrix4x4_ScaleFromMatrix(&ent->inversematrix);
+			Matrix4x4_Transform(&ent->inversematrix, shadoworigin, relativelightorigin);
+			Matrix4x4_Transform3x3(&ent->inversematrix, shadowdir, relativelightdirection);
+			Matrix4x4_Transform3x3(&ent->inversematrix, shadowforward, relativeforward);
+			Matrix4x4_Transform3x3(&ent->inversematrix, shadowright, relativeright);
+			relativeshadowmins[0] = relativelightorigin[0] - r_shadows_throwdistance.value * fabs(relativelightdirection[0]) - radius * (fabs(relativeforward[0]) + fabs(relativeright[0]));
+			relativeshadowmins[1] = relativelightorigin[1] - r_shadows_throwdistance.value * fabs(relativelightdirection[1]) - radius * (fabs(relativeforward[1]) + fabs(relativeright[1]));
+			relativeshadowmins[2] = relativelightorigin[2] - r_shadows_throwdistance.value * fabs(relativelightdirection[2]) - radius * (fabs(relativeforward[2]) + fabs(relativeright[2]));
+			relativeshadowmaxs[0] = relativelightorigin[0] + r_shadows_throwdistance.value * fabs(relativelightdirection[0]) + radius * (fabs(relativeforward[0]) + fabs(relativeright[0]));
+			relativeshadowmaxs[1] = relativelightorigin[1] + r_shadows_throwdistance.value * fabs(relativelightdirection[1]) + radius * (fabs(relativeforward[1]) + fabs(relativeright[1]));
+			relativeshadowmaxs[2] = relativelightorigin[2] + r_shadows_throwdistance.value * fabs(relativelightdirection[2]) + radius * (fabs(relativeforward[2]) + fabs(relativeright[2]));
+			RSurf_ActiveModelEntity(ent, false, false, false);
+			ent->model->DrawShadowMap(0, ent, relativelightorigin, relativelightdirection, relativethrowdistance, ent->model->nummodelsurfaces, ent->model->sortedmodelsurfaces, NULL, relativeshadowmins, relativeshadowmaxs);
+			rsurface.entity = NULL; // used only by R_GetCurrentTexture and RSurf_ActiveWorldEntity/RSurf_ActiveModelEntity
+		}
 	}
 
 #if 0
@@ -4965,7 +4955,7 @@ void R_DrawModelShadows(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 	vec3_t tmp, shadowdir;
 	prvm_vec3_t prvmshadowdir;
 
-	if (!r_shadow_nummodelshadows || (r_shadow_shadowmode != R_SHADOW_SHADOWMODE_STENCIL && r_shadows.integer != 1))
+	if (!r_refdef.scene.numentities || !vid.stencil || (r_shadow_shadowmode != R_SHADOW_SHADOWMODE_STENCIL && r_shadows.integer != 1))
 		return;
 
 	r_shadow_fb_fbo = fbo;
@@ -4993,57 +4983,60 @@ void R_DrawModelShadows(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 
 	R_Shadow_ClearStencil();
 
-	for (i = 0;i < r_shadow_nummodelshadows;i++)
+	for (i = 0;i < r_refdef.scene.numentities;i++)
 	{
-		ent = r_shadow_modelshadows[i];
+		ent = r_refdef.scene.entities[i];
 
 		// cast shadows from anything of the map (submodels are optional)
-		relativethrowdistance = r_shadows_throwdistance.value * Matrix4x4_ScaleFromMatrix(&ent->inversematrix);
-		VectorSet(relativeshadowmins, -relativethrowdistance, -relativethrowdistance, -relativethrowdistance);
-		VectorSet(relativeshadowmaxs, relativethrowdistance, relativethrowdistance, relativethrowdistance);
-		if (r_shadows.integer == 2) // 2: simpler mode, throw shadows always in same direction
-			Matrix4x4_Transform3x3(&ent->inversematrix, shadowdir, relativelightdirection);
-		else
+		if (ent->model && ent->model->DrawShadowVolume != NULL && (!ent->model->brush.submodel || r_shadows_castfrombmodels.integer) && (ent->flags & RENDER_SHADOW))
 		{
-			if(ent->entitynumber != 0)
+			relativethrowdistance = r_shadows_throwdistance.value * Matrix4x4_ScaleFromMatrix(&ent->inversematrix);
+			VectorSet(relativeshadowmins, -relativethrowdistance, -relativethrowdistance, -relativethrowdistance);
+			VectorSet(relativeshadowmaxs, relativethrowdistance, relativethrowdistance, relativethrowdistance);
+			if (r_shadows.integer == 2) // 2: simpler mode, throw shadows always in same direction
+				Matrix4x4_Transform3x3(&ent->inversematrix, shadowdir, relativelightdirection);
+			else
 			{
-				if(ent->entitynumber >= MAX_EDICTS) // csqc entity
+				if(ent->entitynumber != 0)
 				{
-					// FIXME handle this
-					VectorNegate(ent->modellight_lightdir, relativelightdirection);
-				}
-				else
-				{
-					// networked entity - might be attached in some way (then we should use the parent's light direction, to not tear apart attached entities)
-					int entnum, entnum2, recursion;
-					entnum = entnum2 = ent->entitynumber;
-					for(recursion = 32; recursion > 0; --recursion)
+					if(ent->entitynumber >= MAX_EDICTS) // csqc entity
 					{
-						entnum2 = cl.entities[entnum].state_current.tagentity;
-						if(entnum2 >= 1 && entnum2 < cl.num_entities && cl.entities_active[entnum2])
-							entnum = entnum2;
-						else
-							break;
-					}
-					if(recursion && recursion != 32) // if we followed a valid non-empty attachment chain
-					{
-						VectorNegate(cl.entities[entnum].render.modellight_lightdir, relativelightdirection);
-						// transform into modelspace of OUR entity
-						Matrix4x4_Transform3x3(&cl.entities[entnum].render.matrix, relativelightdirection, tmp);
-						Matrix4x4_Transform3x3(&ent->inversematrix, tmp, relativelightdirection);
+						// FIXME handle this
+						VectorNegate(ent->modellight_lightdir, relativelightdirection);
 					}
 					else
-						VectorNegate(ent->modellight_lightdir, relativelightdirection);
+					{
+						// networked entity - might be attached in some way (then we should use the parent's light direction, to not tear apart attached entities)
+						int entnum, entnum2, recursion;
+						entnum = entnum2 = ent->entitynumber;
+						for(recursion = 32; recursion > 0; --recursion)
+						{
+							entnum2 = cl.entities[entnum].state_current.tagentity;
+							if(entnum2 >= 1 && entnum2 < cl.num_entities && cl.entities_active[entnum2])
+								entnum = entnum2;
+							else
+								break;
+						}
+						if(recursion && recursion != 32) // if we followed a valid non-empty attachment chain
+						{
+							VectorNegate(cl.entities[entnum].render.modellight_lightdir, relativelightdirection);
+							// transform into modelspace of OUR entity
+							Matrix4x4_Transform3x3(&cl.entities[entnum].render.matrix, relativelightdirection, tmp);
+							Matrix4x4_Transform3x3(&ent->inversematrix, tmp, relativelightdirection);
+						}
+						else
+							VectorNegate(ent->modellight_lightdir, relativelightdirection);
+					}
 				}
+				else
+					VectorNegate(ent->modellight_lightdir, relativelightdirection);
 			}
-			else
-				VectorNegate(ent->modellight_lightdir, relativelightdirection);
-		}
 
-		VectorScale(relativelightdirection, -relativethrowdistance, relativelightorigin);
-		RSurf_ActiveModelEntity(ent, false, false, false);
-		ent->model->DrawShadowVolume(ent, relativelightorigin, relativelightdirection, relativethrowdistance, ent->model->nummodelsurfaces, ent->model->sortedmodelsurfaces, relativeshadowmins, relativeshadowmaxs);
-		rsurface.entity = NULL; // used only by R_GetCurrentTexture and RSurf_ActiveWorldEntity/RSurf_ActiveModelEntity
+			VectorScale(relativelightdirection, -relativethrowdistance, relativelightorigin);
+			RSurf_ActiveModelEntity(ent, false, false, false);
+			ent->model->DrawShadowVolume(ent, relativelightorigin, relativelightdirection, relativethrowdistance, ent->model->nummodelsurfaces, ent->model->sortedmodelsurfaces, relativeshadowmins, relativeshadowmaxs);
+			rsurface.entity = NULL; // used only by R_GetCurrentTexture and RSurf_ActiveWorldEntity/RSurf_ActiveModelEntity
+		}
 	}
 
 	// not really the right mode, but this will disable any silly stencil features
