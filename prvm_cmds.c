@@ -7416,3 +7416,13 @@ void VM_IRC_MaskMatches(prvm_prog_t *prog) {
     VM_SAFEPARMCOUNT(2, VM_IRC_MaskMatches);
     PRVM_G_INT(OFS_RETURN) = IRC_MaskMatches((const char*)PRVM_G_STRING(OFS_PARM0), (const char*)PRVM_G_STRING(OFS_PARM1));
 }
+
+void VM_IRC_CTCPRequest(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(3, VM_IRC_CTCPRequest);
+    PRVM_G_INT(OFS_RETURN) = IRC_CTCPRequest((int)PRVM_G_FLOAT(OFS_PARM0), (const char*)PRVM_G_STRING(OFS_PARM1), (const char*)PRVM_G_STRING(OFS_PARM2));
+}
+
+void VM_IRC_CTCPReply(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(3, VM_IRC_CTCPReply);
+    PRVM_G_INT(OFS_RETURN) = IRC_CTCPReply((int)PRVM_G_FLOAT(OFS_PARM0), (const char*)PRVM_G_STRING(OFS_PARM1), (const char*)PRVM_G_STRING(OFS_PARM2));
+}

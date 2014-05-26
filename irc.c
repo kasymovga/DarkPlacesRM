@@ -812,6 +812,32 @@ int IRC_UserMode(int handle, const char *mode) {
 
 /*
 ====================
+IRC_CTCPRequest
+
+Sends a CTCP request
+====================
+*/
+int IRC_CTCPRequest(int handle, const char *targ, const char *msg) {
+    char fmtmsg[MAX_INPUTLINE];
+    IRC_Translate_DP2IRC(msg, fmtmsg, sizeof(fmtmsg));
+    return IRC_SendRaw(handle, "PRIVMSG %s :\x01%s\x01", targ, fmtmsg);
+}
+
+/*
+====================
+IRC_CTCPReply
+
+Sends a CTCP reply
+====================
+*/
+int IRC_CTCPReply(int handle, const char *targ, const char *msg) {
+    char fmtmsg[MAX_INPUTLINE];
+    IRC_Translate_DP2IRC(msg, fmtmsg, sizeof(fmtmsg));
+    return IRC_SendRaw(handle, "NOTICE %s :\x01%s\x01", targ, fmtmsg);
+}
+
+/*
+====================
 IRC_CurrentNick
 
 Returns your current nickname

@@ -45,6 +45,8 @@ int IRC_Notice(int handle, const char *targ, const char *msg);
 int IRC_ChangeNick(int handle, const char *nick);
 int IRC_ChannelMode(int handle, const char *chan, const char *mode);
 int IRC_UserMode(int handle, const char *mode);
+int IRC_CTCPRequest(int handle, const char *targ, const char *msg);
+int IRC_CTCPReply(int handle, const char *targ, const char *msg);
 qboolean IRC_MaskMatches(const char *mask, const char *pattern);
 const char* IRC_CurrentNick(int handle);
 qboolean IRC_OpenLibrary(void);
