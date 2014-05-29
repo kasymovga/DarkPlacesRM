@@ -511,5 +511,7 @@ void VM_IRC_ChangeNick(prvm_prog_t *prog);
 void VM_IRC_ChannelMode(prvm_prog_t *prog);
 void VM_IRC_UserMode(prvm_prog_t *prog);
 void VM_IRC_MaskMatches(prvm_prog_t *prog);
+void VM_IRC_CTCPRequest(prvm_prog_t *prog);
+void VM_IRC_CTCPReply(prvm_prog_t *prog);
 
 #endif

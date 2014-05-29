@@ -3753,9 +3753,9 @@ VM_IRC_IRC2DP,					// #565 string(string str) IRC_IRC2DP = #565; (DP_RM_IRC)
 VM_IRC_ChangeNick,				// #566 float(float handle, string nick) IRC_ChangeNick = #566; (DP_RM_IRC)
 VM_IRC_ChannelMode,				// #567 float(float handle, string channel, string mode) IRC_ChannelMode = #567; (DP_RM_IRC)
 VM_IRC_UserMode,				// #568 float(float handle, string mode) IRC_UserMode = #568; (DP_RM_IRC)
-VM_IRC_MaskMatches,				// #569 float(string mask, string pattern) IRC_MaskMatches = #567; (DP_RM_IRC)
-NULL,							// #570
-NULL,							// #571
+VM_IRC_MaskMatches,				// #569 float(string mask, string pattern) IRC_MaskMatches = #569; (DP_RM_IRC)
+VM_IRC_CTCPRequest,				// #570 float(float handle, string targ, string msg) IRC_CTCPRequest = #570; (DP_RM_IRC)
+VM_IRC_CTCPReply,				// #571 float(float handle, string targ, string msg) IRC_CTCPReply = #571; (DP_RM_IRC)
 NULL,							// #572
 NULL,							// #573
 NULL,							// #574
