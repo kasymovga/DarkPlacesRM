@@ -10,7 +10,7 @@ This program is free software; you can redistribute it and/or blah blah blah I d
 #include "ft2.h"
 
 // cvars
-cvar_t irc_initialized = {CVAR_READONLY, "irc_initialized", "0", "Indicates that the IRC module has been successfully initialized"};
+cvar_t irc_initialized = {CVAR_READONLY, "irc_initialized", "0", "Indicates the IRC library version, or 0 when failed to initialize"};
 cvar_t irc_enabled = {CVAR_SAVE, "irc_enabled", "1", "Allows IRC sessions to be created and IRC events to be processed"};
 cvar_t irc_eventlog = {CVAR_SAVE, "irc_eventlog", "0", "Print all IRC events to the console"};
 cvar_t irc_translate_dp2irc_qfont = {CVAR_SAVE, "irc_translate_dp2irc_qfont", "1", "Convert graphical quake characters into a rough ascii equivalent when sending human-readable IRC messages"};
@@ -104,6 +104,25 @@ static irc_session_t irc_sessions[IRC_MAX_SESSIONS];
 
 /*
 ====================
+IRC_Printf
+
+Internal, used for logging.
+====================
+*/
+static void IRC_Printf(const char *fmt, ...) {
+    va_list args;
+    char msg[MAX_INPUTLINE];
+    
+    va_start(args, fmt);
+    dpvsnprintf(msg, sizeof(msg), fmt, args);
+    va_end(args);
+    
+    Con_Print("IRC: ");
+    Con_Print(msg);
+}
+
+/*
+====================
 IRC_Init
 
 Initialize the IRC module.
@@ -114,19 +133,27 @@ void IRC_Init(void) {
     
     Cvar_RegisterVariable(&irc_initialized);
     
+    Cvar_RegisterVariable(&irc_eventlog);
+    Cvar_RegisterVariable(&irc_enabled);
+    Cvar_RegisterVariable(&irc_translate_dp2irc_qfont);
+    Cvar_RegisterVariable(&irc_translate_dp2irc_color);
+    Cvar_RegisterVariable(&irc_translate_irc2dp_color);
+    
+    Cmd_AddCommand("irc_create", IRC_Cmd_Create_f, "Creates a new IRC session");
+    Cmd_AddCommand("irc_connect", IRC_Cmd_Connect_f, "Connects to an IRC server");
+    Cmd_AddCommand("irc_raw", IRC_Cmd_Raw_f, "Sends a raw message to the IRC server");
+    Cmd_AddCommand("irc_quit", IRC_Cmd_Quit_f, "Disconnects from the IRC server");
+    Cmd_AddCommand("irc_terminate", IRC_Cmd_Terminate_f, "Terminates an IRC session");
+    
     if(IRC_OpenLibrary()) {
-        Cvar_SetQuick(&irc_initialized, "1");
-        Cvar_RegisterVariable(&irc_eventlog);
-        Cvar_RegisterVariable(&irc_enabled);
-        Cvar_RegisterVariable(&irc_translate_dp2irc_qfont);
-        Cvar_RegisterVariable(&irc_translate_dp2irc_color);
-        Cvar_RegisterVariable(&irc_translate_irc2dp_color);
+        unsigned int high, low;
+        char ver[16];
+        irc_get_version(&high, &low);
+        dpsnprintf(ver, sizeof(ver), "%i.%i", high, low);
+        Cvar_SetQuick(&irc_initialized, ver);
         
-        Cmd_AddCommand("irc_create", IRC_Cmd_Create_f, "Creates a new IRC session");
-        Cmd_AddCommand("irc_connect", IRC_Cmd_Connect_f, "Connects to an IRC server");
-        Cmd_AddCommand("irc_raw", IRC_Cmd_Raw_f, "Sends a raw message to the IRC server");
-        Cmd_AddCommand("irc_quit", IRC_Cmd_Quit_f, "Disconnects from the IRC server");
-        Cmd_AddCommand("irc_terminate", IRC_Cmd_Terminate_f, "Terminates an IRC session");
+        if(high == 1 && low < 8)
+            IRC_Printf("^1Broken libircclient version detected. Expect CTCP ACTION to not work.\n^1Please update to 1.8 or higher at ^2http://sourceforge.net/projects/libircclient/\n");
         
         for(handle = 0; handle < IRC_MAX_SESSIONS; ++handle)
             irc_sessions[handle].handle = handle;
@@ -153,21 +180,156 @@ void IRC_Shutdown(void) {
 
 /*
 ====================
-IRC_Printf
 
-Internal, used for logging.
+A bunch of boring mostly internal routines for the channel/user tracker
+
 ====================
 */
-static void IRC_Printf(const char *fmt, ...) {
-    va_list args;
-    char msg[MAX_INPUTLINE];
+
+static irc_user_t* IRC_Tracker_AllocUser(irc_channel_t *chan) {
+    irc_user_t *user = Z_Malloc(sizeof(irc_user_t));
+    user->next = chan->users;
+    chan->users = user;
+    user->prefix = 0;
+    memset(user->nick, 0, sizeof(user->nick));
+    return user;
+}
+
+static void IRC_Tracker_FreeUser(irc_channel_t *chan, irc_user_t *user) {
+    irc_user_t *p;
     
-    va_start(args, fmt);
-    dpvsnprintf(msg, sizeof(msg), fmt, args);
-    va_end(args);
+    if(chan) {
+        for(p = chan->users; p; p = p->next)
+            if(p->next == user)
+                p->next = user->next;
+        
+        if(chan->users == user)
+            chan->users = user->next;
+    }
     
-    Con_Print("IRC: ");
-    Con_Print(msg);
+    Z_Free(user);
+}
+
+static irc_channel_t* IRC_Tracker_AllocChannel(irc_session_t *session) {
+    irc_channel_t *chan = Z_Malloc(sizeof(irc_channel_t));
+    chan->users = NULL;
+    chan->next = session->channels;
+    session->channels = chan;
+    memset(chan->name, 0, sizeof(chan->name));
+    memset(chan->mode, 0, sizeof(chan->mode));
+    memset(chan->topic, 0, sizeof(chan->topic));
+    return chan;
+}
+
+static void IRC_Tracker_FreeChannel(irc_session_t *session, irc_channel_t *chan) {
+    irc_channel_t *p;
+    irc_user_t *u, *nu;
+    
+    if(session) {
+        for(p = session->channels; p; p = p->next)
+            if(p->next == chan)
+                p->next = chan->next;
+        
+        if(session->channels == chan)
+            session->channels = chan->next;
+    }
+    
+    u = chan->users;
+    while(u) {
+        nu = u->next;
+        IRC_Tracker_FreeUser(NULL, u);
+        u = nu;
+    }
+}
+
+irc_channel_t* IRC_Tracker_GetChannel(irc_session_t *session, const char *cname) {
+    irc_channel_t *c;
+    char name[IRC_MAX_CHANNELNAME_LENGTH];
+    COM_ToLowerString(cname, name, sizeof(name));
+    
+    for(c = session->channels; c; c = c->next)
+        if(!strcmp(c->name, name))
+            return c;
+    
+    return NULL;
+}
+
+irc_user_t* IRC_Tracker_GetUser(irc_channel_t *chan, const char *nick) {
+    irc_user_t *u;
+    
+    for(u = chan->users; u; u = u->next)
+        if(!strcmp(u->nick, nick))
+            return u;
+    
+    return NULL;
+}
+
+static void IRC_Tracker_RemoveUser(irc_channel_t *chan, const char *nick) {
+    irc_user_t *u;
+    
+    for(u = chan->users; u; u = u->next) {
+        if(!strcmp(u->nick, nick)) {
+            IRC_Tracker_FreeUser(chan, u);
+            return;
+        }
+    }
+}
+
+static void IRC_Tracker_Free(irc_session_t *session) {
+    irc_channel_t *c = session->channels, *nc;
+    
+    while(c) {
+        nc = c->next;
+        IRC_Tracker_FreeChannel(NULL, c);
+        c = nc;
+    }
+    
+    session->channels = NULL;
+}
+
+static irc_channel_t* IRC_Tracker_GetOrAllocChannel(irc_session_t *session, const char *cname) {
+    irc_channel_t *c;
+    char name[IRC_MAX_CHANNELNAME_LENGTH];
+    
+    c = IRC_Tracker_GetChannel(session, cname);
+    if(c) return c;
+    
+    c = IRC_Tracker_AllocChannel(session);
+    COM_ToLowerString(cname, name, sizeof(name));
+    strlcpy(c->name, name, sizeof(c->name));
+    return c;
+}
+
+static irc_user_t* IRC_Tracker_GetOrAllocUser(irc_channel_t *chan, const char *nick) {
+    irc_user_t *u;
+    
+    u = IRC_Tracker_GetUser(chan, nick);
+    if(u) return u;
+    
+    u = IRC_Tracker_AllocUser(chan);
+    strlcpy(u->nick, nick, sizeof(u->nick));
+    return u;
+}
+
+static void IRC_Tracker_Print(irc_session_t *s) {
+    irc_channel_t *c;
+    
+    if(!developer.integer)
+        return;
+    
+    IRC_Printf("*** \n");
+    for(c = s->channels; c; c = c->next) {
+        irc_user_t *u;
+        
+        IRC_Printf("%s: ", c->name);
+        for(u = c->users; u; u = u->next) {
+            if(u->prefix)
+                Con_Printf("(%c)", u->prefix);
+            Con_Printf("%s ", u->nick);
+        }
+        Con_Printf("\n");
+    }
+    IRC_Printf("*** \n");
 }
 
 /*
@@ -182,29 +344,80 @@ static void IRC_Callback_Default(void *session, const char *event, const char *o
     irc_session_t *s = (irc_session_t*)irc_get_ctx(session);
     char nick[MAX_INPUTLINE];
     
-    
     if(irc_eventlog.integer) {
         IRC_Printf("^1%i^7 [^3%s^7] origin: %s, params: \n", s->handle, event, origin);
         for(i = 0; i < count; ++i)
             IRC_Printf("    %i: ^2%s\n", i, params[i]);
     }
     
+    IRC_Callback_QuakeC(SVVM_prog, TRUE, s->handle, event, -1, origin, params, count);
+    IRC_Callback_QuakeC(MVM_prog, TRUE, s->handle, event, -1, origin, params, count);
+    
     if(!strcmp(event, "CONNECT")) {
         // In case the server doesn't like our nickname
         strlcpy(s->nick, params[0], sizeof(s->nick));
     } else if(!strcmp(event, "NICK")) {
+        irc_channel_t *c;
+        
         irc_target_get_nick(origin, nick, sizeof(nick));
         if(!strcmp(s->nick, nick))  // our nickname changed
             strlcpy(s->nick, params[0], sizeof(s->nick));
+            
+        for(c = s->channels; c; c = c->next) {
+            irc_user_t *u = IRC_Tracker_GetUser(c, nick);
+            if(u)
+                strlcpy(u->nick, params[0], sizeof(u->nick));
+        }
+        IRC_Tracker_Print(s);
     } else if(!strcmp(event, "CTCP") && !strncmp(params[0], "VERSION", 7)) {
         char ctcpreply[sizeof(engineversion) + 8];
         irc_target_get_nick(origin, nick, sizeof(nick));
         strlcpy(ctcpreply, "VERSION ", sizeof(ctcpreply));
         strlcat(ctcpreply, engineversion, sizeof(ctcpreply));
         irc_cmd_ctcp_reply(s->session, nick, ctcpreply);
+    } else if(!strcmp(event, "JOIN")) {
+        irc_target_get_nick(origin, nick, sizeof(nick));
+        IRC_Tracker_GetOrAllocUser(IRC_Tracker_GetOrAllocChannel(s, params[0]), nick);
+        IRC_Tracker_Print(s);
+    } else if(!strcmp(event, "PART")) {
+        irc_channel_t *c = IRC_Tracker_GetChannel(s, params[0]);
+        
+        if(c) {
+            irc_target_get_nick(origin, nick, sizeof(nick));
+            if(!strcmp(s->nick, nick))
+                IRC_Tracker_FreeChannel(s, c);
+            else
+                IRC_Tracker_RemoveUser(c, nick);
+            IRC_Tracker_Print(s);
+        }
+    } else if(!strcmp(event, "QUIT")) {
+        irc_channel_t *c;
+        irc_target_get_nick(origin, nick, sizeof(nick));
+        for(c = s->channels; c; c = c->next)
+            IRC_Tracker_RemoveUser(c, nick);
+        IRC_Tracker_Print(s);
+    } else if(!strcmp(event, "KICK")) {
+        irc_channel_t *c = IRC_Tracker_GetChannel(s, params[0]);
+        
+        if(c) {
+            if(!strcmp(s->nick, params[1]))
+                IRC_Tracker_FreeChannel(s, c);
+            else
+                IRC_Tracker_RemoveUser(c, params[1]);
+            IRC_Tracker_Print(s);
+        }
+    } else if(!strcmp(event, "MODE")) {
+        irc_channel_t *c = IRC_Tracker_GetChannel(s, params[0]);
+        // TODO: parse the mode string.
+        // For now, just send a NAMES to update the prefixes later
+        if(c) IRC_SendRaw(s->handle, "NAMES %s", c->name);
+    } else if(!strcmp(event, "TOPIC")) {
+        irc_channel_t *c = IRC_Tracker_GetChannel(s, params[0]);
+        if(c) strlcpy(c->topic, params[1], sizeof(c->topic));
     }
     
-    IRC_Callback_QuakeC(SVVM_prog, s->handle, event, -1, origin, params, count);
+    IRC_Callback_QuakeC(SVVM_prog, FALSE, s->handle, event, -1, origin, params, count);
+    IRC_Callback_QuakeC(MVM_prog, FALSE, s->handle, event, -1, origin, params, count);
 }
 
 /*
@@ -224,7 +437,66 @@ static void IRC_Callback_Numeric(void *session, unsigned int event, const char *
             IRC_Printf("    %i: ^2%s\n", i, params[i]);
     }
     
-    IRC_Callback_QuakeC(SVVM_prog, s->handle, NULL, event, origin, params, count);
+    IRC_Callback_QuakeC(SVVM_prog, TRUE, s->handle, NULL, event, origin, params, count);
+    IRC_Callback_QuakeC(MVM_prog, TRUE, s->handle, NULL, event, origin, params, count);
+    
+    if(event == 5) {
+        // ISUPPORT reply - set usermodes and usermodes_prefixes
+        unsigned int i;
+        
+        for(i = 0; i < count; ++i) {
+            if(!strncmp(params[i], "PREFIX=", 7)) {
+                const char *in;
+                char *out = s->usermodes;
+                
+                for(in = params[i] + 8; *in; ++in) {
+                    if(*in == ')') {
+                        *out = 0;
+                        out = s->usermodes_prefixes;
+                    } else
+                        *out++ = *in;
+                }
+                *out = 0;
+                
+                break;
+            }
+        }
+    } if(event == 353) {
+        // NAMES reply - update our userlist
+        // we shouldn't need to delete users here, just add missing and set prefixes
+        irc_channel_t *chan = IRC_Tracker_GetOrAllocChannel(s, params[2]);
+        char nickbuff[IRC_MAX_NICK_LENGTH];
+        char *nickptr = nickbuff;
+        const char *listptr = params[3];
+        char prefix = 0;
+        
+        for(;;) {
+            if(!*listptr || *listptr == ' ') { 
+                *nickptr = 0;
+                IRC_Tracker_GetOrAllocUser(chan, nickbuff)->prefix = prefix;
+                
+                if(!*listptr)
+                    break;
+                
+                ++listptr;
+                nickptr = nickbuff;
+                prefix = 0;
+            } else if(!prefix && strchr(s->usermodes_prefixes, *listptr)) {
+                prefix = *listptr++;
+            } else
+                *nickptr++ = *listptr++;
+        }
+        
+        IRC_Tracker_Print(s);
+    } if(event == 332) {
+        // TOPIC reply - save it
+        irc_channel_t *chan = IRC_Tracker_GetChannel(s, params[1]);
+        if(chan)
+            strlcpy(chan->topic, params[2], sizeof(chan->topic));
+    }
+    
+    IRC_Callback_QuakeC(SVVM_prog, FALSE, s->handle, NULL, event, origin, params, count);
+    IRC_Callback_QuakeC(MVM_prog, FALSE, s->handle, NULL, event, origin, params, count);
 }
 
 /*
@@ -294,6 +566,10 @@ int IRC_CreateSession(void) {
     // irc_option_set(c->session, LIBIRC_OPTION_DEBUG);
     irc_set_ctx(c->session, (void*)c);
     
+    IRC_Tracker_Free(c);
+    IRC_Callback_QuakeC(SVVM_prog, FALSE, handle, "SESSION_CREATED", -1, NULL, NULL, 0);
+    IRC_Callback_QuakeC(MVM_prog, FALSE, handle, "SESSION_CREATED", -1, NULL, NULL, 0);
+    
     IRC_Printf("Created an IRC session with handle %i\n", handle);
     
     return handle;
@@ -328,13 +604,18 @@ int IRC_ConnectSession(int handle, const char *server, unsigned short port, cons
         strlcpy(s->password, server_password, sizeof(s->password));
     else
         memset(s->password, 0, sizeof(s->password));
+    s->port = port;
     
     irc_disconnect(s->session);
+    IRC_Tracker_Free(s);
+    
     if(irc_connect(s->session, server, port, server_password, nick, username, realname)) {
         err = irc_errno(s->session);
         IRC_Printf("Connection error on session %i: %s\n", handle, irc_strerror(err));
         return err;
     }
+    
+    Con_Printf("IRC_ConnectSession: 7\n");
     
     return 0;
 }
@@ -358,7 +639,7 @@ Returns true if the handle points to an unterminated session (not necessarily co
 ====================
 */
 qboolean IRC_SessionExists(int handle) {
-    return handle >= 0 && handle < IRC_MAX_SESSIONS && (qboolean)irc_sessions[handle].session;
+    return IS_VALID_IRC_SESSION(handle);
 }
 
 /*
@@ -382,7 +663,10 @@ void IRC_DisconnectSession(int handle, const char *reason) {
     
     //if(IRC_SessionIsConnected(handle))
     //    irc_disconnect(s->session);
-        
+    
+    IRC_Tracker_Free(s);
+    IRC_Callback_QuakeC(SVVM_prog, FALSE, handle, "SESSION_DISCONNECTED", -1, NULL, NULL, 0);
+    IRC_Callback_QuakeC(MVM_prog, FALSE, handle, "SESSION_DISCONNECTED", -1, NULL, NULL, 0);
     IRC_Printf("Session %i disconnected\n", handle);
 }
 
@@ -408,6 +692,8 @@ int IRC_ReconnectSession(int handle) {
     
     s = &irc_sessions[handle];
     irc_disconnect(s->session);
+    IRC_Tracker_Free(s);
+    
     if(irc_connect(s->session, s->server, s->port, s->password, s->nick, s->username, s->realname)) {
         err = irc_errno(s->session);
         IRC_Printf("Connection error on session %i: %s\n", handle, irc_strerror(err));
@@ -435,6 +721,9 @@ void IRC_TerminateSession(int handle) {
     
     if(IRC_SessionIsConnected(handle))
         IRC_DisconnectSession(handle, "Session terminated");
+    
+    IRC_Callback_QuakeC(SVVM_prog, FALSE, handle, "SESSION_TERMINATING", -1, NULL, NULL, 0);
+    IRC_Callback_QuakeC(MVM_prog, FALSE, handle, "SESSION_TERMINATING", -1, NULL, NULL, 0);
     
     s = &irc_sessions[handle];
     irc_destroy_session(s->session);
@@ -878,6 +1167,20 @@ qboolean IRC_MaskMatches(const char *mask, const char *pattern) {
     }
     
     return true;
+}
+
+/*
+====================
+IRC_GetSession
+
+Returns a pointer to the IRC session object if the handle is valid, NULL otherwise
+====================
+*/
+irc_session_t* IRC_GetSession(int handle) {
+    if(IS_VALID_IRC_SESSION(handle))
+        return &irc_sessions[handle];
+    IRC_Printf("IRC_GetSession: invalid session handle: %i\n", handle);
+    return NULL;
 }
 
 /*

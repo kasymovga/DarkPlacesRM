@@ -507,5 +507,13 @@ void VM_IRC_UserMode(prvm_prog_t *prog);
 void VM_IRC_MaskMatches(prvm_prog_t *prog);
 void VM_IRC_CTCPRequest(prvm_prog_t *prog);
 void VM_IRC_CTCPReply(prvm_prog_t *prog);
+void VM_IRC_IsJoinedChannel(prvm_prog_t *prog);
+void VM_IRC_IsUserInChannel(prvm_prog_t *prog);
+void VM_IRC_GetPrefix(prvm_prog_t *prog);
+void VM_IRC_TokenizeUserList(prvm_prog_t *prog);
+void VM_IRC_TokenizeChannelList(prvm_prog_t *prog);
+void VM_IRC_ServerAddress(prvm_prog_t *prog);
+void VM_IRC_ServerPort(prvm_prog_t *prog);
+void VM_IRC_GetChannelTopic(prvm_prog_t *prog);
 
 #endif

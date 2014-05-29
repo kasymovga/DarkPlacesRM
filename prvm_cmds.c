@@ -7284,19 +7284,20 @@ Pass IRC events to QC progs
 This is here for the argv() hack
 ====================
 */
-void IRC_Callback_QuakeC(prvm_prog_t *prog, int handle, const char *event, int numeric, const char *origin, const char **params, unsigned int count) {
-    if(!prog || !(PRVM_allfunction(IRC_Event)))
+void IRC_Callback_QuakeC(prvm_prog_t *prog, qboolean pre, int handle, const char *event, int numeric, const char *origin, const char **params, unsigned int count) {
+    if(!prog || !(pre? PRVM_allfunction(IRC_PreEvent) : PRVM_allfunction(IRC_Event)))
         return;
     
-    for(num_tokens = 0; num_tokens < (int)count; ++num_tokens)
-        tokens[num_tokens] = PRVM_SetTempString(prog, params[num_tokens]);
+    if(params)
+        for(num_tokens = 0; num_tokens < (int)count; ++num_tokens)
+            tokens[num_tokens] = PRVM_SetTempString(prog, params[num_tokens]);
     
     PRVM_G_FLOAT(OFS_PARM0) = handle;
     PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, event);
     PRVM_G_FLOAT(OFS_PARM2) = numeric;
     PRVM_G_INT(OFS_PARM3) = PRVM_SetTempString(prog, origin);
     PRVM_G_FLOAT(OFS_PARM4) = count;
-    prog->ExecuteProgram(prog, PRVM_allfunction(IRC_Event), "QC function IRC_Event is missing");
+    prog->ExecuteProgram(prog, (pre? PRVM_allfunction(IRC_PreEvent) : PRVM_allfunction(IRC_Event)), "QC function IRC_Event is missing");
 }
 
 void VM_IRC_CreateSession(prvm_prog_t *prog) {
@@ -7307,12 +7308,12 @@ void VM_IRC_CreateSession(prvm_prog_t *prog) {
 void VM_IRC_ConnectSession(prvm_prog_t *prog) {
     VM_SAFEPARMCOUNT(7, VM_IRC_CreateSession);
     PRVM_G_FLOAT(OFS_RETURN) = IRC_ConnectSession(
-        (int)PRVM_G_FLOAT(OFS_PARM0), 
-        (const char*)PRVM_G_STRING(OFS_PARM1), 
+        (int)PRVM_G_FLOAT(OFS_PARM0),
+        (const char*)PRVM_G_STRING(OFS_PARM1),
         (unsigned short)PRVM_G_FLOAT(OFS_PARM2),
         (const char*)PRVM_G_STRING(OFS_PARM3),
-        (const char*)PRVM_G_STRING(OFS_PARM4), 
-        (const char*)PRVM_G_STRING(OFS_PARM5), 
+        (const char*)PRVM_G_STRING(OFS_PARM4),
+        (const char*)PRVM_G_STRING(OFS_PARM5),
         (const char*)PRVM_G_STRING(OFS_PARM6)
     );
 }
@@ -7425,4 +7426,162 @@ void VM_IRC_CTCPRequest(prvm_prog_t *prog) {
 void VM_IRC_CTCPReply(prvm_prog_t *prog) {
     VM_SAFEPARMCOUNT(3, VM_IRC_CTCPReply);
     PRVM_G_INT(OFS_RETURN) = IRC_CTCPReply((int)PRVM_G_FLOAT(OFS_PARM0), (const char*)PRVM_G_STRING(OFS_PARM1), (const char*)PRVM_G_STRING(OFS_PARM2));
+}
+
+void VM_IRC_IsJoinedChannel(prvm_prog_t *prog) {
+    irc_session_t *s;
+    VM_SAFEPARMCOUNT(2, VM_IRC_IsJoinedChannel);
+    
+    s = IRC_GetSession((int)PRVM_G_FLOAT(OFS_PARM0));
+    if(!s) {
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    PRVM_G_INT(OFS_RETURN) = (IRC_Tracker_GetChannel(s, (const char*)PRVM_G_STRING(OFS_PARM1)) != NULL);
+}
+
+void VM_IRC_IsUserInChannel(prvm_prog_t *prog) {
+    irc_session_t *s;
+    irc_channel_t *c;
+    VM_SAFEPARMCOUNT(3, VM_IRC_IsUserInChannel);
+    
+    s = IRC_GetSession((int)PRVM_G_FLOAT(OFS_PARM0));
+    if(!s) {
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    c = IRC_Tracker_GetChannel(s, (const char*)PRVM_G_STRING(OFS_PARM1));
+    if(!c) {
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    PRVM_G_INT(OFS_RETURN) = (IRC_Tracker_GetUser(c, (const char*)PRVM_G_STRING(OFS_PARM2)) != NULL);
+}
+
+void VM_IRC_GetPrefix(prvm_prog_t *prog) {
+    irc_session_t *s;
+    irc_channel_t *c;
+    irc_user_t *u;
+    char pref[2] = {0, 0};
+    VM_SAFEPARMCOUNT(3, VM_IRC_GetPrefix);
+    
+    s = IRC_GetSession((int)PRVM_G_FLOAT(OFS_PARM0));
+    if(!s) {
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    c = IRC_Tracker_GetChannel(s, (const char*)PRVM_G_STRING(OFS_PARM1));
+    if(!c) {
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    u = IRC_Tracker_GetUser(c, (const char*)PRVM_G_STRING(OFS_PARM2));
+    if(!u) {
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    *pref = u->prefix;
+    PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, pref);
+}
+
+void VM_IRC_TokenizeUserList(prvm_prog_t *prog) {
+    irc_session_t *s;
+    irc_channel_t *c;
+    irc_user_t *u;
+    VM_SAFEPARMCOUNT(2, VM_IRC_TokenizeUserList);
+    
+    num_tokens = 0;
+    
+    s = IRC_GetSession((int)PRVM_G_FLOAT(OFS_PARM0));
+    if(!s) {
+        PRVM_G_FLOAT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    c = IRC_Tracker_GetChannel(s, (const char*)PRVM_G_STRING(OFS_PARM1));
+    if(!c) {
+        PRVM_G_FLOAT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    for(u = c->users; u; u = u->next)
+        tokens[num_tokens++] = PRVM_SetTempString(prog, u->nick);
+    
+    PRVM_G_FLOAT(OFS_RETURN) = num_tokens;
+}
+
+void VM_IRC_TokenizeChannelList(prvm_prog_t *prog) {
+    irc_session_t *s;
+    irc_channel_t *c;
+    VM_SAFEPARMCOUNT(1, VM_IRC_TokenizeChannelList);
+    
+    num_tokens = 0;
+    
+    s = IRC_GetSession((int)PRVM_G_FLOAT(OFS_PARM0));
+    if(!s) {
+        PRVM_G_FLOAT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    for(c = s->channels; c; c = c->next)
+        tokens[num_tokens++] = PRVM_SetTempString(prog, c->name);
+    
+    PRVM_G_FLOAT(OFS_RETURN) = num_tokens;
+}
+
+void VM_IRC_ServerAddress(prvm_prog_t *prog) {
+    irc_session_t *s;
+    VM_SAFEPARMCOUNT(1, VM_IRC_ServerAddress);
+    
+    s = IRC_GetSession((int)PRVM_G_FLOAT(OFS_PARM0));
+    if(!s) {
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    if(s->server)
+        PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, s->server);
+    else
+        PRVM_G_INT(OFS_RETURN) = 0;
+}
+
+void VM_IRC_ServerPort(prvm_prog_t *prog) {
+    irc_session_t *s;
+    VM_SAFEPARMCOUNT(1, VM_IRC_ServerPort);
+    
+    s = IRC_GetSession((int)PRVM_G_FLOAT(OFS_PARM0));
+    if(!s) {
+        PRVM_G_FLOAT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    PRVM_G_FLOAT(OFS_RETURN) = s->port;
+}
+
+void VM_IRC_GetChannelTopic(prvm_prog_t *prog) {
+    irc_session_t *s;
+    irc_channel_t *c;
+    char topic[IRC_MAX_TOPIC_LENGTH];
+    VM_SAFEPARMCOUNT(2, VM_IRC_GetChannelTopic);
+    
+    s = IRC_GetSession((int)PRVM_G_FLOAT(OFS_PARM0));
+    if(!s) {
+        PRVM_G_FLOAT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    c = IRC_Tracker_GetChannel(s, (const char*)PRVM_G_STRING(OFS_PARM1));
+    if(!c) {
+        PRVM_G_FLOAT(OFS_RETURN) = 0;
+        return;
+    }
+    
+    IRC_Translate_IRC2DP(c->topic, topic, sizeof(topic));
+    PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, topic);
 }

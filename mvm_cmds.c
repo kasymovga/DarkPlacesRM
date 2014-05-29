@@ -48,6 +48,7 @@ const char *vm_m_extensions =
 "DP_QC_URI_POST "
 "DP_QC_WHICHPACK "
 "FTE_STRINGS "
+"DP_RM_IRC "
 ;
 
 /*
@@ -1450,36 +1451,36 @@ NULL,									// #546
 NULL,									// #547
 NULL,									// #548
 NULL,									// #549
-NULL,									// #550
-NULL,									// #551
-NULL,									// #552
-NULL,									// #553
-NULL,									// #554
-NULL,									// #555
-NULL,									// #556
-NULL,									// #557
-NULL,									// #558
-NULL,									// #559
-NULL,									// #560
-NULL,									// #561
-NULL,									// #562
-NULL,									// #563
-NULL,									// #564
-NULL,									// #565
-NULL,									// #566
-NULL,									// #567
-NULL,									// #568
-NULL,									// #569
-NULL,									// #570
-NULL,									// #571
-NULL,									// #572
-NULL,									// #573
-NULL,									// #574
-NULL,									// #575
-NULL,									// #576
-NULL,									// #577
-NULL,									// #578
-NULL,									// #579
+VM_IRC_CreateSession,			        // #550 float(void) IRC_CreateSession = #550; (DP_RM_IRC)
+VM_IRC_ConnectSession,			        // #551 float(float handle, string server, float port, string password, string nick, string username, string realname) IRC_ConnectSession = #551; (DP_RM_IRC)
+VM_IRC_SessionExists,			        // #552 float(float handle) IRC_SessionExists = #552; (DP_RM_IRC)
+VM_IRC_SessionIsConnected,		        // #553 float(float handle) IRC_SessionIsConnected = #553; (DP_RM_IRC)
+VM_IRC_SendRaw,					        // #554 float(float handle, string command) IRC_SendRaw = #554; (DP_RM_IRC)
+VM_IRC_StrError,				        // #555 string(float errno) IRC_StrError = #555; (DP_RM_IRC)
+VM_IRC_JoinChannel,				        // #556 float(float handle, string channel) IRC_JoinChannel = #556; (DP_RM_IRC)
+VM_IRC_PartChannel,				        // #557 float(float handle, string channel) IRC_PartChannel = #557; (DP_RM_IRC)
+VM_IRC_Topic,					        // #558 float(float handle, string channel, string topic) IRC_Topic = #558; (DP_RM_IRC)
+VM_IRC_CurrentNick,				        // #559 string(float handle) IRC_CurrentNick = #559; (DP_RM_IRC)
+VM_IRC_Privmsg,					        // #560 float(float handle, string targ, string msg) IRC_Privmsg = #560; (DP_RM_IRC)
+VM_IRC_Notice,					        // #561 float(float handle, string targ, string msg) IRC_Notice = #561; (DP_RM_IRC)
+VM_IRC_Quit,					        // #562 float(float handle, string reason) IRC_Quit = #562; (DP_RM_IRC)
+VM_IRC_TerminateSession,		        // #563 void(float handle) IRC_TerminateSession = #563; (DP_RM_IRC)
+VM_IRC_DP2IRC,				            // #564 string(string str) IRC_DP2IRC = #564; (DP_RM_IRC)
+VM_IRC_IRC2DP,					        // #565 string(string str) IRC_IRC2DP = #565; (DP_RM_IRC)
+VM_IRC_ChangeNick,			            // #566 float(float handle, string nick) IRC_ChangeNick = #566; (DP_RM_IRC)
+VM_IRC_ChannelMode,			            // #567 float(float handle, string channel, string mode) IRC_ChannelMode = #567; (DP_RM_IRC)
+VM_IRC_UserMode,			            // #568 float(float handle, string mode) IRC_UserMode = #568; (DP_RM_IRC)
+VM_IRC_MaskMatches,				        // #569 float(string mask, string pattern) IRC_MaskMatches = #569; (DP_RM_IRC)
+VM_IRC_CTCPRequest,				        // #570 float(float handle, string targ, string msg) IRC_CTCPRequest = #570; (DP_RM_IRC)
+VM_IRC_CTCPReply,				        // #571 float(float handle, string targ, string msg) IRC_CTCPReply = #571; (DP_RM_IRC)
+VM_IRC_IsJoinedChannel,			        // #572 float(float handle, string chan) IRC_IsJoinedChannel = #572; (DP_RM_IRC)
+VM_IRC_IsUserInChannel,			        // #573 float(float handle, string chan, string nick) IRC_IsUserInChannel = #573; (DP_RM_IRC)
+VM_IRC_GetPrefix,		    	        // #574 string(float handle, string chan, string nick) IRC_GetPrefix = #574; (DP_RM_IRC)
+VM_IRC_TokenizeUserList,		        // #575 float(float handle, string chan) IRC_TokenizeUserList = #575; (DP_RM_IRC)
+VM_IRC_TokenizeChannelList,		        // #576 float(float handle) IRC_TokenizeChannelList = #576; (DP_RM_IRC)
+VM_IRC_ServerAddress,			        // #577 string(float handle) IRC_ServerAddress = #577; (DP_RM_IRC)
+VM_IRC_ServerPort,				        // #578 float(float handle) IRC_ServerPort = #578; (DP_RM_IRC)
+VM_IRC_GetChannelTopic,			        // #579 string(float handle, string chan) IRC_GetChannelTopic = #579; (DP_RM_IRC)
 NULL,									// #580
 NULL,									// #581
 NULL,									// #582
