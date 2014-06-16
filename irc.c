@@ -1148,7 +1148,6 @@ IRC_MaskMatches
 Checks if a hostmask matches a given pattern
 ====================
 */
-
 qboolean IRC_MaskMatches(const char *mask, const char *pattern) {
     const char *m, *p;
     size_t ml, pl;
@@ -1166,7 +1165,7 @@ qboolean IRC_MaskMatches(const char *mask, const char *pattern) {
             if(*m == p[1])
                 p += 2;
             continue;
-        } else if(*m != *p)
+        } else if(*m != *p && *p != '?')
             return false;
         ++p;
     }
