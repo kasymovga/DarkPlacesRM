@@ -469,6 +469,7 @@ static void IRC_Callback_Numeric(void *session, unsigned int event, const char *
         char *nickptr = nickbuff;
         const char *listptr = params[3];
         char prefix = 0;
+        qboolean parsedprefix = FALSE;
         
         for(;;) {
             if(!*listptr || *listptr == ' ') { 
@@ -481,10 +482,14 @@ static void IRC_Callback_Numeric(void *session, unsigned int event, const char *
                 ++listptr;
                 nickptr = nickbuff;
                 prefix = 0;
-            } else if(!prefix && strchr(s->usermodes_prefixes, *listptr)) {
-                prefix = *listptr++;
-            } else
+                parsedprefix = FALSE;
+            } else if(!parsedprefix && strchr(s->usermodes_prefixes, *listptr)) {
+                if(!prefix)
+                    prefix = *listptr++;
+            } else {
                 *nickptr++ = *listptr++;
+                parsedprefix = TRUE;
+            }
         }
         
         IRC_Tracker_Print(s);
