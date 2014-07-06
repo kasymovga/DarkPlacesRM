@@ -38,6 +38,19 @@ cvar_t sv_public_rejectreason = {0, "sv_public_rejectreason", "The server is clo
 static cvar_t sv_heartbeatperiod = {CVAR_SAVE, "sv_heartbeatperiod", "120", "how often to send heartbeat in seconds (only used if sv_public is 1)"};
 extern cvar_t sv_status_privacy;
 
+#ifdef VECXIS_RELEASE
+static cvar_t sv_masters [] =
+{
+	{CVAR_SAVE, "sv_master1", "", "user-chosen master server 1"},
+	{CVAR_SAVE, "sv_master2", "", "user-chosen master server 2"},
+	{CVAR_SAVE, "sv_master3", "", "user-chosen master server 3"},
+	{CVAR_SAVE, "sv_master4", "", "user-chosen master server 4"},
+	{0, "sv_masterextra1", "dpmaster1.vecxis.com", "Vecxis's master server 1 (admin: Player_2)"}, // admin: Player_2
+	{0, "sv_masterextra2", "dpmaster2.vecxis.com", "Vecxis's master server 2 (admin: Player_2)"}, // admin: Player_2
+	{0, "sv_masterextra3", "dpmaster3.vecxis.com", "Vecxis's master server 3 (admin: Player_2)"}, // admin: Player_2
+	{0, NULL, NULL, NULL}
+};
+#else
 static cvar_t sv_masters [] =
 {
 	{CVAR_SAVE, "sv_master1", "", "user-chosen master server 1"},
@@ -47,11 +60,13 @@ static cvar_t sv_masters [] =
 	{0, "sv_masterextra1", "69.59.212.88", "ghdigital.com - default master server 1 (admin: LordHavoc)"}, // admin: LordHavoc
 	{0, "sv_masterextra2", "64.22.107.125", "dpmaster.deathmask.net - default master server 2 (admin: Willis)"}, // admin: Willis
 	{0, "sv_masterextra3", "92.62.40.73", "dpmaster.tchr.no - default master server 3 (admin: tChr)"}, // admin: tChr
+	{0, "sv_masterextra4", "dpmaster.vecxis.com", "Vecxis's master server (admin: Player_2)"}, // admin: Player_2
 #ifdef SUPPORTIPV6
-	{0, "sv_masterextra4", "[2a03:4000:1::2e26:f351:3]:27950", "dpmaster.sudo.rm-f.org - default master server 4 (admin: divVerent)"}, // admin: divVerent
+	{0, "sv_masterextra5", "[2a03:4000:1::2e26:f351:3]:27950", "dpmaster.sudo.rm-f.org - default master server 4 (admin: divVerent)"}, // admin: divVerent
 #endif
 	{0, NULL, NULL, NULL}
 };
+#endif
 
 static cvar_t sv_qwmasters [] =
 {
