@@ -598,7 +598,7 @@ clean:
 	-$(CMD_RM) $(EXE_SDLNEXUIZ)
 	-$(CMD_RM) *.o
 	-$(CMD_RM) *.d
-	-$(CMD_RM) *.exe
+	-$(CMD_RM) *rm-*.exe
 
 clean-profile: clean
 	-$(CMD_RM) *.gcda
