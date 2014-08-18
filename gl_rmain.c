@@ -6320,7 +6320,7 @@ static void R_Bloom_MakeTexture(void)
 		}
 	}
 
-	range = r_bloom_blur.integer * r_fb.bloomwidth / r_bloom_resolution;
+	range = r_bloom_blur.integer * r_fb.bloomwidth / r_bloom_resolution.integer;
 	brighten = r_bloom_brighten.value;
 	brighten = sqrt(brighten);
 	if(range >= 1)
