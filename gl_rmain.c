@@ -200,7 +200,7 @@ cvar_t r_bloom_colorscale = {CVAR_SAVE, "r_bloom_colorscale", "1", "how bright t
 
 cvar_t r_bloom_brighten = {CVAR_SAVE, "r_bloom_brighten", "2", "how bright the glow is, after subtract/power"};
 cvar_t r_bloom_blur = {CVAR_SAVE, "r_bloom_blur", "4", "how large the glow is"};
-cvar_t r_bloom_resolution = {CVAR_SAVE, "r_bloom_resolution", "320", "what resolution to perform the bloom effect at (independent of screen resolution)"};
+cvar_t r_bloom_resolution = {CVAR_SAVE, "r_bloom_resolution", "640", "what resolution to perform the bloom effect at (independent of screen resolution)"};
 cvar_t r_bloom_colorexponent = {CVAR_SAVE, "r_bloom_colorexponent", "1", "how exaggerated the glow is"};
 cvar_t r_bloom_colorsubtract = {CVAR_SAVE, "r_bloom_colorsubtract", "0.125", "reduces bloom colors by a certain amount"};
 cvar_t r_bloom_scenebrightness = {CVAR_SAVE, "r_bloom_scenebrightness", "1", "global rendering brightness when bloom is enabled"};
@@ -6320,7 +6320,7 @@ static void R_Bloom_MakeTexture(void)
 		}
 	}
 
-	range = r_bloom_blur.integer * r_fb.bloomwidth / 320;
+	range = r_bloom_blur.integer * r_fb.bloomwidth / r_bloom_resolution;
 	brighten = r_bloom_brighten.value;
 	brighten = sqrt(brighten);
 	if(range >= 1)
