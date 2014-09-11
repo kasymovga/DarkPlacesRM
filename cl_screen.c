@@ -36,7 +36,7 @@ cvar_t scr_showbrand = {0, "showbrand","0", "shows gfx/brand.tga in a corner of 
 cvar_t scr_printspeed = {0, "scr_printspeed","0", "speed of intermission printing (episode end texts), a value of 0 disables the slow printing"};
 cvar_t scr_loadingscreen_background = {0, "scr_loadingscreen_background","0", "show the last visible background during loading screen (costs one screenful of video memory)"};
 cvar_t scr_loadingscreen_scale = {0, "scr_loadingscreen_scale","1", "scale factor of the background"};
-cvar_t scr_loadingscreen_scale_base = {0, "scr_loadingscreen_scale_base","0", "0 = console pixels, 1 = video pixels"};
+cvar_t scr_loadingscreen_scale_base = {0, "scr_loadingscreen_scale_base","0", "0 = console pixels, 1 = video pixels 2 = screen size"};
 cvar_t scr_loadingscreen_scale_limit = {0, "scr_loadingscreen_scale_limit","0", "0 = no limit, 1 = until first edge hits screen edge, 2 = until last edge hits screen edge, 3 = until width hits screen width, 4 = until height hits screen height"};
 cvar_t scr_loadingscreen_count = {0, "scr_loadingscreen_count","1", "number of loading screen files to use randomly (named loading.tga, loading2.tga, loading3.tga, ...)"};
 cvar_t scr_loadingscreen_firstforstartup = {0, "scr_loadingscreen_firstforstartup","0", "remove loading.tga from random scr_loadingscreen_count selection and only display it on client startup, 0 = normal, 1 = firstforstartup"};
@@ -2055,10 +2055,16 @@ static void SCR_DrawLoadingScreen_SharedSetup (qboolean clear)
 	h *= scr_loadingscreen_scale.value;
 
 	// apply scale base
-	if(scr_loadingscreen_scale_base.integer)
+	switch(scr_loadingscreen_scale_base.integer)
 	{
-		w *= vid_conwidth.integer / (float) vid.width;
-		h *= vid_conheight.integer / (float) vid.height;
+		case 1:
+			w *= vid_conwidth.integer / (float) vid.width;
+			h *= vid_conheight.integer / (float) vid.height;
+			break;
+		case 2:
+			w = vid_conwidth.integer;
+			h = vid_conheight.integer;
+			break;
 	}
 
 	// apply scale limit
