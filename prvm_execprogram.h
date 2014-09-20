@@ -68,7 +68,7 @@
 						prog->xfunction->profile += (st - startst);
 						startst = st;
 						prog->xstatement = st - prog->statements;
-						VM_Warning(prog, "Attempted division by zero in %s\n", prog->name );
+						VM_Warning(prog, "%s: Attempted division by zero in: %s\n", prog->name, PRVM_GetString(prog, prog->xfunction->s_name));
 					}
 					OPC->_float = 0.0f;
 				}
