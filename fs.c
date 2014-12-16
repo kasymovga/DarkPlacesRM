@@ -1975,6 +1975,9 @@ void FS_Init (void)
 	if (fs_basedir[0] && fs_basedir[strlen(fs_basedir) - 1] != '/' && fs_basedir[strlen(fs_basedir) - 1] != '\\')
 		strlcat(fs_basedir, "/", sizeof(fs_basedir));
 
+#ifdef FS_FORCE_NOHOME
+    *fs_userdir = 0;
+#else
 	// Add the personal game directory
 	if((i = COM_CheckParm("-userdir")) && i < com_argc - 1)
 		dpsnprintf(fs_userdir, sizeof(fs_userdir), "%s/", com_argv[i+1]);
@@ -2027,7 +2030,8 @@ void FS_Init (void)
 	// if userdir equal to basedir, clear it to avoid confusion later
 	if (!strcmp(fs_basedir, fs_userdir))
 		fs_userdir[0] = 0;
-
+#endif
+    
 	FS_ListGameDirs();
 
 	p = FS_CheckGameDir(gamedirname1);
