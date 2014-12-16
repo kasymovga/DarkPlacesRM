@@ -1984,7 +1984,7 @@ void FS_Init (void)
 	{
 		int dirmode;
 		int highestuserdirmode = USERDIRMODE_COUNT - 1;
-		int preferreduserdirmode = USERDIRMODE_COUNT - 1;
+		int preferreduserdirmode = USERDIRMODE_PREFERED;
 		int userdirstatus[USERDIRMODE_COUNT];
 #ifdef WIN32
 		// historical behavior...
