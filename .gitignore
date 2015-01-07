@@ -1,3 +1,4 @@
+.*
 *.d
 *.o
 *.i
@@ -25,3 +26,4 @@ Makefile.win
 *.dll
 *.dylib
 *.dSYM
+lua-5.3.0/
