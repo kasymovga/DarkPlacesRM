@@ -27,3 +27,4 @@ Makefile.win
 *.dylib
 *.dSYM
 lua-5.3.0/
+LuaJIT-2.0.3/
