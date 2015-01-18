@@ -346,7 +346,7 @@ endif
 
 ##### GNU Make specific definitions #####
 
-DO_LD=$(CXX) -o $@ $^ $(LDFLAGS)
+DO_LD=$(CC) -o $@ $^ $(LDFLAGS)
 
 
 ##### Definitions shared by all makefiles #####

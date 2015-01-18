@@ -4,7 +4,6 @@ CHECKLEVEL2 = @if [ "$(LEVEL)" != 2 ]; then $(MAKE) help; false; fi
 
 # Choose the compiler you want to use
 CC?=gcc
-CXX?=g++
 
 # athlon optimizations
 #CPUOPTIMIZATIONS?=-march=athlon
@@ -208,7 +207,6 @@ OPTIM_RELEASE=-O3 -fno-strict-aliasing $(CPUOPTIMIZATIONS)
 # NOTE: *never* *ever* use the -ffast-math or -funsafe-math-optimizations flag
 
 DO_CC=$(CC) $(CFLAGS) -c $< -o $@
-DO_CXX=$(CXX) $(CXXFLAGS) $(CFLAGS) -c $< -o $@
 
 
 # Link
@@ -566,10 +564,6 @@ nexuiz.o: %.o : %.rc
 .c.o:
 	$(CHECKLEVEL2)
 	$(DO_CC)
-
-.cpp.o:
-	$(CHECKLEVEL2)
-	$(DO_CXX)
 
 $(EXE_CL): $(OBJ_CL) $(OBJ_ICON)
 	$(CHECKLEVEL2)
