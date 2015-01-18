@@ -1652,7 +1652,7 @@ void CL_EntityParticles (const entity_t *ent)
 
 	if (!avelocities[0][0])
 		for (i = 0;i < NUMVERTEXNORMALS * 3;i++)
-			avelocities[i][0] = lhrandom(0, 2.55);
+			avelocities[0][i] = lhrandom(0, 2.55);
 
 	for (i = 0;i < NUMVERTEXNORMALS;i++)
 	{
