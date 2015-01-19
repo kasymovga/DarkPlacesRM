@@ -37,7 +37,7 @@ SDLCONFIG_UNIXLIBS?=`$(SDL_CONFIG) --libs`
 SDLCONFIG_UNIXLIBS_X11?=-lX11
 SDLCONFIG_UNIXSTATICLIBS?=`$(SDL_CONFIG) --static-libs`
 SDLCONFIG_UNIXSTATICLIBS_X11?=-lX11
-SDLCONFIG_MACOSXCFLAGS=-I/Library/Frameworks/SDL.framework/Headers -I$(HOME)/Library/Frameworks/SDL.framework/Headers
+SDLCONFIG_MACOSXCFLAGS=-I/opt/local/include -I/Library/Frameworks/SDL.framework/Headers -I$(HOME)/Library/Frameworks/SDL.framework/Headers
 SDLCONFIG_MACOSXLIBS=-F$(HOME)/Library/Frameworks/ -framework SDL -framework Cocoa $(SDLCONFIG_MACOSXCFLAGS)
 SDLCONFIG_MACOSXSTATICLIBS=-F$(HOME)/Library/Frameworks/ -framework SDL -framework Cocoa $(SDLCONFIG_MACOSXCFLAGS)
 STRIP?=strip
@@ -598,7 +598,7 @@ clean:
 	-$(CMD_RM) $(EXE_SDLNEXUIZ)
 	-$(CMD_RM) *.o
 	-$(CMD_RM) *.d
-	-$(CMD_RM) *rm-*.exe
+	-$(CMD_RM) darkplaces*.exe
 
 clean-profile: clean
 	-$(CMD_RM) *.gcda

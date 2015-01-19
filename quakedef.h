@@ -435,13 +435,13 @@ extern cvar_t sessionid;
 #elif defined(__OpenBSD__)
 # define DP_OS_NAME		"OpenBSD"
 # define DP_OS_STR		"openbsd"
+#elif defined(MACOSX)
+# define DP_OS_NAME		"Mac OS X"
+# define DP_OS_STR		"osx"
 #elif defined(TARGET_OS_IPHONE)
 # define DP_OS_NAME		"iPhoneOS"
 # define DP_OS_STR		"iphoneos"
 # define USE_GLES2		1
-#elif defined(MACOSX)
-# define DP_OS_NAME		"Mac OS X"
-# define DP_OS_STR		"osx"
 #elif defined(__MORPHOS__)
 # define DP_OS_NAME		"MorphOS"
 # define DP_OS_STR		"morphos"
