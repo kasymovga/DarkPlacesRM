@@ -1163,6 +1163,8 @@ static void Host_Init (void)
 	else
 		srand((unsigned int)time(NULL));
 
+    Cvar_InitTable();
+
 	// FIXME: this is evil, but possibly temporary
 	// LordHavoc: doesn't seem very temporary...
 	// LordHavoc: made this a saved cvar

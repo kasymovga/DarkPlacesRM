@@ -166,6 +166,7 @@ OBJ_COMMON= \
 	r_sky.o \
 	r_sprites.o \
 	sbar.o \
+	siphash.o \
 	sv_demo.o \
 	sv_main.o \
 	sv_move.o \
@@ -288,7 +289,7 @@ OBJ_BSDCD=cd_bsd.o
 
 # Link
 LDFLAGS_BSDCL=$(LDFLAGS_UNIXCOMMON) -lutil $(LDFLAGS_UNIXCL)
-LDFLAGS_BSDSV=$(LDFLAGS_UNIXCOMMON) 
+LDFLAGS_BSDSV=$(LDFLAGS_UNIXCOMMON)
 LDFLAGS_BSDSDL=$(LDFLAGS_UNIXCOMMON) $(LDFLAGS_UNIXSDL)
 
 
@@ -364,7 +365,7 @@ help:
 	@echo "* $(MAKE) sdl-release-profile : make SDL client (profile version)"
 	@echo "* $(MAKE) sdl-nexuiz          : make SDL client with nexuiz icon (release version)"
 	@echo
-	@echo "* $(MAKE) install             : install built executables into PREFIX (currently ${PREFIX})" 
+	@echo "* $(MAKE) install             : install built executables into PREFIX (currently ${PREFIX})"
 	@echo
 
 debug :
