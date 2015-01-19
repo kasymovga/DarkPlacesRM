@@ -793,17 +793,19 @@ void Sys_SendKeyEvents( void )
 			case SDL_VIDEOEXPOSE:
 				break;
 			case SDL_VIDEORESIZE:
-				if(vid_resizable.integer < 2)
+				if(vid_resizable.integer < 2 || vid_isfullscreen)
 				{
 					vid.width = event.resize.w;
 					vid.height = event.resize.h;
-					screen = SDL_SetVideoMode(vid.width, vid.height, video_bpp, video_flags);
+					if (!vid_isfullscreen)
+						screen = SDL_SetVideoMode(vid.width, vid.height, video_bpp, video_flags);
+
 					if (vid_softsurface)
 					{
 						SDL_FreeSurface(vid_softsurface);
 						vid_softsurface = SDL_CreateRGBSurface(SDL_SWSURFACE, vid.width, vid.height, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
-						vid.softpixels = (unsigned int *)vid_softsurface->pixels;
 						SDL_SetAlpha(vid_softsurface, 0, 255);
+						vid.softpixels = (unsigned int *)vid_softsurface->pixels;
 						if (vid.softdepthpixels)
 							free(vid.softdepthpixels);
 						vid.softdepthpixels = (unsigned int*)calloc(1, vid.width * vid.height * 4);
