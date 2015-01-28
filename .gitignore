@@ -26,5 +26,7 @@ Makefile.win
 *.dll
 *.dylib
 *.dSYM
+*.gcda
+cscope.out
 lua-5.3.0/
 LuaJIT-2.0.3/

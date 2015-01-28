@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "csprogs.h"
 #include "cl_video.h"
 #include "dpsoftrast.h"
+#include "random.h"
 
 #ifdef SUPPORTD3D
 #include <d3d9.h>
@@ -2709,7 +2710,7 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 			if (r_glsl_permutation->loc_Color_Ambient >= 0) qglUniform3f(r_glsl_permutation->loc_Color_Ambient, colormod[0] * ambientscale, colormod[1] * ambientscale, colormod[2] * ambientscale);
 			if (r_glsl_permutation->loc_Color_Diffuse >= 0) qglUniform3f(r_glsl_permutation->loc_Color_Diffuse, colormod[0] * diffusescale, colormod[1] * diffusescale, colormod[2] * diffusescale);
 			if (r_glsl_permutation->loc_Color_Specular >= 0) qglUniform3f(r_glsl_permutation->loc_Color_Specular, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale);
-	
+
 			// additive passes are only darkened by fog, not tinted
 			if (r_glsl_permutation->loc_FogColor >= 0)
 				qglUniform3f(r_glsl_permutation->loc_FogColor, 0, 0, 0);
@@ -2859,7 +2860,7 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 			DPSOFTRAST_Uniform3f(DPSOFTRAST_UNIFORM_Color_Ambient, colormod[0] * ambientscale, colormod[1] * ambientscale, colormod[2] * ambientscale);
 			DPSOFTRAST_Uniform3f(DPSOFTRAST_UNIFORM_Color_Diffuse, colormod[0] * diffusescale, colormod[1] * diffusescale, colormod[2] * diffusescale);
 			DPSOFTRAST_Uniform3f(DPSOFTRAST_UNIFORM_Color_Specular, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale);
-	
+
 			// additive passes are only darkened by fog, not tinted
 			DPSOFTRAST_Uniform3f(DPSOFTRAST_UNIFORM_FogColor, 0, 0, 0);
 			DPSOFTRAST_Uniform1f(DPSOFTRAST_UNIFORM_SpecularPower, rsurface.texture->specularpower * (r_shadow_glossexact.integer ? 0.25f : 1.0f) - 1.0f);
@@ -3770,9 +3771,9 @@ skinframe_t *R_SkinFrame_LoadMissing(void)
 	skinframe->reflect = NULL;
 	skinframe->hasalpha = false;
 
-	skinframe->avgcolor[0] = rand() / RAND_MAX;
-	skinframe->avgcolor[1] = rand() / RAND_MAX;
-	skinframe->avgcolor[2] = rand() / RAND_MAX;
+	skinframe->avgcolor[0] = xrand() / XRAND_MAX;
+	skinframe->avgcolor[1] = xrand() / XRAND_MAX;
+	skinframe->avgcolor[2] = xrand() / XRAND_MAX;
 	skinframe->avgcolor[3] = 1;
 
 	return skinframe;
@@ -4758,12 +4759,12 @@ static void R_View_UpdateEntityLighting (void)
 			VectorSet(ent->modellight_lightdir, 0, 0, 1);
 			continue;
 		}
-		
+
 		if (ent->flags & RENDER_CUSTOMIZEDMODELLIGHT)
 		{
 			// aleady updated by CSQC
 			// TODO: force modellight on BSP models in this case?
-			VectorCopy(ent->modellight_lightdir, tempdiffusenormal); 
+			VectorCopy(ent->modellight_lightdir, tempdiffusenormal);
 		}
 		else
 		{
@@ -5940,7 +5941,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 				r_refdef.view.usecustompvs = true;
 				r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, (r_refdef.viewcache.world_numclusters+7)>>3, false);
 			}
-			
+
 			// camera needs no clipplane
 			r_refdef.view.useclipplane = false;
 
@@ -6184,7 +6185,7 @@ static void R_Bloom_StartFrame(void)
 	r_fb.screentexcoord2f[6] = 0;
 	r_fb.screentexcoord2f[7] = 0;
 
-	if(r_fb.fbo) 
+	if(r_fb.fbo)
 	{
 		for (i = 1;i < 8;i += 2)
 		{
@@ -6239,7 +6240,7 @@ static void R_Bloom_MakeTexture(void)
 	float colorscale = r_bloom_colorscale.value;
 
 	r_refdef.stats.bloom++;
-    
+
 #if 0
     // this copy is unnecessary since it happens in R_BlendView already
 	if (!r_fb.fbo)
@@ -6407,22 +6408,22 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 			{
 				// declare variables
 				float blur_factor, blur_mouseaccel, blur_velocity;
-				static float blur_average; 
+				static float blur_average;
 				static vec3_t blur_oldangles; // used to see how quickly the mouse is moving
 
 				// set a goal for the factoring
-				blur_velocity = bound(0, (VectorLength(cl.movement_velocity) - r_motionblur_velocityfactor_minspeed.value) 
+				blur_velocity = bound(0, (VectorLength(cl.movement_velocity) - r_motionblur_velocityfactor_minspeed.value)
 					/ max(1, r_motionblur_velocityfactor_maxspeed.value - r_motionblur_velocityfactor_minspeed.value), 1);
-				blur_mouseaccel = bound(0, ((fabs(VectorLength(cl.viewangles) - VectorLength(blur_oldangles)) * 10) - r_motionblur_mousefactor_minspeed.value) 
+				blur_mouseaccel = bound(0, ((fabs(VectorLength(cl.viewangles) - VectorLength(blur_oldangles)) * 10) - r_motionblur_mousefactor_minspeed.value)
 					/ max(1, r_motionblur_mousefactor_maxspeed.value - r_motionblur_mousefactor_minspeed.value), 1);
-				blur_factor = ((blur_velocity * r_motionblur_velocityfactor.value) 
+				blur_factor = ((blur_velocity * r_motionblur_velocityfactor.value)
 					+ (blur_mouseaccel * r_motionblur_mousefactor.value));
 
 				// from the goal, pick an averaged value between goal and last value
 				cl.motionbluralpha = bound(0, (cl.time - cl.oldtime) / max(0.001, r_motionblur_averaging.value), 1);
 				blur_average = blur_average * (1 - cl.motionbluralpha) + blur_factor * cl.motionbluralpha;
 
-				// enforce minimum amount of blur 
+				// enforce minimum amount of blur
 				blur_factor = blur_average * (1 - r_motionblur_minblur.value) + r_motionblur_minblur.value;
 
 				//Con_Printf("motionblur: direct factor: %f, averaged factor: %f, velocity: %f, mouse accel: %f \n", blur_factor, blur_average, blur_velocity, blur_mouseaccel);

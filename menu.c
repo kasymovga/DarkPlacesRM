@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cdaudio.h"
 #include "image.h"
 #include "progsvm.h"
+#include "random.h"
 
 #include "mprogdefs.h"
 
@@ -3264,7 +3265,7 @@ void M_Menu_Quit_f (void)
 	// count how many there are
 	for (n = 1;M_ChooseQuitMessage(n);n++);
 	// choose one
-	M_ChooseQuitMessage(rand() % n);
+	M_ChooseQuitMessage(xrand() % n);
 }
 
 

@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "quakedef.h"
+#include "random.h"
 
 extern cvar_t cl_capturevideo;
 int old_vsync = 0;
@@ -595,6 +596,7 @@ void CL_TimeDemo_f (void)
 	}
 
 	srand(0); // predictable random sequence for benchmarking
+    Xrand_Init(1);
 
 	CL_PlayDemo_f ();
 

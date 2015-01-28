@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "thread.h"
 #include "utf8lib.h"
 #include "irc.h"
+#include "random.h"
 
 /*
 
@@ -742,8 +743,10 @@ void Host_Main(void)
 			Cvar_SetValue("host_framerate", 0);
 
 		// keep the random time dependent, but not when playing demos/benchmarking
-		if(!*sv_random_seed.string && !cls.demoplayback)
-			rand();
+		if(!*sv_random_seed.string && !cls.demoplayback) {
+			xrand();
+            rand();
+        }
 
 		// get new key events
 		Key_EventQueue_Unblock();
@@ -1056,9 +1059,9 @@ void Host_Main(void)
 				svs.perf_acc_lost += sv_timer;
 			sv_timer = 0;
 		}
-        
+
         IRC_Frame();
-        
+
 		host_framecount++;
 	}
 }
@@ -1158,10 +1161,14 @@ static void Host_Init (void)
 		Sys_AllowProfiling(false);
 
 	// LordHavoc: quake never seeded the random number generator before... heh
-	if (COM_CheckParm("-benchmark"))
+	if (COM_CheckParm("-benchmark")) {
+        Xrand_Init(1);
 		srand(0); // predictable random sequence for -benchmark
-	else
+    }
+	else {
+        Xrand_Init(0);
 		srand((unsigned int)time(NULL));
+    }
 
     Cvar_InitTable();
 
@@ -1261,7 +1268,7 @@ static void Host_Init (void)
 	Host_InitCommands();
 	Host_InitLocal();
 	Host_ServerOptions();
-    
+
     IRC_Init();
 	Thread_Init();
 

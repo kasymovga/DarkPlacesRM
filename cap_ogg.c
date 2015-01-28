@@ -6,6 +6,7 @@
 #include "quakedef.h"
 #include "client.h"
 #include "cap_ogg.h"
+#include "random.h"
 
 // video capture cvars
 static cvar_t cl_capturevideo_ogg_theora_vp3compat = {CVAR_SAVE, "cl_capturevideo_ogg_theora_vp3compat", "1", "make VP3 compatible theora streams"};
@@ -99,7 +100,7 @@ typedef struct {
   long  e_o_s;
 
   ogg_int64_t  granulepos;
-  
+
   ogg_int64_t  packetno;     /* sequence number for decode; the framing
 				knows where there's a hole in the data,
 				but we need coupling so that the codec
@@ -355,7 +356,7 @@ typedef enum {
  * Theora bitstream info.
  * Contains the basic playback parameters for a stream,
  * corresponding to the initial 'info' header packet.
- * 
+ *
  * Encoded theora frames must be a multiple of 16 in width and height.
  * To handle other frame sizes, a crop rectangle is specified in
  * frame_height and frame_width, offset_x and * offset_y. The offset
@@ -367,7 +368,7 @@ typedef enum {
  * fraction. Aspect ratio is also stored as a rational fraction, and
  * refers to the aspect ratio of the frame pixels, not of the
  * overall frame itself.
- * 
+ *
  * See <a href="http://svn.xiph.org/trunk/theora/examples/encoder_example.c">
  * examples/encoder_example.c</a> for usage examples of the
  * other paramters and good default settings for the encoder parameters.
@@ -422,14 +423,14 @@ typedef struct{
 
 } theora_state;
 
-/** 
+/**
  * Comment header metadata.
  *
  * This structure holds the in-stream metadata corresponding to
  * the 'comment' header packet.
  *
  * Meta data is stored as a series of (tag, value) pairs, in
- * length-encoded string vectors. The first occurence of the 
+ * length-encoded string vectors. The first occurence of the
  * '=' character delimits the tag and value. A particular tag
  * may occur more than once. The character set encoding for
  * the strings is always UTF-8, but the tag names are limited
@@ -778,7 +779,7 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 			FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
 		}
 	}
-		
+
 	while (1) {
 		int result = qogg_stream_flush (&format->to, &pg);
 		if (result < 0)
@@ -955,14 +956,14 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 		theora_info ti;
 		int vp3compat;
 
-		format->serial1 = rand();
+		format->serial1 = xrand();
 		qogg_stream_init(&format->to, format->serial1);
 
 		if(cls.capturevideo.soundrate)
 		{
 			do
 			{
-				format->serial2 = rand();
+				format->serial2 = xrand();
 			}
 			while(format->serial1 == format->serial2);
 			qogg_stream_init(&format->vo, format->serial2);

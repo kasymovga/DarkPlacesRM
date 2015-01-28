@@ -158,6 +158,7 @@ OBJ_COMMON= \
 	prvm_cmds.o \
 	prvm_edict.o \
 	prvm_exec.o \
+	random.o \
 	r_explosion.o \
 	r_lerpanim.o \
 	r_lightning.o \

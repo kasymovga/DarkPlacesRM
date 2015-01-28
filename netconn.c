@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "hmac.h"
 #include "mdfour.h"
 #include <time.h>
+#include "random.h"
 
 #define QWMASTER_PORT 27000
 #define DPMASTER_PORT 27950
@@ -615,7 +616,7 @@ int NetConn_Read(lhnetsocket_t *mysocket, void *data, int maxlength, lhnetaddres
 		return 0;
 	if (cl_netpacketloss_receive.integer)
 		for (i = 0;i < cl_numsockets;i++)
-			if (cl_sockets[i] == mysocket && (rand() % 100) < cl_netpacketloss_receive.integer)
+			if (cl_sockets[i] == mysocket && (xrand() % 100) < cl_netpacketloss_receive.integer)
 				return 0;
 	if (developer_networking.integer)
 	{
@@ -639,7 +640,7 @@ int NetConn_Write(lhnetsocket_t *mysocket, const void *data, int length, const l
 	int i;
 	if (cl_netpacketloss_send.integer)
 		for (i = 0;i < cl_numsockets;i++)
-			if (cl_sockets[i] == mysocket && (rand() % 100) < cl_netpacketloss_send.integer)
+			if (cl_sockets[i] == mysocket && (xrand() % 100) < cl_netpacketloss_send.integer)
 				return length;
 	if (mysocket->address.addresstype == LHNETADDRESSTYPE_LOOP && netconn_mutex)
 		Thread_LockMutex(netconn_mutex);
@@ -2340,7 +2341,7 @@ static void NetConn_BuildChallengeString(char *buffer, int bufferlength)
 	{
 		do
 		{
-			c = rand () % (127 - 33) + 33;
+			c = xrand () % (127 - 33) + 33;
 		} while (c == '\\' || c == ';' || c == '"' || c == '%' || c == '/');
 		buffer[i] = c;
 	}
