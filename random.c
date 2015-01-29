@@ -1,7 +1,37 @@
 #include "random.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+/* Generator 1 -- use for low-spatial normal-distributed numbers at high rate.
+ * NOT cryptographically secure.
+ *
+ * Based upon a paper by S. Vigna [1]
+ *
+ * http://arxiv.org/pdf/1404.0390v1.pdf
+ */
+
+typedef struct {
+    uint64_t state[2];
+} xorplus128_t;
+
+/* initialize generator with `dlen` octets stored in `data`.
+ * if data is NULL, then the generator will use clock() and time() instead.
+ *
+ * if the length is < 16 octets, then it'll also use clock() and time() to
+ * improve the initial state.
+ */
+static void srand_xorplus128(xorplus128_t* s, const uint8_t* data, const size_t dlen);
+
+/* return integer in range [0, 2**32-1] */
+static uint64_t rand_xorplus128(xorplus128_t* s);
+
+/* return fpoint in range [0, 1.0) */
+static double frand_xorplus128(xorplus128_t* s);
+
+/* return fpoint in range [0, 1.0] */
+static double frandi_xorplus128(xorplus128_t* s);
 
 void srand_xorplus128(xorplus128_t* s, const uint8_t* data, const size_t dlen) {
     s->state[0] = 0;
