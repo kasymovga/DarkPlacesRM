@@ -652,6 +652,8 @@ const char *Host_TimingReport(char *buf, size_t buflen)
 	return va(buf, buflen, "%.1f%% CPU, %.2f%% lost, offset avg %.1fms, max %.1fms, sdev %.1fms", svs.perf_cpuload * 100, svs.perf_lost * 100, svs.perf_offset_avg * 1000, svs.perf_offset_max * 1000, svs.perf_offset_sdev * 1000);
 }
 
+#include "timedemo.h"
+
 /*
 ==================
 Host_Frame
@@ -927,6 +929,7 @@ void Host_Main(void)
 
 		if (cls.state != ca_dedicated && (cl_timer > 0 || cls.timedemo || ((vid_activewindow ? cl_maxfps : cl_maxidlefps).value < 1)))
 		{
+            TimeDemo_BeginFrame(tdstats);
 			R_TimeReport("---");
 			Collision_Cache_NewFrame();
 			R_TimeReport("collisioncache");
@@ -1041,6 +1044,7 @@ void Host_Main(void)
 				Con_Printf("%6ius total %6ius server %6ius gfx %6ius snd\n",
 							pass1+pass2+pass3, pass1, pass2, pass3);
 			}
+            TimeDemo_EndFrame(tdstats);
 		}
 
 #if MEMPARANOIA
@@ -1146,6 +1150,8 @@ void Host_UnlockSession(void)
 	}
 }
 
+#include "timedemo.h"
+
 /*
 ====================
 Host_Init
@@ -1169,6 +1175,8 @@ static void Host_Init (void)
         Xrand_Init(0);
 		srand((unsigned int)time(NULL));
     }
+
+    tdstats = TimeDemo_Init();
 
     Cvar_InitTable();
 

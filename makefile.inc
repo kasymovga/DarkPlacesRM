@@ -168,6 +168,7 @@ OBJ_COMMON= \
 	r_sprites.o \
 	sbar.o \
 	siphash.o \
+	stats.o \
 	sv_demo.o \
 	sv_main.o \
 	sv_move.o \
@@ -176,6 +177,7 @@ OBJ_COMMON= \
 	svbsp.o \
 	svvm_cmds.o \
 	sys_shared.o \
+	timedemo.o \
 	vid_shared.o \
 	view.o \
 	wad.o \

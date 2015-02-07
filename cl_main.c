@@ -1901,7 +1901,7 @@ void CL_UpdateWorld(void)
 	r_refdef.scene.numlights = 0;
 	r_refdef.view.matrix = identitymatrix;
 	r_refdef.view.quality = 1;
-		
+
 	cl.num_brushmodel_entities = 0;
 
 	if (cls.state == ca_connected && cls.signon == SIGNONS)
