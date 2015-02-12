@@ -27,11 +27,6 @@ static void srand_xorplus128(xorplus128_t* s, const uint8_t* data, const size_t 
 /* return integer in range [0, 2**32-1] */
 static uint64_t rand_xorplus128(xorplus128_t* s);
 
-/* return fpoint in range [0, 1.0) */
-static double frand_xorplus128(xorplus128_t* s);
-
-/* return fpoint in range [0, 1.0] */
-static double frandi_xorplus128(xorplus128_t* s);
 
 void srand_xorplus128(xorplus128_t* s, const uint8_t* data, const size_t dlen) {
     s->state[0] = 0;
@@ -60,16 +55,6 @@ uint64_t rand_xorplus128(xorplus128_t* s) {
     x ^= x << 23;
     s->state[1] = (x ^ y ^ (x >> 17) ^ (y >> 26));
     return (s->state[1] + y);
-}
-
-double frand_xorplus128(xorplus128_t* s) {
-    const uint64_t res = rand_xorplus128(s);
-    return ((double)(res) / (double)(UINT64_C(1) << 32)) / (double)(UINT64_C(1) << 32);
-}
-
-double frandi_xorplus128(xorplus128_t* s) {
-    const uint64_t res = rand_xorplus128(s);
-    return (double)(res) / (double)(UINT64_MAX);
 }
 
 static xorplus128_t xp_rand_state;
