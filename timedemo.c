@@ -3,8 +3,12 @@
 #include <float.h>
 #include <stdlib.h>
 
+#include "quakedef.h"
+
+timedemo_t tdstats;
+
 timedemo_t* TimeDemo_Init(void) {
-    timedemo_t* res = malloc(sizeof(timedemo_t));
+    timedemo_t* res = (timedemo_t*)Mem_Alloc(cls.permanentmempool, sizeof(timedemo_t));
     if(res) {
         Stats_Reset(&res->stats);
     }
@@ -14,7 +18,7 @@ timedemo_t* TimeDemo_Init(void) {
 
 void TimeDemo_Destroy(timedemo_t* t) {
     if(t) {
-        free(t);
+        Mem_Free(t);
         t = NULL;
     }
 }
@@ -39,7 +43,7 @@ void TimeDemo_EndFrame(timedemo_t* t) {
         clock_delta -= t->last_begin;
         time_delta = (double)(clock_delta) / CLOCKS_PER_SEC;
 
-        Stats_Add(&t->stats, time_delta);
+        Stats_Add(&t->stats, time_delta * 1000.);
     }
 }
 

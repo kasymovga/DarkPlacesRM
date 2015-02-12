@@ -13,7 +13,7 @@ typedef struct {
     clock_t last_begin;
 } timedemo_t;
 
-extern timedemo_t *tdstats;
+extern timedemo_t tdstats;
 
 timedemo_t* TimeDemo_Init(void);
 void        TimeDemo_Destroy(timedemo_t*);

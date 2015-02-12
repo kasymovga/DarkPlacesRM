@@ -59,7 +59,6 @@ Host_Quit_f
 
 void Host_Quit_f (void)
 {
-    TimeDemo_Destroy(tdstats);
 	if(host_shuttingdown)
 		Con_Printf("shutting down already!\n");
 	else
