@@ -603,6 +603,7 @@ clean:
 	-$(CMD_RM) *.o
 	-$(CMD_RM) *.d
 	-$(CMD_RM) darkplaces*.exe
+	-$(CMD_RM) nexuiz*.exe
 
 clean-profile: clean
 	-$(CMD_RM) *.gcda
