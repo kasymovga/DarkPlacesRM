@@ -929,7 +929,9 @@ void Host_Main(void)
 
 		if (cls.state != ca_dedicated && (cl_timer > 0 || cls.timedemo || ((vid_activewindow ? cl_maxfps : cl_maxidlefps).value < 1)))
 		{
-            TimeDemo_BeginFrame(tdstats);
+            if(cls.td_frames < -2 || cls.td_frames > 0) {
+                TimeDemo_BeginFrame(&tdstats);
+            }
 			R_TimeReport("---");
 			Collision_Cache_NewFrame();
 			R_TimeReport("collisioncache");
@@ -1035,6 +1037,9 @@ void Host_Main(void)
 			// reset gathering of mouse input
 			in_mouse_x = in_mouse_y = 0;
 
+            if(cls.td_frames < -2 || cls.td_frames > 0) {
+                TimeDemo_EndFrame(&tdstats);
+            }
 			if (host_speeds.integer)
 			{
 				pass1 = (int)((time1 - time3)*1000000);
@@ -1044,7 +1049,6 @@ void Host_Main(void)
 				Con_Printf("%6ius total %6ius server %6ius gfx %6ius snd\n",
 							pass1+pass2+pass3, pass1, pass2, pass3);
 			}
-            TimeDemo_EndFrame(tdstats);
 		}
 
 #if MEMPARANOIA
@@ -1175,8 +1179,6 @@ static void Host_Init (void)
         Xrand_Init(0);
 		srand((unsigned int)time(NULL));
     }
-
-    tdstats = TimeDemo_Init();
 
     Cvar_InitTable();
 
