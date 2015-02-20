@@ -102,7 +102,7 @@ static cvar_t *Cvar_FindVarLink (const char *var_name, cvar_t **parent, cvar_t *
 	cvar_t *var;
 
 	// use hash lookup to minimize search time
-	hashindex = siphash_Block(var_name, strlen(var_name));
+	hashindex = siphash_Block(var_name, strlen(var_name)) % CVAR_HASHSIZE;
 	if(parent) *parent = NULL;
 	if(prev_alpha) *prev_alpha = NULL;
 	if(link) *link = &cvar_hashtable[hashindex];
