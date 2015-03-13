@@ -31,6 +31,7 @@ CFLAGS_ODE=`[ -n "$(DP_ODE_STATIC_LIBDIR)" ] && "$(DP_ODE_STATIC_LIBDIR)/../bin/
 
 
 SDL_CONFIG?=sdl-config
+SDL2_CONFIG?=sdl2-config
 SDLCONFIG_UNIXCFLAGS?=`$(SDL_CONFIG) --cflags`
 SDLCONFIG_UNIXCFLAGS_X11?=
 SDLCONFIG_UNIXLIBS?=`$(SDL_CONFIG) --libs`
@@ -367,6 +368,10 @@ help:
 	@echo "* $(MAKE) sdl-release         : make SDL client (release version)"
 	@echo "* $(MAKE) sdl-release-profile : make SDL client (profile version)"
 	@echo "* $(MAKE) sdl-nexuiz          : make SDL client with nexuiz icon (release version)"
+	@echo "* $(MAKE) sdl2-debug           : make SDL2 client (debug version)"
+	@echo "* $(MAKE) sdl2-profile         : make SDL2 client (profile version)"
+	@echo "* $(MAKE) sdl2-release-profile : make SDL2 client (release profile version)"
+	@echo "* $(MAKE) sdl2-release         : make SDL2 client (release version)"
 	@echo
 	@echo "* $(MAKE) install             : install built executables into PREFIX (currently ${PREFIX})"
 	@echo
@@ -460,6 +465,17 @@ sdl-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE="$(EXE_SDLNEXUIZ)" LDFLAGS_COMMON="$(LDFLAGS_SDL)" LEVEL=1 ISNEXUIZ=1
+sdl2-debug :
+	$(MAKE) SDL_CONFIG=$(SDL2_CONFIG) sdl-debug
+
+sdl2-profile :
+	$(MAKE) SDL_CONFIG=$(SDL2_CONFIG) sdl-profile
+
+sdl2-release :
+	$(MAKE) SDL_CONFIG=$(SDL2_CONFIG) sdl-release
+
+sdl2-release-profile :
+	$(MAKE) SDL_CONFIG=$(SDL2_CONFIG) sdl-release-profile
 
 bin-debug :
 	$(CHECKLEVEL1)

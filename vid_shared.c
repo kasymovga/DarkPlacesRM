@@ -165,6 +165,12 @@ cvar_t vid_samples = {CVAR_SAVE, "vid_samples", "1", "how many anti-aliasing sam
 cvar_t vid_refreshrate = {CVAR_SAVE, "vid_refreshrate", "60", "refresh rate to use, in hz (higher values flicker less, if supported by your monitor)"};
 cvar_t vid_userefreshrate = {CVAR_SAVE, "vid_userefreshrate", "0", "set this to 1 to make vid_refreshrate used, or to 0 to let the engine choose a sane default"};
 cvar_t vid_stereobuffer = {CVAR_SAVE, "vid_stereobuffer", "0", "enables 'quad-buffered' stereo rendering for stereo shutterglasses, HMD (head mounted display) devices, or polarized stereo LCDs, if supported by your drivers"};
+// the density cvars are completely optional, set and use when something needs to have a density-independent size.
+// TODO: set them when changing resolution, setting them from the commandline will be independent from the resolution - use only if you have a native fixed resolution.
+// values for the Samsung Galaxy SIII, Snapdragon version: 2.000000 density, 304.799988 xdpi, 303.850464 ydpi
+cvar_t vid_touchscreen_density = {0, "vid_touchscreen_density", "2.0", "Standard quantized screen density multiplier (see Android documentation for DisplayMetrics), similar values are given on iPhoneOS"};
+cvar_t vid_touchscreen_xdpi = {0, "vid_touchscreen_xdpi", "300", "Horizontal DPI of the screen (only valid on Android currently)"};
+cvar_t vid_touchscreen_ydpi = {0, "vid_touchscreen_ydpi", "300", "Vertical DPI of the screen (only valid on Android currently)"};
 
 cvar_t vid_vsync = {CVAR_SAVE, "vid_vsync", "0", "sync to vertical blank, prevents 'tearing' (seeing part of one frame and part of another on the screen at the same time), automatically disabled when doing timedemo benchmarks"};
 cvar_t vid_mouse = {CVAR_SAVE, "vid_mouse", "1", "whether to use the mouse in windowed mode (fullscreen always does)"};
@@ -178,8 +184,11 @@ cvar_t vid_sRGB = {CVAR_SAVE, "vid_sRGB", "0", "if hardware is capable, modify r
 cvar_t vid_sRGB_fallback = {CVAR_SAVE, "vid_sRGB_fallback", "0", "do an approximate sRGB fallback if not properly supported by hardware (2: also use the fallback if framebuffer is 8bit, 3: always use the fallback even if sRGB is supported)"};
 
 cvar_t vid_touchscreen = {0, "vid_touchscreen", "0", "Use touchscreen-style input (no mouse grab, track mouse motion only while button is down, screen areas for mimicing joystick axes and buttons"};
+cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "shows the platform's screen keyboard for text entry, can be set by csqc or menu qc if it wants to receive text input, does nothing if the platform has no screen keyboard"};
+cvar_t vid_touchscreen_supportshowkeyboard = {CVAR_READONLY, "vid_touchscreen_supportshowkeyboard", "0", "indicates if the platform supports a virtual keyboard"};
 cvar_t vid_stick_mouse = {CVAR_SAVE, "vid_stick_mouse", "0", "have the mouse stuck in the center of the screen" };
 cvar_t vid_resizable = {CVAR_SAVE, "vid_resizable", "0", "0: window not resizable, 1: resizable, 2: window can be resized but the framebuffer isn't adjusted" };
+cvar_t vid_desktopfullscreen = {CVAR_SAVE, "vid_desktopfullscreen", "0", "force desktop resolution for fullscreen; also use some OS dependent tricks for better fullscreen integration"};
 
 cvar_t v_gamma = {CVAR_SAVE, "v_gamma", "1", "inverse gamma correction value, a brightness effect that does not affect white or black, and tends to make the image grey and dull"};
 cvar_t v_contrast = {CVAR_SAVE, "v_contrast", "1", "brightness of white (values above 1 give a brighter image with increased color saturation, unlike v_gamma)"};
@@ -1720,12 +1729,18 @@ void VID_Shared_Init(void)
 	Cvar_RegisterVariable(&vid_refreshrate);
 	Cvar_RegisterVariable(&vid_userefreshrate);
 	Cvar_RegisterVariable(&vid_stereobuffer);
+	Cvar_RegisterVariable(&vid_touchscreen_density);
+	Cvar_RegisterVariable(&vid_touchscreen_xdpi);
+	Cvar_RegisterVariable(&vid_touchscreen_ydpi);
 	Cvar_RegisterVariable(&vid_vsync);
 	Cvar_RegisterVariable(&vid_mouse);
 	Cvar_RegisterVariable(&vid_grabkeyboard);
 	Cvar_RegisterVariable(&vid_touchscreen);
+	Cvar_RegisterVariable(&vid_touchscreen_showkeyboard);
+	Cvar_RegisterVariable(&vid_touchscreen_supportshowkeyboard);
 	Cvar_RegisterVariable(&vid_stick_mouse);
 	Cvar_RegisterVariable(&vid_resizable);
+	Cvar_RegisterVariable(&vid_desktopfullscreen);
 	Cvar_RegisterVariable(&vid_minwidth);
 	Cvar_RegisterVariable(&vid_minheight);
 	Cvar_RegisterVariable(&vid_gl13);
@@ -1936,6 +1951,15 @@ void VID_Start(void)
 // COMMANDLINEOPTION: Video: -bpp <bits> performs +vid_bitsperpixel <bits> (example -bpp 32 or -bpp 16)
 		if ((i = COM_CheckParm("-bpp")) != 0)
 			Cvar_SetQuick(&vid_bitsperpixel, com_argv[i+1]);
+// COMMANDLINEOPTION: Video: -density <multiplier> performs +vid_touchscreen_density <multiplier> (example -density 1 or -density 1.5)
+		if ((i = COM_CheckParm("-density")) != 0)
+			Cvar_SetQuick(&vid_touchscreen_density, com_argv[i+1]);
+// COMMANDLINEOPTION: Video: -xdpi <dpi> performs +vid_touchscreen_xdpi <dpi> (example -xdpi 160 or -xdpi 320)
+		if ((i = COM_CheckParm("-touchscreen_xdpi")) != 0)
+			Cvar_SetQuick(&vid_touchscreen_xdpi, com_argv[i+1]);
+// COMMANDLINEOPTION: Video: -ydpi <dpi> performs +vid_touchscreen_ydpi <dpi> (example -ydpi 160 or -ydpi 320)
+		if ((i = COM_CheckParm("-touchscreen_ydpi")) != 0)
+			Cvar_SetQuick(&vid_touchscreen_ydpi, com_argv[i+1]);
 	}
 
 	success = VID_Mode(vid_fullscreen.integer, vid_width.integer, vid_height.integer, vid_bitsperpixel.integer, vid_refreshrate.value, vid_stereobuffer.integer, vid_samples.integer);
