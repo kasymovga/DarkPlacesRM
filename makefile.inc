@@ -94,16 +94,29 @@ OBJ_NOCD=cd_null.o
 
 # Common objects
 OBJ_COMMON= \
+	cd_shared.o \
+	cl_input.o \
+	cl_main.o \
+	gl_backend.o \
+	gl_rmain.o \
+	gl_textures.o \
+	crypto.o \
+	host.o \
+	irc.o \
+	mathlib.o \
+	r_shadow.o \
+	sbar.o \
+	image.o \
+	sv_main.o \
+	vid_shared.o \
+	world.o \
+	keys.o \
 	bih.o \
 	cap_avi.o \
 	cap_ogg.o \
-	cd_shared.o \
-	crypto.o \
 	cl_collision.o \
 	cl_demo.o \
 	cl_dyntexture.o \
-	cl_input.o \
-	cl_main.o \
 	cl_parse.o \
 	cl_particles.o \
 	cl_screen.o \
@@ -123,22 +136,14 @@ OBJ_COMMON= \
 	fs.o \
 	ft2.o \
 	utf8lib.o \
-	gl_backend.o \
 	gl_draw.o \
-	gl_rmain.o \
 	gl_rsurf.o \
-	gl_textures.o \
 	hmac.o \
-	host.o \
 	host_cmd.o \
-	image.o \
 	image_png.o \
-    irc.o \
 	jpeg.o \
-	keys.o \
 	lhnet.o \
 	libcurl.o \
-	mathlib.o \
 	matrixlib.o \
 	mdfour.o \
 	menu.o \
@@ -163,14 +168,11 @@ OBJ_COMMON= \
 	r_lerpanim.o \
 	r_lightning.o \
 	r_modules.o \
-	r_shadow.o \
 	r_sky.o \
 	r_sprites.o \
-	sbar.o \
 	siphash.o \
 	stats.o \
 	sv_demo.o \
-	sv_main.o \
 	sv_move.o \
 	sv_phys.o \
 	sv_user.o \
@@ -178,10 +180,8 @@ OBJ_COMMON= \
 	svvm_cmds.o \
 	sys_shared.o \
 	timedemo.o \
-	vid_shared.o \
 	view.o \
 	wad.o \
-	world.o \
 	zone.o
 
 # note that builddate.c is very intentionally not compiled to a .o before
