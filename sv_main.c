@@ -931,7 +931,11 @@ void SV_SendServerinfo (client_t *client)
 
 	SZ_Clear (&client->netconnection->message);
 	MSG_WriteByte (&client->netconnection->message, svc_print);
+#ifdef VECXIS_RELEASE
+	dpsnprintf (message, sizeof (message), "\nServer: vdprm " DP_OS_NAME " build %s, running %s (progs %i crc)\n", buildstring, gamename, prog->filecrc);
+#else
 	dpsnprintf (message, sizeof (message), "\nServer: DarkPlacesRM " DP_OS_NAME " build %s, running %s (progs %i crc)\n", buildstring, gamename, prog->filecrc);
+#endif
 	MSG_WriteString (&client->netconnection->message,message);
 
 	SV_StopDemoRecording(client); // to split up demos into different files

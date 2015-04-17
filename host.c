@@ -1247,7 +1247,11 @@ static void Host_Init (void)
 
 	// construct a version string for the corner of the console
 	os = DP_OS_NAME;
+#ifdef VECXIS_RELEASE
+	dpsnprintf (engineversion, sizeof (engineversion), "vdprm %s (Running %s) %s", os, gamename, buildstring);
+#else
 	dpsnprintf (engineversion, sizeof (engineversion), "DarkPlacesRM %s (Running %s) %s", os, gamename, buildstring);
+#endif
 	Con_Printf("%s\n", engineversion);
 
 	// initialize process nice level
