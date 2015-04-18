@@ -950,7 +950,7 @@ void SV_SendServerinfo (client_t *client)
 		for(i = 0; ipaddress[i]; ++i)
 			if(!isalnum(ipaddress[i]))
 				ipaddress[i] = '-';
-		dpsnprintf (demofile, sizeof(demofile), "%s_%s_%d_%s.dem", Sys_TimeString (sv_autodemo_perclient_nameformat.string), sv.worldbasename, PRVM_NUM_FOR_EDICT(client->edict), ipaddress);
+			dpsnprintf (demofile, sizeof(demofile), "%s_%s_%s_%d_%s.dem", Sys_TimeString (sv_autodemo_perclient_nameformat.string), Cvar_VariableString("hostname"), sv.worldbasename, PRVM_NUM_FOR_EDICT(client->edict), ipaddress);
 
 		SV_StartDemoRecording(client, demofile, -1);
 	}
