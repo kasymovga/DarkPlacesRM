@@ -331,9 +331,6 @@ ifndef DP_FS_BASEDIR
 ifeq ($(ISNEXUIZ), 1)
 	DP_FS_BASEDIR=$(DP_FS_BASEDIR_NEXUIZ)
 endif
-ifeq ($(ISVECXIS), 1)
-	DP_FS_BASEDIR=$(DP_FS_BASEDIR_VECXIS)
-endif
 endif
 endif
 
