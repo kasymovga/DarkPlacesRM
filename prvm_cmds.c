@@ -7270,6 +7270,74 @@ void VM_physics_addtorque(prvm_prog_t *prog)
 	VM_physics_ApplyCmd(ed, &f);
 }
 
+#define CFEX_SETARGC if(prog->funcargbuffer_argc < (int)PRVM_G_FLOAT(OFS_PARM0) + 1) prog->funcargbuffer_argc = (int)PRVM_G_FLOAT(OFS_PARM0) + 1;
+
+void VM_CallFunctionEx_SetArgFloat(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgFloat);
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3].fval = PRVM_G_FLOAT(OFS_PARM1);
+    CFEX_SETARGC
+}
+
+void VM_CallFunctionEx_SetArgIntFromFloat(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgIntFromFloat);
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3].ival = (int)PRVM_G_FLOAT(OFS_PARM1);
+    CFEX_SETARGC
+}
+
+void VM_CallFunctionEx_SetArgVector(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgVector);
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3].fval = PRVM_G_VECTOR(OFS_PARM1)[0];
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3 + 1].fval = PRVM_G_VECTOR(OFS_PARM1)[1];
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3 + 2].fval = PRVM_G_VECTOR(OFS_PARM1)[2];
+    CFEX_SETARGC
+}
+
+void VM_CallFunctionEx_SetArgInt(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgInt);
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3].ival = PRVM_G_INT(OFS_PARM1);
+    CFEX_SETARGC
+}
+
+#undef CFEX_SETARGC
+
+void VM_CallFunctionEx(prvm_prog_t *prog) {
+    mfunction_t *func;
+    const char *s;
+    qboolean castretval = false;
+
+    VM_SAFEPARMCOUNTRANGE(1, 2, CallFunctionEx);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    VM_CheckEmptyString(prog, s);
+    func = PRVM_ED_FindFunction(prog, s);
+
+    if(prog->argc > 1)
+        castretval = (qboolean)PRVM_G_FLOAT(OFS_PARM1);
+
+    memcpy(prog->globals.ip + OFS_PARM0, prog->funcargbuffer, sizeof(prog->funcargbuffer));
+    prog->argc = prog->funcargbuffer_argc;
+
+    if(!func)
+        prog->error_cmd("VM_CallFunctionEx: function %s not found !", s);
+    else if (func->first_statement < 0) {
+        // negative statements are built in functions
+        int builtinnumber = -func->first_statement;
+        prog->xfunction->builtinsprofile++;
+        if (builtinnumber < prog->numbuiltins && prog->builtins[builtinnumber])
+            prog->builtins[builtinnumber](prog);
+        else
+            prog->error_cmd("No such builtin #%i in %s; most likely cause: outdated engine build. Try updating!", builtinnumber, prog->name);
+    } else if(func - prog->functions > 0) {
+        prog->ExecuteProgram(prog, func - prog->functions, "");
+    }
+
+    memset(prog->funcargbuffer, 0, sizeof(prog->funcargbuffer));
+    prog->funcargbuffer_argc = 0;
+
+    if(castretval)
+        PRVM_G_FLOAT(OFS_RETURN) = (float)PRVM_G_INT(OFS_RETURN);
+}
+
 /*
  * 
  *  IRC stuff

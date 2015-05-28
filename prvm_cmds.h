@@ -484,6 +484,14 @@ void VM_physics_enable(prvm_prog_t *prog);
 void VM_physics_addforce(prvm_prog_t *prog);
 void VM_physics_addtorque(prvm_prog_t *prog);
 
+
+void VM_CallFunctionEx_SetArgFloat(prvm_prog_t *prog);
+void VM_CallFunctionEx_SetArgIntFromFloat(prvm_prog_t *prog);
+void VM_CallFunctionEx_SetArgVector(prvm_prog_t *prog);
+void VM_CallFunctionEx_SetArgInt(prvm_prog_t *prog);
+void VM_CallFunctionEx(prvm_prog_t *prog);
+
+
 // irc
 void VM_IRC_CreateSession(prvm_prog_t *prog);
 void VM_IRC_ConnectSession(prvm_prog_t *prog);

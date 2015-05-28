@@ -225,6 +225,7 @@ const char *vm_sv_extensions =
 "TW_SV_STEPCONTROL "
 "ZQ_PAUSE "
 "DP_RM_IRC "
+"DP_RM_CALLFUNCTIONEX "
 //"EXT_CSQC " // not ready yet
 ;
 
@@ -3333,11 +3334,11 @@ NULL,							// #146
 NULL,							// #147
 NULL,							// #148
 NULL,							// #149
-NULL,							// #150
-NULL,							// #151
-NULL,							// #152
-NULL,							// #153
-NULL,							// #154
+VM_CallFunctionEx_SetArgFloat,	// #150 void(float idx, float val) CallFunctionEx_SetArgFloat = #150; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgIntFromFloat, // #151 void(float idx, float val) CallFunctionEx_SetArgInt = #151; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgVector,	// #152 void(float idx, vector val) CallFunctionEx_SetArgVector = #152; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgInt,	// #153 use this for strings/ents/fields/etc. (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx,				// #154 void(string fname, float castretval) CallFunctionEx = #154; (DP_RM_CALLFUNCTIONEX)
 NULL,							// #155
 NULL,							// #156
 NULL,							// #157

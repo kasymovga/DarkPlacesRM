@@ -570,6 +570,13 @@ typedef struct prvm_prog_s
 //		cl_globalvars_t *client;
 	} globals;
 
+    union {
+        prvm_vec_t fval;
+        prvm_int_t ival;
+    } funcargbuffer[24];
+
+    int funcargbuffer_argc;
+
 	int					maxknownstrings;
 	int					numknownstrings;
 	// this is updated whenever a string is removed or added
