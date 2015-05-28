@@ -7286,9 +7286,7 @@ void VM_CallFunctionEx_SetArgIntFromFloat(prvm_prog_t *prog) {
 
 void VM_CallFunctionEx_SetArgVector(prvm_prog_t *prog) {
     VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgVector);
-    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3].fval = PRVM_G_VECTOR(OFS_PARM1)[0];
-    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3 + 1].fval = PRVM_G_VECTOR(OFS_PARM1)[1];
-    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3 + 2].fval = PRVM_G_VECTOR(OFS_PARM1)[2];
+    memcpy(prog->funcargbuffer + (int)PRVM_G_FLOAT(OFS_PARM0) * 3, PRVM_G_VECTOR(OFS_PARM1), sizeof(prvm_vec_t) * 3);
     CFEX_SETARGC
 }
 
