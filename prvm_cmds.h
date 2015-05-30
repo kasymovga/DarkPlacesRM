@@ -491,6 +491,15 @@ void VM_CallFunctionEx_SetArgVector(prvm_prog_t *prog);
 void VM_CallFunctionEx_SetArgInt(prvm_prog_t *prog);
 void VM_CallFunctionEx(prvm_prog_t *prog);
 
+void VM_GlobalOfs(prvm_prog_t *prog);
+void VM_GlobalType(prvm_prog_t *prog);
+void VM_GlobalInt(prvm_prog_t *prog);
+void VM_GlobalFloat(prvm_prog_t *prog);
+void VM_GlobalSetInt(prvm_prog_t *prog);
+void VM_GlobalSetFloat(prvm_prog_t *prog);
+void VM_GlobalGet(prvm_prog_t *prog);
+void VM_GlobalSet(prvm_prog_t *prog);
+
 
 // irc
 void VM_IRC_CreateSession(prvm_prog_t *prog);

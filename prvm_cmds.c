@@ -3739,6 +3739,7 @@ void VM_drawpic(prvm_prog_t *prog)
 	pos = PRVM_G_VECTOR(OFS_PARM0);
 	size = PRVM_G_VECTOR(OFS_PARM2);
 	rgb = PRVM_G_VECTOR(OFS_PARM3);
+
 	if (prog->argc >= 6)
 		flag = (int) PRVM_G_FLOAT(OFS_PARM5);
 
@@ -7316,7 +7317,7 @@ void VM_CallFunctionEx(prvm_prog_t *prog) {
     prog->argc = prog->funcargbuffer_argc;
 
     if(!func)
-        prog->error_cmd("VM_CallFunctionEx: function %s not found !", s);
+        prog->error_cmd("VM_CallFunctionEx: function %s not found!", s);
     else if (func->first_statement < 0) {
         // negative statements are built in functions
         int builtinnumber = -func->first_statement;
@@ -7334,6 +7335,105 @@ void VM_CallFunctionEx(prvm_prog_t *prog) {
 
     if(castretval)
         PRVM_G_FLOAT(OFS_RETURN) = (float)PRVM_G_INT(OFS_RETURN);
+}
+
+void VM_GlobalOfs(prvm_prog_t *prog) {
+    ddef_t *gl;
+    const char *s;
+
+    VM_SAFEPARMCOUNT(1, GlobalOfs);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    if(!(gl = PRVM_ED_FindGlobal(prog, s))) {
+        Con_Printf("VM_GlobalOfs: global %s not found!\n", s);
+        PRVM_G_FLOAT(OFS_RETURN) = -1;
+        return;
+    }
+
+    PRVM_G_FLOAT(OFS_RETURN) = (float)gl->ofs;
+}
+
+void VM_GlobalType(prvm_prog_t *prog) {
+    ddef_t *gl;
+    const char *s;
+
+    VM_SAFEPARMCOUNT(1, GlobalType);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    if(!(gl = PRVM_ED_FindGlobal(prog, s))) {
+        Con_Printf("VM_GlobalType: global %s not found!\n", s);
+        PRVM_G_FLOAT(OFS_RETURN) = -1;
+        return;
+    }
+
+    PRVM_G_FLOAT(OFS_RETURN) = (float)gl->type;
+}
+
+#define CHECKGLOBOFS(f) glo = (int)PRVM_G_FLOAT(OFS_PARM0); if(glo < 0 || glo >= prog->globals_size) { prog->error_cmd(#f ": global offset %i is out of bounds (min 0, max %i)", glo, prog->globals_size - 1); return; }
+
+void VM_GlobalInt(prvm_prog_t *prog) {
+    int glo;
+    VM_SAFEPARMCOUNT(1, GlobalInt);
+    CHECKGLOBOFS(VM_GlobalInt)
+    PRVM_G_FLOAT(OFS_RETURN) = (float)PRVM_G_INT(glo);
+}
+
+void VM_GlobalFloat(prvm_prog_t *prog) {
+    int glo;
+    VM_SAFEPARMCOUNT(1, GlobalFloat);
+    CHECKGLOBOFS(VM_GlobalFloat)
+    PRVM_G_FLOAT(OFS_RETURN) = PRVM_G_FLOAT(glo);
+}
+
+void VM_GlobalSetInt(prvm_prog_t *prog) {
+    int glo;
+    VM_SAFEPARMCOUNT(2, GlobalSetInt);
+    CHECKGLOBOFS(VM_GlobalSetInt)
+    PRVM_G_INT(glo) = (int)PRVM_G_FLOAT(OFS_PARM1);
+}
+
+void VM_GlobalSetFloat(prvm_prog_t *prog) {
+    int glo;
+    VM_SAFEPARMCOUNT(2, GlobalSetFloat);
+    CHECKGLOBOFS(VM_GlobalSetFloat)
+    PRVM_G_FLOAT(glo) = PRVM_G_FLOAT(OFS_PARM1);
+}
+
+#undef CHECKGLOBOFS
+
+void VM_GlobalGet(prvm_prog_t *prog) {
+    ddef_t *key;
+    const char *s;
+    prvm_eval_t *v;
+    char valuebuf[MAX_INPUTLINE];
+    
+    VM_SAFEPARMCOUNT(1, GlobalGet);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    if(!(key = PRVM_ED_FindGlobal(prog, s))) {
+        Con_Printf("VM_GlobalGet: global '%s' not found\n", s);
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+
+    v = (prvm_eval_t*)&PRVM_G_FLOAT(key->ofs);
+    PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, PRVM_UglyValueString(prog, (etype_t)key->type, v, valuebuf, sizeof(valuebuf)));
+}
+
+void VM_GlobalSet(prvm_prog_t *prog) {
+    ddef_t *key;
+    const char *s;
+
+    VM_SAFEPARMCOUNT(2, GlobalSet);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    if(!(key = PRVM_ED_FindGlobal(prog, s))) {
+        Con_Printf("VM_GlobalSet: global '%s' not found\n", s);
+        PRVM_G_FLOAT(OFS_RETURN) = 0;
+        return;
+    }
+
+    PRVM_G_FLOAT(OFS_RETURN) = (float)PRVM_ED_ParseEpair(prog, NULL, key, PRVM_G_STRING(OFS_PARM1), true);
 }
 
 /*

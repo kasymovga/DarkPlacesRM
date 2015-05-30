@@ -50,6 +50,7 @@ const char *vm_m_extensions =
 "FTE_STRINGS "
 "DP_RM_IRC "
 "DP_RM_CALLFUNCTIONEX "
+"DP_RM_GLOBALACCESS "
 ;
 
 /*
@@ -1052,14 +1053,14 @@ NULL,									// #166
 NULL,									// #167
 NULL,									// #168
 NULL,									// #169
-NULL,									// #170
-NULL,									// #171
-NULL,									// #172
-NULL,									// #173
-NULL,									// #174
-NULL,									// #175
-NULL,									// #176
-NULL,									// #177
+VM_GlobalOfs,                           // #170 float(string) GlobalOfs = #170; (DP_RM_GLOBALACCESS)
+VM_GlobalType,                          // #171 float(string) GlobalType = #171; (DP_RM_GLOBALACCESS)
+VM_GlobalInt,                           // #172 float(float) GlobalInt = #172; (DP_RM_GLOBALACCESS)
+VM_GlobalFloat,                         // #173 float(float) GlobalFloat = #173; (DP_RM_GLOBALACCESS)
+VM_GlobalSetInt,                        // #174 void(float, float) GlobalSetInt = #174; (DP_RM_GLOBALACCESS)
+VM_GlobalSetFloat,                      // #175 void(float, float) GlobalSetFloat = #175; (DP_RM_GLOBALACCESS)
+VM_GlobalGet,                           // #176 string(string) GlobalGet = #176; (DP_RM_GLOBALACCESS)
+VM_GlobalSet,                           // #177 float(string, string) GlobalSet = #177; (DP_RM_GLOBALACCESS)
 NULL,									// #178
 NULL,									// #179
 NULL,									// #180

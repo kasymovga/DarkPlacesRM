@@ -570,6 +570,8 @@ typedef struct prvm_prog_s
 //		cl_globalvars_t *client;
 	} globals;
 
+    int globals_size;
+
     union {
         prvm_vec_t fval;
         prvm_int_t ival;
