@@ -47,16 +47,17 @@ bool AssetArchive_check_hash(const uint8_t* data, const size_t dlen, const uint8
 
 
 bool AssetArchive_openRead(struct AssetArchive** aa, const char* const filename) {
+    int res;
+    struct AssetArchive* ret;
+
     if(!aa || !filename) {
         return false;
     }
 
-    struct AssetArchive* ret = calloc(1, sizeof(struct AssetArchive));
+    ret = calloc(1, sizeof(struct AssetArchive));
     if(NULL == ret) {
         return false;
     }
-
-    int res;
 
     res = sqlite3_initialize();
     if(SQLITE_OK != res) {
@@ -95,6 +96,7 @@ static const char* COUNT_ALIAS_QUERY = \
 
 static inline int64_t runHardcodedOneInt64ResultQuery(struct AssetArchive* a, const char* query) {
     sqlite3_stmt* pq;
+    int64_t ret;
     int res;
 
     res = sqlite3_prepare_v2(a->db, query, -1, &pq, NULL);
@@ -107,7 +109,7 @@ static inline int64_t runHardcodedOneInt64ResultQuery(struct AssetArchive* a, co
         return -1;
     }
 
-    const int64_t ret = sqlite3_column_int64(pq, 0);
+    ret = sqlite3_column_int64(pq, 0);
     sqlite3_finalize(pq);
 
     return ret;
@@ -135,6 +137,12 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
                                  const size_t count, bool resolve) {
     int res;
     sqlite3_stmt* pq;
+    size_t i;
+    const char* aptr;
+    size_t alen;
+    const uint8_t* dptr;
+    size_t dlen;
+    const uint8_t* hptr;
 
     if(!a || !data || !filenames || !count) {
         return false;
@@ -146,11 +154,11 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
         return false;
     }
 
-    for(size_t i=0; i<count; ++i) {
+    for(i=0; i<count; ++i) {
         dlens[i] = 0;
     }
 
-    for(size_t i=0; i<count; ++i) {
+    for(i=0; i<count; ++i) {
         res = sqlite3_bind_text(pq, 1, filenames[i], -1, SQLITE_STATIC);
         if(SQLITE_OK != res) {
             log_sqlite_error(res);
@@ -165,8 +173,8 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
             return false;
         }
 
-        const char* aptr = (const char*)sqlite3_column_text(pq, 0);
-        const size_t alen = sqlite3_column_bytes(pq, 0);
+        aptr = (const char*)sqlite3_column_text(pq, 0);
+        alen = sqlite3_column_bytes(pq, 0);
         if(NULL != aptr && alen>0 && resolve) {
             //Alias resolution
             char* name = calloc(alen + 1, 1);
@@ -208,9 +216,9 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
         }
 
         //copy the data of the resolved name/alias
-        const uint8_t* dptr = sqlite3_column_blob(pq, 1);
-        const size_t dlen = sqlite3_column_bytes(pq, 1);
-        const uint8_t* hptr = sqlite3_column_blob(pq, 2);
+        dptr = sqlite3_column_blob(pq, 1);
+        dlen = sqlite3_column_bytes(pq, 1);
+        hptr = sqlite3_column_blob(pq, 2);
 
         if(NULL!=dptr && dlen > 0 && sqlite3_column_bytes(pq, 2) >= 32 &&
                 AssetArchive_check_hash(dptr, dlen, hptr)) {
@@ -259,15 +267,15 @@ bool AssetArchive_loadOne(struct AssetArchive* a, uint8_t** data, size_t* dlen, 
 static inline bool decompress(uint8_t** decompdata, size_t* dlen, const uint8_t* compdata, const size_t complen) {
     lzma_ret ret;
     uint8_t* buf = calloc(MAX_SIZE, 1);
+    size_t inpos=0;
+    size_t bufpos=0;
+    uint64_t memuse = UINT32_MAX;
+    uint8_t* res;
 
     if(!buf || !compdata) {
         if(buf) free(buf);
         return false;
     }
-
-    size_t inpos=0;
-    size_t bufpos=0;
-    uint64_t memuse = UINT32_MAX;
 
     ret = lzma_stream_buffer_decode(&memuse, 0, NULL, compdata, &inpos, complen, buf, &bufpos, MAX_SIZE);
 
@@ -282,7 +290,7 @@ static inline bool decompress(uint8_t** decompdata, size_t* dlen, const uint8_t*
         return true;
     }
 
-    uint8_t* res = calloc(bufpos, 1);
+    res = calloc(bufpos, 1);
     if(!res) {
         free(buf);
         return false;
