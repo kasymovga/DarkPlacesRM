@@ -8,13 +8,14 @@
 
 #include "cgf_private.h"
 
+#include "quakedef.h"
+
 #ifdef DEBUG
 #include <assert.h>
 #include <stdio.h>
 static inline void log_sqlite_error(int status) {
     const char* tmp = sqlite3_errstr(status);
-    fprintf(stderr, "%s\n", tmp);
-    fflush(stderr);
+    Con_DPrintf("cgf: db error: %s\n", tmp);
 }
 #else
 static inline void log_sqlite_error(int _) { (void)(_); }
@@ -145,6 +146,7 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
     const uint8_t* hptr;
 
     if(!a || !data || !filenames || !count) {
+        Con_Printf("cgf: bad req: %p %p %p %p %lu\n", a, data, dlens, filenames, count);
         return false;
     }
 
@@ -230,6 +232,8 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
             if(success) {
                 data[i] = tmp;
                 dlens[i] = tlen;
+            } else {
+                Con_Printf("cgf: failed to decompress '%s'\n", filenames[i]);
             }
         }
 
