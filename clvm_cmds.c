@@ -4489,11 +4489,11 @@ NULL,							// #146
 NULL,							// #147
 NULL,							// #148
 NULL,							// #149
-NULL,							// #150
-NULL,							// #151
-NULL,							// #152
-NULL,							// #153
-NULL,							// #154
+VM_CallFunctionEx_SetArgFloat,  // #150 void(float idx, float val) CallFunctionEx_SetArgFloat = #150; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgIntFromFloat, // #151 void(float idx, float val) CallFunctionEx_SetArgInt = #151; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgVector, // #152 void(float idx, vector val) CallFunctionEx_SetArgVector = #152; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgInt,    // #153 use this for strings/ents/fields/etc. (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx,              // #154 void(string fname, float castretval) CallFunctionEx = #154; (DP_RM_CALLFUNCTIONEX)
 NULL,							// #155
 NULL,							// #156
 NULL,							// #157
@@ -4509,14 +4509,14 @@ NULL,							// #166
 NULL,							// #167
 NULL,							// #168
 NULL,							// #169
-NULL,							// #170
-NULL,							// #171
-NULL,							// #172
-NULL,							// #173
-NULL,							// #174
-NULL,							// #175
-NULL,							// #176
-NULL,							// #177
+VM_GlobalOfs,                   // #170 float(string) GlobalOfs = #170; (DP_RM_GLOBALACCESS)
+VM_GlobalType,                  // #171 float(string) GlobalType = #171; (DP_RM_GLOBALACCESS)
+VM_GlobalInt,                   // #172 float(float) GlobalInt = #172; (DP_RM_GLOBALACCESS)
+VM_GlobalFloat,                 // #173 float(float) GlobalFloat = #173; (DP_RM_GLOBALACCESS)
+VM_GlobalSetInt,                // #174 void(float, float) GlobalSetInt = #174; (DP_RM_GLOBALACCESS)
+VM_GlobalSetFloat,              // #175 void(float, float) GlobalSetFloat = #175; (DP_RM_GLOBALACCESS)
+VM_GlobalGet,                   // #176 string(string) GlobalGet = #176; (DP_RM_GLOBALACCESS)
+VM_GlobalSet,                   // #177 float(string, string) GlobalSet = #177; (DP_RM_GLOBALACCESS)
 NULL,							// #178
 NULL,							// #179
 NULL,							// #180
