@@ -15,6 +15,9 @@ darkplaces-rm-dedicated
 nexuiz-dprm-sdl
 nexuiz-dprm-glx
 nexuiz-dprm-dedicated
+vecxis-sdl
+vecxis-glx
+vecxis-dedicated
 gmon.out
 *.ncb
 *.opt
