@@ -259,7 +259,7 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 
 	ifeq ($(MINGWARCH), i686)
 		CPUOPTIMIZATIONS=-march=i686 -fno-math-errno -ffinite-math-only -fno-rounding-math -fno-signaling-nans -fno-trapping-math
-		LDFLAGS_WINCOMMON=-Wl,--large-address-aware
+		LDFLAGS_WINCOMMON=-Wl,--large-address-aware -lsqlite3 -llzma
 	else
 		CPUOPTIMIZATIONS=
 		LDFLAGS_WINCOMMON=
