@@ -1411,6 +1411,9 @@ static void FS_ClearSearchPath (void)
 		fs_searchpaths = search->next;
 		if (search->pack && search->pack != fs_selfpack)
 		{
+            if(search->pack && search->pack->cgfHandle != NULL) {
+                AssetArchive_close(search->pack->cgfHandle);
+            }
 			if(!search->pack->vpack)
 			{
 				// close the file
