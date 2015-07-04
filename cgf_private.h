@@ -10,7 +10,7 @@ struct AssetArchive {
 };
 
 
-#define CGF_MAX_CHUNK_SIZE (UINT32_C(256) << 20)
+#define CGF_MAX_CHUNK_SIZE (UINT32_C(48) << 20)
 #define CGF_HASH_SIZE (256/8)
 
 
