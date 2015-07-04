@@ -200,6 +200,8 @@ typedef struct
 #define QFILE_FLAG_DATA (1 << 2)
 /// real file will be removed on close
 #define QFILE_FLAG_REMOVE (1 << 3)
+/// data will be Mem_Free'ed on close
+#define QFILE_FLAG_MEMFREE (1 << 4)
 
 #define FILE_BUFF_SIZE 2048
 typedef struct
@@ -2590,6 +2592,7 @@ static qfile_t *FS_OpenReadFile (const char *filename, qboolean quiet, qboolean 
 	unsigned char* resbuf;
 	size_t rblen;
 	unsigned char* buf;
+    qfile_t* cgf_res;
 
 	search = FS_FindFile (filename, &pack_ind, quiet);
 
@@ -2619,7 +2622,11 @@ static qfile_t *FS_OpenReadFile (const char *filename, qboolean quiet, qboolean 
 				Con_DPrintf("loaded cgf file \"%s\" (%u bytes)\n", filename, (unsigned int)rblen);
 
 			free(resbuf);
-			return FS_FileFromData(buf, rblen, quiet);
+			cgf_res = FS_FileFromData(buf, rblen, quiet);
+            if(cgf_res != NULL) {
+                cgf_res->flags |= QFILE_FLAG_MEMFREE;
+            }
+            return cgf_res;
 		} else {
 			if (developer.integer)
 				Con_DPrintf("failed to load cgf file \"%s\"\n", filename);
@@ -2791,8 +2798,14 @@ Close a file
 */
 int FS_Close (qfile_t* file)
 {
+    void* cgf_ptr; //ugly horrible hack.
 	if(file->flags & QFILE_FLAG_DATA)
 	{
+        if(file->flags & QFILE_FLAG_MEMFREE) {
+            //really, I'm sorry
+            cgf_ptr = (void*)(file->data);
+            Mem_Free(cgf_ptr);
+        }
 		Mem_Free(file);
 		return 0;
 	}
