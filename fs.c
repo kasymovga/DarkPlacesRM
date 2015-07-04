@@ -200,6 +200,8 @@ typedef struct
 #define QFILE_FLAG_DATA (1 << 2)
 /// real file will be removed on close
 #define QFILE_FLAG_REMOVE (1 << 3)
+/// data will be Mem_Free'ed on close
+#define QFILE_FLAG_MEMFREE (1 << 4)
 
 #define FILE_BUFF_SIZE 2048
 typedef struct
@@ -274,6 +276,8 @@ typedef struct dpackheader_s
 #define PACKFILE_FLAG_DEFLATED (1 << 1)
 /// file is a symbolic link
 #define PACKFILE_FLAG_SYMLINK (1 << 2)
+/// FIXME: ugly hack circumventing all the other flags
+#define PACKFILE_FLAG_CGF (1 << 3)
 
 typedef struct packfile_s
 {
@@ -293,6 +297,7 @@ typedef struct pack_s
 	int numfiles;
 	qboolean vpack;
 	packfile_t *files;
+	struct AssetArchive* cgfHandle;
 } pack_t;
 //@}
 
@@ -781,6 +786,94 @@ static pack_t *FS_LoadPackPK3 (const char *packfile)
 	return FS_LoadPackPK3FromFD(packfile, packhandle, false);
 }
 
+#include "cgf_private.h"
+
+static void CGF_BuildFileList(pack_t* pack, struct AssetArchive* ap);
+
+static pack_t *FS_LoadPackCGF (const char *packfile)
+{
+	//FIXME: ugly circumvention of the entire damn API.
+
+	struct AssetArchive* ap;
+	pack_t *pack;
+	int fauxhandle = FS_SysOpenFD(packfile, "rb", true);
+
+	if(AssetArchive_openRead(&ap, packfile)) {
+		pack = (pack_t *)Mem_Alloc(fs_mempool, sizeof(pack_t));
+		pack->ignorecase = true;
+		strlcpy(pack->filename, packfile, sizeof(pack->filename));
+		pack->handle = fauxhandle;
+		pack->files = (packfile_t *)Mem_Alloc(fs_mempool, AssetArchive_countAssets(ap) * sizeof(packfile_t));
+
+		pack->numfiles = 0; //sic!
+		CGF_BuildFileList(pack, ap);
+
+		Con_DPrintf("Added packfile %s (cgf format, %i files)\n", packfile, pack->numfiles);
+
+		pack->cgfHandle = ap;
+		return pack;
+	}
+
+	Con_DPrintf("Failed to open packfile %s (cgf format)\n", packfile);
+	return NULL;
+}
+
+static const char* listquery = "SELECT name FROM files ORDER BY name ASC";
+
+//we sadly have to do this here due to some limitation
+static void CGF_BuildFileList(pack_t* pack, struct AssetArchive* ap)
+{
+	sqlite3_stmt* pq;
+	int res;
+	const unsigned char* nptr;
+	char tmpname[MAX_QPATH+1];
+	size_t len;
+    const char* eptr;
+
+	if(!ap || !pack) {
+        if(ap) {
+            eptr = sqlite3_errmsg(ap->db);
+            Con_DPrintf("add cgf pack: 1: sqlite result = \"%s\"\n", eptr);
+        }
+		return;
+	}
+
+	res = sqlite3_prepare_v2(ap->db, listquery, -1, &pq, NULL);
+	if(SQLITE_OK != res) {
+		eptr = sqlite3_errmsg(ap->db);
+		Con_DPrintf("add cgf pack: 2: sqlite result = \"%s\"\n", eptr);
+		return;
+	}
+
+	for(;;) {
+		memset(tmpname, '\0', MAX_QPATH);
+
+		res = sqlite3_step(pq);
+		if(SQLITE_DONE == res) {
+			break;
+		}
+		else if(SQLITE_ROW != res) {
+			eptr = sqlite3_errmsg(ap->db);
+			Con_DPrintf("add cgf pack: 3: sqlite result = \"%s\"\n", eptr);
+			break;
+		}
+		nptr = sqlite3_column_text(pq, 0);
+		len = strlen((const char*)(nptr));
+		memcpy(tmpname, nptr, MAX_QPATH);
+		if(len<MAX_QPATH) {
+			tmpname[len] = '\0';
+		} else {
+			tmpname[MAX_QPATH] = '\0';
+		}
+
+        Con_DPrintf("Adding \"%s\"\n", tmpname);
+
+        FS_AddFileToPack(tmpname, pack, -1, -1, -1, PACKFILE_FLAG_CGF);
+	}
+
+	sqlite3_finalize(pq);
+}
+
 
 /*
 ====================
@@ -1073,6 +1166,8 @@ static qboolean FS_AddPack_Fullpath(const char *pakfile, const char *shortname, 
 		pak = FS_LoadPackPAK (pakfile);
 	else if(!strcasecmp(ext, "pk3"))
 		pak = FS_LoadPackPK3 (pakfile);
+	else if(!strcasecmp(ext, "cgf"))
+		pak = FS_LoadPackCGF (pakfile);
 	else
 		Con_Printf("\"%s\" does not have a pack extension\n", pakfile);
 
@@ -1202,6 +1297,14 @@ static void FS_AddGameDirectory (const char *dir)
 	listdirectory(&list, "", dir);
 	stringlistsort(&list, false);
 
+	for (i = 0;i < list.numstrings;i++)
+	{
+		if (!strcasecmp(FS_FileExtension(list.strings[i]), "cgf"))
+		{
+			FS_AddPack_Fullpath(list.strings[i], list.strings[i] + strlen(dir), NULL, false);
+		}
+	}
+
 	// add any PAK package in the directory
 	for (i = 0;i < list.numstrings;i++)
 	{
@@ -1308,6 +1411,9 @@ static void FS_ClearSearchPath (void)
 		fs_searchpaths = search->next;
 		if (search->pack && search->pack != fs_selfpack)
 		{
+            if(search->pack && search->pack->cgfHandle != NULL) {
+                AssetArchive_close(search->pack->cgfHandle);
+            }
 			if(!search->pack->vpack)
 			{
 				// close the file
@@ -2485,6 +2591,11 @@ static qfile_t *FS_OpenReadFile (const char *filename, qboolean quiet, qboolean 
 {
 	searchpath_t *search;
 	int pack_ind;
+	bool ok;
+	unsigned char* resbuf;
+	size_t rblen;
+	unsigned char* buf;
+    qfile_t* cgf_res;
 
 	search = FS_FindFile (filename, &pack_ind, quiet);
 
@@ -2502,6 +2613,29 @@ static qfile_t *FS_OpenReadFile (const char *filename, qboolean quiet, qboolean 
 	}
 
 	// So, we found it in a package...
+	// Is it a CGF?
+	if(search->pack->files[pack_ind].flags & PACKFILE_FLAG_CGF) {
+		ok = AssetArchive_loadOne(search->pack->cgfHandle, &resbuf, &rblen, filename);
+		if(ok) {
+			buf = (unsigned char*)Mem_Alloc(tempmempool, rblen + 1);
+			buf[rblen] = '\0';
+			memcpy(buf, resbuf, rblen);
+
+			if (developer.integer)
+				Con_DPrintf("loaded cgf file \"%s\" (%u bytes)\n", filename, (unsigned int)rblen);
+
+			free(resbuf);
+			cgf_res = FS_FileFromData(buf, rblen, quiet);
+            if(cgf_res != NULL) {
+                cgf_res->flags |= QFILE_FLAG_MEMFREE;
+            }
+            return cgf_res;
+		} else {
+			if (developer.integer)
+				Con_DPrintf("failed to load cgf file \"%s\"\n", filename);
+			return NULL;
+		}
+	}
 
 	// Is it a PK3 symlink?
 	// TODO also handle directory symlinks by parsing the whole structure...
@@ -2667,8 +2801,14 @@ Close a file
 */
 int FS_Close (qfile_t* file)
 {
+    void* cgf_ptr; //FIXME: ugly horrible hack.
 	if(file->flags & QFILE_FLAG_DATA)
 	{
+        if(file->flags & QFILE_FLAG_MEMFREE) {
+            //really, I'm sorry
+            cgf_ptr = (void*)(file->data);
+            Mem_Free(cgf_ptr);
+        }
 		Mem_Free(file);
 		return 0;
 	}
