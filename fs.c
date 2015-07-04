@@ -2801,7 +2801,7 @@ Close a file
 */
 int FS_Close (qfile_t* file)
 {
-    void* cgf_ptr; //ugly horrible hack.
+    void* cgf_ptr; //FIXME: ugly horrible hack.
 	if(file->flags & QFILE_FLAG_DATA)
 	{
         if(file->flags & QFILE_FLAG_MEMFREE) {
