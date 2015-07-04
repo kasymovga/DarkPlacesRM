@@ -6,6 +6,7 @@
 
 struct AssetArchive {
     sqlite3* db;
+    uint8_t* decomp_buf;
 };
 
 

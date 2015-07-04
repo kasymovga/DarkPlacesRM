@@ -25,7 +25,7 @@ static inline void log_sqlite_error(int _) { (void)(_); }
 
 bool AssetArchive_check_hash(const uint8_t* data, const size_t dlen, const uint8_t* chash) {
     SHA256Context ctx;
-    uint8_t digest[256/8];
+    uint8_t digest[CGF_HASH_SIZE];
 
     if(shaSuccess != SHA256Reset(&ctx)) {
         return false;
@@ -43,7 +43,7 @@ bool AssetArchive_check_hash(const uint8_t* data, const size_t dlen, const uint8
         return false;
     }
 
-    return (0 == memcmp(digest, chash, 256/8));
+    return (0 == memcmp(digest, chash, CGF_HASH_SIZE));
 }
 
 
@@ -74,6 +74,12 @@ bool AssetArchive_openRead(struct AssetArchive** aa, const char* const filename)
         return false;
     }
 
+    ret->decomp_buf = calloc(CGF_MAX_CHUNK_SIZE, 1);
+    if(!ret->decomp_buf) {
+        sqlite3_close(ret->db);
+        return false;
+    }
+
     *aa = ret;
 
     return true;
@@ -83,6 +89,9 @@ void AssetArchive_close(struct AssetArchive* aa) {
     if(aa) {
         if(aa->db) {
             sqlite3_close(aa->db);
+        }
+        if(aa->decomp_buf) {
+            free(aa->decomp_buf);
         }
         free(aa);
     }
@@ -129,7 +138,7 @@ int64_t AssetArchive_countAliases(struct AssetArchive* a) {
     return runHardcodedOneInt64ResultQuery(a, COUNT_ALIAS_QUERY);
 }
 
-static inline bool decompress(uint8_t** decompdata, size_t* dlen, const uint8_t* compdata, const size_t complen);
+static inline bool decompress(struct AssetArchive* a, uint8_t** decompdata, size_t* dlen, const uint8_t* compdata, const size_t complen);
 
 static const char* GET_QUERY = "SELECT alias, data, hash FROM files WHERE name = ?";
 
@@ -228,7 +237,7 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
             //upon the next iteration -- a pity.
             uint8_t* tmp;
             size_t tlen;
-            bool success = decompress(&tmp, &tlen, dptr, dlen);
+            bool success = decompress(a, &tmp, &tlen, dptr, dlen);
             if(success) {
                 data[i] = tmp;
                 dlens[i] = tlen;
@@ -267,41 +276,36 @@ bool AssetArchive_loadOne(struct AssetArchive* a, uint8_t** data, size_t* dlen, 
     return res;
 }
 
+static inline size_t smin(const size_t x, const size_t y) {
+    return (x<=y) ? x : y;
+}
 
-static inline bool decompress(uint8_t** decompdata, size_t* dlen, const uint8_t* compdata, const size_t complen) {
+static inline bool decompress(struct AssetArchive* a, uint8_t** decompdata, size_t* dlen, const uint8_t* compdata, const size_t complen) {
     lzma_ret ret;
-    uint8_t* buf = calloc(MAX_SIZE, 1);
+    uint8_t* buf = a->decomp_buf;
     size_t inpos=0;
     size_t bufpos=0;
     uint64_t memuse = UINT32_MAX;
     uint8_t* res;
 
     if(!buf || !compdata) {
-        if(buf) free(buf);
         return false;
     }
 
-    ret = lzma_stream_buffer_decode(&memuse, 0, NULL, compdata, &inpos, complen, buf, &bufpos, MAX_SIZE);
+    ret = lzma_stream_buffer_decode(&memuse, 0, NULL, compdata, &inpos, complen, buf, &bufpos, CGF_MAX_CHUNK_SIZE);
 
     if(LZMA_OK != ret && LZMA_NO_CHECK != ret) {
-        free(buf);
         return false;
     }
 
-    if(bufpos>=MAX_SIZE) {
-        *decompdata = buf;
-        *dlen = MAX_SIZE;
-        return true;
-    }
+    bufpos = smin(CGF_MAX_CHUNK_SIZE, bufpos);
 
     res = calloc(bufpos, 1);
     if(!res) {
-        free(buf);
         return false;
     }
 
     memcpy(res, buf, bufpos);
-    free(buf);
     *decompdata = res;
     *dlen = bufpos;
 
