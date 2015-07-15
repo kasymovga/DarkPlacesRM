@@ -1767,6 +1767,7 @@ static SDL_Surface *VID_WrapSDL_SetVideoMode(int screenwidth, int screenheight, 
 }
 #else
 // Adding the OS independent XPM version --blub
+#include "vecxis.xpm"
 #include "darkplaces.xpm"
 #include "nexuiz.xpm"
 static SDL_Surface *icon = NULL;
