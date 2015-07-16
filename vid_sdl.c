@@ -67,7 +67,11 @@ int cl_available = true;
 qboolean vid_supportrefreshrate = false;
 
 static qboolean vid_usingmouse = false;
-static qboolean vid_usingmouse_relativeworks = false; // SDL2 workaround for unimplemented RelativeMouse mode
+/* 
+ * SDL2 workaround for unimplemented RelativeMouse mode
+ * defined with SDL_MOUSE_RELATIVE_DOES_NOT_SUCK at a later point
+ */
+static qboolean vid_usingmouse_relativeworks = false;
 static qboolean vid_usinghidecursor = false;
 static qboolean vid_hasfocus = false;
 static qboolean vid_isfullscreen;
@@ -420,8 +424,12 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 #if SDL_MAJOR_VERSION == 1
 		SDL_WM_GrabInput( relative ? SDL_GRAB_ON : SDL_GRAB_OFF );
 #else
+#ifdef SDL_MOUSE_RELATIVE_DOES_NOT_SUCK
 		vid_usingmouse_relativeworks = SDL_SetRelativeMouseMode(relative ? SDL_TRUE : SDL_FALSE) == 0;
-//		Con_Printf("VID_SetMouse(%i, %i, %i) relativeworks = %i\n", (int)fullscreengrab, (int)relative, (int)hidecursor, (int)vid_usingmouse_relativeworks);
+#else
+		vid_usingmouse_relativeworks = SDL_FALSE;
+#endif
+
 #endif
 #ifdef MACOSX
 		if(relative)
