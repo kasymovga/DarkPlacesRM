@@ -205,7 +205,6 @@ CFLAGS_SDL=$(SDLCONFIG_CFLAGS)
 
 CFLAGS_SSE=-msse
 CFLAGS_SSE2=-msse2
-<!--  -->
 OPTIM_DEBUG=$(CPUOPTIMIZATIONS)
 #OPTIM_RELEASE=-O2 -fno-strict-aliasing -ffast-math -funroll-loops $(CPUOPTIMIZATIONS)
 #OPTIM_RELEASE=-O2 -fno-strict-aliasing -fno-math-errno -fno-trapping-math -ffinite-math-only -fno-signaling-nans -fcx-limited-range -funroll-loops $(CPUOPTIMIZATIONS)
@@ -303,6 +302,7 @@ LDFLAGS_BSDCL=$(LDFLAGS_UNIXCOMMON) -lutil $(LDFLAGS_UNIXCL)
 LDFLAGS_BSDSV=$(LDFLAGS_UNIXCOMMON)
 LDFLAGS_BSDSDL=$(LDFLAGS_UNIXCOMMON) $(LDFLAGS_UNIXSDL)
 
+	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
 
 ##### Win32 specific variables #####
 
