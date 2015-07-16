@@ -1964,7 +1964,8 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, int numrequiredfun
 
 	// we need to expand the globaldefs and fielddefs to include engine defs
 	prog->globaldefs = (ddef_t *)Mem_Alloc(prog->progs_mempool, (prog->progs_numglobaldefs + numrequiredglobals) * sizeof(ddef_t));
-	prog->globals.fp = (prvm_vec_t *)Mem_Alloc(prog->progs_mempool, (prog->progs_numglobals + requiredglobalspace + 2) * sizeof(prvm_vec_t));
+    prog->globals_size = prog->progs_numglobals + requiredglobalspace + 2;
+	prog->globals.fp = (prvm_vec_t *)Mem_Alloc(prog->progs_mempool, prog->globals_size * sizeof(prvm_vec_t));
 		// + 2 is because of an otherwise occurring overrun in RETURN instruction
 		// when trying to return the last or second-last global
 		// (RETURN always returns a vector, there is no RETURN_F instruction)
@@ -2562,7 +2563,7 @@ static void PRVM_Globals_f (void)
 				numculled++;
 				continue;
 			}
-		Con_Printf("%s\n", PRVM_GetString(prog, prog->globaldefs[i].s_name));
+		Con_Printf("^5%i ^7%s\n", prog->globaldefs[i].ofs, PRVM_GetString(prog, prog->globaldefs[i].s_name));
 	}
 	Con_Printf("%i global variables, %i culled, totalling %i bytes\n", prog->numglobals, numculled, prog->numglobals * 4);
 }
