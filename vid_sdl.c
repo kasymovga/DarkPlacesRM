@@ -1076,11 +1076,15 @@ static keynum_t buttonremap[] =
 	K_MOUSE1,
 	K_MOUSE3,
 	K_MOUSE2,
+/*
+ * Mouse wheels are BUTTONS in SDL 1, they are NOT buttons in SDL2!
+ * Mapping them in sdl2 may or may not cause problems at some future date.
+ * Currently, mapping them is required to preserve button indices between SDL1 and SDL2 in Nexuiz and Vecxis.
+ */
 #if SDL_MAJOR_VERSION == 1
-	// TODO Find out how SDL maps these buttons. It looks like we should
-	// still include these for sdl2? At least the button indexes don't
-	// differ between SDL1 and SDL2 for me, thus this array should stay the
-	// same (in X11 button order).
+	K_MWHEELUP,
+	K_MWHEELDOWN,
+#else
 	K_MWHEELUP,
 	K_MWHEELDOWN,
 #endif
