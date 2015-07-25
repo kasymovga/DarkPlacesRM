@@ -302,8 +302,6 @@ LDFLAGS_BSDCL=$(LDFLAGS_UNIXCOMMON) -lutil $(LDFLAGS_UNIXCL)
 LDFLAGS_BSDSV=$(LDFLAGS_UNIXCOMMON)
 LDFLAGS_BSDSDL=$(LDFLAGS_UNIXCOMMON) $(LDFLAGS_UNIXSDL)
 
-	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
-
 ##### Win32 specific variables #####
 
 WINDRES ?= windres
@@ -325,9 +323,9 @@ EXE_WINSDL=darkplaces-rm-sdl
 EXE_WINCLNEXUIZ=nexuiz-dprm
 EXE_WINSVNEXUIZ=nexuiz-dprm-dedicated
 EXE_WINSDLNEXUIZ=nexuiz-dprm-sdl
-EXE_WINCLVECXIS=vecxis-glx
+EXE_WINCLVECXIS=vecxis-wgl
 EXE_WINSVVECXIS=vecxis-dedicated
-EXE_WINSDLVECXIS=vecxis
+EXE_WINSDLVECXIS=vecxis-sdl
 
 ##### Commands #####
 

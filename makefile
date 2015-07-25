@@ -51,12 +51,13 @@ else
 endif
 
 # default targets
+# we don't build the cl target for Vecxis because its badly outdated
 TARGETS_DEBUG=sv-debug cl-debug sdl-debug
 TARGETS_PROFILE=sv-profile cl-profile sdl-profile
 TARGETS_RELEASE=sv-release cl-release sdl-release
 TARGETS_RELEASE_PROFILE=sv-release-profile cl-release-profile sdl-release-profile
 TARGETS_NEXUIZ=sv-nexuiz cl-nexuiz sdl-nexuiz
-TARGETS_VECXIS=sv-vecxis cl-vecxis sdl-vecxis
+TARGETS_VECXIS=sv-vecxis sdl-vecxis
 
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
@@ -130,7 +131,7 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	CFLAGS_LIBJPEG=
 	LIB_JPEG=
 
-	# on OS X, we don't build the CL by default because it uses deprecated
+	# we don't build the CL by default because it uses deprecated
 	# and not-implemented-in-64bit Carbon
 	TARGETS_DEBUG=sv-debug sdl-debug
 	TARGETS_PROFILE=sv-profile sdl-profile
@@ -244,7 +245,7 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	LDFLAGS_SV=$(LDFLAGS_WINSV)
 	LDFLAGS_SDL=$(LDFLAGS_WINSDL)
 
-	# XXX: is this /usr on all systems? How do I invoke the correct sdl-config?
+	# TODO: is this /usr on all systems? How do we invoke the correct sdl-config?
 	SDL_CONFIG=/usr/$(TARGET)/bin/sdl-config
 	SDLCONFIG_CFLAGS=$(SDLCONFIG_UNIXCFLAGS)
 	#SDLCONFIG_LIBS=$(SDLCONFIG_UNIXLIBS)
