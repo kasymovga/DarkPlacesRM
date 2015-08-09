@@ -33,3 +33,4 @@ Makefile.win
 cscope.out
 lua-5.3.0/
 LuaJIT-2.0.3/
+bazel*
