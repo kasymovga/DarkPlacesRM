@@ -2,11 +2,11 @@
 cc_library(
     name = "sqlite",
     srcs = [
-        "sqlite-amalgamation-3081100/sqlite3.c",
+        "sqlite-amalgamation-3081101/sqlite3.c",
     ],
     hdrs = [
-        "sqlite-amalgamation-3081100/sqlite3ext.h",
-        "sqlite-amalgamation-3081100/sqlite3.h",
+        "sqlite-amalgamation-3081101/sqlite3ext.h",
+        "sqlite-amalgamation-3081101/sqlite3.h",
     ],
     copts = [
         "-DSQLITE_DEFAULT_FILE_FORMAT=4",
