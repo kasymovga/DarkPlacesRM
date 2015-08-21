@@ -8,7 +8,7 @@ Initialization of UTF-8 support and new cvars.
 */
 // for compatibility this defaults to 0
 cvar_t    utf8_enable = {CVAR_SAVE, "utf8_enable", "0", "Enable UTF-8 support. For compatibility, this is disabled by default in most games."};
-cvar_t    utf8_oldfont_for_oldchars = {CVAR_SAVE, "utf8_oldfont_for_oldchars", "1", "Use old font for standart 8bit characters"};
+cvar_t    utf8_oldfont_for_oldchars = {CVAR_SAVE, "utf8_oldfont_for_oldchars", "0", "Use old font for standart 8bit characters"};
 
 void   u8_Init(void)
 {
