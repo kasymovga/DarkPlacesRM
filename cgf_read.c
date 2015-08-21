@@ -9,6 +9,7 @@
 #ifdef DEBUG
 #include <assert.h>
 #include <stdio.h>
+static const char* (*sqlite3_errstr)(int);
 static inline void log_sqlite_error(int status) {
     const char* tmp = sqlite3_errstr(status);
     Con_DPrintf("cgf: db error: %s\n", tmp);
@@ -113,6 +114,9 @@ static dllfunction_t sqlite_funcs[] = {
     {"sqlite3_prepare_v2", (void**) &sqlite3_prepare_v2},
     {"sqlite3_reset", (void**) &sqlite3_reset},
     {"sqlite3_step", (void**) &sqlite3_step},
+#ifdef DEBUG
+    {"sqlite3_errstr", (void**) &sqlite3_errstr},
+#endif
     {NULL, NULL}
 };
 
