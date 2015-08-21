@@ -266,29 +266,16 @@ typedef struct dpackheader_s
 	int dirlen;
 } dpackheader_t;
 
-
-/*! \name Packages in memory
- * @{
- */
-/// the offset in packfile_t is the true contents offset
-#define PACKFILE_FLAG_TRUEOFFS (1 << 0)
-/// file compressed using the deflate algorithm
-#define PACKFILE_FLAG_DEFLATED (1 << 1)
-/// file is a symbolic link
-#define PACKFILE_FLAG_SYMLINK (1 << 2)
-/// FIXME: ugly hack circumventing all the other flags
-#define PACKFILE_FLAG_CGF (1 << 3)
-
-typedef struct packfile_s
+struct packfile_s
 {
 	char name [MAX_QPATH];
 	int flags;
 	fs_offset_t offset;
 	fs_offset_t packsize;	///< size in the package
 	fs_offset_t realsize;	///< real file size (uncompressed)
-} packfile_t;
+};
 
-typedef struct pack_s
+struct pack_s
 {
 	char filename [MAX_OSPATH];
 	char shortname [MAX_QPATH];
@@ -298,7 +285,7 @@ typedef struct pack_s
 	qboolean vpack;
 	packfile_t *files;
 	struct AssetArchive* cgfHandle;
-} pack_t;
+};
 //@}
 
 /// Search paths for files (including packages)
@@ -324,10 +311,6 @@ void FS_Ls_f(void);
 void FS_Which_f(void);
 
 static searchpath_t *FS_FindFile (const char *name, int* index, qboolean quiet);
-static packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
-									fs_offset_t offset, fs_offset_t packsize,
-									fs_offset_t realsize, int flags);
-
 
 /*
 =============================================================================
@@ -786,9 +769,7 @@ static pack_t *FS_LoadPackPK3 (const char *packfile)
 	return FS_LoadPackPK3FromFD(packfile, packhandle, false);
 }
 
-#include "cgf_private.h"
-
-static void CGF_BuildFileList(pack_t* pack, struct AssetArchive* ap);
+#include "cgf_private.h" // FIXME?
 
 static pack_t *FS_LoadPackCGF (const char *packfile)
 {
@@ -817,63 +798,6 @@ static pack_t *FS_LoadPackCGF (const char *packfile)
 	Con_DPrintf("Failed to open packfile %s (cgf format)\n", packfile);
 	return NULL;
 }
-
-static const char* listquery = "SELECT name FROM files ORDER BY name ASC";
-
-//we sadly have to do this here due to some limitation
-static void CGF_BuildFileList(pack_t* pack, struct AssetArchive* ap)
-{
-	sqlite3_stmt* pq;
-	int res;
-	const unsigned char* nptr;
-	char tmpname[MAX_QPATH+1];
-	size_t len;
-    const char* eptr;
-
-	if(!ap || !pack) {
-        if(ap) {
-            eptr = sqlite3_errmsg(ap->db);
-            Con_DPrintf("add cgf pack: 1: sqlite result = \"%s\"\n", eptr);
-        }
-		return;
-	}
-
-	res = sqlite3_prepare_v2(ap->db, listquery, -1, &pq, NULL);
-	if(SQLITE_OK != res) {
-		eptr = sqlite3_errmsg(ap->db);
-		Con_DPrintf("add cgf pack: 2: sqlite result = \"%s\"\n", eptr);
-		return;
-	}
-
-	for(;;) {
-		memset(tmpname, '\0', MAX_QPATH);
-
-		res = sqlite3_step(pq);
-		if(SQLITE_DONE == res) {
-			break;
-		}
-		else if(SQLITE_ROW != res) {
-			eptr = sqlite3_errmsg(ap->db);
-			Con_DPrintf("add cgf pack: 3: sqlite result = \"%s\"\n", eptr);
-			break;
-		}
-		nptr = sqlite3_column_text(pq, 0);
-		len = strlen((const char*)(nptr));
-		memcpy(tmpname, nptr, MAX_QPATH);
-		if(len<MAX_QPATH) {
-			tmpname[len] = '\0';
-		} else {
-			tmpname[MAX_QPATH] = '\0';
-		}
-
-        Con_DPrintf("Adding \"%s\"\n", tmpname);
-
-        FS_AddFileToPack(tmpname, pack, -1, -1, -1, PACKFILE_FLAG_CGF);
-	}
-
-	sqlite3_finalize(pq);
-}
-
 
 /*
 ====================
@@ -924,7 +848,7 @@ FS_AddFileToPack
 Add a file to the list of files contained into a package
 ====================
 */
-static packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
+packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
 									 fs_offset_t offset, fs_offset_t packsize,
 									 fs_offset_t realsize, int flags)
 {

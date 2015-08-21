@@ -3,11 +3,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <sqlite3.h>
-
-#include "cgf_private.h"
-
 #include "quakedef.h"
+#include "cgf_private.h"
 
 #ifdef DEBUG
 #include <assert.h>
@@ -21,6 +18,10 @@ static inline void log_sqlite_error(int _) { (void)(_); }
 #endif
 
 #include "sha256.h"
+
+/*
+ * BEGIN Partial liblzma defs for dynamic loading
+ */
 
 dllhandle_t lzma_dll = NULL;
 
@@ -72,8 +73,78 @@ static bool LZMA_OpenLibrary(void) {
     return Sys_LoadLibrary(dllnames, &lzma_dll, lzma_funcs);
 }
 
+/*
+ * END Partial liblzma defs for dynamic loading
+ */
+
+/*
+ * BEGIN Partial libsqlite3 defs for dynamic loading
+ */
+
+dllhandle_t sqlite_dll = NULL;
+
+static int (*sqlite3_bind_text)(sqlite3_stmt*, int, const char*, int, void(*)(void*));
+static int (*sqlite3_clear_bindings)(sqlite3_stmt*);
+static int (*sqlite3_close)(sqlite3*);
+static const void* (*sqlite3_column_blob)(sqlite3_stmt*, int iCol);
+static int (*sqlite3_column_bytes)(sqlite3_stmt*, int iCol);
+static sqlite3_int64 (*sqlite3_column_int64)(sqlite3_stmt*, int iCol);
+static const unsigned char* (*sqlite3_column_text)(sqlite3_stmt*, int iCol);
+static const char* (*sqlite3_errmsg)(sqlite3*);
+static int (*sqlite3_finalize)(sqlite3_stmt *pStmt);
+static int (*sqlite3_initialize)(void);
+static int (*sqlite3_open_v2)(const char *filename, sqlite3 **ppDb, int flags, const char *zVfs);
+static int (*sqlite3_prepare_v2)(sqlite3 *db, const char *zSql, int nByte, sqlite3_stmt **ppStmt, const char **pzTail);
+static int (*sqlite3_reset)(sqlite3_stmt *pStmt);
+static int (*sqlite3_step)(sqlite3_stmt*);
+
+static dllfunction_t sqlite_funcs[] = {
+    {"sqlite3_bind_text", (void**) &sqlite3_bind_text},
+    {"sqlite3_clear_bindings", (void**) &sqlite3_clear_bindings},
+    {"sqlite3_close", (void**) &sqlite3_close},
+    {"sqlite3_column_blob", (void**) &sqlite3_column_blob},
+    {"sqlite3_column_bytes", (void**) &sqlite3_column_bytes},
+    {"sqlite3_column_int64", (void**) &sqlite3_column_int64},
+    {"sqlite3_column_text", (void**) &sqlite3_column_text},
+    {"sqlite3_errmsg", (void**) &sqlite3_errmsg},
+    {"sqlite3_finalize", (void**) &sqlite3_finalize},
+    {"sqlite3_initialize", (void**) &sqlite3_initialize},
+    {"sqlite3_open_v2", (void**) &sqlite3_open_v2},
+    {"sqlite3_prepare_v2", (void**) &sqlite3_prepare_v2},
+    {"sqlite3_reset", (void**) &sqlite3_reset},
+    {"sqlite3_step", (void**) &sqlite3_step},
+    {NULL, NULL}
+};
+
+static bool SQLite_OpenLibrary(void) {
+    const char *dllnames[] = {
+#if WIN32
+        "libsqlite3.dll",
+#elif defined(MACOSX)
+        "libsqlite3.dylib",
+        "libsqlite3.0.dylib",
+        "libsqlite3.0.8.6.dylib",
+#else
+        "libsqlite3.so",
+        "libsqlite3.so.0",
+        "libsqlite3.so.0.8.6",
+#endif
+        NULL
+    };
+
+    if(sqlite_dll)
+        return true;
+
+    return Sys_LoadLibrary(dllnames, &sqlite_dll, sqlite_funcs);
+}
+
+/*
+ * END Partial libsqlite3 defs for dynamic loading
+ */
+
 void AssetArchive_init(void) {
     LZMA_OpenLibrary();
+    SQLite_OpenLibrary();
 }
 
 bool AssetArchive_check_hash(const uint8_t* data, const size_t dlen, const uint8_t* chash) {
@@ -104,7 +175,7 @@ bool AssetArchive_openRead(struct AssetArchive** aa, const char* const filename)
     int res;
     struct AssetArchive* ret;
 
-    if(!aa || !filename) {
+    if(!sqlite_dll || !aa || !filename) {
         return false;
     }
 
@@ -139,7 +210,7 @@ bool AssetArchive_openRead(struct AssetArchive** aa, const char* const filename)
 }
 
 void AssetArchive_close(struct AssetArchive* aa) {
-    if(aa) {
+    if(aa && sqlite_dll) {
         if(aa->db) {
             sqlite3_close(aa->db);
         }
@@ -206,6 +277,11 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
     const uint8_t* dptr;
     size_t dlen;
     const uint8_t* hptr;
+
+    if(!sqlite_dll) {
+        Con_Printf("cgf: libsqlite3 not loaded\n");
+        return false;
+    }
 
     if(!a || !data || !filenames || !count) {
         Con_Printf("cgf: bad req: %p %p %p %p %lu\n", a, data, dlens, filenames, count);
@@ -364,3 +440,59 @@ static inline bool decompress(struct AssetArchive* a, uint8_t** decompdata, size
 
     return true;
 }
+
+static const char* listquery = "SELECT name FROM files ORDER BY name ASC";
+
+void CGF_BuildFileList(pack_t* pack, struct AssetArchive* ap)
+{
+    sqlite3_stmt* pq;
+    int res;
+    const unsigned char* nptr;
+    char tmpname[MAX_QPATH+1];
+    size_t len;
+    const char* eptr;
+
+    if(!ap || !pack) {
+        if(ap) {
+            eptr = sqlite3_errmsg(ap->db);
+            Con_DPrintf("add cgf pack: 1: sqlite result = \"%s\"\n", eptr);
+        }
+        return;
+    }
+
+    res = sqlite3_prepare_v2(ap->db, listquery, -1, &pq, NULL);
+    if(SQLITE_OK != res) {
+        eptr = sqlite3_errmsg(ap->db);
+        Con_DPrintf("add cgf pack: 2: sqlite result = \"%s\"\n", eptr);
+        return;
+    }
+
+    for(;;) {
+        memset(tmpname, '\0', MAX_QPATH);
+
+        res = sqlite3_step(pq);
+        if(SQLITE_DONE == res) {
+            break;
+        }
+        else if(SQLITE_ROW != res) {
+            eptr = sqlite3_errmsg(ap->db);
+            Con_DPrintf("add cgf pack: 3: sqlite result = \"%s\"\n", eptr);
+            break;
+        }
+        nptr = sqlite3_column_text(pq, 0);
+        len = strlen((const char*)(nptr));
+        memcpy(tmpname, nptr, MAX_QPATH);
+        if(len<MAX_QPATH) {
+            tmpname[len] = '\0';
+        } else {
+            tmpname[MAX_QPATH] = '\0';
+        }
+
+        Con_DPrintf("Adding \"%s\"\n", tmpname);
+
+        FS_AddFileToPack(tmpname, pack, -1, -1, -1, PACKFILE_FLAG_CGF);
+    }
+
+    sqlite3_finalize(pq);
+}
+

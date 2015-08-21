@@ -3,6 +3,19 @@
 #define CGF_PRIVATE_H
 #include "cgf.h"
 
+#define SQLITE_OK 0
+#define SQLITE_ROW 100
+#define SQLITE_DONE 101
+
+typedef void (*sqlite3_destructor_type)(void*);
+#define SQLITE_STATIC      ((sqlite3_destructor_type)0)
+#define SQLITE_TRANSIENT   ((sqlite3_destructor_type)-1)
+
+#define SQLITE_OPEN_READONLY 0x00000001
+
+typedef void sqlite3;
+typedef void sqlite3_stmt;
+typedef int64_t sqlite3_int64;
 
 struct AssetArchive {
     sqlite3* db;
