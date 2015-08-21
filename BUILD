@@ -116,7 +116,7 @@ cc_binary(
     srcs=[":vecxis-sdl2-sources"],
     copts=["-I/usr/include/", "-I/usr/include/SDL2/", "-DSVREVISION=v0.4.2-36-g4867018", "-UCRYPTO_STATIC",
     "-UCRYPTO_RIJNDAEL_STATIC"],
-    linkopts=["-lm", "-llzma", "-lSDL2", "-pthread", "-lrt", "-ldl", "-lX11", "-lmodplug"],
+    linkopts=["-lm", "-lSDL2", "-pthread", "-lrt", "-ldl", "-lX11", "-lmodplug"],
     linkstatic=1,
     includes=["."],
     defines=["VECXIS_RELEASE", "USERDIRMODE_PREFERED=USERDIRMODE_SAVEDGAMES", "BUILDTYPE=release",

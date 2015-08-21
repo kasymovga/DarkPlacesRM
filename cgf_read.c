@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include <sqlite3.h>
-#include <lzma.h>
 
 #include "cgf_private.h"
 
@@ -22,6 +21,60 @@ static inline void log_sqlite_error(int _) { (void)(_); }
 #endif
 
 #include "sha256.h"
+
+dllhandle_t lzma_dll = NULL;
+
+typedef enum {
+    LZMA_OK                 = 0,
+    LZMA_STREAM_END         = 1,
+    LZMA_NO_CHECK           = 2,
+    LZMA_UNSUPPORTED_CHECK  = 3,
+    LZMA_GET_CHECK          = 4,
+    LZMA_MEM_ERROR          = 5,
+    LZMA_MEMLIMIT_ERROR     = 6,
+    LZMA_FORMAT_ERROR       = 7,
+    LZMA_OPTIONS_ERROR      = 8,
+    LZMA_DATA_ERROR         = 9,
+    LZMA_BUF_ERROR          = 10,
+    LZMA_PROG_ERROR         = 11,
+} lzma_ret;
+
+static lzma_ret (*lzma_stream_buffer_decode)(
+        uint64_t *memlimit, uint32_t flags,
+        const void *allocator,
+        const uint8_t *in, size_t *in_pos, size_t in_size,
+        uint8_t *out, size_t *out_pos, size_t out_size);
+
+static dllfunction_t lzma_funcs[] = {
+    {"lzma_stream_buffer_decode", (void**) &lzma_stream_buffer_decode},
+    {NULL, NULL}
+};
+
+static bool LZMA_OpenLibrary(void) {
+    const char *dllnames[] = {
+#if WIN32
+        "liblzma.dll",
+        "liblzma-5.dll",
+#elif defined(MACOSX)
+        "liblzma.dylib",
+        "liblzma.5.dylib",
+#else
+        "liblzma.so",
+        "liblzma.so.5",
+        "liblzma.so.5.2.1",
+#endif
+        NULL
+    };
+
+    if(lzma_dll)
+        return true;
+
+    return Sys_LoadLibrary(dllnames, &lzma_dll, lzma_funcs);
+}
+
+void AssetArchive_init(void) {
+    LZMA_OpenLibrary();
+}
 
 bool AssetArchive_check_hash(const uint8_t* data, const size_t dlen, const uint8_t* chash) {
     SHA256Context ctx;
@@ -288,7 +341,7 @@ static inline bool decompress(struct AssetArchive* a, uint8_t** decompdata, size
     uint64_t memuse = UINT32_MAX;
     uint8_t* res;
 
-    if(!buf || !compdata) {
+    if(!lzma_dll || !buf || !compdata) {
         return false;
     }
 

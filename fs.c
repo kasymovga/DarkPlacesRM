@@ -1799,6 +1799,7 @@ FS_Init_SelfPack
 */
 void FS_Init_SelfPack (void)
 {
+    AssetArchive_init();
 	PK3_OpenLibrary ();
 	fs_mempool = Mem_AllocPool("file management", 0, NULL);
 	if(com_selffd >= 0)

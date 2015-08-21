@@ -12,6 +12,8 @@
 
 struct AssetArchive;
 
+void AssetArchive_init(void);
+
 //open/close functions
 bool AssetArchive_openRead(struct AssetArchive** aa, const char* const filename);
 void AssetArchive_close(struct AssetArchive* aa);
