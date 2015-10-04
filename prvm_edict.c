@@ -392,12 +392,28 @@ mfunction_t *PRVM_ED_FindFunction (prvm_prog_t *prog, const char *name)
 	mfunction_t		*func;
 	int				i;
 
+    if(*name == '#') {
+        int idx = atoi(name+1);
+        
+        if(idx < 0 || idx >= prog->numbuiltins)
+            return NULL;
+
+        for(i = 0; i < prog->numfunctions; ++i) {
+            func = &prog->functions[i];
+            if(func->first_statement == -idx)
+                return func;
+        }
+
+        return NULL;
+    }
+
 	for (i = 0;i < prog->numfunctions;i++)
 	{
 		func = &prog->functions[i];
 		if (!strcmp(PRVM_GetString(prog, func->s_name), name))
 			return func;
 	}
+
 	return NULL;
 }
 
