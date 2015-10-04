@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "thread.h"
 #include "utf8lib.h"
 #include "irc.h"
+#include "random.h"
 
 /*
 
@@ -651,6 +652,8 @@ const char *Host_TimingReport(char *buf, size_t buflen)
 	return va(buf, buflen, "%.1f%% CPU, %.2f%% lost, offset avg %.1fms, max %.1fms, sdev %.1fms", svs.perf_cpuload * 100, svs.perf_lost * 100, svs.perf_offset_avg * 1000, svs.perf_offset_max * 1000, svs.perf_offset_sdev * 1000);
 }
 
+#include "timedemo.h"
+
 /*
 ==================
 Host_Frame
@@ -742,8 +745,10 @@ void Host_Main(void)
 			Cvar_SetValue("host_framerate", 0);
 
 		// keep the random time dependent, but not when playing demos/benchmarking
-		if(!*sv_random_seed.string && !cls.demoplayback)
-			rand();
+		if(!*sv_random_seed.string && !cls.demoplayback) {
+			xrand();
+            rand();
+        }
 
 		// get new key events
 		Key_EventQueue_Unblock();
@@ -924,6 +929,9 @@ void Host_Main(void)
 
 		if (cls.state != ca_dedicated && (cl_timer > 0 || cls.timedemo || ((vid_activewindow ? cl_maxfps : cl_maxidlefps).value < 1)))
 		{
+            if(cls.td_frames < -2 || cls.td_frames > 0) {
+                TimeDemo_BeginFrame(&tdstats);
+            }
 			R_TimeReport("---");
 			Collision_Cache_NewFrame();
 			R_TimeReport("collisioncache");
@@ -1029,6 +1037,9 @@ void Host_Main(void)
 			// reset gathering of mouse input
 			in_mouse_x = in_mouse_y = 0;
 
+            if(cls.td_frames < -2 || cls.td_frames > 0) {
+                TimeDemo_EndFrame(&tdstats);
+            }
 			if (host_speeds.integer)
 			{
 				pass1 = (int)((time1 - time3)*1000000);
@@ -1056,9 +1067,9 @@ void Host_Main(void)
 				svs.perf_acc_lost += sv_timer;
 			sv_timer = 0;
 		}
-        
+
         IRC_Frame();
-        
+
 		host_framecount++;
 	}
 }
@@ -1143,6 +1154,8 @@ void Host_UnlockSession(void)
 	}
 }
 
+#include "timedemo.h"
+
 /*
 ====================
 Host_Init
@@ -1158,10 +1171,16 @@ static void Host_Init (void)
 		Sys_AllowProfiling(false);
 
 	// LordHavoc: quake never seeded the random number generator before... heh
-	if (COM_CheckParm("-benchmark"))
+	if (COM_CheckParm("-benchmark")) {
+        Xrand_Init(1);
 		srand(0); // predictable random sequence for -benchmark
-	else
+    }
+	else {
+        Xrand_Init(0);
 		srand((unsigned int)time(NULL));
+    }
+
+    Cvar_InitTable();
 
 	// FIXME: this is evil, but possibly temporary
 	// LordHavoc: doesn't seem very temporary...
@@ -1228,7 +1247,11 @@ static void Host_Init (void)
 
 	// construct a version string for the corner of the console
 	os = DP_OS_NAME;
+#ifdef VECXIS_RELEASE
+	dpsnprintf (engineversion, sizeof (engineversion), "vdprm %s (Running %s) %s", os, gamename, buildstring);
+#else
 	dpsnprintf (engineversion, sizeof (engineversion), "DarkPlacesRM %s (Running %s) %s", os, gamename, buildstring);
+#endif
 	Con_Printf("%s\n", engineversion);
 
 	// initialize process nice level
@@ -1259,7 +1282,7 @@ static void Host_Init (void)
 	Host_InitCommands();
 	Host_InitLocal();
 	Host_ServerOptions();
-    
+
     IRC_Init();
 	Thread_Init();
 

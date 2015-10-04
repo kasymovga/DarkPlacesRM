@@ -19,11 +19,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "quakedef.h"
+#include "random.h"
 
 extern cvar_t cl_capturevideo;
 int old_vsync = 0;
 
 static void CL_FinishTimeDemo (void);
+
+#include "timedemo.h"
 
 /*
 ==============================================================================
@@ -488,6 +491,8 @@ static void CL_FinishTimeDemo (void)
 	int i;
 	double time, totalfpsavg;
 	double fpsmin, fpsavg, fpsmax; // report min/avg/max fps
+    double min_time, mean_time, max_time, stddev_time; // report frame times
+    uint64_t min_frame, max_frame;
 	static int benchmark_runs = 0;
 	char vabuf[1024];
 
@@ -502,6 +507,18 @@ static void CL_FinishTimeDemo (void)
 	// LordHavoc: timedemo now prints out 7 digits of fraction, and min/avg/max
 	Con_Printf("%i frames %5.7f seconds %5.7f fps, one-second fps min/avg/max: %.0f %.0f %.0f (%i seconds)\n", frames, time, totalfpsavg, fpsmin, fpsavg, fpsmax, cls.td_onesecondavgcount);
 	Log_Printf("benchmark.log", "date %s | enginedate %s | demo %s | commandline %s | run %d | result %i frames %5.7f seconds %5.7f fps, one-second fps min/avg/max: %.0f %.0f %.0f (%i seconds)\n", Sys_TimeString("%Y-%m-%d %H:%M:%S"), buildstring, cls.demoname, cmdline.string, benchmark_runs + 1, frames, time, totalfpsavg, fpsmin, fpsavg, fpsmax, cls.td_onesecondavgcount);
+
+    min_time = TimeDemo_Min(&tdstats);
+    max_time = TimeDemo_Max(&tdstats);
+    mean_time = TimeDemo_Mean(&tdstats);
+    stddev_time = sqrt(TimeDemo_Variance(&tdstats));
+    min_frame = TimeDemo_MinIndex(&tdstats);
+    max_frame = TimeDemo_MaxIndex(&tdstats);
+    Con_Printf("%5.7fms @ %" PRIu64 ", %5.7fms, %5.7fms @ % " PRIu64 " min/mean/max, %5.7fms standard deviation\n",
+            min_time, min_frame, mean_time, max_time, max_frame, stddev_time);
+	Log_Printf("benchmark.log", "        | %5.7fms @ %" PRIu64 " %5.7fms %5.7fms @ %" PRIu64 " %5.7fms\n",
+            min_time, min_frame, mean_time, max_time, max_frame, stddev_time);
+    TimeDemo_Reset(&tdstats);
 	if (COM_CheckParm("-benchmark"))
 	{
 		++benchmark_runs;
@@ -595,6 +612,7 @@ void CL_TimeDemo_f (void)
 	}
 
 	srand(0); // predictable random sequence for benchmarking
+    Xrand_Init(1);
 
 	CL_PlayDemo_f ();
 

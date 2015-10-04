@@ -9,6 +9,7 @@
 #include "csprogs.h"
 #include "cap_avi.h"
 #include "cap_ogg.h"
+#include "random.h"
 
 // we have to include snd_main.h here only to get access to snd_renderbuffer->format.speed when writing the AVI headers
 #include "snd_main.h"
@@ -1509,10 +1510,11 @@ void SHOWLMP_decodeshow(void)
 		showlmp_t *oldshowlmps = cl.showlmps;
 		cl.max_showlmps += 16;
 		cl.showlmps = (showlmp_t *) Mem_Alloc(cls.levelmempool, cl.max_showlmps * sizeof(showlmp_t));
-		if (cl.num_showlmps)
+		if (oldshowlmps && cl.num_showlmps)
+		{
 			memcpy(cl.showlmps, oldshowlmps, cl.num_showlmps * sizeof(showlmp_t));
-		if (oldshowlmps)
 			Mem_Free(oldshowlmps);
+		}
 	}
 	for (k = 0;k < cl.max_showlmps;k++)
 		if (cl.showlmps[k].isactive && !strcmp(cl.showlmps[k].label, lmplabel))
@@ -1998,7 +2000,7 @@ static void SCR_DrawLoadingStack(void)
 		verts[1] = verts[4] = vid_conheight.integer - scr_loadingscreen_barheight.value;
 		verts[3] = verts[6] = vid_conwidth.integer * loadingscreenstack->absolute_loading_amount_min;
 		verts[7] = verts[10] = vid_conheight.integer;
-		
+
 #if _MSC_VER >= 1400
 #define sscanf sscanf_s
 #endif
@@ -2144,7 +2146,7 @@ void SCR_UpdateLoadingScreen (qboolean clear, qboolean startup)
 
 	if(!scr_loadingscreen_background.integer)
 		clear = true;
-	
+
 	if(loadingscreendone)
 		clear |= loadingscreencleared;
 
@@ -2154,11 +2156,11 @@ void SCR_UpdateLoadingScreen (qboolean clear, qboolean startup)
 			loadingscreenpic_number = 0;
 		else if(scr_loadingscreen_firstforstartup.integer)
 			if(scr_loadingscreen_count.integer > 1)
-				loadingscreenpic_number = rand() % (scr_loadingscreen_count.integer - 1) + 1;
+				loadingscreenpic_number = xrand() % (scr_loadingscreen_count.integer - 1) + 1;
 			else
 				loadingscreenpic_number = 0;
 		else
-			loadingscreenpic_number = rand() % (scr_loadingscreen_count.integer > 1 ? scr_loadingscreen_count.integer : 1);
+			loadingscreenpic_number = xrand() % (scr_loadingscreen_count.integer > 1 ? scr_loadingscreen_count.integer : 1);
 	}
 
 	if(clear)
@@ -2411,11 +2413,11 @@ void CL_UpdateScreen(void)
 			int i, s, width, parts;
 			static int frame = 0;
 			++frame;
-	
+
 			s = scr_stipple.integer;
 			parts = (s & 007);
 			width = (s & 070) >> 3;
-	
+
 			qglEnable(GL_POLYGON_STIPPLE);CHECKGLERROR // 0x0B42
 			for(i = 0; i < 128; ++i)
 			{

@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "hmac.h"
 #include "mdfour.h"
 #include <time.h>
+#include "random.h"
 
 #define QWMASTER_PORT 27000
 #define DPMASTER_PORT 27950
@@ -58,11 +59,12 @@ static cvar_t sv_masters [] =
 	{CVAR_SAVE, "sv_master3", "", "user-chosen master server 3"},
 	{CVAR_SAVE, "sv_master4", "", "user-chosen master server 4"},
 	{0, "sv_masterextra1", "69.59.212.88", "ghdigital.com - default master server 1 (admin: LordHavoc)"}, // admin: LordHavoc
-	{0, "sv_masterextra2", "64.22.107.125", "dpmaster.deathmask.net - default master server 2 (admin: Willis)"}, // admin: Willis
+	{0, "sv_masterextra2", "107.161.23.68", "dpmaster.deathmask.net - default master server 2 (admin: Willis)"}, // admin: Willis
 	{0, "sv_masterextra3", "92.62.40.73", "dpmaster.tchr.no - default master server 3 (admin: tChr)"}, // admin: tChr
 	{0, "sv_masterextra4", "dpmaster.vecxis.com", "Vecxis's master server (admin: Player_2)"}, // admin: Player_2
+    {0, "sv_masterextra5", "91.121.161.160", "Nude Dudes master server (admins: Akari, J0k3r)"}, // admins: Akari, J0k3r
 #ifdef SUPPORTIPV6
-	{0, "sv_masterextra5", "[2a03:4000:1::2e26:f351:3]:27950", "dpmaster.sudo.rm-f.org - default master server 4 (admin: divVerent)"}, // admin: divVerent
+	{0, "sv_masterextra6", "[2a03:4000:1::2e26:f351:3]:27950", "dpmaster.sudo.rm-f.org - default master server 4 (admin: divVerent)"}, // admin: divVerent
 #endif
 	{0, NULL, NULL, NULL}
 };
@@ -614,7 +616,7 @@ int NetConn_Read(lhnetsocket_t *mysocket, void *data, int maxlength, lhnetaddres
 		return 0;
 	if (cl_netpacketloss_receive.integer)
 		for (i = 0;i < cl_numsockets;i++)
-			if (cl_sockets[i] == mysocket && (rand() % 100) < cl_netpacketloss_receive.integer)
+			if (cl_sockets[i] == mysocket && (xrand() % 100) < cl_netpacketloss_receive.integer)
 				return 0;
 	if (developer_networking.integer)
 	{
@@ -638,7 +640,7 @@ int NetConn_Write(lhnetsocket_t *mysocket, const void *data, int length, const l
 	int i;
 	if (cl_netpacketloss_send.integer)
 		for (i = 0;i < cl_numsockets;i++)
-			if (cl_sockets[i] == mysocket && (rand() % 100) < cl_netpacketloss_send.integer)
+			if (cl_sockets[i] == mysocket && (xrand() % 100) < cl_netpacketloss_send.integer)
 				return length;
 	if (mysocket->address.addresstype == LHNETADDRESSTYPE_LOOP && netconn_mutex)
 		Thread_LockMutex(netconn_mutex);
@@ -2339,7 +2341,7 @@ static void NetConn_BuildChallengeString(char *buffer, int bufferlength)
 	{
 		do
 		{
-			c = rand () % (127 - 33) + 33;
+			c = xrand () % (127 - 33) + 33;
 		} while (c == '\\' || c == ';' || c == '"' || c == '%' || c == '/');
 		buffer[i] = c;
 	}

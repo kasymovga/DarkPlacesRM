@@ -51,11 +51,13 @@ else
 endif
 
 # default targets
+# we don't build the cl target for Vecxis because its badly outdated
 TARGETS_DEBUG=sv-debug cl-debug sdl-debug
 TARGETS_PROFILE=sv-profile cl-profile sdl-profile
 TARGETS_RELEASE=sv-release cl-release sdl-release
 TARGETS_RELEASE_PROFILE=sv-release-profile cl-release-profile sdl-release-profile
 TARGETS_NEXUIZ=sv-nexuiz cl-nexuiz sdl-nexuiz
+TARGETS_VECXIS=sv-vecxis sdl-vecxis
 
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
@@ -65,12 +67,13 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	OBJ_CL=$(OBJ_GLX)
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
+	OBJ_ICON_VECXIS=
 
 	LDFLAGS_CL=$(LDFLAGS_LINUXCL)
 	LDFLAGS_SV=$(LDFLAGS_LINUXSV)
 	LDFLAGS_SDL=$(LDFLAGS_LINUXSDL)
 
-	SDLCONFIG_CFLAGS=$(SDLCONFIG_UNIXCFLAGS) $(SDLCONFIG_UNIXCFLAGS_X11)
+	SDLCONFIG_CFLAGS=$(SDLCONFIG_UNIXCFLAGS) $(SDLCONFIG_UNIXCFLAGS_X11) $(SDLCONFIG_LINUXCFLAGS)
 	SDLCONFIG_LIBS=$(SDLCONFIG_UNIXLIBS) $(SDLCONFIG_UNIXLIBS_X11)
 	SDLCONFIG_STATICLIBS=$(SDLCONFIG_UNIXSTATICLIBS) $(SDLCONFIG_UNIXSTATICLIBS_X11)
 
@@ -80,6 +83,9 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	EXE_CLNEXUIZ=$(EXE_UNIXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
+	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
+	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
+	EXE_SDLVECXIS=$(EXE_UNIXSDLVECXIS)
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
@@ -96,6 +102,7 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	OBJ_CL=$(OBJ_AGL)
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
+	OBJ_ICON_VECXIS=
 
 	LDFLAGS_CL=$(LDFLAGS_MACOSXCL)
 	LDFLAGS_SV=$(LDFLAGS_MACOSXSV)
@@ -111,6 +118,9 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	EXE_CLNEXUIZ=$(EXE_MACOSXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
+	EXE_CLVECXIS=$(EXE_MACOSXCLVECXIS)
+	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
+	EXE_SDLVECXIS=$(EXE_UNIXSDLVECXIS)
 
 	ifeq ($(word 2, $(filter -arch, $(CC))), -arch)
 		CFLAGS_MAKEDEP=
@@ -121,13 +131,14 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	CFLAGS_LIBJPEG=
 	LIB_JPEG=
 
-	# on OS X, we don't build the CL by default because it uses deprecated
+	# we don't build the CL by default because it uses deprecated
 	# and not-implemented-in-64bit Carbon
 	TARGETS_DEBUG=sv-debug sdl-debug
 	TARGETS_PROFILE=sv-profile sdl-profile
 	TARGETS_RELEASE=sv-release sdl-release
 	TARGETS_RELEASE_PROFILE=sv-release-profile sdl-release-profile
 	TARGETS_NEXUIZ=sv-nexuiz sdl-nexuiz
+	TARGETS_VECXIS=sv-vecxis sdl-vecxis
 endif
 
 # SunOS configuration (Solaris)
@@ -138,6 +149,7 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	OBJ_CL=$(OBJ_GLX)
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
+	OBJ_ICON_VECXIS=
 
 	CFLAGS_EXTRA=$(CFLAGS_SUNOS)
 
@@ -155,6 +167,9 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	EXE_CLNEXUIZ=$(EXE_UNIXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
+	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
+	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
+	EXE_SDLVECXIS=$(EXE_UNIXSDLVECXIS)
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
@@ -175,6 +190,7 @@ endif
 	OBJ_CL=$(OBJ_GLX)
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
+	OBJ_ICON_VECXIS=
 
 	LDFLAGS_CL=$(LDFLAGS_BSDCL)
 	LDFLAGS_SV=$(LDFLAGS_BSDSV)
@@ -190,6 +206,9 @@ endif
 	EXE_CLNEXUIZ=$(EXE_UNIXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
+	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
+	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
+	EXE_SDLVECXIS=$(EXE_UNIXSDLVECXIS)
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
@@ -220,16 +239,17 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	OBJ_CL=$(OBJ_WGL)
 	OBJ_ICON=darkplaces.o
 	OBJ_ICON_NEXUIZ=nexuiz.o
+	OBJ_ICON_VECXIS=vecxis.o
 
 	LDFLAGS_CL=$(LDFLAGS_WINCL)
 	LDFLAGS_SV=$(LDFLAGS_WINSV)
 	LDFLAGS_SDL=$(LDFLAGS_WINSDL)
 
-	# XXX: is this /usr on all systems? How do I invoke the correct sdl-config?
+	# TODO: is this /usr on all systems? How do we invoke the correct sdl-config?
 	SDL_CONFIG=/usr/$(TARGET)/bin/sdl-config
 	SDLCONFIG_CFLAGS=$(SDLCONFIG_UNIXCFLAGS)
 	#SDLCONFIG_LIBS=$(SDLCONFIG_UNIXLIBS)
-	SDLCONFIG_LIBS=-Wl,-Bstatic `$(SDL_CONFIG) --static-libs` -Wl,-Bdynamic
+	SDLCONFIG_LIBS?=-Wl,-Bstatic `$(SDL_CONFIG) --static-libs` -Wl,-Bdynamic
 	SDLCONFIG_STATICLIBS=$(SDLCONFIG_UNIXSTATICLIBS)
 
 	EXE_CL=$(EXE_WINCL)-$(MINGWARCH).exe
@@ -238,6 +258,9 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	EXE_CLNEXUIZ=$(EXE_WINCLNEXUIZ)-$(MINGWARCH).exe
 	EXE_SVNEXUIZ=$(EXE_WINSVNEXUIZ)-$(MINGWARCH).exe
 	EXE_SDLNEXUIZ=$(EXE_WINSDLNEXUIZ)-$(MINGWARCH).exe
+	EXE_CLVECXIS=$(EXE_WINCLVECXIS)-$(MINGWARCH).exe
+	EXE_SVVECXIS=$(EXE_WINSVVECXIS)-$(MINGWARCH).exe
+	EXE_SDLVECXIS=$(EXE_WINSDLVECXIS)-$(MINGWARCH).exe
 
 	ifeq ($(MINGWARCH), i686)
 		CPUOPTIMIZATIONS=-march=i686 -fno-math-errno -ffinite-math-only -fno-rounding-math -fno-signaling-nans -fno-trapping-math
@@ -303,10 +326,12 @@ endif
 
 ##### Extra CFLAGS #####
 
+DP_FS_USERDIRMODE?=USERDIRMODE_SAVEDGAMES
 DP_FS_BASEDIR_NEXUIZ?=/usr/share/games/nexuiz
+DP_FS_BASEDIR_VECXIS?=/usr/share/games/vecxis
 CFLAGS_MAKEDEP?=-MMD
 
-ifneq ($(DP_MAKE_TARGET), mingw)
+ifeq ($(DP_MAKE_TARGET), linux)
 ifndef DP_FS_BASEDIR
 ifeq ($(ISNEXUIZ), 1)
 	DP_FS_BASEDIR=$(DP_FS_BASEDIR_NEXUIZ)
@@ -318,6 +343,12 @@ ifdef DP_FS_BASEDIR
 	CFLAGS_FS=-DDP_FS_BASEDIR='\"$(DP_FS_BASEDIR)\"'
 else
 	CFLAGS_FS=
+endif
+
+CFLAGS_FS+=-DUSERDIRMODE_PREFERED=$(DP_FS_USERDIRMODE)
+
+ifdef DP_FS_FORCE_NOHOME
+	CFLAGS_FS+=-DFS_FORCE_NOHOME
 endif
 
 ifndef DP_JPEG_VERSION

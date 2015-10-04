@@ -6,6 +6,7 @@
 #include "r_shadow.h"
 #include "jpeg.h"
 #include "image.h"
+#include "random.h"
 
 //============================================================================
 // Client
@@ -1999,10 +2000,10 @@ static void VM_CL_te_gunshotquad (prvm_prog_t *prog)
 	CL_ParticleEffect(EFFECT_TE_GUNSHOTQUAD, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
 	if(cl_sound_ric_gunshot.integer >= 2)
 	{
-		if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+		if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 		else
 		{
-			rnd = rand() & 3;
+			rnd = xrand() & 3;
 			if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 			else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 			else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2020,10 +2021,10 @@ static void VM_CL_te_spikequad (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), pos);
 	CL_FindNonSolidLocation(pos, pos2, 4);
 	CL_ParticleEffect(EFFECT_TE_SPIKEQUAD, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
-	if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+	if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 	else
 	{
-		rnd = rand() & 3;
+		rnd = xrand() & 3;
 		if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 		else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 		else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2040,10 +2041,10 @@ static void VM_CL_te_superspikequad (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), pos);
 	CL_FindNonSolidLocation(pos, pos2, 4);
 	CL_ParticleEffect(EFFECT_TE_SUPERSPIKEQUAD, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
-	if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
+	if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 	else
 	{
-		rnd = rand() & 3;
+		rnd = xrand() & 3;
 		if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 		else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 		else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2098,10 +2099,10 @@ static void VM_CL_te_gunshot (prvm_prog_t *prog)
 	CL_ParticleEffect(EFFECT_TE_GUNSHOT, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
 	if(cl_sound_ric_gunshot.integer == 1 || cl_sound_ric_gunshot.integer == 3)
 	{
-		if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+		if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 		else
 		{
-			rnd = rand() & 3;
+			rnd = xrand() & 3;
 			if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 			else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 			else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2119,10 +2120,10 @@ static void VM_CL_te_spike (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), pos);
 	CL_FindNonSolidLocation(pos, pos2, 4);
 	CL_ParticleEffect(EFFECT_TE_SPIKE, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
-	if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+	if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 	else
 	{
-		rnd = rand() & 3;
+		rnd = xrand() & 3;
 		if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 		else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 		else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2139,10 +2140,10 @@ static void VM_CL_te_superspike (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), pos);
 	CL_FindNonSolidLocation(pos, pos2, 4);
 	CL_ParticleEffect(EFFECT_TE_SUPERSPIKE, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
-	if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+	if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 	else
 	{
-		rnd = rand() & 3;
+		rnd = xrand() & 3;
 		if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 		else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 		else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2229,7 +2230,7 @@ static void VM_CL_te_explosion2 (prvm_prog_t *prog)
 	colorLength = (int)PRVM_G_FLOAT(OFS_PARM2);
 	CL_FindNonSolidLocation(pos, pos2, 10);
 	CL_ParticleExplosion2(pos2, colorStart, colorLength);
-	tempcolor = palette_rgb[(rand()%colorLength) + colorStart];
+	tempcolor = palette_rgb[(xrand()%colorLength) + colorStart];
 	color[0] = tempcolor[0] * (2.0f / 255.0f);
 	color[1] = tempcolor[1] * (2.0f / 255.0f);
 	color[2] = tempcolor[2] * (2.0f / 255.0f);
@@ -4488,11 +4489,11 @@ NULL,							// #146
 NULL,							// #147
 NULL,							// #148
 NULL,							// #149
-NULL,							// #150
-NULL,							// #151
-NULL,							// #152
-NULL,							// #153
-NULL,							// #154
+VM_CallFunctionEx_SetArgFloat,  // #150 void(float idx, float val) CallFunctionEx_SetArgFloat = #150; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgIntFromFloat, // #151 void(float idx, float val) CallFunctionEx_SetArgInt = #151; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgVector, // #152 void(float idx, vector val) CallFunctionEx_SetArgVector = #152; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgInt,    // #153 use this for strings/ents/fields/etc. (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx,              // #154 void(string fname, float castretval) CallFunctionEx = #154; (DP_RM_CALLFUNCTIONEX)
 NULL,							// #155
 NULL,							// #156
 NULL,							// #157
@@ -4508,14 +4509,14 @@ NULL,							// #166
 NULL,							// #167
 NULL,							// #168
 NULL,							// #169
-NULL,							// #170
-NULL,							// #171
-NULL,							// #172
-NULL,							// #173
-NULL,							// #174
-NULL,							// #175
-NULL,							// #176
-NULL,							// #177
+VM_GlobalOfs,                   // #170 float(string) GlobalOfs = #170; (DP_RM_GLOBALACCESS)
+VM_GlobalType,                  // #171 float(string) GlobalType = #171; (DP_RM_GLOBALACCESS)
+VM_GlobalInt,                   // #172 float(float) GlobalInt = #172; (DP_RM_GLOBALACCESS)
+VM_GlobalFloat,                 // #173 float(float) GlobalFloat = #173; (DP_RM_GLOBALACCESS)
+VM_GlobalSetInt,                // #174 void(float, float) GlobalSetInt = #174; (DP_RM_GLOBALACCESS)
+VM_GlobalSetFloat,              // #175 void(float, float) GlobalSetFloat = #175; (DP_RM_GLOBALACCESS)
+VM_GlobalGet,                   // #176 string(string) GlobalGet = #176; (DP_RM_GLOBALACCESS)
+VM_GlobalSet,                   // #177 float(string, string) GlobalSet = #177; (DP_RM_GLOBALACCESS)
 NULL,							// #178
 NULL,							// #179
 NULL,							// #180

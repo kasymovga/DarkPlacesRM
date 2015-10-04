@@ -621,15 +621,17 @@ void CL_Input (void)
 	}
 
 	// apply m_filter if it is on
-	mx = in_mouse_x;
-	my = in_mouse_y;
 	if (m_filter.integer)
 	{
+		mx = in_mouse_x;
+		my = in_mouse_y;
+
 		in_mouse_x = (mx + old_mouse_x) * 0.5;
 		in_mouse_y = (my + old_mouse_y) * 0.5;
+		
+		old_mouse_x = mx;
+		old_mouse_y = my;
 	}
-	old_mouse_x = mx;
-	old_mouse_y = my;
 
 	// ignore a mouse move if mouse was activated/deactivated this frame
 	if (cl_ignoremousemoves)

@@ -152,6 +152,9 @@ void Cvar_MenuString(cvar_t *variable, int menu);
 void Cvar_MenuOption(cvar_t *variable, int menu, int value[16], const char *name[16]);
 */
 
+/// IMPORTANT: call this prior to using any other cvar functions
+void Cvar_InitTable(void);
+
 /// registers a cvar that already has the name, string, and optionally the
 /// archive elements set.
 void Cvar_RegisterVariable (cvar_t *variable);
