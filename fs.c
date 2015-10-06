@@ -828,12 +828,12 @@ static void CGF_BuildFileList(pack_t* pack, struct AssetArchive* ap)
 	const unsigned char* nptr;
 	char tmpname[MAX_QPATH+1];
 	size_t len;
-    const char* eptr;
+	const char* eptr;
 
 	if(!ap || !pack) {
         if(ap) {
-            eptr = sqlite3_errmsg(ap->db);
-            Con_DPrintf("add cgf pack: 1: sqlite result = \"%s\"\n", eptr);
+		eptr = sqlite3_errmsg(ap->db);
+		Con_DPrintf("add cgf pack: 1: sqlite result = \"%s\"\n", eptr);
         }
 		return;
 	}
@@ -1412,7 +1412,7 @@ static void FS_ClearSearchPath (void)
 		if (search->pack && search->pack != fs_selfpack)
 		{
             if(search->pack && search->pack->cgfHandle != NULL) {
-                AssetArchive_close(search->pack->cgfHandle);
+		AssetArchive_close(search->pack->cgfHandle);
             }
 			if(!search->pack->vpack)
 			{
@@ -2595,7 +2595,7 @@ static qfile_t *FS_OpenReadFile (const char *filename, qboolean quiet, qboolean 
 	unsigned char* resbuf;
 	size_t rblen;
 	unsigned char* buf;
-    qfile_t* cgf_res;
+	qfile_t* cgf_res;
 
 	search = FS_FindFile (filename, &pack_ind, quiet);
 
@@ -2805,9 +2805,9 @@ int FS_Close (qfile_t* file)
 	if(file->flags & QFILE_FLAG_DATA)
 	{
         if(file->flags & QFILE_FLAG_MEMFREE) {
-            //really, I'm sorry
-            cgf_ptr = (void*)(file->data);
-            Mem_Free(cgf_ptr);
+		//really, I'm sorry
+		cgf_ptr = (void*)(file->data);
+		Mem_Free(cgf_ptr);
         }
 		Mem_Free(file);
 		return 0;
