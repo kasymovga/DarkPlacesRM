@@ -79,6 +79,7 @@ cvar_t cl_maxfps = {CVAR_SAVE, "cl_maxfps", "0", "maximum fps cap, 0 = unlimited
 cvar_t cl_maxfps_alwayssleep = {CVAR_SAVE, "cl_maxfps_alwayssleep","1", "gives up some processing time to other applications each frame, value in milliseconds, disabled if cl_maxfps is 0"};
 cvar_t cl_maxidlefps = {CVAR_SAVE, "cl_maxidlefps", "20", "maximum fps cap when the game is not the active window (makes cpu time available to other programs"};
 
+cvar_t sys_first_run = {CVAR_SAVE, "sys_first_run", "1", "active when the game is run for the first time"};
 cvar_t developer = {CVAR_SAVE, "developer","0", "shows debugging messages and information (recommended for all developers and level designers); the value -1 also suppresses buffering and logging these messages"};
 cvar_t developer_extra = {0, "developer_extra", "0", "prints additional debugging messages, often very verbose!"};
 cvar_t developer_insane = {0, "developer_insane", "0", "prints huge streams of information about internal workings, entire contents of files being read/written, etc.  Not recommended!"};
@@ -253,6 +254,8 @@ static void Host_InitLocal (void)
 	Cvar_RegisterVariable (&cl_maxfps_alwayssleep);
 	Cvar_RegisterVariable (&cl_maxidlefps);
 
+	Cvar_RegisterVariable (&sys_first_run);
+
 	Cvar_RegisterVariable (&developer);
 	Cvar_RegisterVariable (&developer_extra);
 	Cvar_RegisterVariable (&developer_insane);
@@ -278,6 +281,8 @@ Writes key bindings and archived cvars to config.cfg
 static void Host_SaveConfig_to(const char *file)
 {
 	qfile_t *f;
+
+	Cvar_SetQuick(&sys_first_run, "0");
 
 // dedicated servers initialize the host but don't parse and set the
 // config.cfg cvars
@@ -1283,7 +1288,7 @@ static void Host_Init (void)
 	Host_InitLocal();
 	Host_ServerOptions();
 
-    IRC_Init();
+	IRC_Init();
 	Thread_Init();
 
 	if (cls.state == ca_dedicated)

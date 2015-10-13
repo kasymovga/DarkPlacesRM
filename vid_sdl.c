@@ -1006,7 +1006,7 @@ void IN_Move( void )
 	}
 	else
 	{
-		if (vid_usingmouse)
+		if (vid_usingmouse && vid_activewindow)
 		{
 			if (vid_stick_mouse.integer || !vid_usingmouse_relativeworks)
 			{
@@ -2508,7 +2508,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 		desktop_mode.pixelheight_num = 1;
 		desktop_mode.pixelheight_denom = 1; // SDL does not provide this
 		if (mode->fullscreen) {
-			if (vid_desktopfullscreen.integer)
+			if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			{
 				mode->width = vi->current_w;
 				mode->height = vi->current_h;
@@ -2521,7 +2521,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 #else
 	{
 		if (mode->fullscreen) {
-			if (vid_desktopfullscreen.integer)
+			if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			{
 				vid_mode_t *m = VID_GetDesktopMode();
 				mode->width = m->width;
@@ -2678,7 +2678,7 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 		mode->bitsperpixel = vi->vfmt->BitsPerPixel;
 		flags |= SDL_FULLSCREEN;
 #else
-		if (vid_desktopfullscreen.integer)
+		if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			windowflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		else
 			windowflags |= SDL_WINDOW_FULLSCREEN;
