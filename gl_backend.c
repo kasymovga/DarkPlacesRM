@@ -2674,24 +2674,15 @@ unsigned int GL_Backend_CompileProgram(int vertexstrings_count, const char **ver
 #endif
 
 	if (vertexstrings_count && !GL_Backend_CompileShader(programobject, GL_VERTEX_SHADER, "vertex", vertexstrings_count, vertexstrings_list))
-	{
-		qglDeleteProgram(programobject);CHECKGLERROR
-		return 0;
-	}
+		goto cleanup;
 
 #ifdef GL_GEOMETRY_SHADER
 	if (geometrystrings_count && !GL_Backend_CompileShader(programobject, GL_GEOMETRY_SHADER, "geometry", geometrystrings_count, geometrystrings_list))
-	{
-		qglDeleteProgram(programobject);CHECKGLERROR
-		return 0;
-	}
+		goto cleanup;
 #endif
 
 	if (fragmentstrings_count && !GL_Backend_CompileShader(programobject, GL_FRAGMENT_SHADER, "fragment", fragmentstrings_count, fragmentstrings_list))
-	{
-		qglDeleteProgram(programobject);CHECKGLERROR
-		return 0;
-	}
+		goto cleanup;
 
 	qglLinkProgram(programobject);CHECKGLERROR
 	qglGetProgramiv(programobject, GL_LINK_STATUS, &programlinked);CHECKGLERROR
@@ -2712,6 +2703,9 @@ unsigned int GL_Backend_CompileProgram(int vertexstrings_count, const char **ver
 	if (!programlinked)
 		goto cleanup;
 	return programobject;
+cleanup:
+	qglDeleteProgram(programobject);CHECKGLERROR
+	return 0;
 }
 
 void GL_Backend_FreeProgram(unsigned int prog)
