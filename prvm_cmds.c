@@ -679,6 +679,8 @@ void VM_cvar_type(prvm_prog_t *prog)
 		ret |= 16; // CVAR_TYPE_HASDESCRIPTION
 	if(cvar->flags & CVAR_READONLY)
 		ret |= 32; // CVAR_TYPE_READONLY
+	if(cvar->initstate == true)
+		ret |= 64; // is currently at it's initial state
 	
 	PRVM_G_FLOAT(OFS_RETURN) = ret;
 }
