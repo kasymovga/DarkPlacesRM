@@ -1084,22 +1084,34 @@ static void CL_BeginDownloads(qboolean aborteddownload)
 	{
 		size_t progsize;
 		cl.downloadcsqc = false;
-		if (cls.netcon
-		 && !sv.active
-		 && csqc_progname.string
-		 && csqc_progname.string[0]
-		 && csqc_progcrc.integer >= 0
-		 && cl_serverextension_download.integer
-		 && (FS_CRCFile(csqc_progname.string, &progsize) != csqc_progcrc.integer || ((int)progsize != csqc_progsize.integer && csqc_progsize.integer != -1))
-		 && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer)))
-		{
-			Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer);
-			if(cl_serverextension_download.integer == 2 && FS_HasZlib())
-				Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname.string));
-			else
-				Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname.string));
-			return;
-		}
+
+        if(cls.netcon && !sv.active && cl_serverextension_download.integer) {
+            if(csqc_progcrc_alt.integer >= 0) {
+                if(csqc_progname_alt.string && csqc_progname_alt.string[0]
+                    && (FS_CRCFile(csqc_progname_alt.string, &progsize) != csqc_progcrc_alt.integer || ((int)progsize != csqc_progsize_alt.integer && csqc_progsize_alt.integer != -1))
+                    && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname_alt.string, csqc_progsize_alt.integer, csqc_progcrc_alt.integer)))
+                {
+                    Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname_alt.string, csqc_progsize_alt.integer, csqc_progcrc_alt.integer);
+                    if(cl_serverextension_download.integer == 2 && FS_HasZlib())
+                        Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname_alt.string));
+                    else
+                        Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname_alt.string));
+                    return;
+                }
+            } else if(csqc_progname.string
+             && csqc_progname.string[0]
+             && csqc_progcrc.integer >= 0
+             && (FS_CRCFile(csqc_progname.string, &progsize) != csqc_progcrc.integer || ((int)progsize != csqc_progsize.integer && csqc_progsize.integer != -1))
+             && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer)))
+            {
+                Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer);
+                if(cl_serverextension_download.integer == 2 && FS_HasZlib())
+                    Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname.string));
+                else
+                    Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname.string));
+                return;
+            }
+        }
 	}
 
 	if (cl.loadmodel_current < cl.loadmodel_total)
@@ -1394,7 +1406,7 @@ static void CL_StopDownload(int size, int crc)
 			// save to disk only if we don't already have it
 			// (this is mainly for playing back demos)
 			existingcrc = FS_CRCFile(cls.qw_downloadname, &existingsize);
-			if (existingsize || gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS || gamemode == GAME_XONOTIC || !strcmp(cls.qw_downloadname, csqc_progname.string))
+			if (existingsize || gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS || gamemode == GAME_XONOTIC || !strcmp(cls.qw_downloadname, csqc_progname.string) || !strcmp(cls.qw_downloadname, csqc_progname_alt.string))
 				// let csprogs ALWAYS go to dlcache, to prevent "viral csprogs"; also, never put files outside dlcache for Nexuiz/Xonotic
 			{
 				if ((int)existingsize != size || existingcrc != crc)

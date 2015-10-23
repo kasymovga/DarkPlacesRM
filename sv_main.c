@@ -434,6 +434,10 @@ void SV_Init (void)
 	extern cvar_t csqc_progsize;
 	extern cvar_t csqc_usedemoprogs;
 
+    extern cvar_t csqc_progname_alt;
+    extern cvar_t csqc_progcrc_alt;
+    extern cvar_t csqc_progsize_alt;
+
 	Cvar_RegisterVariable(&sv_worldmessage);
 	Cvar_RegisterVariable(&sv_worldname);
 	Cvar_RegisterVariable(&sv_worldnamenoextension);
@@ -443,6 +447,10 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&csqc_progcrc);
 	Cvar_RegisterVariable (&csqc_progsize);
 	Cvar_RegisterVariable (&csqc_usedemoprogs);
+
+    Cvar_RegisterVariable (&csqc_progname_alt);
+    Cvar_RegisterVariable (&csqc_progcrc_alt);
+    Cvar_RegisterVariable (&csqc_progsize_alt);
 
 	Cmd_AddCommand("sv_saveentfile", SV_SaveEntFile_f, "save map entities to .ent file (to allow external editing)");
 	Cmd_AddCommand("sv_areastats", SV_AreaStats_f, "prints statistics on entity culling during collision traces");
@@ -966,6 +974,16 @@ void SV_SendServerinfo (client_t *client)
 		MSG_WriteByte (&client->netconnection->message, svc_stufftext);
 		MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progcrc %i\n", sv.csqc_progcrc));
 
+        if(sv.csqc_progname_alt[0]) {
+            Con_DPrintf("sending alternative csqc info to client (\"%s\" with size %i and crc %i)\n", sv.csqc_progname_alt, sv.csqc_progsize_alt, sv.csqc_progcrc_alt);
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progname_alt %s\n", sv.csqc_progname_alt));
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progsize_alt %i\n", sv.csqc_progsize_alt));
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progcrc_alt %i\n", sv.csqc_progcrc_alt));
+        }
+
 		if(client->sv_demo_file != NULL)
 		{
 			int i;
@@ -975,8 +993,13 @@ void SV_SendServerinfo (client_t *client)
 			sb.data = (unsigned char *) buf;
 			sb.maxsize = sizeof(buf);
 			i = 0;
+
 			while(MakeDownloadPacket(sv.csqc_progname, svs.csqc_progdata, sv.csqc_progsize, sv.csqc_progcrc, i++, &sb, sv.protocol))
 				SV_WriteDemoMessage(client, &sb, false);
+
+            if(sv.csqc_progname_alt[0])
+                while(MakeDownloadPacket(sv.csqc_progname_alt, svs.csqc_progdata_alt, sv.csqc_progsize_alt, sv.csqc_progcrc_alt, i++, &sb, sv.protocol))
+                    SV_WriteDemoMessage(client, &sb, false);
 		}
 
 		//[515]: init stufftext string (it is sent before svc_serverinfo)
@@ -2646,7 +2669,7 @@ static void Download_CheckExtensions(void)
 static void SV_Download_f(void)
 {
 	const char *whichpack, *whichpack2, *extension;
-	qboolean is_csqc; // so we need to check only once
+	qboolean is_csqc, is_alt_csqc; // so we need to check only once
 
 	if (Cmd_Argc() < 2)
 	{
@@ -2675,8 +2698,9 @@ static void SV_Download_f(void)
 		host_client->download_started = false;
 	}
 
-	is_csqc = (sv.csqc_progname[0] && strcmp(Cmd_Argv(1), sv.csqc_progname) == 0);
-	
+    is_alt_csqc = (sv.csqc_progname_alt[0] && strcmp(Cmd_Argv(1), sv.csqc_progname_alt) == 0);
+	is_csqc = (is_alt_csqc || (sv.csqc_progname[0] && strcmp(Cmd_Argv(1), sv.csqc_progname) == 0));
+
 	if (!sv_allowdownloads.integer && !is_csqc)
 	{
 		SV_ClientPrintf("Downloads are disabled on this server\n");
@@ -2703,10 +2727,17 @@ static void SV_Download_f(void)
 		
 		Con_DPrintf("Downloading %s to %s\n", host_client->download_name, host_client->name);
 
-		if(host_client->download_deflate && svs.csqc_progdata_deflated)
-			host_client->download_file = FS_FileFromData(svs.csqc_progdata_deflated, svs.csqc_progsize_deflated, true);
-		else
-			host_client->download_file = FS_FileFromData(svs.csqc_progdata, sv.csqc_progsize, true);
+        if(is_alt_csqc) {
+            if(host_client->download_deflate && svs.csqc_progdata_alt_deflated)
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_alt_deflated, svs.csqc_progsize_alt_deflated, true);
+            else
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_alt, sv.csqc_progsize_alt, true);
+        } else {
+            if(host_client->download_deflate && svs.csqc_progdata_deflated)
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_deflated, svs.csqc_progsize_deflated, true);
+            else
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata, sv.csqc_progsize, true);
+        }
 		
 		// no, no space is needed between %s and %s :P
 		Host_ClientCommands("\ncl_downloadbegin %i %s%s\n", (int)FS_FileSize(host_client->download_file), host_client->download_name, extensions);
@@ -3146,45 +3177,53 @@ Load csprogs.dat and comperss it so it doesn't need to be
 reloaded on request.
 ================
 */
-static void SV_Prepare_CSQC(void)
+
+static void SV_Prepare_CSQC_Internal(const char *csqc_prognamecvar, char *csqc_progname, unsigned char **csqc_progdata, int *csqc_progsize, int *csqc_progcrc, unsigned char **csqc_progdata_deflated, size_t *csqc_progsize_deflated)
 {
 	fs_offset_t progsize;
 
-	if(svs.csqc_progdata)
-	{
+    Con_DPrintf("Preparing csqc omg\n");
+	if(*csqc_progdata) {
 		Con_DPrintf("Unloading old CSQC data.\n");
-		Mem_Free(svs.csqc_progdata);
-		if(svs.csqc_progdata_deflated)
-			Mem_Free(svs.csqc_progdata_deflated);
+		Mem_Free(*csqc_progdata);
+		if(*csqc_progdata_deflated)
+			Mem_Free(*csqc_progdata_deflated);
 	}
 
-	svs.csqc_progdata = NULL;
-	svs.csqc_progdata_deflated = NULL;
-	
-	sv.csqc_progname[0] = 0;
-	svs.csqc_progdata = FS_LoadFile(csqc_progname.string, sv_mempool, false, &progsize);
+	*csqc_progdata = NULL;
+	*csqc_progdata_deflated = NULL;
+
+	csqc_progname[0] = 0;
+	*csqc_progdata = FS_LoadFile(csqc_prognamecvar, sv_mempool, false, &progsize);
 
 	if(progsize > 0)
 	{
 		size_t deflated_size;
 
-		sv.csqc_progsize = (int)progsize;
-		sv.csqc_progcrc = CRC_Block(svs.csqc_progdata, progsize);
-		strlcpy(sv.csqc_progname, csqc_progname.string, sizeof(sv.csqc_progname));
-		Con_DPrintf("server detected csqc progs file \"%s\" with size %i and crc %i\n", sv.csqc_progname, sv.csqc_progsize, sv.csqc_progcrc);
+		*csqc_progsize = (int)progsize;
+		*csqc_progcrc = CRC_Block(*csqc_progdata, progsize);
+		strlcpy(csqc_progname, csqc_prognamecvar, MAX_QPATH);
+		Con_DPrintf("server detected csqc progs file \"%s\" with size %i and crc %i\n", csqc_progname, *csqc_progsize, *csqc_progcrc);
 
-		Con_DPrint("Compressing csprogs.dat\n");
+		Con_DPrintf("Compressing %s\n", csqc_progname);
 		//unsigned char *FS_Deflate(const unsigned char *data, size_t size, size_t *deflated_size, int level, mempool_t *mempool);
-		svs.csqc_progdata_deflated = FS_Deflate(svs.csqc_progdata, progsize, &deflated_size, -1, sv_mempool);
-		svs.csqc_progsize_deflated = (int)deflated_size;
-		if(svs.csqc_progdata_deflated)
+		*csqc_progdata_deflated = FS_Deflate(*csqc_progdata, progsize, &deflated_size, -1, sv_mempool);
+		*csqc_progsize_deflated = (int)deflated_size;
+		if(*csqc_progdata_deflated)
 		{
 			Con_DPrintf("Deflated: %g%%\n", 100.0 - 100.0 * (deflated_size / (float)progsize));
-			Con_DPrintf("Uncompressed: %u\nCompressed:   %u\n", (unsigned)sv.csqc_progsize, (unsigned)svs.csqc_progsize_deflated);
+			Con_DPrintf("Uncompressed: %u\nCompressed:   %u\n", (unsigned)*csqc_progsize, (unsigned)*csqc_progsize_deflated);
 		}
 		else
 			Con_DPrintf("Cannot compress - need zlib for this. Using uncompressed progs only.\n");
 	}
+}
+
+static void SV_Prepare_CSQC(void) {
+    Con_DPrintf("Preparing csqc\n");
+    SV_Prepare_CSQC_Internal(csqc_progname.string, sv.csqc_progname, &svs.csqc_progdata, &sv.csqc_progsize, &sv.csqc_progcrc, &svs.csqc_progdata_deflated, &svs.csqc_progsize_deflated);
+    Con_DPrintf("Preparing alt csqc\n");
+    SV_Prepare_CSQC_Internal(csqc_progname_alt.string, sv.csqc_progname_alt, &svs.csqc_progdata_alt, &sv.csqc_progsize_alt, &sv.csqc_progcrc_alt, &svs.csqc_progdata_alt_deflated, &svs.csqc_progsize_alt_deflated);
 }
 
 /*

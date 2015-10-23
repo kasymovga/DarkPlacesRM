@@ -51,6 +51,7 @@ const char *vm_m_extensions =
 "DP_RM_IRC "
 "DP_RM_CALLFUNCTIONEX "
 "DP_RM_GLOBALACCESS "
+"DP_RM_ALTCSPROGS "
 ;
 
 /*

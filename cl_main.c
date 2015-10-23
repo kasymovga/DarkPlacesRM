@@ -37,6 +37,10 @@ cvar_t csqc_progcrc = {CVAR_READONLY, "csqc_progcrc","-1","CRC of csprogs.dat fi
 cvar_t csqc_progsize = {CVAR_READONLY, "csqc_progsize","-1","file size of csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
 cvar_t csqc_usedemoprogs = {0, "csqc_usedemoprogs","1","use csprogs stored in demos"};
 
+cvar_t csqc_progname_alt = {0, "csqc_progname_alt","","name of alternative csprogs.dat file to load"};
+cvar_t csqc_progcrc_alt = {CVAR_READONLY, "csqc_progcrc_alt","-1","CRC of alternative csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
+cvar_t csqc_progsize_alt = {CVAR_READONLY, "csqc_progsize_alt","-1","file size of alternative csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
+
 cvar_t cl_shownet = {0, "cl_shownet","0","1 = print packet size, 2 = print packet message list"};
 cvar_t cl_nolerp = {0, "cl_nolerp", "0","network update smoothing"};
 cvar_t cl_lerpexcess = {0, "cl_lerpexcess", "0","maximum allowed lerp excess (hides, not fixes, some packet loss)"};

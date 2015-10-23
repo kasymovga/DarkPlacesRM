@@ -227,6 +227,7 @@ const char *vm_sv_extensions =
 "DP_RM_IRC "
 "DP_RM_CALLFUNCTIONEX "
 "DP_RM_GLOBALACCESS "
+"DP_RM_ALTCSPROGS "
 //"EXT_CSQC " // not ready yet
 ;
 
