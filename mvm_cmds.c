@@ -52,6 +52,8 @@ const char *vm_m_extensions =
 "DP_RM_CALLFUNCTIONEX "
 "DP_RM_GLOBALACCESS "
 "DP_RM_ALTCSPROGS "
+"DP_RM_CVAR_ALTERTYPE "
+"DP_RM_CVAR_WATCHED "
 ;
 
 /*
@@ -1409,7 +1411,7 @@ NULL,									// #501
 NULL,									// #502
 VM_whichpack,					// #503 string(string) whichpack = #503;
 NULL,									// #504
-NULL,									// #505
+VM_cvar_altertype,                      // #505 float(string varname, float setflags, float unsetflags) cvar_altertype = #505;
 NULL,									// #506
 NULL,									// #507
 NULL,									// #508

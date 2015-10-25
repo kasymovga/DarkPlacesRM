@@ -341,6 +341,26 @@ void Cvar_UpdateAllAutoCvars(void)
 		Cvar_UpdateAutoCvar(var);
 }
 
+static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *var, char *oldvalue) {
+    int func = PRVM_allfunction(CvarUpdated);
+    if(!func)
+        return;
+
+    PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, var->name);
+    PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldvalue);
+    prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
+}
+
+static void Cvar_NotifyAllProgs(cvar_t *var, char *oldvalue) {
+    int i;
+
+    for(i = 0; i < PRVM_PROG_MAX; ++i) {
+        prvm_prog_t *prog = &prvm_prog_list[i];
+        if(prog->loaded)
+            Cvar_NotifyProg(prog, var, oldvalue);
+    }
+}
+
 /*
 ============
 Cvar_Set
@@ -351,12 +371,18 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 {
 	qboolean changed;
 	size_t valuelen;
-	char vabuf[1024];
+	char vabuf[1024], *oldval = NULL;
 
 	changed = strcmp(var->string, value) != 0;
 	// LordHavoc: don't reallocate when there is no change
 	if (!changed)
 		return;
+
+    if(var->flags & CVAR_WATCHED) {
+        valuelen = strlen(var->string);
+        oldval = (char*)Z_Malloc(valuelen + 1);
+        memcpy(oldval, var->string, valuelen + 1);
+    }
 
 	// LordHavoc: don't reallocate when the buffer is the same size
 	valuelen = strlen(value);
@@ -426,6 +452,11 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 	}
 
 	Cvar_UpdateAutoCvar(var);
+
+    if(oldval) { // CVAR_WATCHED
+        Cvar_NotifyAllProgs(var, oldval);
+        Z_Free(oldval);
+    }
 }
 
 void Cvar_SetQuick (cvar_t *var, const char *value)

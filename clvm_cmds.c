@@ -4847,7 +4847,7 @@ VM_CL_ReadPicture,				// #501 string() ReadPicture = #501;
 VM_CL_boxparticles,				// #502 void(float effectnum, entity own, vector origin_from, vector origin_to, vector dir_from, vector dir_to, float count) boxparticles (DP_CSQC_BOXPARTICLES)
 VM_whichpack,					// #503 string(string) whichpack = #503;
 VM_CL_GetEntity,				// #504 float(float entitynum, float fldnum) getentity = #504; vector(float entitynum, float fldnum) getentityvec = #504;
-NULL,							// #505
+VM_cvar_altertype,              // #505 float(string varname, float setflags, float unsetflags) cvar_altertype = #505;
 NULL,							// #506
 NULL,							// #507
 NULL,							// #508

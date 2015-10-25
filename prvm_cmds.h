@@ -240,6 +240,7 @@ void VM_localcmd (prvm_prog_t *prog);
 void VM_cvar (prvm_prog_t *prog);
 void VM_cvar_string(prvm_prog_t *prog);
 void VM_cvar_type (prvm_prog_t *prog);
+void VM_cvar_altertype (prvm_prog_t *prog);
 void VM_cvar_defstring (prvm_prog_t *prog);
 void VM_cvar_set (prvm_prog_t *prog);
 void VM_dprint (prvm_prog_t *prog);
