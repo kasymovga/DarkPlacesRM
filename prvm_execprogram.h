@@ -162,6 +162,21 @@
 			case OP_STOREP_FLD:		// integers
 			case OP_STOREP_S:
 			case OP_STOREP_FNC:		// pointers
+                if(OPB->_int > prog->entityfieldsarea) {
+                    int idx = OPB->_int - prog->entityfieldsarea;
+                    int maxglobs = prog->numglobaldefs * 3;
+
+                    if(idx >= maxglobs) {
+                        PreError();
+                        prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxglobs, st->op);
+                        goto cleanup;
+                    }
+
+                    ptr = (prvm_eval_t*)(prog->globals.ip + idx);
+                    ptr->_int = OPA->_int;
+                    break;
+                }
+
 				if (OPB->_int < 0 || OPB->_int + 1 > prog->entityfieldsarea)
 				{
 					PreError();
@@ -177,6 +192,23 @@
 				ptr->_int = OPA->_int;
 				break;
 			case OP_STOREP_V:
+                if(OPB->_int > prog->entityfieldsarea) {
+                    int idx = OPB->_int - prog->entityfieldsarea;
+                    int maxglobs = prog->numglobaldefs * 3;
+
+                    if(idx >= maxglobs) {
+                        PreError();
+                        prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxglobs, st->op);
+                        goto cleanup;
+                    }
+
+                    ptr = (prvm_eval_t*)(prog->globals.ip + idx);
+                    ptr->ivector[0] = OPA->ivector[0];
+                    ptr->ivector[1] = OPA->ivector[1];
+                    ptr->ivector[2] = OPA->ivector[2];
+                    break;
+                }
+
 				if (OPB->_int < 0 || OPB->_int + 3 > prog->entityfieldsarea)
 				{
 					PreError();
@@ -198,7 +230,7 @@
 				if (OPA->edict < 0 || OPA->edict >= prog->max_edicts)
 				{
 					PreError();
-					prog->error_cmd("%s Progs attempted to address an out of bounds edict number", prog->name);
+					prog->error_cmd("%s attempted to address an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if ((unsigned int)(OPB->_int) >= (unsigned int)(prog->entityfields))
@@ -227,7 +259,7 @@
 				if (OPA->edict < 0 || OPA->edict >= prog->max_edicts)
 				{
 					PreError();
-					prog->error_cmd("%s Progs attempted to read an out of bounds edict number", prog->name);
+					prog->error_cmd("%s attempted to read an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if ((unsigned int)(OPB->_int) >= (unsigned int)(prog->entityfields))
@@ -244,7 +276,7 @@
 				if (OPA->edict < 0 || OPA->edict >= prog->max_edicts)
 				{
 					PreError();
-					prog->error_cmd("%s Progs attempted to read an out of bounds edict number", prog->name);
+					prog->error_cmd("%s attempted to read an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if (OPB->_int < 0 || OPB->_int + 2 >= prog->entityfields)
@@ -672,6 +704,97 @@
 				break;
 
 */
+
+            case OP_GSTOREP_I:
+            case OP_GSTOREP_F:
+            case OP_GSTOREP_ENT:
+            case OP_GSTOREP_FLD:
+            case OP_GSTOREP_S:
+            case OP_GSTOREP_FNC: {
+                int idx = OPB->_int - prog->entityfieldsarea;
+                int maxidx = prog->numglobaldefs * 3;
+
+                if(idx < 0 || idx >= maxidx) {
+                    PreError();
+                    prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxidx, st->op);
+                    goto cleanup;
+                }
+
+                ptr = (prvm_eval_t*)(prog->globals.ip + idx);
+                ptr->_int = OPA->_int;
+                break;
+            }
+
+            case OP_GSTOREP_V: {
+                int idx = OPB->_int - prog->entityfieldsarea;
+                int maxidx = prog->numglobaldefs * 3;
+
+                if(idx < 0 || idx + 2 >= maxidx) {
+                    PreError();
+                    prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxidx, st->op);
+                    goto cleanup;
+                }
+
+                ptr = (prvm_eval_t*)(prog->globals.ip + idx);
+                ptr->ivector[0] = OPA->ivector[0];
+                ptr->ivector[1] = OPA->ivector[1];
+                ptr->ivector[2] = OPA->ivector[2];
+                break;
+            }
+
+            case OP_FETCH_GBL_F:
+            case OP_FETCH_GBL_S:
+            case OP_FETCH_GBL_E:
+            case OP_FETCH_GBL_FNC: {
+                int idx = (int)OPB->_float;
+                int maxidx = prog->globals.ip[st->operand[0] - 1];
+
+                if(idx < 0 || idx > maxidx) {
+                    PreError();
+                    prog->error_cmd("%s array index out of bounds (index %i, max %i)", prog->name, idx, maxidx);
+                    goto cleanup;
+                }
+
+                OPC->_int = prog->globals.ip[st->operand[0] + idx];
+                break;
+            }
+
+            case OP_FETCH_GBL_V: {
+                int idx = (int)OPB->_float;
+                int maxidx = prog->globals.ip[st->operand[0] - 1];
+
+                if(idx < 0 || idx > maxidx) {
+                    PreError();
+                    prog->error_cmd("%s array index out of bounds (index %i, max %i)", prog->name, idx, maxidx);
+                    goto cleanup;
+                }
+
+                ptr = (prvm_eval_t*)(prog->globals.ip + st->operand[0] + 3 * idx);
+                OPC->ivector[0] = ptr->ivector[0];
+                OPC->ivector[1] = ptr->ivector[1];
+                OPC->ivector[2] = ptr->ivector[2];
+                break;
+            }
+
+            case OP_CONV_FTOI:
+                OPC->_int = (int)OPA->_float;
+                break;
+
+            case OP_MUL_I:
+                OPC->_int = OPA->_int * OPB->_int;
+                break;
+
+            case OP_GLOBALADDRESS:
+                OPC->_int = st->operand[0] + OPB->_int + prog->entityfieldsarea;
+                break;
+
+            case OP_BOUNDCHECK:
+                if((unsigned int)OPA->_int < (unsigned int)st->operand[2] || (unsigned int)OPA->_int >= (unsigned int)st->operand[1]) {
+                    PreError();
+                    prog->error_cmd("%s boundcheck failed. Value is %i. Must be between %u and %u", prog->name, OPA->_int, st->operand[2], st->operand[1]);
+                    goto cleanup;
+                }
+                break;
 
 			default:
 				PreError();

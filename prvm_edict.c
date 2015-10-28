@@ -1898,6 +1898,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, int numrequiredfun
 	dstatement_t *instatements;
 	ddef_t *infielddefs;
 	ddef_t *inglobaldefs;
+    ddef_t *arrayext;
 	int *inglobals;
 	dfunction_t *infunctions;
 	char *instrings;
@@ -2405,6 +2406,10 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, int numrequiredfun
 fail:
 		;
 	}
+
+    arrayext = PRVM_ED_FindGlobal(prog, "__ext__fasttrackarrays");
+    if(arrayext)
+        PRVM_ED_ParseEpair(prog, NULL, arrayext, "1", false);
 
 	prog->loaded = TRUE;
 
