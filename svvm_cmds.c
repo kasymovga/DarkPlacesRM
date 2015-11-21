@@ -230,6 +230,7 @@ const char *vm_sv_extensions =
 "DP_RM_ALTCSPROGS "
 "DP_RM_CVAR_ALTERTYPE "
 "DP_RM_CVAR_WATCHED "
+"DP_RM_REGEX "
 //"EXT_CSQC " // not ready yet
 ;
 
@@ -3832,6 +3833,9 @@ NULL,							// #637
 NULL,							// #638
 VM_digest_hex,						// #639
 NULL,							// #640
+NULL,                           // #641
+VM_regex_match,                 // #642 float(string regex, string input, float offset, float size, float flags) regex_match = #642;
+NULL
 };
 
 const int vm_sv_numbuiltins = sizeof(vm_sv_builtins) / sizeof(prvm_builtin_t);

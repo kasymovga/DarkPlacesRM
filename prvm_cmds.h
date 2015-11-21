@@ -501,6 +501,7 @@ void VM_GlobalSetFloat(prvm_prog_t *prog);
 void VM_GlobalGet(prvm_prog_t *prog);
 void VM_GlobalSet(prvm_prog_t *prog);
 
+void VM_regex_match(prvm_prog_t *prog);
 
 // irc
 void VM_IRC_CreateSession(prvm_prog_t *prog);

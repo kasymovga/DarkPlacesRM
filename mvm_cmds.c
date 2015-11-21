@@ -54,6 +54,7 @@ const char *vm_m_extensions =
 "DP_RM_ALTCSPROGS "
 "DP_RM_CVAR_ALTERTYPE "
 "DP_RM_CVAR_WATCHED "
+"DP_RM_REGEX "
 ;
 
 /*
@@ -1548,6 +1549,7 @@ NULL,							// #638
 VM_digest_hex,						// #639
 NULL,							// #640
 VM_M_crypto_getmyidstatus,				// #641 float(float i) crypto_getmyidstatus
+VM_regex_match,                 // #642 float(string regex, string input, float offset, float size, float flags) regex_match = #642;
 NULL
 };
 
