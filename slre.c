@@ -77,7 +77,7 @@ struct regex_info {
 };
 
 static int is_metacharacter(const unsigned char *s) {
-  static const char *metacharacters = "^$().[]*+?|\\Ssdbfnrtvc";
+  static const char *metacharacters = "^$().[]*+?|\\SsDdbfnrtvcWw";
   return strchr(metacharacters, *s) != NULL;
 }
 
@@ -121,6 +121,7 @@ static int match_op(const unsigned char *re, const unsigned char *s,
       switch (re[1]) {
         case 'S': FAIL_IF(isspace(*s), SLRE_NO_MATCH); result++; break;
         case 's': FAIL_IF(!isspace(*s), SLRE_NO_MATCH); result++; break;
+        case 'D': FAIL_IF(isdigit(*s), SLRE_NO_MATCH); result++; break;
         case 'd': FAIL_IF(!isdigit(*s), SLRE_NO_MATCH); result++; break;
         case 'b': FAIL_IF(*s != '\b', SLRE_NO_MATCH); result++; break;
         case 'f': FAIL_IF(*s != '\f', SLRE_NO_MATCH); result++; break;
@@ -128,6 +129,8 @@ static int match_op(const unsigned char *re, const unsigned char *s,
         case 'r': FAIL_IF(*s != '\r', SLRE_NO_MATCH); result++; break;
         case 't': FAIL_IF(*s != '\t', SLRE_NO_MATCH); result++; break;
         case 'v': FAIL_IF(*s != '\v', SLRE_NO_MATCH); result++; break;
+        case 'W': FAIL_IF(isalnum(*s), SLRE_NO_MATCH); result++; break;
+        case 'w': FAIL_IF(!isalnum(*s), SLRE_NO_MATCH); result++; break;
 
         case 'x':
           /* Match byte, \xHH where HH is hexadecimal byte representaion */
