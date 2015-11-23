@@ -71,10 +71,13 @@ struct regex_info {
 
   /* E.g. SLRE_IGNORE_CASE. See enum below */
   int flags;
+
+  // sorry for this hack
+  const unsigned char *input;
 };
 
 static int is_metacharacter(const unsigned char *s) {
-  static const char *metacharacters = "^$().[]*+?|\\Ssdbfnrtv";
+  static const char *metacharacters = "^$().[]*+?|\\Ssdbfnrtvc";
   return strchr(metacharacters, *s) != NULL;
 }
 
@@ -111,6 +114,7 @@ static int hextoi(const unsigned char *s) {
 static int match_op(const unsigned char *re, const unsigned char *s,
                     struct regex_info *info) {
   int result = 0;
+
   switch (*re) {
     case '\\':
       /* Metacharacters */
@@ -130,6 +134,24 @@ static int match_op(const unsigned char *re, const unsigned char *s,
           FAIL_IF(hextoi(re + 2) != *s, SLRE_NO_MATCH);
           result++;
           break;
+
+        case 'c': {
+            const unsigned char *t;
+            char fail = 1;
+
+            FAIL_IF(*s++ != '^', SLRE_NO_MATCH); result++;
+            for(t = s-1; t >= info->input && *t == '^'; --t, fail = !fail);
+            FAIL_IF(fail, SLRE_NO_MATCH);
+
+            if(*s == 'x') {
+                FAIL_IF(!isxdigit(*(++s)), SLRE_NO_MATCH); result++;
+                FAIL_IF(!isxdigit(*(++s)), SLRE_NO_MATCH); result++;
+                FAIL_IF(!isxdigit(*(++s)), SLRE_NO_MATCH); result++;
+            } else
+                FAIL_IF(!isdigit(*s), SLRE_NO_MATCH); result++;
+
+            break;
+        }
 
         default:
           /* Valid metacharacter check is done in bar() */
@@ -431,6 +453,7 @@ int slre_match(const char *regexp, const char *s, int s_len,
   info.num_brackets = info.num_branches = 0;
   info.num_caps = num_caps;
   info.caps = caps;
+  info.input = (unsigned char*)s;
 
   DBG(("========================> [%s] [%.*s]\n", regexp, s_len, s));
   return foo(regexp, (int) strlen(regexp), s, s_len, &info);
