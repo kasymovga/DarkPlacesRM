@@ -386,7 +386,6 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 	void *buf;
 	fs_offset_t filesize = 0;
 	char vabuf[1024];
-	int player_model_replaced = 0;
 
 	mod->used = true;
 
@@ -428,10 +427,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 	}
 
 	if (!strncmp(mod->name, "models/player", 13) && cl_force_player_model.string[0])
-	{
 		strlcpy(mod->name, cl_force_player_model.string, sizeof(mod->name));
-		player_model_replaced = 1;
-	}
 
 	crc = 0;
 	buf = NULL;
