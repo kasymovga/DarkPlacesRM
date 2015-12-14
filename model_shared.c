@@ -448,8 +448,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		{
 			crc = CRC_Block((unsigned char *)buf, filesize);
 			// we need to reload the model if the crc does not match
-			// but don't give a fuck in case forced player model replacing
-			if (mod->crc != crc && !player_model_replaced)
+			if (mod->crc != crc)
 				mod->loaded = false;
 		}
 	}
