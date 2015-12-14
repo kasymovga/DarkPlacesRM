@@ -427,7 +427,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		return mod;
 	}
 
-	if (!strncmp(mod->name, "models/player", 13))
+	if (!strncmp(mod->name, "models/player", 13) && cl_force_player_model.string[0])
 	{
 		strlcpy(mod->name, cl_force_player_model.string, sizeof(mod->name));
 		player_model_replaced = 1;
