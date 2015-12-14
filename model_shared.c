@@ -39,6 +39,7 @@ cvar_t mod_generatelightmaps_gridsamples = {CVAR_SAVE, "mod_generatelightmaps_gr
 cvar_t mod_generatelightmaps_lightmapradius = {CVAR_SAVE, "mod_generatelightmaps_lightmapradius", "16", "sampling area around each lightmap pixel"};
 cvar_t mod_generatelightmaps_vertexradius = {CVAR_SAVE, "mod_generatelightmaps_vertexradius", "16", "sampling area around each vertex"};
 cvar_t mod_generatelightmaps_gridradius = {CVAR_SAVE, "mod_generatelightmaps_gridradius", "64", "sampling area around each lightgrid cell center"};
+cvar_t cl_force_player_model = {CVAR_SAVE, "cl_force_player_model", "", "Force player model"};
 
 dp_model_t *loadmodel;
 
@@ -174,6 +175,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable(&mod_generatelightmaps_lightmapradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_vertexradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_gridradius);
+	Cvar_RegisterVariable(&cl_force_player_model);
 
 	Cmd_AddCommand ("modellist", Mod_Print, "prints a list of loaded models");
 	Cmd_AddCommand ("modelprecache", Mod_Precache, "load a model");
@@ -384,6 +386,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 	void *buf;
 	fs_offset_t filesize = 0;
 	char vabuf[1024];
+	int player_model_replaced = 0;
 
 	mod->used = true;
 
@@ -424,6 +427,12 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		return mod;
 	}
 
+	if (!strncmp(mod->name, "models/player", 13))
+	{
+		strlcpy(mod->name, cl_force_player_model.string, sizeof(mod->name));
+		player_model_replaced = 1;
+	}
+
 	crc = 0;
 	buf = NULL;
 
@@ -439,7 +448,8 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		{
 			crc = CRC_Block((unsigned char *)buf, filesize);
 			// we need to reload the model if the crc does not match
-			if (mod->crc != crc)
+			// but don't give a fuck in case forced player model replacing
+			if (mod->crc != crc && !player_model_replaced)
 				mod->loaded = false;
 		}
 	}
