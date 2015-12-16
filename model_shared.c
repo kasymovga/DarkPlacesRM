@@ -40,6 +40,7 @@ cvar_t mod_generatelightmaps_lightmapradius = {CVAR_SAVE, "mod_generatelightmaps
 cvar_t mod_generatelightmaps_vertexradius = {CVAR_SAVE, "mod_generatelightmaps_vertexradius", "16", "sampling area around each vertex"};
 cvar_t mod_generatelightmaps_gridradius = {CVAR_SAVE, "mod_generatelightmaps_gridradius", "64", "sampling area around each lightgrid cell center"};
 cvar_t cl_force_player_model = {CVAR_SAVE, "cl_force_player_model", "", "Force player model"};
+cvar_t cl_force_player_model_weapontag = {CVAR_SAVE, "cl_force_player_model_weapontag", "bip01 r hand", "Use this tag for weapon model when cl_force_player_model enabled"};
 
 dp_model_t *loadmodel;
 
@@ -176,6 +177,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable(&mod_generatelightmaps_vertexradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_gridradius);
 	Cvar_RegisterVariable(&cl_force_player_model);
+	Cvar_RegisterVariable(&cl_force_player_model_weapontag);
 
 	Cmd_AddCommand ("modellist", Mod_Print, "prints a list of loaded models");
 	Cmd_AddCommand ("modelprecache", Mod_Precache, "load a model");
