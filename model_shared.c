@@ -41,6 +41,7 @@ cvar_t mod_generatelightmaps_vertexradius = {CVAR_SAVE, "mod_generatelightmaps_v
 cvar_t mod_generatelightmaps_gridradius = {CVAR_SAVE, "mod_generatelightmaps_gridradius", "64", "sampling area around each lightgrid cell center"};
 cvar_t cl_force_player_model = {CVAR_SAVE, "cl_force_player_model", "", "Force player model"};
 cvar_t cl_force_player_model_weapontag = {CVAR_SAVE, "cl_force_player_model_weapontag", "bip01 r hand", "Use this tag for weapon model when cl_force_player_model enabled"};
+int cl_force_player_model_weapontag_index;
 
 dp_model_t *loadmodel;
 
@@ -537,6 +538,13 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 	// no fatal errors occurred, so this model is ready to use.
 	mod->loaded = true;
+	if (!strncmp(mod->name, "models/player", 13))
+	{
+		if (cl_force_player_model.string[0] && cl_force_player_model_weapontag.string[0])
+			cl_force_player_model_weapontag_index = Mod_Alias_GetTagIndexForName(mod, 0, cl_force_player_model_weapontag.string);
+		else
+			cl_force_player_model_weapontag_index = 0;
+	}
 
 	SCR_PopLoadingScreen(false);
 

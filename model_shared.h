@@ -1081,6 +1081,7 @@ extern cvar_t r_enableshadowvolumes;
 
 extern cvar_t cl_force_player_model;
 extern cvar_t cl_force_player_model_weapontag;
+extern int cl_force_player_model_weapontag_index;
 
 void Mod_Init (void);
 void Mod_Reload (void);
