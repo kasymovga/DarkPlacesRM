@@ -56,6 +56,7 @@ static qboolean r_loadgloss;
 qboolean r_loadfog;
 static qboolean r_loaddds;
 static qboolean r_savedds;
+static qboolean r_gpuskeletal;
 
 //
 // screen size info
@@ -4946,8 +4947,29 @@ qboolean R_AnimCache_GetEntity(entity_render_t *ent, qboolean wantnormals, qbool
 	dp_model_t *model = ent->model;
 	int numvertices;
 
-	// cache skeletal animation data first (primarily for gpu-skinning)
-	if (!ent->animcache_skeletaltransform3x4 && model->num_bones > 0 && model->surfmesh.data_skeletalindex4ub)
+	// see if this ent is worth caching
+	if (!model || !model->Draw || !model->AnimateVertices)
+		return false;
+	// nothing to cache if it contains no animations and has no skeleton
+	if (!model->surfmesh.isanimated && !(model->num_bones && ent->skeleton && ent->skeleton->relativetransforms))
+		return false;
+	// see if it is already cached for gpuskeletal
+	if (ent->animcache_skeletaltransform3x4)
+		return false;
+	// see if it is already cached as a mesh
+	if (ent->animcache_vertex3f)
+	{
+		// check if we need to add normals or tangents
+		if (ent->animcache_normal3f)
+			wantnormals = false;
+		if (ent->animcache_svector3f)
+			wanttangents = false;
+		if (!wantnormals && !wanttangents)
+			return false;
+	}
+
+	// check which kind of cache we need to generate
+	if (r_gpuskeletal && model->num_bones > 0 && model->surfmesh.data_skeletalindex4ub)
 	{
 		// cache the skeleton so the vertex shader can use it
 		r_refdef.stats[r_stat_animcache_skeletal_count] += 1;
@@ -4959,59 +4981,30 @@ qboolean R_AnimCache_GetEntity(entity_render_t *ent, qboolean wantnormals, qbool
 		ent->animcache_skeletaltransform3x4size = sizeof(float[3][4]) * model->num_bones;
 		ent->animcache_skeletaltransform3x4buffer = R_BufferData_Store(ent->animcache_skeletaltransform3x4size, ent->animcache_skeletaltransform3x4, R_BUFFERDATA_UNIFORM, &ent->animcache_skeletaltransform3x4offset);
 	}
-
-	// see if it's already cached this frame
-	if (ent->animcache_vertex3f)
+	else if (ent->animcache_vertex3f)
 	{
-		// add normals/tangents if needed (this only happens with multiple views, reflections, cameras, etc)
+		// mesh was already cached but we may need to add normals/tangents
+		// (this only happens with multiple views, reflections, cameras, etc)
 		if (wantnormals || wanttangents)
 		{
-			if (ent->animcache_normal3f)
-				wantnormals = false;
-			if (ent->animcache_svector3f)
-				wanttangents = false;
-			if (wantnormals || wanttangents)
+			numvertices = model->surfmesh.num_vertices;
+			if (wantnormals)
+				ent->animcache_normal3f = (float *)R_FrameData_Alloc(sizeof(float[3])*numvertices);
+			if (wanttangents)
 			{
-				numvertices = model->surfmesh.num_vertices;
-				if (wantnormals)
-					ent->animcache_normal3f = (float *)R_FrameData_Alloc(sizeof(float[3])*numvertices);
-				if (wanttangents)
-				{
-					ent->animcache_svector3f = (float *)R_FrameData_Alloc(sizeof(float[3])*numvertices);
-					ent->animcache_tvector3f = (float *)R_FrameData_Alloc(sizeof(float[3])*numvertices);
-				}
-				model->AnimateVertices(model, ent->frameblend, ent->skeleton, NULL, wantnormals ? ent->animcache_normal3f : NULL, wanttangents ? ent->animcache_svector3f : NULL, wanttangents ? ent->animcache_tvector3f : NULL);
-				R_AnimCache_UpdateEntityMeshBuffers(ent, model->surfmesh.num_vertices);
-				r_refdef.stats[r_stat_animcache_shade_count] += 1;
-				r_refdef.stats[r_stat_animcache_shade_vertices] += numvertices;
-				r_refdef.stats[r_stat_animcache_shade_maxvertices] = max(r_refdef.stats[r_stat_animcache_shade_maxvertices], numvertices);
+				ent->animcache_svector3f = (float *)R_FrameData_Alloc(sizeof(float[3])*numvertices);
+				ent->animcache_tvector3f = (float *)R_FrameData_Alloc(sizeof(float[3])*numvertices);
 			}
+			model->AnimateVertices(model, ent->frameblend, ent->skeleton, NULL, wantnormals ? ent->animcache_normal3f : NULL, wanttangents ? ent->animcache_svector3f : NULL, wanttangents ? ent->animcache_tvector3f : NULL);
+			R_AnimCache_UpdateEntityMeshBuffers(ent, model->surfmesh.num_vertices);
+			r_refdef.stats[r_stat_animcache_shade_count] += 1;
+			r_refdef.stats[r_stat_animcache_shade_vertices] += numvertices;
+			r_refdef.stats[r_stat_animcache_shade_maxvertices] = max(r_refdef.stats[r_stat_animcache_shade_maxvertices], numvertices);
 		}
 	}
 	else
 	{
-		// see if this ent is worth caching
-		if (!model || !model->Draw || !model->surfmesh.isanimated || !model->AnimateVertices)
-			return false;
-		// skip entity if the shader backend has a cheaper way
-		if (model->surfmesh.data_skeletalindex4ub && r_glsl_skeletal.integer && !r_showsurfaces.integer) // FIXME add r_showsurfaces support to GLSL skeletal!
-		{
-			switch (vid.renderpath)
-			{
-			case RENDERPATH_GL20:
-				return false;
-			case RENDERPATH_GL11:
-			case RENDERPATH_GL13:
-			case RENDERPATH_GLES1:
-			case RENDERPATH_GLES2:
-			case RENDERPATH_D3D9:
-			case RENDERPATH_D3D10:
-			case RENDERPATH_D3D11:
-			case RENDERPATH_SOFT:
-				break;
-			}
-		}
-		// get some memory for this entity and generate mesh data
+		// generate mesh cache
 		numvertices = model->surfmesh.num_vertices;
 		ent->animcache_vertex3f = (float *)R_FrameData_Alloc(sizeof(float[3])*numvertices);
 		if (wantnormals)
@@ -7091,10 +7084,12 @@ void R_UpdateVariables(void)
 		r_refdef.lightmapintensity = 0;
 	}
 
+	r_gpuskeletal = false;
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-    case RENDERPATH_D3D9:
+		r_gpuskeletal = vid.support.arb_uniform_buffer_object && r_glsl_skeletal.integer && !r_showsurfaces.integer; // FIXME add r_showsurfaces support to GLSL skeletal!
+	case RENDERPATH_D3D9:
 	case RENDERPATH_D3D10:
 	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
@@ -8638,6 +8633,10 @@ void RSurf_ActiveModelEntity(const entity_render_t *ent, qboolean wantnormals, q
 	{
 		if (ent->animcache_vertex3f)
 		{
+			r_refdef.stats[r_stat_batch_entitycache_count]++;
+			r_refdef.stats[r_stat_batch_entitycache_surfaces] += model->num_surfaces;
+			r_refdef.stats[r_stat_batch_entitycache_vertices] += model->surfmesh.num_vertices;
+			r_refdef.stats[r_stat_batch_entitycache_triangles] += model->surfmesh.num_triangles;
 			rsurface.modelvertex3f = ent->animcache_vertex3f;
 			rsurface.modelvertex3f_vertexbuffer = ent->animcache_vertex3f_vertexbuffer;
 			rsurface.modelvertex3f_bufferoffset = ent->animcache_vertex3f_bufferoffset;
@@ -8656,6 +8655,10 @@ void RSurf_ActiveModelEntity(const entity_render_t *ent, qboolean wantnormals, q
 		}
 		else if (wanttangents)
 		{
+			r_refdef.stats[r_stat_batch_entityanimate_count]++;
+			r_refdef.stats[r_stat_batch_entityanimate_surfaces] += model->num_surfaces;
+			r_refdef.stats[r_stat_batch_entityanimate_vertices] += model->surfmesh.num_vertices;
+			r_refdef.stats[r_stat_batch_entityanimate_triangles] += model->surfmesh.num_triangles;
 			rsurface.modelvertex3f = (float *)R_FrameData_Alloc(model->surfmesh.num_vertices * sizeof(float[3]));
 			rsurface.modelsvector3f = (float *)R_FrameData_Alloc(model->surfmesh.num_vertices * sizeof(float[3]));
 			rsurface.modeltvector3f = (float *)R_FrameData_Alloc(model->surfmesh.num_vertices * sizeof(float[3]));
@@ -8677,6 +8680,10 @@ void RSurf_ActiveModelEntity(const entity_render_t *ent, qboolean wantnormals, q
 		}
 		else if (wantnormals)
 		{
+			r_refdef.stats[r_stat_batch_entityanimate_count]++;
+			r_refdef.stats[r_stat_batch_entityanimate_surfaces] += model->num_surfaces;
+			r_refdef.stats[r_stat_batch_entityanimate_vertices] += model->surfmesh.num_vertices;
+			r_refdef.stats[r_stat_batch_entityanimate_triangles] += model->surfmesh.num_triangles;
 			rsurface.modelvertex3f = (float *)R_FrameData_Alloc(model->surfmesh.num_vertices * sizeof(float[3]));
 			rsurface.modelsvector3f = NULL;
 			rsurface.modeltvector3f = NULL;
@@ -8698,6 +8705,10 @@ void RSurf_ActiveModelEntity(const entity_render_t *ent, qboolean wantnormals, q
 		}
 		else
 		{
+			r_refdef.stats[r_stat_batch_entityanimate_count]++;
+			r_refdef.stats[r_stat_batch_entityanimate_surfaces] += model->num_surfaces;
+			r_refdef.stats[r_stat_batch_entityanimate_vertices] += model->surfmesh.num_vertices;
+			r_refdef.stats[r_stat_batch_entityanimate_triangles] += model->surfmesh.num_triangles;
 			rsurface.modelvertex3f = (float *)R_FrameData_Alloc(model->surfmesh.num_vertices * sizeof(float[3]));
 			rsurface.modelsvector3f = NULL;
 			rsurface.modeltvector3f = NULL;
@@ -8721,6 +8732,20 @@ void RSurf_ActiveModelEntity(const entity_render_t *ent, qboolean wantnormals, q
 	}
 	else
 	{
+		if (rsurface.entityskeletaltransform3x4)
+		{
+			r_refdef.stats[r_stat_batch_entityskeletal_count]++;
+			r_refdef.stats[r_stat_batch_entityskeletal_surfaces] += model->num_surfaces;
+			r_refdef.stats[r_stat_batch_entityskeletal_vertices] += model->surfmesh.num_vertices;
+			r_refdef.stats[r_stat_batch_entityskeletal_triangles] += model->surfmesh.num_triangles;
+		}
+		else
+		{
+			r_refdef.stats[r_stat_batch_entitystatic_count]++;
+			r_refdef.stats[r_stat_batch_entitystatic_surfaces] += model->num_surfaces;
+			r_refdef.stats[r_stat_batch_entitystatic_vertices] += model->surfmesh.num_vertices;
+			r_refdef.stats[r_stat_batch_entitystatic_triangles] += model->surfmesh.num_triangles;
+		}
 		rsurface.modelvertex3f  = model->surfmesh.data_vertex3f;
 		rsurface.modelvertex3f_vertexbuffer = model->surfmesh.vbo_vertexbuffer;
 		rsurface.modelvertex3f_bufferoffset = model->surfmesh.vbooffset_vertex3f;
@@ -8848,6 +8873,10 @@ void RSurf_ActiveCustomEntity(const matrix4x4_t *matrix, const matrix4x4_t *inve
 	rsurface.entityskeletaltransform3x4offset = 0;
 	rsurface.entityskeletaltransform3x4size = 0;
 	rsurface.entityskeletalnumtransforms = 0;
+	r_refdef.stats[r_stat_batch_entitycustom_count]++;
+	r_refdef.stats[r_stat_batch_entitycustom_surfaces] += 1;
+	r_refdef.stats[r_stat_batch_entitycustom_vertices] += rsurface.modelnumvertices;
+	r_refdef.stats[r_stat_batch_entitycustom_triangles] += rsurface.modelnumtriangles;
 	if (wanttangents)
 	{
 		rsurface.modelvertex3f = (float *)vertex3f;
