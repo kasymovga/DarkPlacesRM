@@ -1374,7 +1374,7 @@ static void Collision_TransformBrush(const matrix4x4_t *matrix, colbrushf_t *bru
 	// now we can transform the data
 	for(i = 0; i < brush->numplanes; ++i)
 	{
-		Matrix4x4_TransformPositivePlane(matrix, brush->planes[i].normal[0], brush->planes[i].normal[1], brush->planes[i].normal[2], brush->planes[i].dist, brush->planes[i].normal);
+		Matrix4x4_TransformPositivePlane(matrix, brush->planes[i].normal[0], brush->planes[i].normal[1], brush->planes[i].normal[2], brush->planes[i].dist, brush->planes[i].normal_and_dist);
 	}
 	for(i = 0; i < brush->numedgedirs; ++i)
 	{
@@ -1422,7 +1422,7 @@ static collision_cachedtrace_t *collision_cachedtrace_array;
 static int collision_cachedtrace_firstfree;
 static int collision_cachedtrace_lastused;
 static int collision_cachedtrace_max;
-static int collision_cachedtrace_sequence;
+static unsigned char collision_cachedtrace_sequence;
 static int collision_cachedtrace_hashsize;
 static int *collision_cachedtrace_hash;
 static unsigned int *collision_cachedtrace_arrayfullhashindex;
@@ -1470,7 +1470,7 @@ static void Collision_Cache_RebuildHash(void)
 {
 	int index;
 	int range = collision_cachedtrace_lastused + 1;
-	int sequence = collision_cachedtrace_sequence;
+	unsigned char sequence = collision_cachedtrace_sequence;
 	int firstfree = collision_cachedtrace_max;
 	int lastused = 0;
 	int *hash = collision_cachedtrace_hash;
@@ -1540,7 +1540,7 @@ static collision_cachedtrace_t *Collision_Cache_Lookup(dp_model_t *model, const 
 	unsigned int fullhashindex;
 	int index = 0;
 	int range;
-	int sequence = collision_cachedtrace_sequence;
+	unsigned char sequence = collision_cachedtrace_sequence;
 	int *hash = collision_cachedtrace_hash;
 	unsigned int *arrayfullhashindex = collision_cachedtrace_arrayfullhashindex;
 	unsigned int *arraynext = collision_cachedtrace_arraynext;
@@ -1778,7 +1778,7 @@ void Collision_ClipToGenericEntity(trace_t *trace, dp_model_t *model, const fram
 
 	// transform plane
 	// NOTE: this relies on plane.dist being directly after plane.normal
-	Matrix4x4_TransformPositivePlane(matrix, trace->plane.normal[0], trace->plane.normal[1], trace->plane.normal[2], trace->plane.dist, trace->plane.normal);
+	Matrix4x4_TransformPositivePlane(matrix, trace->plane.normal[0], trace->plane.normal[1], trace->plane.normal[2], trace->plane.dist, trace->plane.normal_and_dist);
 }
 
 void Collision_ClipToWorld(trace_t *trace, dp_model_t *model, const vec3_t tstart, const vec3_t mins, const vec3_t maxs, const vec3_t tend, int hitsupercontents, float extend)
@@ -1814,7 +1814,7 @@ void Collision_ClipLineToGenericEntity(trace_t *trace, dp_model_t *model, const 
 
 	// transform plane
 	// NOTE: this relies on plane.dist being directly after plane.normal
-	Matrix4x4_TransformPositivePlane(matrix, trace->plane.normal[0], trace->plane.normal[1], trace->plane.normal[2], trace->plane.dist, trace->plane.normal);
+	Matrix4x4_TransformPositivePlane(matrix, trace->plane.normal[0], trace->plane.normal[1], trace->plane.normal[2], trace->plane.dist, trace->plane.normal_and_dist);
 }
 
 void Collision_ClipLineToWorld(trace_t *trace, dp_model_t *model, const vec3_t tstart, const vec3_t tend, int hitsupercontents, float extend, qboolean hitsurfaces)
@@ -1849,7 +1849,7 @@ void Collision_ClipPointToGenericEntity(trace_t *trace, dp_model_t *model, const
 	VectorCopy(start, trace->endpos);
 	// transform plane
 	// NOTE: this relies on plane.dist being directly after plane.normal
-	Matrix4x4_TransformPositivePlane(matrix, trace->plane.normal[0], trace->plane.normal[1], trace->plane.normal[2], trace->plane.dist, trace->plane.normal);
+	Matrix4x4_TransformPositivePlane(matrix, trace->plane.normal[0], trace->plane.normal[1], trace->plane.normal[2], trace->plane.dist, trace->plane.normal_and_dist);
 }
 
 void Collision_ClipPointToWorld(trace_t *trace, dp_model_t *model, const vec3_t start, int hitsupercontents)

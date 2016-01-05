@@ -206,7 +206,7 @@ typedef struct downloadinfo_s
 	CURL *curle;
 	qboolean started;
 	int loadtype;
-	unsigned long bytes_received; // for buffer
+	size_t bytes_received; // for buffer
 	double bytes_received_curl; // for throttling
 	double bytes_sent_curl; // for throttling
 	struct downloadinfo_s *next, *prev;
@@ -430,7 +430,10 @@ static size_t CURL_fwrite(void *data, size_t size, size_t nmemb, void *vdi)
 
 	di->bytes_received += bytes;
 
-	return ret; // why not ret / nmemb?
+	return ret;
+	// Why not ret / nmemb?
+	// Because CURLOPT_WRITEFUNCTION docs say to return the number of bytes.
+	// Yes, this is incompatible to fwrite(2).
 }
 
 typedef enum
@@ -977,6 +980,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 						++numdownloads_added;
 					}
 
+					if (curl_mutex) Thread_UnlockMutex(curl_mutex);
 					return false;
 				}
 			}
@@ -1000,6 +1004,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 							}
 						}
 
+						if (curl_mutex) Thread_UnlockMutex(curl_mutex);
 						return false;
 					}
 					else
@@ -1773,7 +1778,7 @@ static qboolean Curl_SendRequirement(const char *filename, qboolean foundone, ch
 	const char *thispack = FS_WhichPack(filename);
 	const char *packurl;
 
-	if(!thispack)
+	if(!thispack || !*thispack)
 		return false;
 
 	p = strrchr(thispack, '/');

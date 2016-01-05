@@ -168,6 +168,7 @@ const char *vm_sv_extensions =
 "DP_SV_CLIENTNAME "
 "DP_SV_CMD "
 "DP_SV_CUSTOMIZEENTITYFORCLIENT "
+"DP_SV_DISABLECLIENTPREDICTION "
 "DP_SV_DISCARDABLEDEMO "
 "DP_SV_DRAWONLYTOCLIENT "
 "DP_SV_DROPCLIENT "
@@ -1503,8 +1504,8 @@ static void VM_SV_WritePicture(prvm_prog_t *prog)
 	if(Image_Compress(imgname, size, &buf, &size))
 	{
 		// actual picture
-		MSG_WriteShort(WriteDest(prog), size);
-		SZ_Write(WriteDest(prog), (unsigned char *) buf, size);
+		MSG_WriteShort(WriteDest(prog), (int)size);
+		SZ_Write(WriteDest(prog), (unsigned char *) buf, (int)size);
 	}
 	else
 	{

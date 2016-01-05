@@ -465,7 +465,7 @@ static void SV_ReadClientMove (void)
 	move->receivetime = (float)sv.time;
 
 #if DEBUGMOVES
-	Con_Printf("%s move%i #%i %ims (%ims) %i %i '%i %i %i' '%i %i %i'\n", move->time > move->receivetime ? "^3read future" : "^4read normal", sv_numreadmoves + 1, move->sequence, (int)floor((move->time - host_client->cmd.time) * 1000.0 + 0.5), (int)floor(move->time * 1000.0 + 0.5), move->impulse, move->buttons, (int)move->viewangles[0], (int)move->viewangles[1], (int)move->viewangles[2], (int)move->forwardmove, (int)move->sidemove, (int)move->upmove);
+	Con_Printf("%s move%i #%u %ims (%ims) %i %i '%i %i %i' '%i %i %i'\n", move->time > move->receivetime ? "^3read future" : "^4read normal", sv_numreadmoves + 1, move->sequence, (int)floor((move->time - host_client->cmd.time) * 1000.0 + 0.5), (int)floor(move->time * 1000.0 + 0.5), move->impulse, move->buttons, (int)move->viewangles[0], (int)move->viewangles[1], (int)move->viewangles[2], (int)move->forwardmove, (int)move->sidemove, (int)move->upmove);
 #endif
 	// limit reported time to current time
 	// (incase the client is trying to cheat)
@@ -551,9 +551,13 @@ static void SV_ReadClientMove (void)
 			if(host_client->movement_highestsequence_seen)
 			{
 				// mark moves in between as lost
-				if(move->sequence - host_client->movement_highestsequence_seen - 1 < NETGRAPH_PACKETS)
-					for(i = host_client->movement_highestsequence_seen + 1; i < move->sequence; ++i)
-						host_client->movement_count[i % NETGRAPH_PACKETS] = -1;
+				unsigned int delta = move->sequence - host_client->movement_highestsequence_seen - 1;
+				if(delta < NETGRAPH_PACKETS)
+				{
+					unsigned int u;
+					for(u = 0; u < delta; ++u)
+						host_client->movement_count[(host_client->movement_highestsequence_seen + 1 + u) % NETGRAPH_PACKETS] = -1;
+				}
 				else
 					memset(host_client->movement_count, -1, sizeof(host_client->movement_count));
 			}
@@ -595,7 +599,7 @@ static void SV_ExecuteClientMoves(void)
 	if (ceil(max(sv_readmoves[sv_numreadmoves-1].receivetime - sv_readmoves[sv_numreadmoves-1].time, 0) * 1000.0) < sv_clmovement_minping.integer)
 		host_client->clmovement_disabletimeout = realtime + sv_clmovement_minping_disabletime.value / 1000.0;
 	// several conditions govern whether clientside movement prediction is allowed
-	if (sv_readmoves[sv_numreadmoves-1].sequence && sv_clmovement_enable.integer && sv_clmovement_inputtimeout.value > 0 && host_client->clmovement_disabletimeout <= realtime && PRVM_serveredictfloat(host_client->edict, movetype) == MOVETYPE_WALK && (!PRVM_serveredictfloat(host_client->edict, disableclientprediction)))
+	if (sv_readmoves[sv_numreadmoves-1].sequence && sv_clmovement_enable.integer && sv_clmovement_inputtimeout.value > 0 && host_client->clmovement_disabletimeout <= realtime && (PRVM_serveredictfloat(host_client->edict, disableclientprediction) == -1 || (PRVM_serveredictfloat(host_client->edict, movetype) == MOVETYPE_WALK && (!PRVM_serveredictfloat(host_client->edict, disableclientprediction)))))
 	{
 		// process the moves in order and ignore old ones
 		// but always trust the latest move
@@ -608,7 +612,7 @@ static void SV_ExecuteClientMoves(void)
 			if (host_client->movesequence < move->sequence || moveindex == sv_numreadmoves - 1)
 			{
 #if DEBUGMOVES
-				Con_Printf("%smove #%i %ims (%ims) %i %i '%i %i %i' '%i %i %i'\n", (move->time - host_client->cmd.time) > sv.frametime * 1.01 ? "^1" : "^2", move->sequence, (int)floor((move->time - host_client->cmd.time) * 1000.0 + 0.5), (int)floor(move->time * 1000.0 + 0.5), move->impulse, move->buttons, (int)move->viewangles[0], (int)move->viewangles[1], (int)move->viewangles[2], (int)move->forwardmove, (int)move->sidemove, (int)move->upmove);
+				Con_Printf("%smove #%u %ims (%ims) %i %i '%i %i %i' '%i %i %i'\n", (move->time - host_client->cmd.time) > sv.frametime * 1.01 ? "^1" : "^2", move->sequence, (int)floor((move->time - host_client->cmd.time) * 1000.0 + 0.5), (int)floor(move->time * 1000.0 + 0.5), move->impulse, move->buttons, (int)move->viewangles[0], (int)move->viewangles[1], (int)move->viewangles[2], (int)move->forwardmove, (int)move->sidemove, (int)move->upmove);
 #endif
 				// this is a new move
 				move->time = bound(sv.time - 1, move->time, sv.time); // prevent slowhack/speedhack combos
@@ -764,13 +768,18 @@ void SV_ApplyClientMove (void)
 	PRVM_serveredictfloat(host_client->edict, ping_movementloss) = movementloss / (float) NETGRAPH_PACKETS;
 }
 
-static void SV_FrameLost(int framenum)
+static qboolean SV_FrameLost(int framenum)
 {
 	if (host_client->entitydatabase5)
 	{
-		EntityFrame5_LostFrame(host_client->entitydatabase5, framenum);
-		EntityFrameCSQC_LostFrame(host_client, framenum);
+		if (framenum <= host_client->entitydatabase5->latestframenum)
+		{
+			EntityFrame5_LostFrame(host_client->entitydatabase5, framenum);
+			EntityFrameCSQC_LostFrame(host_client, framenum);
+			return true;
+		}
 	}
+	return false;
 }
 
 static void SV_FrameAck(int framenum)
@@ -878,7 +887,7 @@ void SV_ReadClientMessage(void)
 clc_stringcmd_invalid:
 			Con_Printf("Received invalid stringcmd from %s\n", host_client->name);
 			if(developer.integer > 0)
-				Com_HexDumpToConsole((unsigned char *) s, strlen(s));
+				Com_HexDumpToConsole((unsigned char *) s, (int)strlen(s));
 			break;
 
 		case clc_disconnect:
@@ -954,7 +963,8 @@ clc_stringcmd_invalid:
 			{
 				int i;
 				for (i = host_client->latestframenum + 1;i < num;i++)
-					SV_FrameLost(i);
+					if (!SV_FrameLost(i))
+						break;
 				SV_FrameAck(num);
 				host_client->latestframenum = num;
 			}

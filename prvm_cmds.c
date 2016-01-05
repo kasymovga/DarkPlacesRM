@@ -101,7 +101,10 @@ void VM_FrameBlendFromFrameGroupBlend(frameblend_t *frameblend, const framegroup
 
 	memset(blend, 0, MAX_FRAMEBLENDS * sizeof(*blend));
 
-	if (!model || !model->surfmesh.isanimated)
+	// rpolzer: Not testing isanimated here - a model might have
+	// "animations" that move no vertices (but only bones), thus rendering
+	// may assume it's not animated while processing can't.
+	if (!model)
 	{
 		blend[0].lerp = 1;
 		return;
@@ -2306,8 +2309,8 @@ void VM_strlennocol(prvm_prog_t *prog)
 
 	szString = PRVM_G_STRING(OFS_PARM0);
 
-	//nCnt = COM_StringLengthNoColors(szString, 0, NULL);
-	nCnt = u8_COM_StringLengthNoColors(szString, 0, NULL);
+	//nCnt = (int)COM_StringLengthNoColors(szString, 0, NULL);
+	nCnt = (int)u8_COM_StringLengthNoColors(szString, 0, NULL);
 
 	PRVM_G_FLOAT(OFS_RETURN) = nCnt;
 }
@@ -2421,7 +2424,7 @@ void VM_substring(prvm_prog_t *prog)
 
 	if (start < 0) // FTE_STRINGS feature
 	{
-		u_slength = u8_strlen(s);
+		u_slength = (int)u8_strlen(s);
 		start += u_slength;
 		start = bound(0, start, u_slength);
 	}
@@ -2429,7 +2432,7 @@ void VM_substring(prvm_prog_t *prog)
 	if (length < 0) // FTE_STRINGS feature
 	{
 		if (!u_slength) // it's not calculated when it's not needed above
-			u_slength = u8_strlen(s);
+			u_slength = (int)u8_strlen(s);
 		length += u_slength - start + 1;
 	}
 		
@@ -2780,7 +2783,7 @@ void VM_tokenizebyseparator (prvm_prog_t *prog)
 		if (!s[0])
 			continue;
 		separators[numseparators] = s;
-		separatorlen[numseparators] = strlen(s);
+		separatorlen[numseparators] = (int)strlen(s);
 		numseparators++;
 	}
 
@@ -2887,7 +2890,7 @@ void VM_isserver(prvm_prog_t *prog)
 {
 	VM_SAFEPARMCOUNT(0,VM_serverstate);
 
-	PRVM_G_FLOAT(OFS_RETURN) = sv.active && (svs.maxclients > 1 || cls.state == ca_dedicated);
+	PRVM_G_FLOAT(OFS_RETURN) = sv.active;
 }
 
 /*
@@ -4520,23 +4523,25 @@ string altstr_prepare(string)
 */
 void VM_altstr_prepare(prvm_prog_t *prog)
 {
-	char *out;
 	const char *instr, *in;
-	int size;
 	char outstr[VM_STRINGTEMP_LENGTH];
+	size_t outpos;
 
 	VM_SAFEPARMCOUNT( 1, VM_altstr_prepare );
 
 	instr = PRVM_G_STRING( OFS_PARM0 );
 
-	for( out = outstr, in = instr, size = sizeof(outstr) - 1 ; size && *in ; size--, in++, out++ )
-		if( *in == '\'' ) {
-			*out++ = '\\';
-			*out = '\'';
-			size--;
-		} else
-			*out = *in;
-	*out = 0;
+	for (in = instr, outpos = 0; *in && outpos < sizeof(outstr) - 1; ++in)
+	{
+		if (*in == '\'' && outpos < sizeof(outstr) - 2)
+		{
+			outstr[outpos++] = '\\';
+			outstr[outpos++] = '\'';
+		}
+		else
+			outstr[outpos++] = *in;
+	}
+	outstr[outpos] = 0;
 
 	PRVM_G_INT( OFS_RETURN ) = PRVM_SetTempString(prog,  outstr );
 }
@@ -4732,7 +4737,7 @@ static int BufStr_SortStringsDOWN (const void *in1, const void *in2)
 	return strncmp(b, a, stringbuffers_sortlength);
 }
 
-prvm_stringbuffer_t *BufStr_FindCreateReplace (prvm_prog_t *prog, int bufindex, int flags, char *format)
+prvm_stringbuffer_t *BufStr_FindCreateReplace (prvm_prog_t *prog, int bufindex, int flags, const char *format)
 {
 	prvm_stringbuffer_t *stringbuffer;
 	int i;
@@ -4813,7 +4818,7 @@ void BufStr_Flush(prvm_prog_t *prog)
 	prvm_stringbuffer_t *stringbuffer;
 	int i, numbuffers;
 
-	numbuffers = Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
+	numbuffers = (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
 	for (i = 0; i < numbuffers; i++)
 		if ( (stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i)) )
 			BufStr_Del(prog, stringbuffer);
@@ -5189,21 +5194,19 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	size_t alloclen;
 	prvm_stringbuffer_t *stringbuffer;
 	char string[VM_STRINGTEMP_LENGTH];
-	int filenum, strindex, c, end;
+	int strindex, c, end;
 	const char *filename;
 	char vabuf[1024];
+	qfile_t *file;
 
 	VM_SAFEPARMCOUNT(2, VM_buf_loadfile);
 
 	// get file
 	filename = PRVM_G_STRING(OFS_PARM0);
-	for (filenum = 0;filenum < PRVM_MAX_OPENFILES;filenum++)
-		if (prog->openfiles[filenum] == NULL)
-			break;
-	prog->openfiles[filenum] = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "data/%s", filename), false);
-	if (prog->openfiles[filenum] == NULL)
-		prog->openfiles[filenum] = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "%s", filename), false);
-	if (prog->openfiles[filenum] == NULL)
+	file = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "data/%s", filename), false);
+	if (file == NULL)
+		file = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "%s", filename), false);
+	if (file == NULL)
 	{
 		if (developer_extra.integer)
 			VM_Warning(prog, "VM_buf_loadfile: failed to open file %s in %s\n", filename, prog->name);
@@ -5228,7 +5231,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 		end = 0;
 		for (;;)
 		{
-			c = FS_Getc(prog->openfiles[filenum]);
+			c = FS_Getc(file);
 			if (c == '\r' || c == '\n' || c < 0)
 				break;
 			if (end < VM_STRINGTEMP_LENGTH - 1)
@@ -5238,9 +5241,9 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 		// remove \n following \r
 		if (c == '\r')
 		{
-			c = FS_Getc(prog->openfiles[filenum]);
+			c = FS_Getc(file);
 			if (c != '\n')
-				FS_UnGetc(prog->openfiles[filenum], (unsigned char)c);
+				FS_UnGetc(file, (unsigned char)c);
 		}
 		// add and continue
 		if (c >= 0 || end)
@@ -5257,10 +5260,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	}
 
 	// close file
-	FS_Close(prog->openfiles[filenum]);
-	prog->openfiles[filenum] = NULL;
-	if (prog->openfiles_origin[filenum])
-		PRVM_Free((char *)prog->openfiles_origin[filenum]);
+	FS_Close(file);
 	PRVM_G_FLOAT(OFS_RETURN) = 1;
 }
 
@@ -5335,7 +5335,7 @@ void VM_buf_writefile(prvm_prog_t *prog)
 	{
 		if (stringbuffer->strings[strindex])
 		{
-			if ((strlength = strlen(stringbuffer->strings[strindex])))
+			if ((strlength = (int)strlen(stringbuffer->strings[strindex])))
 				FS_Write(prog->openfiles[filenum], stringbuffer->strings[strindex], strlength);
 			FS_Write(prog->openfiles[filenum], "\n", 1);
 		}
@@ -5358,7 +5358,7 @@ static const char *detect_match_rule(char *pattern, int *matchrule)
 	char *ppos, *qpos;
 	int patternlength;
 
-	patternlength = strlen(pattern);
+	patternlength = (int)strlen(pattern);
 	ppos = strchr(pattern, '*');
 	qpos = strchr(pattern, '?');
 	// has ? - pattern
@@ -5468,7 +5468,7 @@ void VM_bufstr_find(prvm_prog_t *prog)
 		strlcpy(string, PRVM_G_STRING(OFS_PARM1), sizeof(string));
 		match = detect_match_rule(string, &matchrule);
 	}
-	matchlen = strlen(match);
+	matchlen = (int)strlen(match);
 
 	// find
 	i = (prog->argc > 3) ? (int)PRVM_G_FLOAT(OFS_PARM3) : 0;
@@ -5516,7 +5516,7 @@ void VM_matchpattern(prvm_prog_t *prog)
 	}
 
 	// offset
-	l = strlen(match);
+	l = (int)strlen(match);
 	if (prog->argc > 3)
 		s += max(0, min((unsigned int)PRVM_G_FLOAT(OFS_PARM3), strlen(s)-1));
 
@@ -5751,7 +5751,7 @@ void VM_strstrofs (prvm_prog_t *prog)
 	instr = PRVM_G_STRING(OFS_PARM0);
 	match = PRVM_G_STRING(OFS_PARM1);
 	firstofs = (prog->argc > 2)?(int)PRVM_G_FLOAT(OFS_PARM2):0;
-	firstofs = u8_bytelen(instr, firstofs);
+	firstofs = (int)u8_bytelen(instr, firstofs);
 
 	if (firstofs && (firstofs < 0 || firstofs > (int)strlen(instr)))
 	{
@@ -5774,7 +5774,7 @@ void VM_str2chr (prvm_prog_t *prog)
 	int index;
 	VM_SAFEPARMCOUNT(2, VM_str2chr);
 	s = PRVM_G_STRING(OFS_PARM0);
-	index = u8_bytelen(s, (int)PRVM_G_FLOAT(OFS_PARM1));
+	index = (int)u8_bytelen(s, (int)PRVM_G_FLOAT(OFS_PARM1));
 
 	if((unsigned)index < strlen(s))
 	{
@@ -5904,7 +5904,7 @@ void VM_strconv (prvm_prog_t *prog)
 	redalpha = (int) PRVM_G_FLOAT(OFS_PARM1);	//0 same, 1 white, 2 red,  5 alternate, 6 alternate-alternate
 	rednum = (int) PRVM_G_FLOAT(OFS_PARM2);	//0 same, 1 white, 2 red, 3 redspecial, 4 whitespecial, 5 alternate, 6 alternate-alternate
 	VM_VarString(prog, 3, (char *) resbuf, sizeof(resbuf));
-	len = strlen((char *) resbuf);
+	len = (int)strlen((char *) resbuf);
 
 	for (i = 0; i < len; i++, result++)	//should this be done backwards?
 	{
@@ -6056,7 +6056,7 @@ void VM_digest_hex(prvm_prog_t *prog)
 	if(!digest)
 		digest = "";
 	VM_VarString(prog, 1, s, sizeof(s));
-	len = strlen(s);
+	len = (int)strlen(s);
 
 	outlen = 0;
 
@@ -6235,7 +6235,7 @@ void VM_whichpack (prvm_prog_t *prog)
 	fn = PRVM_G_STRING(OFS_PARM0);
 	pack = FS_WhichPack(fn);
 
-	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, pack ? pack : "");
+	PRVM_G_INT(OFS_RETURN) = pack ? PRVM_SetTempString(prog, pack) : 0;
 }
 
 typedef struct
@@ -6912,7 +6912,8 @@ nolength:
 			default:
 verbatim:
 				if(o < end - 1)
-					*o++ = *s++;
+					*o++ = *s;
+				++s;
 				break;
 		}
 	}

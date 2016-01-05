@@ -123,6 +123,7 @@ cvar_t sv_gameplayfix_unstickplayers = {0, "sv_gameplayfix_unstickplayers", "1",
 cvar_t sv_gameplayfix_unstickentities = {0, "sv_gameplayfix_unstickentities", "1", "hack to check if entities are crossing world collision hull and try to move them to the right position"};
 cvar_t sv_gameplayfix_fixedcheckwatertransition = {0, "sv_gameplayfix_fixedcheckwatertransition", "1", "fix two very stupid bugs in SV_CheckWaterTransition when watertype is CONTENTS_EMPTY (the bugs causes waterlevel to be 1 on first frame, -1 on second frame - the fix makes it 0 on both frames)"};
 cvar_t sv_gravity = {CVAR_NOTIFY, "sv_gravity","800", "how fast you fall (512 = roughly earth gravity)"};
+cvar_t sv_init_frame_count = {0, "sv_init_frame_count", "2", "number of frames to run to allow everything to settle before letting clients connect"};
 cvar_t sv_idealpitchscale = {0, "sv_idealpitchscale","0.8", "how much to look up/down slopes and stairs when not using freelook"};
 cvar_t sv_jumpstep = {CVAR_NOTIFY, "sv_jumpstep", "0", "whether you can step up while jumping"};
 cvar_t sv_jumpvelocity = {0, "sv_jumpvelocity", "270", "cvar that can be used by QuakeC code for jump velocity"};
@@ -193,6 +194,8 @@ cvar_t sv_autodemo_perclient_nameformat = {CVAR_SAVE, "sv_autodemo_perclient_nam
 cvar_t sv_autodemo_perclient_discardable = {CVAR_SAVE, "sv_autodemo_perclient_discardable", "0", "Allow game code to decide whether a demo should be kept or discarded."};
 
 cvar_t halflifebsp = {0, "halflifebsp", "0", "indicates the current map is hlbsp format (useful to know because of different bounding box sizes)"};
+cvar_t sv_mapformat_is_quake2 = {0, "sv_mapformat_is_quake2", "0", "indicates the current map is q2bsp format (useful to know because of different entity behaviors, .frame on submodels and other things)"};
+cvar_t sv_mapformat_is_quake3 = {0, "sv_mapformat_is_quake3", "0", "indicates the current map is q2bsp format (useful to know because of different entity behaviors)"};
 
 cvar_t dprm_version = {CVAR_READONLY, "dprm_version", "1", "The DarkPlacesRM version"};
 
@@ -542,6 +545,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_gameplayfix_unstickentities);
 	Cvar_RegisterVariable (&sv_gameplayfix_fixedcheckwatertransition);
 	Cvar_RegisterVariable (&sv_gravity);
+	Cvar_RegisterVariable (&sv_init_frame_count);
 	Cvar_RegisterVariable (&sv_idealpitchscale);
 	Cvar_RegisterVariable (&sv_jumpstep);
 	Cvar_RegisterVariable (&sv_jumpvelocity);
@@ -614,6 +618,8 @@ void SV_Init (void)
 
 	Cvar_RegisterVariable (&halflifebsp);
 	Cvar_RegisterVariable (&dprm_version);
+	Cvar_RegisterVariable (&sv_mapformat_is_quake2);
+	Cvar_RegisterVariable (&sv_mapformat_is_quake3);
 
 	sv_mempool = Mem_AllocPool("server", 0, NULL);
 }
@@ -944,7 +950,7 @@ void SV_SendServerinfo (client_t *client)
 	MSG_WriteString (&client->netconnection->message,message);
 
 	SV_StopDemoRecording(client); // to split up demos into different files
-	if(sv_autodemo_perclient.integer && client->netconnection)
+	if(sv_autodemo_perclient.integer)
 	{
 		char demofile[MAX_OSPATH];
 		char ipaddress[MAX_QPATH];
@@ -1111,12 +1117,14 @@ void SV_ConnectClient (int clientnum, netconn_t *netconnection)
 
 	if(client->netconnection && client->netconnection->crypto.authenticated)
 	{
-		Con_Printf("%s connection to %s has been established: client is %s@%.*s, I am %.*s@%.*s\n",
+		Con_Printf("%s connection to %s has been established: client is %s@%s%.*s, I am %.*s@%s%.*s\n",
 				client->netconnection->crypto.use_aes ? "Encrypted" : "Authenticated",
 				client->netconnection->address,
 				client->netconnection->crypto.client_idfp[0] ? client->netconnection->crypto.client_idfp : "-",
+				(client->netconnection->crypto.client_issigned || !client->netconnection->crypto.client_keyfp[0]) ? "" : "~",
 				crypto_keyfp_recommended_length, client->netconnection->crypto.client_keyfp[0] ? client->netconnection->crypto.client_keyfp : "-",
 				crypto_keyfp_recommended_length, client->netconnection->crypto.server_idfp[0] ? client->netconnection->crypto.server_idfp : "-",
+				(client->netconnection->crypto.server_issigned || !client->netconnection->crypto.server_keyfp[0]) ? "" : "~",
 				crypto_keyfp_recommended_length, client->netconnection->crypto.server_keyfp[0] ? client->netconnection->crypto.server_keyfp : "-"
 				);
 	}
@@ -1710,7 +1718,7 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 			}
 
 			// or not seen by random tracelines
-			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel->brush.TraceLineOfSight && !r_trippy.integer)
+			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel && sv.worldmodel->brush.TraceLineOfSight && !r_trippy.integer)
 			{
 				int samples =
 					s->number <= svs.maxclients
@@ -2505,9 +2513,10 @@ static void SV_UpdateToReliableMessages (void)
 			name = "";
 		// always point the string back at host_client->name to keep it safe
 		//strlcpy (host_client->name, name, sizeof (host_client->name));
- 	
+
 		if (name != host_client->name) // prevent buffer overlap SIGABRT on Mac OSX
- 			strlcpy (host_client->name, name, sizeof (host_client->name));
+			strlcpy (host_client->name, name, sizeof (host_client->name));
+
 		PRVM_serveredictstring(host_client->edict, netname) = PRVM_SetEngineString(prog, host_client->name);
 		if (strcmp(host_client->old_name, host_client->name))
 		{
@@ -2539,7 +2548,8 @@ static void SV_UpdateToReliableMessages (void)
 		// always point the string back at host_client->name to keep it safe
 		//strlcpy (host_client->playermodel, model, sizeof (host_client->playermodel));
 		if (model != host_client->playermodel) // prevent buffer overlap SIGABRT on Mac OSX
- 			strlcpy (host_client->playermodel, model, sizeof (host_client->playermodel));
+			strlcpy (host_client->playermodel, model, sizeof (host_client->playermodel));
+
 		PRVM_serveredictstring(host_client->edict, playermodel) = PRVM_SetEngineString(prog, host_client->playermodel);
 
 		// NEXUIZ_PLAYERSKIN
@@ -3397,6 +3407,8 @@ void SV_SpawnServer (const char *server)
 	cls.signon = 0;
 
 	Cvar_SetValue("halflifebsp", worldmodel->brush.ishlbsp);
+	Cvar_SetValue("sv_mapformat_is_quake2", worldmodel->brush.isq2bsp);
+	Cvar_SetValue("sv_mapformat_is_quake3", worldmodel->brush.isq3bsp);
 
 	if(*sv_random_seed.string)
 	{
@@ -3532,11 +3544,14 @@ void SV_SpawnServer (const char *server)
 
 // run two frames to allow everything to settle
 	sv.time = 1.0001;
-	for (i = 0;i < 2;i++)
+	for (i = 0;i < sv_init_frame_count.integer;i++)
 	{
 		sv.frametime = 0.1;
 		SV_Physics ();
 	}
+
+	// Once all init frames have been run, we consider svqc code fully initialized.
+	prog->inittime = realtime;
 
 	if (cls.state == ca_dedicated)
 		Mod_PurgeUnused();
@@ -3641,6 +3656,7 @@ static void SVVM_init_edict(prvm_prog_t *prog, prvm_edict_t *e)
 			PRVM_serveredictstring(e, crypto_idfp) = PRVM_SetEngineString(prog, svs.clients[num].netconnection->crypto.client_idfp);
 		else
 			PRVM_serveredictstring(e, crypto_idfp) = 0;
+		PRVM_serveredictfloat(e, crypto_idfp_signed) = (svs.clients[num].netconnection != NULL && svs.clients[num].netconnection->crypto.authenticated && svs.clients[num].netconnection->crypto.client_issigned);
 		if(svs.clients[num].netconnection != NULL && svs.clients[num].netconnection->crypto.authenticated && svs.clients[num].netconnection->crypto.client_keyfp[0])
 			PRVM_serveredictstring(e, crypto_keyfp) = PRVM_SetEngineString(prog, svs.clients[num].netconnection->crypto.client_keyfp);
 		else

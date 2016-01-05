@@ -1249,7 +1249,7 @@ static void CL_ParticleEffect_Fallback(int effectnameindex, float count, const v
 	{
 		vec3_t dir, pos;
 		float len, dec, qd;
-		int smoke, blood, bubbles, r, color;
+		int smoke, blood, bubbles, r, color, count;
 
 		if (spawndlight && r_refdef.scene.numlights < MAX_DLIGHTS)
 		{
@@ -1285,6 +1285,7 @@ static void CL_ParticleEffect_Fallback(int effectnameindex, float count, const v
 
 		VectorSubtract(originmaxs, originmins, dir);
 		len = VectorNormalizeLength(dir);
+
 		if (ent)
 		{
 			dec = -ent->persistent.trail_time;
@@ -1306,8 +1307,9 @@ static void CL_ParticleEffect_Fallback(int effectnameindex, float count, const v
 		blood = cl_particles.integer && cl_particles_blood.integer;
 		bubbles = cl_particles.integer && cl_particles_bubbles.integer && !cl_particles_quake.integer && (CL_PointSuperContents(pos) & (SUPERCONTENTS_WATER | SUPERCONTENTS_SLIME));
 		qd = 1.0f / cl_particles_quality.value;
+		count = 0;
 
-		while (len >= 0)
+		while (len >= 0 && ++count <= 16384)
 		{
 			dec = 3;
 			if (blood)
@@ -1785,6 +1787,11 @@ void CL_ReadPointFile_f (void)
 	Mem_Free(pointfile);
 	VectorCopy(leakorg, vecorg);
 	Con_Printf("%i points read (%i particles spawned)\nLeak at %f %f %f\n", c, s, leakorg[0], leakorg[1], leakorg[2]);
+
+	if (c == 0)
+	{
+		return;
+	}
 
 	CL_NewParticle(vecorg, pt_beam, 0xFF0000, 0xFF0000, tex_beam, 64, 0, 255, 0, 0, 0, org[0] - 4096, org[1], org[2], org[0] + 4096, org[1], org[2], 0, 0, 0, 0, false, 1<<30, 1, PBLEND_ADD, PARTICLE_HBEAM, -1, -1, -1, 1, 1, 0, 0, NULL);
 	CL_NewParticle(vecorg, pt_beam, 0x00FF00, 0x00FF00, tex_beam, 64, 0, 255, 0, 0, 0, org[0], org[1] - 4096, org[2], org[0], org[1] + 4096, org[2], 0, 0, 0, 0, false, 1<<30, 1, PBLEND_ADD, PARTICLE_HBEAM, -1, -1, -1, 1, 1, 0, 0, NULL);
@@ -2567,7 +2574,7 @@ void R_DrawDecals (void)
 	float frametime;
 	float decalfade;
 	float drawdist2;
-	int killsequence = cl.decalsequence - max(0, cl_decals_max.integer);
+	unsigned int killsequence = cl.decalsequence - bound(0, (unsigned int) cl_decals_max.integer, cl.decalsequence);
 
 	frametime = bound(0, cl.time - cl.decals_updatetime, 1);
 	cl.decals_updatetime = bound(cl.time - 1, cl.decals_updatetime + frametime, cl.time + 1);
@@ -2585,7 +2592,7 @@ void R_DrawDecals (void)
 		if (!decal->typeindex)
 			continue;
 
-		if (killsequence - decal->decalsequence > 0)
+		if (killsequence > decal->decalsequence)
 			goto killdecal;
 
 		if (cl.time > decal->time2 + cl_decals_time.value)

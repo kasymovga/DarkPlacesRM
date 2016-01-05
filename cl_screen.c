@@ -935,7 +935,8 @@ void R_TimeReport(const char *desc)
 	t = (int) ((r_timereport_current - r_timereport_temp) * 1000000.0 + 0.5);
 
 	length = dpsnprintf(tempbuf, sizeof(tempbuf), "%8i %s", t, desc);
-	length = min(length, (int)sizeof(tempbuf) - 1);
+	if (length < 0)
+		length = (int)sizeof(tempbuf) - 1;
 	if (r_speeds_longestitem < length)
 		r_speeds_longestitem = length;
 	for (;length < r_speeds_longestitem;length++)
@@ -1757,7 +1758,7 @@ static void SCR_CaptureVideo_VideoFrame(int newframestepframenum)
 
 void SCR_CaptureVideo_SoundFrame(const portable_sampleframe_t *paintbuffer, size_t length)
 {
-	cls.capturevideo.soundsampleframe += length;
+	cls.capturevideo.soundsampleframe += (int)length;
 	cls.capturevideo.soundframe(paintbuffer, length);
 }
 
@@ -1938,9 +1939,10 @@ void SHOWLMP_decodeshow(void)
 		showlmp_t *oldshowlmps = cl.showlmps;
 		cl.max_showlmps += 16;
 		cl.showlmps = (showlmp_t *) Mem_Alloc(cls.levelmempool, cl.max_showlmps * sizeof(showlmp_t));
-		if (oldshowlmps && cl.num_showlmps)
+		if (oldshowlmps)
 		{
-			memcpy(cl.showlmps, oldshowlmps, cl.num_showlmps * sizeof(showlmp_t));
+			if (cl.num_showlmps)
+				memcpy(cl.showlmps, oldshowlmps, cl.num_showlmps * sizeof(showlmp_t));
 			Mem_Free(oldshowlmps);
 		}
 	}

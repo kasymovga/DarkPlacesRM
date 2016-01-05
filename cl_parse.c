@@ -277,7 +277,7 @@ static void CL_ParseStartSoundPacket(int largesoundindex)
 
 	MSG_ReadVector(&cl_message, pos, cls.protocol);
 
-	if (sound_num >= MAX_SOUNDS)
+	if (sound_num < 0 || sound_num >= MAX_SOUNDS)
 	{
 		Con_Printf("CL_ParseStartSoundPacket: sound_num (%i) >= MAX_SOUNDS (%i)\n", sound_num, MAX_SOUNDS);
 		return;
@@ -381,6 +381,7 @@ void CL_KeepaliveMessage (qboolean readmessages)
 
 void CL_ParseEntityLump(char *entdata)
 {
+	qboolean loadedsky = false;
 	const char *data;
 	char key[128], value[MAX_INPUTLINE];
 	FOG_clear(); // LordHavoc: no fog until set
@@ -409,11 +410,20 @@ void CL_ParseEntityLump(char *entdata)
 			return; // error
 		strlcpy (value, com_token, sizeof (value));
 		if (!strcmp("sky", key))
+		{
+			loadedsky = true;
 			R_SetSkyBox(value);
+		}
 		else if (!strcmp("skyname", key)) // non-standard, introduced by QuakeForge... sigh.
+		{
+			loadedsky = true;
 			R_SetSkyBox(value);
+		}
 		else if (!strcmp("qlsky", key)) // non-standard, introduced by QuakeLives (EEK)
+		{
+			loadedsky = true;
 			R_SetSkyBox(value);
+		}
 		else if (!strcmp("fog", key))
 		{
 			FOG_clear(); // so missing values get good defaults
@@ -456,6 +466,9 @@ void CL_ParseEntityLump(char *entdata)
 			r_refdef.fog_height_texturename[63] = 0;
 		}
 	}
+
+	if (!loadedsky && cl.worldmodel->brush.isq2bsp)
+		R_SetSkyBox("unit1_");
 }
 
 static const vec3_t defaultmins = {-4096, -4096, -4096};
@@ -573,6 +586,12 @@ static void QW_CL_RequestNextDownload(void)
 
 	// clear name of file that just finished
 	cls.qw_downloadname[0] = 0;
+
+	// skip the download fragment if playing a demo
+	if (!cls.netcon)
+	{
+		return;
+	}
 
 	switch (cls.qw_downloadtype)
 	{
@@ -1027,7 +1046,7 @@ static void QW_CL_ParseNails(void)
 	{
 		for (j = 0;j < 6;j++)
 			bits[j] = MSG_ReadByte(&cl_message);
-		if (cl.qw_num_nails > 255)
+		if (cl.qw_num_nails >= 255)
 			continue;
 		v = cl.qw_nails[cl.qw_num_nails++];
 		v[0] = ( ( bits[0] + ((bits[1]&15)<<8) ) <<1) - 4096;
@@ -1390,7 +1409,7 @@ static void CL_StopDownload(int size, int crc)
 			{
 				Con_Printf("Inflated download: new size: %u (%g%%)\n", (unsigned)inflated_size, 100.0 - 100.0*(cls.qw_downloadmemorycursize / (float)inflated_size));
 				cls.qw_downloadmemory = out;
-				cls.qw_downloadmemorycursize = inflated_size;
+				cls.qw_downloadmemorycursize = (int)inflated_size;
 			}
 			else
 			{
@@ -2305,6 +2324,13 @@ static void CL_ParseStaticSound (int large)
 		sound_num = (unsigned short) MSG_ReadShort(&cl_message);
 	else
 		sound_num = MSG_ReadByte(&cl_message);
+
+	if (sound_num < 0 || sound_num >= MAX_SOUNDS)
+	{
+		Con_Printf("CL_ParseStaticSound: sound_num(%i) >= MAX_SOUNDS (%i)\n", sound_num, MAX_SOUNDS);
+		return;
+	}
+
 	vol = MSG_ReadByte(&cl_message);
 	atten = MSG_ReadByte(&cl_message);
 
@@ -2880,6 +2906,8 @@ static void CL_ParseTempEntity(void)
 			CL_FindNonSolidLocation(pos, pos, 10);
 			colorStart = MSG_ReadByte(&cl_message);
 			colorLength = MSG_ReadByte(&cl_message);
+			if (colorLength == 0)
+				colorLength = 1;
 			CL_ParticleExplosion2(pos, colorStart, colorLength);
 			tempcolor = palette_rgb[(xrand()%colorLength) + colorStart];
 			color[0] = tempcolor[0] * (2.0f / 255.0f);

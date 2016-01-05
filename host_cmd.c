@@ -651,7 +651,7 @@ void Host_Savegame_to(prvm_prog_t *prog, const char *name)
 			FS_Printf(f,"sv.sound_precache %i %s\n", i, sv.sound_precache[i]);
 
 	// darkplaces extension - save buffers
-	numbuffers = Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
+	numbuffers = (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
 	for (i = 0; i < numbuffers; i++)
 	{
 		prvm_stringbuffer_t *stringbuffer = (prvm_stringbuffer_t*) Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i);
@@ -1091,7 +1091,7 @@ static void Host_Loadgame_f (void)
 	Mem_Free(text);
 
 	// remove all temporary flagged string buffers (ones created with BufStr_FindCreateReplace)
-	numbuffers = Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
+	numbuffers = (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
 	for (i = 0; i < numbuffers; i++)
 	{
 		if ( (stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i)) )
@@ -1125,7 +1125,10 @@ static void Host_Name_f (void)
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf("name: %s\n", cl_name.string);
+		if (cmd_source == src_command)
+		{
+			Con_Printf("name: %s\n", cl_name.string);
+		}
 		return;
 	}
 
@@ -1252,7 +1255,10 @@ static void Host_Playermodel_f (void)
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf("\"playermodel\" is \"%s\"\n", cl_playermodel.string);
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"playermodel\" is \"%s\"\n", cl_playermodel.string);
+		}
 		return;
 	}
 
@@ -1309,7 +1315,10 @@ static void Host_Playerskin_f (void)
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf("\"playerskin\" is \"%s\"\n", cl_playerskin.string);
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"playerskin\" is \"%s\"\n", cl_playerskin.string);
+		}
 		return;
 	}
 
@@ -1637,8 +1646,11 @@ static void Host_Color_f(void)
 
 	if (Cmd_Argc() == 1)
 	{
-		Con_Printf("\"color\" is \"%i %i\"\n", cl_color.integer >> 4, cl_color.integer & 15);
-		Con_Print("color <0-15> [0-15]\n");
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"color\" is \"%i %i\"\n", cl_color.integer >> 4, cl_color.integer & 15);
+			Con_Print("color <0-15> [0-15]\n");
+		}
 		return;
 	}
 
@@ -1656,8 +1668,11 @@ static void Host_TopColor_f(void)
 {
 	if (Cmd_Argc() == 1)
 	{
-		Con_Printf("\"topcolor\" is \"%i\"\n", (cl_color.integer >> 4) & 15);
-		Con_Print("topcolor <0-15>\n");
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"topcolor\" is \"%i\"\n", (cl_color.integer >> 4) & 15);
+			Con_Print("topcolor <0-15>\n");
+		}
 		return;
 	}
 
@@ -1668,8 +1683,11 @@ static void Host_BottomColor_f(void)
 {
 	if (Cmd_Argc() == 1)
 	{
-		Con_Printf("\"bottomcolor\" is \"%i\"\n", cl_color.integer & 15);
-		Con_Print("bottomcolor <0-15>\n");
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"bottomcolor\" is \"%i\"\n", cl_color.integer & 15);
+			Con_Print("bottomcolor <0-15>\n");
+		}
 		return;
 	}
 
@@ -1685,8 +1703,11 @@ static void Host_Rate_f(void)
 
 	if (Cmd_Argc() != 2)
 	{
-		Con_Printf("\"rate\" is \"%i\"\n", cl_rate.integer);
-		Con_Print("rate <bytespersecond>\n");
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"rate\" is \"%i\"\n", cl_rate.integer);
+			Con_Print("rate <bytespersecond>\n");
+		}
 		return;
 	}
 
@@ -1776,7 +1797,12 @@ static void Host_Pause_f (void)
 	}
 
 	sv.paused ^= 1;
-	SV_BroadcastPrintf("%s %spaused the game\n", host_client->name, sv.paused ? "" : "un");
+	if (cmd_source != src_command)
+		SV_BroadcastPrintf("%s %spaused the game\n", host_client->name, sv.paused ? "" : "un");
+	else if(*(sv_adminnick.string))
+		SV_BroadcastPrintf("%s %spaused the game\n", sv_adminnick.string, sv.paused ? "" : "un");
+	else
+		SV_BroadcastPrintf("%s %spaused the game\n", hostname.string, sv.paused ? "" : "un");
 	// send notification to all clients
 	MSG_WriteByte(&sv.reliable_datagram, svc_setpause);
 	MSG_WriteByte(&sv.reliable_datagram, sv.paused);
@@ -1797,7 +1823,10 @@ static void Host_PModel_f (void)
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf("\"pmodel\" is \"%s\"\n", cl_pmodel.string);
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"pmodel\" is \"%s\"\n", cl_pmodel.string);
+		}
 		return;
 	}
 	i = atoi(Cmd_Argv(1));
@@ -2662,11 +2691,11 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 			char argbuf[1500];
 			dpsnprintf(argbuf, sizeof(argbuf), "%ld.%06d %s", (long) time(NULL), (int) (xrand() % 1000000), Cmd_Args());
 			memcpy(buf, "\377\377\377\377srcon HMAC-MD4 TIME ", 24);
-			if(HMAC_MDFOUR_16BYTES((unsigned char *) (buf + 24), (unsigned char *) argbuf, strlen(argbuf), (unsigned char *) rcon_password.string, n))
+			if(HMAC_MDFOUR_16BYTES((unsigned char *) (buf + 24), (unsigned char *) argbuf, (int)strlen(argbuf), (unsigned char *) rcon_password.string, n))
 			{
 				buf[40] = ' ';
 				strlcpy(buf + 41, argbuf, sizeof(buf) - 41);
-				NetConn_Write(mysocket, buf, 41 + strlen(buf + 41), &to);
+				NetConn_Write(mysocket, buf, 41 + (int)strlen(buf + 41), &to);
 			}
 		}
 		else
@@ -2772,7 +2801,6 @@ static void Host_FullInfo_f (void) // credit: taken from QuakeWorld
 {
 	char key[512];
 	char value[512];
-	char *o;
 	const char *s;
 
 	if (Cmd_Argc() != 2)
@@ -2786,27 +2814,33 @@ static void Host_FullInfo_f (void) // credit: taken from QuakeWorld
 		s++;
 	while (*s)
 	{
-		o = key;
-		while (*s && *s != '\\')
-			*o++ = *s++;
-		*o = 0;
-
+		size_t len = strcspn(s, "\\");
+		if (len >= sizeof(key)) {
+			len = sizeof(key) - 1;
+		}
+		strlcpy(key, s, len + 1);
+		s += len;
 		if (!*s)
 		{
 			Con_Printf ("MISSING VALUE\n");
 			return;
 		}
+		++s; // Skip over backslash.
 
-		o = value;
-		s++;
-		while (*s && *s != '\\')
-			*o++ = *s++;
-		*o = 0;
-
-		if (*s)
-			s++;
+		len = strcspn(s, "\\");
+		if (len >= sizeof(value)) {
+			len = sizeof(value) - 1;
+		}
+		strlcpy(value, s, len + 1);
 
 		CL_SetInfo(key, value, false, false, false, false);
+
+		s += len;
+		if (!*s)
+		{
+			break;
+		}
+		++s; // Skip over backslash.
 	}
 }
 

@@ -38,6 +38,7 @@ cvar_t prvm_timeprofiling = {0, "prvm_timeprofiling", "0", "counts how long each
 cvar_t prvm_coverage = {0, "prvm_coverage", "0", "report and count coverage events (1: per-function, 2: coverage() builtin, 4: per-statement)"};
 cvar_t prvm_backtraceforwarnings = {0, "prvm_backtraceforwarnings", "0", "print a backtrace for warnings too"};
 cvar_t prvm_leaktest = {0, "prvm_leaktest", "0", "try to detect memory leaks in strings or entities"};
+cvar_t prvm_leaktest_follow_targetname = {0, "prvm_leaktest_follow_targetname", "0", "if set, target/targetname links are considered when leak testing; this should normally not be required, as entities created during startup - e.g. info_notnull - are never considered leaky"};
 cvar_t prvm_leaktest_ignore_classnames = {0, "prvm_leaktest_ignore_classnames", "", "classnames of entities to NOT leak check because they are found by find(world, classname, ...) but are actually spawned by QC code (NOT map entities)"};
 cvar_t prvm_errordump = {0, "prvm_errordump", "0", "write a savegame on crash to crash-server.dmp"};
 cvar_t prvm_breakpointdump = {0, "prvm_breakpointdump", "0", "write a savegame on breakpoint to breakpoint-server.dmp"};
@@ -189,13 +190,20 @@ prvm_prog_t *PRVM_FriendlyProgFromString(const char *str)
 =================
 PRVM_ED_ClearEdict
 
-Sets everything to NULL
+Sets everything to NULL.
+
+Nota bene: this also marks the entity as allocated if it has been previously
+freed and sets the allocation origin.
 =================
 */
 void PRVM_ED_ClearEdict(prvm_prog_t *prog, prvm_edict_t *e)
 {
 	memset(e->fields.fp, 0, prog->entityfields * sizeof(prvm_vec_t));
 	e->priv.required->free = false;
+	e->priv.required->freetime = realtime;
+	if(e->priv.required->allocation_origin)
+		Mem_Free((char *)e->priv.required->allocation_origin);
+	e->priv.required->allocation_origin = PRVM_AllocationOrigin(prog);
 
 	// AK: Let the init_edict function determine if something needs to be initialized
 	prog->init_edict(prog, e);
@@ -207,8 +215,8 @@ const char *PRVM_AllocationOrigin(prvm_prog_t *prog)
 	if(prog->leaktest_active)
 	if(prog->depth > 0) // actually in QC code and not just parsing the entities block of a map/savegame
 	{
-		buf = (char *)PRVM_Alloc(128);
-		PRVM_ShortStackTrace(prog, buf, 128);
+		buf = (char *)PRVM_Alloc(256);
+		PRVM_ShortStackTrace(prog, buf, 256);
 	}
 	return buf;
 }
@@ -262,7 +270,6 @@ prvm_edict_t *PRVM_ED_Alloc(prvm_prog_t *prog)
 		if(PRVM_ED_CanAlloc(prog, e))
 		{
 			PRVM_ED_ClearEdict (prog, e);
-			e->priv.required->allocation_origin = PRVM_AllocationOrigin(prog);
 			return e;
 		}
 	}
@@ -275,10 +282,8 @@ prvm_edict_t *PRVM_ED_Alloc(prvm_prog_t *prog)
 		PRVM_MEM_IncreaseEdicts(prog);
 
 	e = PRVM_EDICT_NUM(i);
+
 	PRVM_ED_ClearEdict(prog, e);
-
-	e->priv.required->allocation_origin = PRVM_AllocationOrigin(prog);
-
 	return e;
 }
 
@@ -1333,8 +1338,10 @@ const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_
 			prog->error_cmd("PRVM_ED_ParseEdict: parse error");
 	}
 
-	if (!init)
+	if (!init) {
 		ent->priv.required->free = true;
+		ent->priv.required->freetime = realtime;
+	}
 
 	return data;
 }
@@ -2508,6 +2515,10 @@ fail:
 
 	// init mempools
 	PRVM_MEM_Alloc(prog);
+
+	// Inittime is at least the time when this function finished. However,
+	// later events may bump it.
+	prog->inittime = realtime;
 }
 
 
@@ -2967,6 +2978,7 @@ void PRVM_Init (void)
 	Cvar_RegisterVariable (&prvm_coverage);
 	Cvar_RegisterVariable (&prvm_backtraceforwarnings);
 	Cvar_RegisterVariable (&prvm_leaktest);
+	Cvar_RegisterVariable (&prvm_leaktest_follow_targetname);
 	Cvar_RegisterVariable (&prvm_leaktest_ignore_classnames);
 	Cvar_RegisterVariable (&prvm_errordump);
 	Cvar_RegisterVariable (&prvm_breakpointdump);
@@ -3143,10 +3155,12 @@ int PRVM_SetTempString(prvm_prog_t *prog, const char *s)
 		{
 			Con_DPrintf("PRVM_SetTempString: enlarging tempstrings buffer (%iKB -> %iKB)\n", old.maxsize/1024, prog->tempstringsbuf.maxsize/1024);
 			prog->tempstringsbuf.data = (unsigned char *) Mem_Alloc(prog->progs_mempool, prog->tempstringsbuf.maxsize);
-			if (old.cursize)
-				memcpy(prog->tempstringsbuf.data, old.data, old.cursize);
 			if (old.data)
+			{
+				if (old.cursize)
+					memcpy(prog->tempstringsbuf.data, old.data, old.cursize);
 				Mem_Free(old.data);
+			}
 		}
 	}
 	t = (char *)prog->tempstringsbuf.data + prog->tempstringsbuf.cursize;
@@ -3159,7 +3173,11 @@ int PRVM_AllocString(prvm_prog_t *prog, size_t bufferlength, char **pointer)
 {
 	int i;
 	if (!bufferlength)
+	{
+		if (pointer)
+			*pointer = NULL;
 		return 0;
+	}
 	for (i = prog->firstfreeknownstring;i < prog->numknownstrings;i++)
 		if (!prog->knownstrings[i])
 			break;
@@ -3263,6 +3281,8 @@ static qboolean PRVM_IsEdictRelevant(prvm_prog_t *prog, prvm_edict_t *edict)
 	char vabuf2[1024];
 	if(PRVM_NUM_FOR_EDICT(edict) <= prog->reserved_edicts)
 		return true; // world or clients
+	if (edict->priv.required->freetime <= prog->inittime)
+		return true; // created during startup
 	if (prog == SVVM_prog)
 	{
 		if(PRVM_serveredictfloat(edict, solid)) // can block other stuff, or is a trigger?
@@ -3313,24 +3333,12 @@ static qboolean PRVM_IsEdictReferenced(prvm_prog_t *prog, prvm_edict_t *edict, i
 	int edictnum = PRVM_NUM_FOR_EDICT(edict);
 	const char *targetname = NULL;
 
-	if (prog == SVVM_prog)
+	if (prog == SVVM_prog && prvm_leaktest_follow_targetname.integer)
 		targetname = PRVM_GetString(prog, PRVM_serveredictstring(edict, targetname));
 
 	if(targetname)
 		if(!*targetname) // ""
 			targetname = NULL;
-
-	if(mark == 0)
-	{
-		for (i = 0;i < prog->numglobaldefs;i++)
-		{
-			ddef_t *d = &prog->globaldefs[i];
-			if((etype_t)((int) d->type & ~DEF_SAVEGLOBAL) != ev_entity)
-				continue;
-			if(edictnum == PRVM_GLOBALFIELDEDICT(d->ofs))
-				return true;
-		}
-	}
 
 	for(j = 0; j < prog->num_edicts; ++j)
 	{
@@ -3361,19 +3369,35 @@ static qboolean PRVM_IsEdictReferenced(prvm_prog_t *prog, prvm_edict_t *edict, i
 
 static void PRVM_MarkReferencedEdicts(prvm_prog_t *prog)
 {
-	int j;
+	int i, j;
 	qboolean found_new;
 	int stage;
 
+	// Stage 1: world, all entities that are relevant, and all entities that are referenced by globals.
+	stage = 1;
 	for(j = 0; j < prog->num_edicts; ++j)
 	{
 		prvm_edict_t *ed = PRVM_EDICT_NUM(j);
 		if(ed->priv.required->free)
 			continue;
-		ed->priv.required->mark = PRVM_IsEdictRelevant(prog, ed) ? 1 : 0;
+		ed->priv.required->mark = PRVM_IsEdictRelevant(prog, ed) ? stage : 0;
+	}
+	for (i = 0;i < prog->numglobaldefs;i++)
+	{
+		ddef_t *d = &prog->globaldefs[i];
+		prvm_edict_t *ed;
+		if((etype_t)((int) d->type & ~DEF_SAVEGLOBAL) != ev_entity)
+			continue;
+		j = PRVM_GLOBALFIELDEDICT(d->ofs);
+		if (i < 0 || j >= prog->max_edicts) {
+			Con_Printf("Invalid entity reference from global %s.\n", PRVM_GetString(prog, d->s_name));
+			continue;
+		}
+		ed = PRVM_EDICT_NUM(j);;
+		ed->priv.required->mark = stage;
 	}
 
-	stage = 1;
+	// Future stages: all entities that are referenced by an entity of the previous stage.
 	do
 	{
 		found_new = false;

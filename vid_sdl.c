@@ -91,7 +91,7 @@ static int video_bpp;
 static SDL_Surface *screen;
 static int video_flags;
 #else
-static SDL_GLContext *context;
+static SDL_GLContext context;
 static SDL_Window *window;
 static int window_flags;
 #endif
@@ -1225,7 +1225,7 @@ void Sys_SendKeyEvents( void )
 {
 	static qboolean sound_active = true;
 	int keycode;
-	int i, j;
+	int i;
 	Uchar unicode;
 	SDL_Event event;
 
@@ -1243,9 +1243,9 @@ void Sys_SendKeyEvents( void )
 			case SDL_KEYUP:
 #ifdef DEBUGSDLEVENTS
 				if (event.type == SDL_KEYDOWN)
-					Con_DPrintf("SDL_Event: SDL_KEYDOWN %i unicode %i\n", event.key.keysym.sym, event.key.keysym.unicode);
+					Con_DPrintf("SDL_Event: SDL_KEYDOWN %i\n", event.key.keysym.sym);
 				else
-					Con_DPrintf("SDL_Event: SDL_KEYUP %i unicode %i\n", event.key.keysym.sym, event.key.keysym.unicode);
+					Con_DPrintf("SDL_Event: SDL_KEYUP %i\n", event.key.keysym.sym);
 #endif
 				keycode = MapKey(event.key.keysym.sym);
 				if (!VID_JoyBlockEmulatedKeys(keycode))
@@ -1365,31 +1365,11 @@ void Sys_SendKeyEvents( void )
 #ifdef DEBUGSDLEVENTS
 				Con_DPrintf("SDL_Event: SDL_TEXTINPUT - text: %s\n", event.text.text);
 #endif
-				// we have some characters to parse
-				{
-					unicode = 0;
-					for (i = 0;event.text.text[i];)
-					{
-						unicode = event.text.text[i++];
-						if (unicode & 0x80)
-						{
-							// UTF-8 character
-							// strip high bits (we could count these to validate character length but we don't)
-							for (j = 0x80;unicode & j;j >>= 1)
-								unicode ^= j;
-							for (;(event.text.text[i] & 0xC0) == 0x80;i++)
-								unicode = (unicode << 6) | (event.text.text[i] & 0x3F);
-							// low characters are invalid and could be bad, so replace them
-							if (unicode < 0x80)
-								unicode = '?'; // we could use 0xFFFD instead, the unicode substitute character
-						}
-						//Con_DPrintf("SDL_TEXTINPUT: K_TEXT %i \n", unicode);
-
-						Key_Event(K_TEXT, unicode, true);
-						Key_Event(K_TEXT, unicode, false);
-					}
-				}
-
+				// convert utf8 string to char
+				// NOTE: this code is supposed to run even if utf8enable is 0
+				unicode = u8_getchar_utf8_enabled(event.text.text + (int)u8_bytelen(event.text.text, 0), NULL);
+				Key_Event(K_TEXT, unicode, true);
+				Key_Event(K_TEXT, unicode, false);
 				break;
 			case SDL_MOUSEMOTION:
 				break;
@@ -2450,6 +2430,50 @@ static void VID_OutputVersion(void)
 					version.major, version.minor, version.patch );
 }
 
+#ifdef WIN32
+static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
+{
+	LONG width = mode->width; // vid_width
+	LONG height = mode->height; // vid_height
+
+	// adjust width and height for the space occupied by window decorators (title bar, borders)
+	rect->top = 0;
+	rect->left = 0;
+	rect->right = width;
+	rect->bottom = height;
+	AdjustWindowRectEx(rect, WS_CAPTION|WS_THICKFRAME, false, 0);
+
+	RECT workArea;
+	SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
+	int workWidth = workArea.right - workArea.left;
+	int workHeight = workArea.bottom - workArea.top;
+
+	// SDL forces the window height to be <= screen height - 27px (on Win8.1 - probably intended for the title bar) 
+	// If the task bar is docked to the the left screen border and we move the window to negative y,
+	// there would be some part of the regular desktop visible on the bottom of the screen.
+	int titleBarPixels = 2;
+	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+	if (screenHeight == workHeight)
+		titleBarPixels = -rect->top;
+
+	//Con_Printf("window mode: %dx%d, workArea: %d/%d-%d/%d (%dx%d), title: %d\n", width, height, workArea.left, workArea.top, workArea.right, workArea.bottom, workArea.right - workArea.left, workArea.bottom - workArea.top, titleBarPixels);
+
+	// if height and width matches the physical or previously adjusted screen height and width, adjust it to available desktop area
+	if ((width == GetSystemMetrics(SM_CXSCREEN) || width == workWidth) && (height == screenHeight || height == workHeight - titleBarPixels))
+	{
+		rect->left = workArea.left;
+		mode->width = workWidth;
+		rect->top = workArea.top + titleBarPixels;
+		mode->height = workHeight - titleBarPixels;
+	}
+	else 
+	{
+		rect->left = workArea.left + max(0, (workWidth - width) / 2);
+		rect->top = workArea.top + max(0, (workHeight - height) / 2);
+	}
+}
+#endif
+
 static qboolean VID_InitModeGL(viddef_mode_t *mode)
 {
 #if SDL_MAJOR_VERSION == 1
@@ -2539,6 +2563,8 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 		}
 	}
 #else
+	int xPos = SDL_WINDOWPOS_UNDEFINED;
+	int yPos = SDL_WINDOWPOS_UNDEFINED;
 	{
 		if (mode->fullscreen) {
 			if (vid_desktopfullscreen.integer || sys_first_run.integer)
@@ -2551,6 +2577,14 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 			else
 				windowflags |= SDL_WINDOW_FULLSCREEN;
 			vid_isfullscreen = true;
+		}
+		else {
+#ifdef WIN32
+			RECT rect;
+			AdjustWindowBounds(mode, &rect);
+			xPos = rect.left;
+			yPos = rect.top;
+#endif
 		}
 	}
 #endif
@@ -2608,7 +2642,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 	mode->height = screen->h;
 #else
 	window_flags = windowflags;
-	window = SDL_CreateWindow(gamename, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, mode->width, mode->height, windowflags);
+	window = SDL_CreateWindow(gamename, xPos, yPos, mode->width, mode->height, windowflags);
 	if (window == NULL)
 	{
 		Con_Printf("Failed to set video mode to %ix%i: %s\n", mode->width, mode->height, SDL_GetError());

@@ -855,7 +855,7 @@ static void r_textures_devicelost(void)
 {
 	int i, endindex;
 	gltexture_t *glt;
-	endindex = Mem_ExpandableArray_IndexRange(&texturearray);
+	endindex = (int)Mem_ExpandableArray_IndexRange(&texturearray);
 	for (i = 0;i < endindex;i++)
 	{
 		glt = (gltexture_t *) Mem_ExpandableArray_RecordAtIndex(&texturearray, i);
@@ -899,7 +899,7 @@ static void r_textures_devicerestored(void)
 {
 	int i, endindex;
 	gltexture_t *glt;
-	endindex = Mem_ExpandableArray_IndexRange(&texturearray);
+	endindex = (int)Mem_ExpandableArray_IndexRange(&texturearray);
 	for (i = 0;i < endindex;i++)
 	{
 		glt = (gltexture_t *) Mem_ExpandableArray_RecordAtIndex(&texturearray, i);
@@ -1971,8 +1971,8 @@ rtexture_t *R_LoadTextureRenderBuffer(rtexturepool_t *rtexturepool, const char *
 	glt->sides = glt->texturetype == GLTEXTURETYPE_CUBEMAP ? 6 : 1;
 	glt->texnum = 0;
 	glt->dirty = false;
-	glt->glisdepthstencil = glt->texturetype == TEXTYPE_DEPTHBUFFER24STENCIL8;
-	glt->gltexturetypeenum = gltexturetypeenums[glt->texturetype];
+	glt->glisdepthstencil = textype == TEXTYPE_DEPTHBUFFER24STENCIL8;
+	glt->gltexturetypeenum = GL_TEXTURE_2D;
 	// init the dynamic texture attributes, too [11/22/2007 Black]
 	glt->updatecallback = NULL;
 	glt->updatacallback_data = NULL;

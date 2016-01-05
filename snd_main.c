@@ -327,7 +327,7 @@ static void S_SoundList_f (void)
 		{
 			unsigned int size;
 
-			size = sfx->memsize;
+			size = (unsigned int)sfx->memsize;
 			Con_Printf ("%c%c%c(%5iHz %2db %6s) %8i : %s\n",
 						(sfx->loopstart < sfx->total_length) ? 'L' : ' ',
 						(sfx->flags & SFXFLAG_STREAMED) ? 'S' : ' ',
@@ -1493,7 +1493,7 @@ static void SND_Spatialize_WithSfx(channel_t *ch, qboolean isstatic, sfx_t *sfx)
 			if (snd_spatialization_occlusion.integer)
 			{
 				if(snd_spatialization_occlusion.integer & 1)
-					if(listener_pvs)
+					if(listener_pvs && cl.worldmodel)
 					{
 						int cluster = cl.worldmodel->brush.PointInLeaf(cl.worldmodel, ch->origin)->clusterindex;
 						if(cluster >= 0 && cluster < 8 * listener_pvsbytes && !CHECKPVSBIT(listener_pvs, cluster))
