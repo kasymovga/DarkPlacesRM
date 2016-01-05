@@ -197,7 +197,7 @@ cvar_t halflifebsp = {0, "halflifebsp", "0", "indicates the current map is hlbsp
 cvar_t sv_mapformat_is_quake2 = {0, "sv_mapformat_is_quake2", "0", "indicates the current map is q2bsp format (useful to know because of different entity behaviors, .frame on submodels and other things)"};
 cvar_t sv_mapformat_is_quake3 = {0, "sv_mapformat_is_quake3", "0", "indicates the current map is q2bsp format (useful to know because of different entity behaviors)"};
 
-cvar_t dprm_version = {CVAR_READONLY, "dprm_version", "1", "The DarkPlacesRM version"};
+cvar_t dprm_version = {CVAR_READONLY, "dprm_version", "2", "The DarkPlacesRM version"};
 
 server_t sv;
 server_static_t svs;
