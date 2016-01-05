@@ -11,6 +11,7 @@
 #include "cap_avi.h"
 #include "cap_ogg.h"
 #endif
+#include "random.h"
 
 // we have to include snd_main.h here only to get access to snd_renderbuffer->format.speed when writing the AVI headers
 #include "snd_main.h"
@@ -40,7 +41,7 @@ cvar_t scr_showbrand = {0, "showbrand","0", "shows gfx/brand.tga in a corner of 
 cvar_t scr_printspeed = {0, "scr_printspeed","0", "speed of intermission printing (episode end texts), a value of 0 disables the slow printing"};
 cvar_t scr_loadingscreen_background = {0, "scr_loadingscreen_background","0", "show the last visible background during loading screen (costs one screenful of video memory)"};
 cvar_t scr_loadingscreen_scale = {0, "scr_loadingscreen_scale","1", "scale factor of the background"};
-cvar_t scr_loadingscreen_scale_base = {0, "scr_loadingscreen_scale_base","0", "0 = console pixels, 1 = video pixels"};
+cvar_t scr_loadingscreen_scale_base = {0, "scr_loadingscreen_scale_base","0", "0 = console pixels, 1 = video pixels 2 = screen size"};
 cvar_t scr_loadingscreen_scale_limit = {0, "scr_loadingscreen_scale_limit","0", "0 = no limit, 1 = until first edge hits screen edge, 2 = until last edge hits screen edge, 3 = until width hits screen width, 4 = until height hits screen height"};
 cvar_t scr_loadingscreen_picture = {CVAR_SAVE, "scr_loadingscreen_picture", "gfx/loading", "picture shown during loading"};
 cvar_t scr_loadingscreen_count = {0, "scr_loadingscreen_count","1", "number of loading screen files to use randomly (named loading.tga, loading2.tga, loading3.tga, ...)"};
@@ -1937,10 +1938,11 @@ void SHOWLMP_decodeshow(void)
 		showlmp_t *oldshowlmps = cl.showlmps;
 		cl.max_showlmps += 16;
 		cl.showlmps = (showlmp_t *) Mem_Alloc(cls.levelmempool, cl.max_showlmps * sizeof(showlmp_t));
-		if (cl.num_showlmps)
+		if (oldshowlmps && cl.num_showlmps)
+		{
 			memcpy(cl.showlmps, oldshowlmps, cl.num_showlmps * sizeof(showlmp_t));
-		if (oldshowlmps)
 			Mem_Free(oldshowlmps);
+		}
 	}
 	for (k = 0;k < cl.max_showlmps;k++)
 		if (cl.showlmps[k].isactive && !strcmp(cl.showlmps[k].label, lmplabel))
@@ -2437,7 +2439,7 @@ static void SCR_DrawLoadingStack(void)
 		verts[1] = verts[4] = vid_conheight.integer - scr_loadingscreen_barheight.value;
 		verts[3] = verts[6] = vid_conwidth.integer * loadingscreenstack->absolute_loading_amount_min;
 		verts[7] = verts[10] = vid_conheight.integer;
-		
+
 #if _MSC_VER >= 1400
 #define sscanf sscanf_s
 #endif
@@ -2494,10 +2496,16 @@ static void SCR_DrawLoadingScreen_SharedSetup (qboolean clear)
 	h *= scr_loadingscreen_scale.value;
 
 	// apply scale base
-	if(scr_loadingscreen_scale_base.integer)
+	switch(scr_loadingscreen_scale_base.integer)
 	{
-		w *= vid_conwidth.integer / (float) vid.width;
-		h *= vid_conheight.integer / (float) vid.height;
+		case 1:
+			w *= vid_conwidth.integer / (float) vid.width;
+			h *= vid_conheight.integer / (float) vid.height;
+			break;
+		case 2:
+			w = vid_conwidth.integer;
+			h = vid_conheight.integer;
+			break;
 	}
 
 	// apply scale limit
@@ -2588,7 +2596,7 @@ void SCR_UpdateLoadingScreen (qboolean clear, qboolean startup)
 
 	if(!scr_loadingscreen_background.integer)
 		clear = true;
-	
+
 	if(loadingscreendone)
 		clear |= loadingscreencleared;
 
@@ -2598,11 +2606,11 @@ void SCR_UpdateLoadingScreen (qboolean clear, qboolean startup)
 			loadingscreenpic_number = 0;
 		else if(scr_loadingscreen_firstforstartup.integer)
 			if(scr_loadingscreen_count.integer > 1)
-				loadingscreenpic_number = rand() % (scr_loadingscreen_count.integer - 1) + 1;
+				loadingscreenpic_number = xrand() % (scr_loadingscreen_count.integer - 1) + 1;
 			else
 				loadingscreenpic_number = 0;
 		else
-			loadingscreenpic_number = rand() % (scr_loadingscreen_count.integer > 1 ? scr_loadingscreen_count.integer : 1);
+			loadingscreenpic_number = xrand() % (scr_loadingscreen_count.integer > 1 ? scr_loadingscreen_count.integer : 1);
 	}
 
 	if(clear)
@@ -2858,11 +2866,11 @@ void CL_UpdateScreen(void)
 			int i, s, width, parts;
 			static int frame = 0;
 			++frame;
-	
+
 			s = scr_stipple.integer;
 			parts = (s & 007);
 			width = (s & 070) >> 3;
-	
+
 			qglEnable(GL_POLYGON_STIPPLE);CHECKGLERROR // 0x0B42
 			for(i = 0; i < 128; ++i)
 			{

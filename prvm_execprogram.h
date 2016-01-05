@@ -110,7 +110,164 @@
 	&&handle_OP_OR,
 
 	&&handle_OP_BITAND,
-	&&handle_OP_BITOR
+	&&handle_OP_BITOR, // 65
+
+    NULL,    // 66
+    NULL,    // 67
+    NULL,    // 68
+    NULL,    // 69
+    NULL,    // 70
+    NULL,    // 71
+    NULL,    // 72
+    NULL,    // 73
+    NULL,    // 74
+    NULL,    // 75
+    NULL,    // 76
+    NULL,    // 77
+    NULL,    // 78
+    NULL,    // 79
+    &&handle_OP_FETCH_GBL_F,      // 80
+    &&handle_OP_FETCH_GBL_V,      // 81
+    &&handle_OP_FETCH_GBL_S,      // 82
+    &&handle_OP_FETCH_GBL_E,      // 83
+    &&handle_OP_FETCH_GBL_FNC,    // 84
+    NULL,    // 85
+    NULL,    // 86
+    NULL,    // 87
+    NULL,    // 88
+    NULL,    // 89
+    NULL,    // 90
+    NULL,    // 91
+    NULL,    // 92
+    NULL,    // 93
+    NULL,    // 94
+    NULL,    // 95
+    NULL,    // 96
+    NULL,    // 97
+    NULL,    // 98
+    NULL,    // 99
+    NULL,    // 100
+    NULL,    // 101
+    NULL,    // 102
+    NULL,    // 103
+    NULL,    // 104
+    NULL,    // 105
+    NULL,    // 106
+    NULL,    // 107
+    NULL,    // 108
+    NULL,    // 109
+    NULL,    // 110
+    NULL,    // 111
+    NULL,    // 112
+    NULL,    // 113
+    NULL,    // 114
+    NULL,    // 115
+    NULL,    // 116
+    NULL,    // 117
+    NULL,    // 118
+    NULL,    // 119
+    NULL,    // 120
+    NULL,    // 121
+    NULL,    // 122
+    &&handle_OP_CONV_FTOI,    // 123
+    NULL,    // 124
+    NULL,    // 125
+    NULL,    // 126
+    NULL,    // 127
+    NULL,    // 128
+    NULL,    // 129
+    NULL,    // 130
+    NULL,    // 131
+    &&handle_OP_MUL_I,    // 132
+    NULL,    // 133
+    NULL,    // 134
+    NULL,    // 135
+    NULL,    // 136
+    NULL,    // 137
+    NULL,    // 138
+    NULL,    // 139
+    NULL,    // 140
+    NULL,    // 141
+    NULL,    // 142
+    &&handle_OP_GLOBALADDRESS,    // 143
+    NULL,    // 144
+    NULL,    // 145
+    NULL,    // 146
+    NULL,    // 147
+    NULL,    // 148
+    NULL,    // 149
+    NULL,    // 150
+    NULL,    // 151
+    NULL,    // 152
+    NULL,    // 153
+    NULL,    // 154
+    NULL,    // 155
+    NULL,    // 156
+    NULL,    // 157
+    NULL,    // 158
+    NULL,    // 159
+    NULL,    // 160
+    NULL,    // 161
+    NULL,    // 162
+    NULL,    // 163
+    NULL,    // 164
+    NULL,    // 165
+    NULL,    // 166
+    NULL,    // 167
+    NULL,    // 168
+    NULL,    // 169
+    NULL,    // 170
+    NULL,    // 171
+    NULL,    // 172
+    NULL,    // 173
+    NULL,    // 174
+    NULL,    // 175
+    NULL,    // 176
+    NULL,    // 177
+    NULL,    // 178
+    NULL,    // 179
+    NULL,    // 180
+    NULL,    // 181
+    NULL,    // 182
+    NULL,    // 183
+    NULL,    // 184
+    NULL,    // 185
+    NULL,    // 186
+    NULL,    // 187
+    NULL,    // 188
+    NULL,    // 189
+    NULL,    // 190
+    NULL,    // 191
+    NULL,    // 192
+    NULL,    // 193
+    NULL,    // 194
+    NULL,    // 195
+    NULL,    // 196
+    &&handle_OP_GSTOREP_I,    // 197
+    &&handle_OP_GSTOREP_F,    // 198
+    &&handle_OP_GSTOREP_ENT,  // 199
+    &&handle_OP_GSTOREP_FLD,  // 200
+    &&handle_OP_GSTOREP_S,    // 201
+    &&handle_OP_GSTOREP_FNC,  // 202
+    &&handle_OP_GSTOREP_V,    // 203
+    NULL,    // 204
+    NULL,    // 205
+    NULL,    // 206
+    NULL,    // 207
+    NULL,    // 208
+    NULL,    // 209
+    NULL,    // 210
+    &&handle_OP_BOUNDCHECK,   // 211
+    NULL,    // 212
+    NULL,    // 213
+    NULL,    // 214
+    NULL,    // 215
+    NULL,    // 216
+    NULL,    // 217
+    NULL,    // 218
+    NULL,    // 219
+
+    NULL, // 
 	    };
 #define DISPATCH_OPCODE() \
     goto *dispatchtable[(++st)->op]
@@ -201,8 +358,8 @@
 				{
 					if (developer.integer)
 					{
-						PRE_ERROR();
-						VM_Warning(prog, "Attempted division by zero in %s\n", prog->name );
+                        PRE_ERROR();
+						VM_Warning(prog, "%s: Attempted division by zero in: %s\n", prog->name, PRVM_GetString(prog, prog->xfunction->s_name));
 					}
 					OPC->_float = 0.0f;
 				}
@@ -291,41 +448,74 @@
 				OPB->ivector[2] = OPA->ivector[2];
 				DISPATCH_OPCODE();
 
-			HANDLE_OPCODE(OP_STOREP_F):
-			HANDLE_OPCODE(OP_STOREP_ENT):
-			HANDLE_OPCODE(OP_STOREP_FLD):		// integers
-			HANDLE_OPCODE(OP_STOREP_S):
-			HANDLE_OPCODE(OP_STOREP_FNC):		// pointers
-				if ((prvm_uint_t)OPB->_int - cached_entityfields >= cached_entityfieldsarea_entityfields)
+            HANDLE_OPCODE(OP_STOREP_F):
+            HANDLE_OPCODE(OP_STOREP_ENT):
+            HANDLE_OPCODE(OP_STOREP_FLD):       // integers
+            HANDLE_OPCODE(OP_STOREP_S):
+            HANDLE_OPCODE(OP_STOREP_FNC):       // pointers
+                if((prvm_uint_t)OPB->_int > cached_entityfieldsarea) {
+                    prvm_int_t idx = OPB->_int - cached_entityfieldsarea;
+                    prvm_int_t maxglobs = prog->numglobaldefs * 3;
+
+                    if(idx >= maxglobs) {
+                        PRE_ERROR();
+                        prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxglobs, st->op);
+                        goto cleanup;
+                    }
+
+                    ptr = (prvm_eval_t*)(prog->globals.ip + idx);
+                    ptr->_int = OPA->_int;
+                    DISPATCH_OPCODE();
+                }
+
+                if ((prvm_uint_t)OPB->_int - cached_entityfields >= cached_entityfieldsarea_entityfields)
 				{
 					if ((prvm_uint_t)OPB->_int >= cached_entityfieldsarea)
 					{
 						PRE_ERROR();
-						prog->error_cmd("%s attempted to write to an out of bounds edict (%i)", prog->name, (int)OPB->_int);
+						prog->error_cmd("%s attempted to write to an out of bounds edict (%i)", prog->name, (prvm_int_t)OPB->_int);
 						goto cleanup;
 					}
 					if ((prvm_uint_t)OPB->_int < cached_entityfields && !cached_allowworldwrites)
 					{
 						PRE_ERROR();
-						VM_Warning(prog, "assignment to world.%s (field %i) in %s\n", PRVM_GetString(prog, PRVM_ED_FieldAtOfs(prog, OPB->_int)->s_name), (int)OPB->_int, prog->name);
+						VM_Warning(prog, "assignment to world.%s (field %i) in %s\n", PRVM_GetString(prog, PRVM_ED_FieldAtOfs(prog, OPB->_int)->s_name), (prvm_int_t)OPB->_int, prog->name);
 					}
 				}
 				ptr = (prvm_eval_t *)(cached_edictsfields + OPB->_int);
 				ptr->_int = OPA->_int;
-				DISPATCH_OPCODE();
-			HANDLE_OPCODE(OP_STOREP_V):
-				if ((prvm_uint_t)OPB->_int - cached_entityfields > (prvm_uint_t)cached_entityfieldsarea_entityfields_3)
+                DISPATCH_OPCODE();
+
+            HANDLE_OPCODE(OP_STOREP_V):
+                if((prvm_uint_t)OPB->_int > cached_entityfieldsarea) {
+                    prvm_int_t idx = OPB->_int - cached_entityfieldsarea;
+                    prvm_int_t maxglobs = prog->numglobaldefs * 3;
+
+                    if(idx >= maxglobs) {
+                        PRE_ERROR();
+                        prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxglobs, st->op);
+                        goto cleanup;
+                    }
+
+                    ptr = (prvm_eval_t*)(prog->globals.ip + idx);
+                    ptr->ivector[0] = OPA->ivector[0];
+                    ptr->ivector[1] = OPA->ivector[1];
+                    ptr->ivector[2] = OPA->ivector[2];
+                    DISPATCH_OPCODE();
+                }
+
+                if ((prvm_uint_t)OPB->_int - cached_entityfields > (prvm_uint_t)cached_entityfieldsarea_entityfields_3)
 				{
 					if ((prvm_uint_t)OPB->_int > cached_entityfieldsarea_3)
 					{
 						PRE_ERROR();
-						prog->error_cmd("%s attempted to write to an out of bounds edict (%i)", prog->name, (int)OPB->_int);
+						prog->error_cmd("%s attempted to write to an out of bounds edict (%i)", prog->name, (prvm_int_t)OPB->_int);
 						goto cleanup;
 					}
 					if ((prvm_uint_t)OPB->_int < cached_entityfields && !cached_allowworldwrites)
 					{
 						PRE_ERROR();
-						VM_Warning(prog, "assignment to world.%s (field %i) in %s\n", PRVM_GetString(prog, PRVM_ED_FieldAtOfs(prog, OPB->_int)->s_name), (int)OPB->_int, prog->name);
+						VM_Warning(prog, "assignment to world.%s (field %i) in %s\n", PRVM_GetString(prog, PRVM_ED_FieldAtOfs(prog, OPB->_int)->s_name), (prvm_int_t)OPB->_int, prog->name);
 					}
 				}
 				ptr = (prvm_eval_t *)(cached_edictsfields + OPB->_int);
@@ -338,7 +528,7 @@
 				if ((prvm_uint_t)OPA->edict >= cached_max_edicts)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to address an out of bounds edict number", prog->name);
+					prog->error_cmd("%s attempted to address an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if ((prvm_uint_t)OPB->_int >= cached_entityfields)
@@ -366,7 +556,7 @@
 				if ((prvm_uint_t)OPA->edict >= cached_max_edicts)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to read an out of bounds edict number", prog->name);
+					prog->error_cmd("%s attempted to read an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if ((prvm_uint_t)OPB->_int >= cached_entityfields)
@@ -383,7 +573,7 @@
 				if ((prvm_uint_t)OPA->edict >= cached_max_edicts)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to read an out of bounds edict number", prog->name);
+					prog->error_cmd("%s attempted to read an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if ((prvm_uint_t)OPB->_int > cached_entityfields_3)
@@ -829,6 +1019,97 @@
 				DISPATCH_OPCODE();
 
 */
+
+            HANDLE_OPCODE(OP_GSTOREP_I):
+            HANDLE_OPCODE(OP_GSTOREP_F):
+            HANDLE_OPCODE(OP_GSTOREP_ENT):
+            HANDLE_OPCODE(OP_GSTOREP_FLD):
+            HANDLE_OPCODE(OP_GSTOREP_S):
+            HANDLE_OPCODE(OP_GSTOREP_FNC): {
+                prvm_int_t idx = OPB->_int - prog->entityfieldsarea;
+                prvm_int_t maxidx = prog->numglobaldefs * 3;
+
+                if(idx < 0 || idx >= maxidx) {
+                    PRE_ERROR();
+                    prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxidx, st->op);
+                    goto cleanup;
+                }
+
+                ptr = (prvm_eval_t*)(prog->globals.ip + idx);
+                ptr->_int = OPA->_int;
+                DISPATCH_OPCODE();
+            }
+
+            HANDLE_OPCODE(OP_GSTOREP_V): {
+                prvm_int_t idx = OPB->_int - prog->entityfieldsarea;
+                prvm_int_t maxidx = prog->numglobaldefs * 3;
+
+                if(idx < 0 || idx + 2 >= maxidx) {
+                    PRE_ERROR();
+                    prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxidx, st->op);
+                    goto cleanup;
+                }
+
+                ptr = (prvm_eval_t*)(prog->globals.ip + idx);
+                ptr->ivector[0] = OPA->ivector[0];
+                ptr->ivector[1] = OPA->ivector[1];
+                ptr->ivector[2] = OPA->ivector[2];
+                DISPATCH_OPCODE();
+            }
+
+            HANDLE_OPCODE(OP_FETCH_GBL_F):
+            HANDLE_OPCODE(OP_FETCH_GBL_S):
+            HANDLE_OPCODE(OP_FETCH_GBL_E):
+            HANDLE_OPCODE(OP_FETCH_GBL_FNC): {
+                prvm_int_t idx = (prvm_int_t)OPB->_float;
+                prvm_int_t maxidx = prog->globals.ip[st->operand[0] - 1];
+
+                if(idx < 0 || idx > maxidx) {
+                    PRE_ERROR();
+                    prog->error_cmd("%s array index out of bounds (index %i, max %i)", prog->name, idx, maxidx);
+                    goto cleanup;
+                }
+
+                OPC->_int = prog->globals.ip[st->operand[0] + idx];
+                DISPATCH_OPCODE();
+            }
+
+            HANDLE_OPCODE(OP_FETCH_GBL_V): {
+                prvm_int_t idx = (prvm_int_t)OPB->_float;
+                prvm_int_t maxidx = prog->globals.ip[st->operand[0] - 1];
+
+                if(idx < 0 || idx > maxidx) {
+                    PRE_ERROR();
+                    prog->error_cmd("%s array index out of bounds (index %i, max %i)", prog->name, idx, maxidx);
+                    goto cleanup;
+                }
+
+                ptr = (prvm_eval_t*)(prog->globals.ip + st->operand[0] + 3 * idx);
+                OPC->ivector[0] = ptr->ivector[0];
+                OPC->ivector[1] = ptr->ivector[1];
+                OPC->ivector[2] = ptr->ivector[2];
+                DISPATCH_OPCODE();
+            }
+
+            HANDLE_OPCODE(OP_CONV_FTOI):
+                OPC->_int = (prvm_int_t)OPA->_float;
+                DISPATCH_OPCODE();
+
+            HANDLE_OPCODE(OP_MUL_I):
+                OPC->_int = OPA->_int * OPB->_int;
+                DISPATCH_OPCODE();
+
+            HANDLE_OPCODE(OP_GLOBALADDRESS):
+                OPC->_int = st->operand[0] + OPB->_int + cached_entityfieldsarea;
+                DISPATCH_OPCODE();
+
+            HANDLE_OPCODE(OP_BOUNDCHECK):
+                if((prvm_uint_t)OPA->_int < (prvm_uint_t)st->operand[2] || (prvm_uint_t)OPA->_int >= (prvm_uint_t)st->operand[1]) {
+                    PRE_ERROR();
+                    prog->error_cmd("%s boundcheck failed. Value is %i. Must be between %u and %u", prog->name, OPA->_int, st->operand[2], st->operand[1]);
+                    goto cleanup;
+                }
+                DISPATCH_OPCODE();
 
 #if !USE_COMPUTED_GOTOS
 			default:

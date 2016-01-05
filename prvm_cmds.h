@@ -244,6 +244,7 @@ void VM_localcmd (prvm_prog_t *prog);
 void VM_cvar (prvm_prog_t *prog);
 void VM_cvar_string(prvm_prog_t *prog);
 void VM_cvar_type (prvm_prog_t *prog);
+void VM_cvar_altertype (prvm_prog_t *prog);
 void VM_cvar_defstring (prvm_prog_t *prog);
 void VM_cvar_set (prvm_prog_t *prog);
 void VM_dprint (prvm_prog_t *prog);
@@ -489,6 +490,23 @@ void VM_physics_addforce(prvm_prog_t *prog);
 void VM_physics_addtorque(prvm_prog_t *prog);
 
 void VM_coverage(prvm_prog_t *prog);
+
+void VM_CallFunctionEx_SetArgFloat(prvm_prog_t *prog);
+void VM_CallFunctionEx_SetArgIntFromFloat(prvm_prog_t *prog);
+void VM_CallFunctionEx_SetArgVector(prvm_prog_t *prog);
+void VM_CallFunctionEx_SetArgInt(prvm_prog_t *prog);
+void VM_CallFunctionEx(prvm_prog_t *prog);
+
+void VM_GlobalOfs(prvm_prog_t *prog);
+void VM_GlobalType(prvm_prog_t *prog);
+void VM_GlobalInt(prvm_prog_t *prog);
+void VM_GlobalFloat(prvm_prog_t *prog);
+void VM_GlobalSetInt(prvm_prog_t *prog);
+void VM_GlobalSetFloat(prvm_prog_t *prog);
+void VM_GlobalGet(prvm_prog_t *prog);
+void VM_GlobalSet(prvm_prog_t *prog);
+
+void VM_regex_match(prvm_prog_t *prog);
 
 // irc
 void VM_IRC_CreateSession(prvm_prog_t *prog);

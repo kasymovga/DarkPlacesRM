@@ -1241,6 +1241,7 @@ int main(int argc, char **argv)
 	int test2;
 
 	printf("calling LHNET_Init\n");
+    Cvar_InitTable();
 	LHNET_Init();
 
 	printf("calling LHNET_FromPort twice to create two local addresses\n");

@@ -650,6 +650,12 @@ void IRC_Translate_IRC2DP(const char *msg, char *sout, size_t outsize) {
                             *o++ = newcolor;
                             lastcolor = newcolor;
                         }
+                    } else {
+                        // XXX: this assumes that the text should be white by default
+                        if(lastcolor != '7') {
+                            *o++ = '^'; *o++ = '7';
+                            lastcolor = '7';
+                        }
                     }
                     break;
                 case STRING_COLOR_TAG:

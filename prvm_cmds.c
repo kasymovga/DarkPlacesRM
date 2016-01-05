@@ -16,6 +16,7 @@
 #include "ft2.h"
 #include "mdfour.h"
 #include "irc.h"
+#include "slre.h"
 
 extern cvar_t prvm_backtraceforwarnings;
 #ifdef USEODE
@@ -643,49 +644,141 @@ void VM_cvar(prvm_prog_t *prog)
 
 /*
 =================
-VM_cvar
+VM_cvar_type
 
-float cvar_type (string)
+float cvar_type(string);
 float CVAR_TYPEFLAG_EXISTS = 1;
 float CVAR_TYPEFLAG_SAVED = 2;
 float CVAR_TYPEFLAG_PRIVATE = 4;
 float CVAR_TYPEFLAG_ENGINE = 8;
 float CVAR_TYPEFLAG_HASDESCRIPTION = 16;
 float CVAR_TYPEFLAG_READONLY = 32;
+float CVAR_TYPEFLAG_MODIFIED = 64;
+float CVAR_TYPEFLAG_WATCHED = 128;
 =================
 */
+
+#define CVAR_TYPEFLAG_EXISTS            1
+#define CVAR_TYPEFLAG_SAVED             2
+#define CVAR_TYPEFLAG_PRIVATE           4
+#define CVAR_TYPEFLAG_ENGINE            8
+#define CVAR_TYPEFLAG_HASDESCRIPTION    16
+#define CVAR_TYPEFLAG_READONLY          32
+#define CVAR_TYPEFLAG_MODIFIED          64
+#define CVAR_TYPEFLAG_WATCHED           128
+
+#define CVAR_TYPEFLAGS_ALTERFORBIDDEN (CVAR_TYPEFLAG_EXISTS | CVAR_TYPEFLAG_PRIVATE | CVAR_TYPEFLAG_ENGINE | CVAR_TYPEFLAG_HASDESCRIPTION | CVAR_TYPEFLAG_MODIFIED)
+
 void VM_cvar_type(prvm_prog_t *prog)
 {
 	char string[VM_STRINGTEMP_LENGTH];
 	cvar_t *cvar;
 	int ret;
 
-	VM_SAFEPARMCOUNTRANGE(1,8,VM_cvar);
+	VM_SAFEPARMCOUNTRANGE(1,8,VM_cvar_type);
 	VM_VarString(prog, 0, string, sizeof(string));
 	VM_CheckEmptyString(prog, string);
 	cvar = Cvar_FindVar(string);
 
 
-	if(!cvar)
-	{
+	if(!cvar) {
 		PRVM_G_FLOAT(OFS_RETURN) = 0;
-		return; // CVAR_TYPE_NONE
+		return;
 	}
 
-	ret = 1; // CVAR_EXISTS
+	ret = CVAR_TYPEFLAG_EXISTS;
 	if(cvar->flags & CVAR_SAVE)
-		ret |= 2; // CVAR_TYPE_SAVED
+		ret |= CVAR_TYPEFLAG_SAVED;
 	if(cvar->flags & CVAR_PRIVATE)
-		ret |= 4; // CVAR_TYPE_PRIVATE
+		ret |= CVAR_TYPEFLAG_PRIVATE;
 	if(!(cvar->flags & CVAR_ALLOCATED))
-		ret |= 8; // CVAR_TYPE_ENGINE
+		ret |= CVAR_TYPEFLAG_ENGINE;
 	if(cvar->description != cvar_dummy_description)
-		ret |= 16; // CVAR_TYPE_HASDESCRIPTION
+		ret |= CVAR_TYPEFLAG_HASDESCRIPTION;
 	if(cvar->flags & CVAR_READONLY)
-		ret |= 32; // CVAR_TYPE_READONLY
+		ret |= CVAR_TYPEFLAG_READONLY;
+	if(!cvar->initstate)
+		ret |= CVAR_TYPEFLAG_MODIFIED;
+    if(cvar->flags & CVAR_WATCHED)
+        ret |= CVAR_TYPEFLAG_WATCHED;
 	
 	PRVM_G_FLOAT(OFS_RETURN) = ret;
 }
+
+static int typeflags_to_cvarflags(int flags) {
+    int ret = 0;
+
+    if(flags & CVAR_TYPEFLAG_SAVED)
+        ret |= CVAR_SAVE;
+
+    if(flags & CVAR_TYPEFLAG_READONLY)
+        ret |= CVAR_READONLY;
+
+    if(flags & CVAR_TYPEFLAG_WATCHED)
+        ret |= CVAR_WATCHED;
+
+    return ret;
+}
+
+/*
+=================
+VM_cvar_altertype
+
+float cvar_altertype(string varname, float setflags, float unsetflags);
+=================
+*/
+
+void VM_cvar_altertype(prvm_prog_t *prog) {
+    int setflags, unsetflags;
+    const char *cvarname;
+    cvar_t *cvar;
+
+    VM_SAFEPARMCOUNT(3, VM_cvar_altertype);
+    PRVM_G_FLOAT(OFS_RETURN) = 0;
+
+    cvarname = PRVM_G_STRING(OFS_PARM0);
+    VM_CheckEmptyString(prog, cvarname);
+    cvar = Cvar_FindVar(cvarname);
+
+    if(!cvar) {
+        Con_Printf("VM_cvar_altertype: cvar \"%s\" not found\n", cvarname);
+        return;
+    }
+
+    if(!(cvar->flags & CVAR_ALLOCATED)) {
+        Con_Printf("VM_cvar_altertype: attempted to modify an engine cvar \"%s\"\n", cvarname);
+        return;
+    }
+
+    setflags = (int)PRVM_G_FLOAT(OFS_PARM1);
+    unsetflags = (int)PRVM_G_FLOAT(OFS_PARM2);
+
+    if(setflags & CVAR_TYPEFLAGS_ALTERFORBIDDEN) {
+        Con_Printf("VM_cvar_altertype: bad flags: %i\n", setflags);
+        return;
+    }
+
+    if(unsetflags & CVAR_TYPEFLAGS_ALTERFORBIDDEN) {
+        Con_Printf("VM_cvar_altertype: bad flags: %i\n", unsetflags);
+        return;
+    }
+
+    cvar->flags |= typeflags_to_cvarflags(setflags);
+    cvar->flags &= ~typeflags_to_cvarflags(unsetflags);
+
+    PRVM_G_FLOAT(OFS_RETURN) = 1;
+}
+
+#undef CVAR_TYPEFLAG_EXISTS
+#undef CVAR_TYPEFLAG_SAVED
+#undef CVAR_TYPEFLAG_PRIVATE
+#undef CVAR_TYPEFLAG_ENGINE
+#undef CVAR_TYPEFLAG_HASDESCRIPTION
+#undef CVAR_TYPEFLAG_READONLY
+#undef CVAR_TYPEFLAG_MODIFIED
+#undef CVAR_TYPEFLAG_WATCHED
+
+#undef CVAR_TYPEFLAGS_ALTERFORBIDDEN
 
 /*
 =================
@@ -3747,6 +3840,7 @@ void VM_drawpic(prvm_prog_t *prog)
 	pos = PRVM_G_VECTOR(OFS_PARM0);
 	size = PRVM_G_VECTOR(OFS_PARM2);
 	rgb = PRVM_G_VECTOR(OFS_PARM3);
+
 	if (prog->argc >= 6)
 		flag = (int) PRVM_G_FLOAT(OFS_PARM5);
 
@@ -4726,6 +4820,10 @@ void BufStr_Flush(prvm_prog_t *prog)
 	Mem_ExpandableArray_NewArray(&prog->stringbuffersarray, prog->progs_mempool, sizeof(prvm_stringbuffer_t), 64);
 }
 
+static prvm_stringbuffer_t* BufStr_Get(prvm_prog_t *prog, int handle) {
+    return (prvm_stringbuffer_t*)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, handle);
+}
+
 /*
 ========================
 VM_buf_create
@@ -4770,7 +4868,7 @@ void VM_buf_del (prvm_prog_t *prog)
 {
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(1, VM_buf_del);
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+	stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if (stringbuffer)
 		BufStr_Del(prog, stringbuffer);
 	else
@@ -4792,7 +4890,7 @@ void VM_buf_getsize (prvm_prog_t *prog)
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(1, VM_buf_getsize);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		PRVM_G_FLOAT(OFS_RETURN) = -1;
@@ -4816,7 +4914,7 @@ void VM_buf_copy (prvm_prog_t *prog)
 	int i;
 	VM_SAFEPARMCOUNT(2, VM_buf_copy);
 
-	srcstringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    srcstringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!srcstringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_copy: invalid source buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4828,7 +4926,7 @@ void VM_buf_copy (prvm_prog_t *prog)
 		VM_Warning(prog, "VM_buf_copy: source == destination (%i) in %s\n", i, prog->name);
 		return;
 	}
-	dststringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    dststringbuffer = BufStr_Get(prog, i);
 	if(!dststringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_copy: invalid destination buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -4869,7 +4967,7 @@ void VM_buf_sort (prvm_prog_t *prog)
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(3, VM_buf_sort);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_sort: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4908,7 +5006,7 @@ void VM_buf_implode (prvm_prog_t *prog)
 	size_t			l;
 	VM_SAFEPARMCOUNT(2, VM_buf_implode);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	PRVM_G_INT(OFS_RETURN) = OFS_NULL;
 	if(!stringbuffer)
 	{
@@ -4947,7 +5045,7 @@ void VM_bufstr_get (prvm_prog_t *prog)
 	VM_SAFEPARMCOUNT(2, VM_bufstr_get);
 
 	PRVM_G_INT(OFS_RETURN) = OFS_NULL;
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_get: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4978,7 +5076,7 @@ void VM_bufstr_set (prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNT(3, VM_bufstr_set);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_set: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5012,7 +5110,7 @@ void VM_bufstr_add (prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNT(3, VM_bufstr_add);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	PRVM_G_FLOAT(OFS_RETURN) = -1;
 	if(!stringbuffer)
 	{
@@ -5056,7 +5154,7 @@ void VM_bufstr_free (prvm_prog_t *prog)
 	prvm_stringbuffer_t	*stringbuffer;
 	VM_SAFEPARMCOUNT(2, VM_bufstr_free);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_free: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5114,7 +5212,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	}
 
 	// get string buffer
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM1));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_loadfile: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -5195,7 +5293,7 @@ void VM_buf_writefile(prvm_prog_t *prog)
 	}
 	
 	// get string buffer
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM1));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_writefile: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -5349,7 +5447,7 @@ void VM_bufstr_find(prvm_prog_t *prog)
 	PRVM_G_FLOAT(OFS_RETURN) = -1;
 
 	// get string buffer
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_find: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5443,7 +5541,7 @@ void VM_buf_cvarlist(prvm_prog_t *prog)
 	prvm_stringbuffer_t	*stringbuffer;
 	VM_SAFEPARMCOUNTRANGE(2, 3, VM_buf_cvarlist);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_free: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -7348,6 +7446,218 @@ void VM_coverage(prvm_prog_t *prog)
 	VM_SAFEPARMCOUNT(0, VM_coverage);
 	if (prog->explicit_profile[prog->xstatement]++ == 0 && (prvm_coverage.integer & 2))
 		PRVM_ExplicitCoverageEvent(prog, prog->xfunction, prog->xstatement);
+}
+
+#define CFEX_SETARGC if(prog->funcargbuffer_argc < (int)PRVM_G_FLOAT(OFS_PARM0) + 1) prog->funcargbuffer_argc = (int)PRVM_G_FLOAT(OFS_PARM0) + 1;
+
+void VM_CallFunctionEx_SetArgFloat(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgFloat);
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3].fval = PRVM_G_FLOAT(OFS_PARM1);
+    CFEX_SETARGC
+}
+
+void VM_CallFunctionEx_SetArgIntFromFloat(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgIntFromFloat);
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3].ival = (int)PRVM_G_FLOAT(OFS_PARM1);
+    CFEX_SETARGC
+}
+
+void VM_CallFunctionEx_SetArgVector(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgVector);
+    memcpy(prog->funcargbuffer + (int)PRVM_G_FLOAT(OFS_PARM0) * 3, PRVM_G_VECTOR(OFS_PARM1), sizeof(prvm_vec_t) * 3);
+    CFEX_SETARGC
+}
+
+void VM_CallFunctionEx_SetArgInt(prvm_prog_t *prog) {
+    VM_SAFEPARMCOUNT(2, CallFunctionEx_SetArgInt);
+    prog->funcargbuffer[(int)PRVM_G_FLOAT(OFS_PARM0) * 3].ival = PRVM_G_INT(OFS_PARM1);
+    CFEX_SETARGC
+}
+
+#undef CFEX_SETARGC
+
+void VM_CallFunctionEx(prvm_prog_t *prog) {
+    mfunction_t *func;
+    const char *s;
+    qboolean castretval = false;
+
+    VM_SAFEPARMCOUNTRANGE(1, 2, CallFunctionEx);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    VM_CheckEmptyString(prog, s);
+    func = PRVM_ED_FindFunction(prog, s);
+
+    if(prog->argc > 1)
+        castretval = (qboolean)PRVM_G_FLOAT(OFS_PARM1);
+
+    memcpy(prog->globals.ip + OFS_PARM0, prog->funcargbuffer, sizeof(prog->funcargbuffer));
+    prog->argc = prog->funcargbuffer_argc;
+
+    if(!func)
+        prog->error_cmd("VM_CallFunctionEx: function %s not found!", s);
+    else if (func->first_statement < 0) {
+        // negative statements are built in functions
+        int builtinnumber = -func->first_statement;
+        prog->xfunction->builtinsprofile++;
+        if (builtinnumber < prog->numbuiltins && prog->builtins[builtinnumber])
+            prog->builtins[builtinnumber](prog);
+        else
+            prog->error_cmd("No such builtin #%i in %s; most likely cause: outdated engine build. Try updating!", builtinnumber, prog->name);
+    } else if(func - prog->functions > 0) {
+        prog->ExecuteProgram(prog, func - prog->functions, "");
+    }
+
+    memset(prog->funcargbuffer, 0, sizeof(prog->funcargbuffer));
+    prog->funcargbuffer_argc = 0;
+
+    if(castretval)
+        PRVM_G_FLOAT(OFS_RETURN) = (float)PRVM_G_INT(OFS_RETURN);
+}
+
+void VM_GlobalOfs(prvm_prog_t *prog) {
+    ddef_t *gl;
+    const char *s;
+
+    VM_SAFEPARMCOUNT(1, GlobalOfs);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    if(!(gl = PRVM_ED_FindGlobal(prog, s))) {
+        Con_Printf("VM_GlobalOfs: global %s not found!\n", s);
+        PRVM_G_FLOAT(OFS_RETURN) = -1;
+        return;
+    }
+
+    PRVM_G_FLOAT(OFS_RETURN) = (float)gl->ofs;
+}
+
+void VM_GlobalType(prvm_prog_t *prog) {
+    ddef_t *gl;
+    const char *s;
+
+    VM_SAFEPARMCOUNT(1, GlobalType);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    if(!(gl = PRVM_ED_FindGlobal(prog, s))) {
+        Con_Printf("VM_GlobalType: global %s not found!\n", s);
+        PRVM_G_FLOAT(OFS_RETURN) = -1;
+        return;
+    }
+
+    PRVM_G_FLOAT(OFS_RETURN) = (float)gl->type;
+}
+
+#define CHECKGLOBOFS(f) glo = (int)PRVM_G_FLOAT(OFS_PARM0); if(glo < 0 || glo >= prog->globals_size) { prog->error_cmd(#f ": global offset %i is out of bounds (min 0, max %i)", glo, prog->globals_size - 1); return; }
+
+void VM_GlobalInt(prvm_prog_t *prog) {
+    int glo;
+    VM_SAFEPARMCOUNT(1, GlobalInt);
+    CHECKGLOBOFS(VM_GlobalInt)
+    PRVM_G_FLOAT(OFS_RETURN) = (float)PRVM_G_INT(glo);
+}
+
+void VM_GlobalFloat(prvm_prog_t *prog) {
+    int glo;
+    VM_SAFEPARMCOUNT(1, GlobalFloat);
+    CHECKGLOBOFS(VM_GlobalFloat)
+    PRVM_G_FLOAT(OFS_RETURN) = PRVM_G_FLOAT(glo);
+}
+
+void VM_GlobalSetInt(prvm_prog_t *prog) {
+    int glo;
+    VM_SAFEPARMCOUNT(2, GlobalSetInt);
+    CHECKGLOBOFS(VM_GlobalSetInt)
+    PRVM_G_INT(glo) = (int)PRVM_G_FLOAT(OFS_PARM1);
+}
+
+void VM_GlobalSetFloat(prvm_prog_t *prog) {
+    int glo;
+    VM_SAFEPARMCOUNT(2, GlobalSetFloat);
+    CHECKGLOBOFS(VM_GlobalSetFloat)
+    PRVM_G_FLOAT(glo) = PRVM_G_FLOAT(OFS_PARM1);
+}
+
+#undef CHECKGLOBOFS
+
+void VM_GlobalGet(prvm_prog_t *prog) {
+    ddef_t *key;
+    const char *s;
+    prvm_eval_t *v;
+    char valuebuf[MAX_INPUTLINE];
+    
+    VM_SAFEPARMCOUNT(1, GlobalGet);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    if(!(key = PRVM_ED_FindGlobal(prog, s))) {
+        Con_Printf("VM_GlobalGet: global '%s' not found\n", s);
+        PRVM_G_INT(OFS_RETURN) = 0;
+        return;
+    }
+
+    v = (prvm_eval_t*)&PRVM_G_FLOAT(key->ofs);
+    PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, PRVM_UglyValueString(prog, (etype_t)key->type, v, valuebuf, sizeof(valuebuf)));
+}
+
+void VM_GlobalSet(prvm_prog_t *prog) {
+    ddef_t *key;
+    const char *s;
+
+    VM_SAFEPARMCOUNT(2, GlobalSet);
+
+    s = PRVM_G_STRING(OFS_PARM0);
+    if(!(key = PRVM_ED_FindGlobal(prog, s))) {
+        Con_Printf("VM_GlobalSet: global '%s' not found\n", s);
+        PRVM_G_FLOAT(OFS_RETURN) = 0;
+        return;
+    }
+
+    PRVM_G_FLOAT(OFS_RETURN) = (float)PRVM_ED_ParseEpair(prog, NULL, key, PRVM_G_STRING(OFS_PARM1), true);
+}
+
+#define REGEX_MAX_CAPS 64
+
+void VM_regex_match(prvm_prog_t *prog) {
+    const char *regex;
+    const char *input;
+    int flags;
+    size_t offset, size, inlen;
+    struct slre_cap caps[REGEX_MAX_CAPS];
+
+    VM_SAFEPARMCOUNT(5, regex_match);
+    memset(caps, 0, sizeof(struct slre_cap) * REGEX_MAX_CAPS);
+
+    regex = PRVM_G_STRING(OFS_PARM0);
+    input = PRVM_G_STRING(OFS_PARM1);
+    offset = (size_t)PRVM_G_FLOAT(OFS_PARM2);
+    size = (size_t)PRVM_G_FLOAT(OFS_PARM3);
+    flags = (int)PRVM_G_FLOAT(OFS_PARM4);
+
+    inlen = strlen(input);
+    offset = max(0, min(inlen - 1, offset));
+    inlen = strlen(input + offset);
+
+    if(size <= 0 || size > inlen)
+        size = inlen;
+
+    num_tokens = 0;
+    PRVM_G_FLOAT(OFS_RETURN) = (float)slre_match(regex, input + offset, size, caps, REGEX_MAX_CAPS, flags);
+
+    if(PRVM_G_FLOAT(OFS_RETURN) < 0)
+        return;
+
+    for(; num_tokens < REGEX_MAX_CAPS; ++num_tokens) {
+        const char *m = caps[num_tokens].ptr;
+        char match[MAX_INPUTLINE];
+
+        if(!m)
+            break;
+
+        memset(match, 0, MAX_INPUTLINE);
+        memcpy(match, m, caps[num_tokens].len);
+
+        tokens_startpos[num_tokens] = m - input;
+        tokens_endpos[num_tokens] = m - input + caps[num_tokens].len;
+        tokens[num_tokens] = PRVM_SetTempString(prog, match);
+    }
 }
 
 /*

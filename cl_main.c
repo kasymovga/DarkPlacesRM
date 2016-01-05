@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_shadow.h"
 #include "libcurl.h"
 #include "snd_main.h"
+#include "random.h"
 
 // we need to declare some mouse variables here, because the menu system
 // references them even when on a unix system.
@@ -35,6 +36,10 @@ cvar_t csqc_progname = {0, "csqc_progname","csprogs.dat","name of csprogs.dat fi
 cvar_t csqc_progcrc = {CVAR_READONLY, "csqc_progcrc","-1","CRC of csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
 cvar_t csqc_progsize = {CVAR_READONLY, "csqc_progsize","-1","file size of csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
 cvar_t csqc_usedemoprogs = {0, "csqc_usedemoprogs","1","use csprogs stored in demos"};
+
+cvar_t csqc_progname_alt = {0, "csqc_progname_alt","","name of alternative csprogs.dat file to load"};
+cvar_t csqc_progcrc_alt = {CVAR_READONLY, "csqc_progcrc_alt","-1","CRC of alternative csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
+cvar_t csqc_progsize_alt = {CVAR_READONLY, "csqc_progsize_alt","-1","file size of alternative csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
 
 cvar_t cl_shownet = {0, "cl_shownet","0","1 = print packet size, 2 = print packet message list"};
 cvar_t cl_nolerp = {0, "cl_nolerp", "0","network update smoothing"};
@@ -1811,7 +1816,7 @@ void CL_RelinkBeams(void)
 			//ent->render.effects = EF_FULLBRIGHT;
 			//ent->render.angles[0] = pitch;
 			//ent->render.angles[1] = yaw;
-			//ent->render.angles[2] = rand()%360;
+			//ent->render.angles[2] = xrand()%360;
 			Matrix4x4_CreateFromQuakeEntity(&entrender->matrix, org[0], org[1], org[2], -pitch, yaw, lhrandom(0, 360), 1);
 			CL_UpdateRenderEntity(entrender);
 			VectorMA(org, 30, dist, org);
@@ -1911,7 +1916,7 @@ void CL_UpdateWorld(void)
 	r_refdef.scene.numlights = 0;
 	r_refdef.view.matrix = identitymatrix;
 	r_refdef.view.quality = 1;
-		
+
 	cl.num_brushmodel_entities = 0;
 
 	if (cls.state == ca_connected && cls.signon == SIGNONS)
@@ -2483,7 +2488,7 @@ void CL_Init (void)
 
 	// for QW connections
 	Cvar_RegisterVariable(&qport);
-	Cvar_SetValueQuick(&qport, (rand() * RAND_MAX + rand()) & 0xffff);
+	Cvar_SetValueQuick(&qport, (xrand() * XRAND_MAX + xrand()) & 0xffff);
 
 	Cmd_AddCommand("timerefresh", CL_TimeRefresh_f, "turn quickly and print rendering statistcs");
 

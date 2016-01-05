@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define MATHLIB_H
 
 #include "qtypes.h"
+#include "random.h"
 
 #ifndef M_PI
 #define M_PI		3.14159265358979323846	// matches value in gcc v2 math.h
@@ -62,7 +63,7 @@ extern vec3_t vec3_origin;
 /// with), causing "stone monsters" that never spawned properly, also MAX is
 /// avoided because some people use random() as an index into arrays or for
 /// loop conditions, where hitting exactly MAX may be a fatal error
-#define lhrandom(MIN,MAX) (((double)(rand() + 0.5) / ((double)RAND_MAX + 1)) * ((MAX)-(MIN)) + (MIN))
+#define lhrandom(MIN,MAX) ((((double)(xrand()) + 0.5) / ((double)XRAND_MAX + 1)) * ((MAX)-(MIN)) + (MIN))
 
 #define invpow(base,number) (log(number) / log(base))
 

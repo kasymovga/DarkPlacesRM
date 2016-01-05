@@ -49,6 +49,13 @@ const char *vm_m_extensions =
 "DP_QC_URI_POST "
 "DP_QC_WHICHPACK "
 "FTE_STRINGS "
+"DP_RM_IRC "
+"DP_RM_CALLFUNCTIONEX "
+"DP_RM_GLOBALACCESS "
+"DP_RM_ALTCSPROGS "
+"DP_RM_CVAR_ALTERTYPE "
+"DP_RM_CVAR_WATCHED "
+"DP_RM_REGEX2 "
 ;
 
 /*
@@ -1072,11 +1079,11 @@ NULL,									// #146
 NULL,									// #147
 NULL,									// #148
 NULL,									// #149
-NULL,									// #150
-NULL,									// #151
-NULL,									// #152
-NULL,									// #153
-NULL,									// #154
+VM_CallFunctionEx_SetArgFloat,          // #150 void(float idx, float val) CallFunctionEx_SetArgFloat = #150; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgIntFromFloat,   // #151 void(float idx, float val) CallFunctionEx_SetArgInt = #151; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgVector,         // #152 void(float idx, vector val) CallFunctionEx_SetArgVector = #152; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgInt,            // #153 use this for strings/ents/fields/etc. (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx,                      // #154 void(string fname, float castretval) CallFunctionEx = #154; (DP_RM_CALLFUNCTIONEX)
 NULL,									// #155
 NULL,									// #156
 NULL,									// #157
@@ -1092,14 +1099,14 @@ NULL,									// #166
 NULL,									// #167
 NULL,									// #168
 NULL,									// #169
-NULL,									// #170
-NULL,									// #171
-NULL,									// #172
-NULL,									// #173
-NULL,									// #174
-NULL,									// #175
-NULL,									// #176
-NULL,									// #177
+VM_GlobalOfs,                           // #170 float(string) GlobalOfs = #170; (DP_RM_GLOBALACCESS)
+VM_GlobalType,                          // #171 float(string) GlobalType = #171; (DP_RM_GLOBALACCESS)
+VM_GlobalInt,                           // #172 float(float) GlobalInt = #172; (DP_RM_GLOBALACCESS)
+VM_GlobalFloat,                         // #173 float(float) GlobalFloat = #173; (DP_RM_GLOBALACCESS)
+VM_GlobalSetInt,                        // #174 void(float, float) GlobalSetInt = #174; (DP_RM_GLOBALACCESS)
+VM_GlobalSetFloat,                      // #175 void(float, float) GlobalSetFloat = #175; (DP_RM_GLOBALACCESS)
+VM_GlobalGet,                           // #176 string(string) GlobalGet = #176; (DP_RM_GLOBALACCESS)
+VM_GlobalSet,                           // #177 float(string, string) GlobalSet = #177; (DP_RM_GLOBALACCESS)
 NULL,									// #178
 NULL,									// #179
 NULL,									// #180
@@ -1447,7 +1454,7 @@ NULL,									// #501
 NULL,									// #502
 VM_whichpack,					// #503 string(string) whichpack = #503;
 NULL,									// #504
-NULL,									// #505
+VM_cvar_altertype,                      // #505 float(string varname, float setflags, float unsetflags) cvar_altertype = #505;
 NULL,									// #506
 NULL,									// #507
 NULL,									// #508
@@ -1584,7 +1591,165 @@ NULL,							// #638
 VM_digest_hex,						// #639
 NULL,							// #640
 VM_M_crypto_getmyidstatus,				// #641 float(float i) crypto_getmyidstatus
-VM_coverage,						// #642
+VM_coverage,                        // #642
+NULL,                            // #643
+NULL,                            // #644
+NULL,                            // #645
+NULL,                            // #646
+NULL,                            // #647
+NULL,                            // #648
+NULL,                            // #649
+NULL,                            // #650
+NULL,                            // #651
+NULL,                            // #652
+NULL,                            // #653
+NULL,                            // #654
+NULL,                            // #655
+NULL,                            // #656
+NULL,                            // #657
+NULL,                            // #658
+NULL,                            // #659
+NULL,                            // #660
+NULL,                            // #661
+NULL,                            // #662
+NULL,                            // #663
+NULL,                            // #664
+NULL,                            // #665
+NULL,                            // #666
+NULL,                            // #667
+NULL,                            // #668
+NULL,                            // #669
+NULL,                            // #670
+NULL,                            // #671
+NULL,                            // #672
+NULL,                            // #673
+NULL,                            // #674
+NULL,                            // #675
+NULL,                            // #676
+NULL,                            // #677
+NULL,                            // #678
+NULL,                            // #679
+NULL,                            // #680
+NULL,                            // #681
+NULL,                            // #682
+NULL,                            // #683
+NULL,                            // #684
+NULL,                            // #685
+NULL,                            // #686
+NULL,                            // #687
+NULL,                            // #688
+NULL,                            // #689
+NULL,                            // #690
+NULL,                            // #691
+NULL,                            // #692
+NULL,                            // #693
+NULL,                            // #694
+NULL,                            // #695
+NULL,                            // #696
+NULL,                            // #697
+NULL,                            // #698
+NULL,                            // #699
+NULL,                            // #700
+NULL,                            // #701
+NULL,                            // #702
+NULL,                            // #703
+NULL,                            // #704
+NULL,                            // #705
+NULL,                            // #706
+NULL,                            // #707
+NULL,                            // #708
+NULL,                            // #709
+NULL,                            // #710
+NULL,                            // #711
+NULL,                            // #712
+NULL,                            // #713
+NULL,                            // #714
+NULL,                            // #715
+NULL,                            // #716
+NULL,                            // #717
+NULL,                            // #718
+NULL,                            // #719
+NULL,                            // #720
+NULL,                            // #721
+NULL,                            // #722
+NULL,                            // #723
+NULL,                            // #724
+NULL,                            // #725
+NULL,                            // #726
+NULL,                            // #727
+NULL,                            // #728
+NULL,                            // #729
+NULL,                            // #730
+NULL,                            // #731
+NULL,                            // #732
+NULL,                            // #733
+NULL,                            // #734
+NULL,                            // #735
+NULL,                            // #736
+NULL,                            // #737
+NULL,                            // #738
+NULL,                            // #739
+NULL,                            // #740
+NULL,                            // #741
+NULL,                            // #742
+NULL,                            // #743
+NULL,                            // #744
+NULL,                            // #745
+NULL,                            // #746
+NULL,                            // #747
+NULL,                            // #748
+NULL,                            // #749
+NULL,                            // #750
+NULL,                            // #751
+NULL,                            // #752
+NULL,                            // #753
+NULL,                            // #754
+NULL,                            // #755
+NULL,                            // #756
+NULL,                            // #757
+NULL,                            // #758
+NULL,                            // #759
+NULL,                            // #760
+NULL,                            // #761
+NULL,                            // #762
+NULL,                            // #763
+NULL,                            // #764
+NULL,                            // #765
+NULL,                            // #766
+NULL,                            // #767
+NULL,                            // #768
+NULL,                            // #769
+NULL,                            // #770
+NULL,                            // #771
+NULL,                            // #772
+NULL,                            // #773
+NULL,                            // #774
+NULL,                            // #775
+NULL,                            // #776
+NULL,                            // #777
+NULL,                            // #778
+NULL,                            // #779
+NULL,                            // #780
+NULL,                            // #781
+NULL,                            // #782
+NULL,                            // #783
+NULL,                            // #784
+NULL,                            // #785
+NULL,                            // #786
+NULL,                            // #787
+NULL,                            // #788
+NULL,                            // #789
+NULL,                            // #790
+NULL,                            // #791
+NULL,                            // #792
+NULL,                            // #793
+NULL,                            // #794
+NULL,                            // #795
+NULL,                            // #796
+NULL,                            // #797
+NULL,                            // #798
+NULL,                            // #799
+VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800;
 NULL
 };
 

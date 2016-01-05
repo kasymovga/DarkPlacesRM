@@ -396,12 +396,28 @@ mfunction_t *PRVM_ED_FindFunction (prvm_prog_t *prog, const char *name)
 	mfunction_t		*func;
 	int				i;
 
+    if(*name == '#') {
+        int idx = atoi(name+1);
+        
+        if(idx < 0 || idx >= prog->numbuiltins)
+            return NULL;
+
+        for(i = 0; i < prog->numfunctions; ++i) {
+            func = &prog->functions[i];
+            if(func->first_statement == -idx)
+                return func;
+        }
+
+        return NULL;
+    }
+
 	for (i = 0;i < prog->numfunctions;i++)
 	{
 		func = &prog->functions[i];
 		if (!strcmp(PRVM_GetString(prog, func->s_name), name))
 			return func;
 	}
+
 	return NULL;
 }
 
@@ -1913,6 +1929,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 	dstatement_t *instatements;
 	ddef_t *infielddefs;
 	ddef_t *inglobaldefs;
+    ddef_t *arrayext;
 	int *inglobals;
 	dfunction_t *infunctions;
 	char *instrings;
@@ -2002,7 +2019,8 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 
 	// we need to expand the globaldefs and fielddefs to include engine defs
 	prog->globaldefs = (ddef_t *)Mem_Alloc(prog->progs_mempool, (prog->progs_numglobaldefs + numrequiredglobals) * sizeof(ddef_t));
-	prog->globals.fp = (prvm_vec_t *)Mem_Alloc(prog->progs_mempool, (prog->progs_numglobals + requiredglobalspace + 2) * sizeof(prvm_vec_t));
+    prog->globals_size = prog->progs_numglobals + requiredglobalspace + 2;
+	prog->globals.fp = (prvm_vec_t *)Mem_Alloc(prog->progs_mempool, prog->globals_size * sizeof(prvm_vec_t));
 		// + 2 is because of an otherwise occurring overrun in RETURN instruction
 		// when trying to return the last or second-last global
 		// (RETURN always returns a vector, there is no RETURN_F instruction)
@@ -2171,6 +2189,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 		case OP_LOAD_S:
 		case OP_LOAD_FNC:
 		case OP_LOAD_V:
+        case OP_MUL_I:
 			if (a >= prog->progs_numglobals || b >= prog->progs_numglobals || c >= prog->progs_numglobals)
 				prog->error_cmd("PRVM_LoadProgs: out of bounds global index (statement %d)", i);
 			prog->statements[i].op = op;
@@ -2185,6 +2204,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 		case OP_NOT_S:
 		case OP_NOT_FNC:
 		case OP_NOT_ENT:
+        case OP_CONV_FTOI:
 			if (a >= prog->progs_numglobals || c >= prog->progs_numglobals)
 				prog->error_cmd("PRVM_LoadProgs: out of bounds global index (statement %d) in %s", i, prog->name);
 			prog->statements[i].op = op;
@@ -2207,6 +2227,13 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 		case OP_STATE:
 		case OP_STOREP_V:
 		case OP_STORE_V:
+        case OP_GSTOREP_I:
+        case OP_GSTOREP_F:
+        case OP_GSTOREP_ENT:
+        case OP_GSTOREP_FLD:
+        case OP_GSTOREP_S:
+        case OP_GSTOREP_FNC:
+        case OP_GSTOREP_V:
 			if (a >= prog->progs_numglobals || b >= prog->progs_numglobals)
 				prog->error_cmd("PRVM_LoadProgs: out of bounds global index (statement %d) in %s", i, prog->name);
 			prog->statements[i].op = op;
@@ -2232,7 +2259,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 		case OP_CALL8:
 		case OP_DONE:
 		case OP_RETURN:
-			if ( a >= prog->progs_numglobals)
+			if (a >= prog->progs_numglobals)
 				prog->error_cmd("PRVM_LoadProgs: out of bounds global index (statement %d) in %s", i, prog->name);
 			prog->statements[i].op = op;
 			prog->statements[i].operand[0] = remapglobal(a);
@@ -2240,7 +2267,32 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 			prog->statements[i].operand[2] = -1;
 			prog->statements[i].jumpabsolute = -1;
 			break;
-		}
+        // as-is global global
+        case OP_FETCH_GBL_F:
+        case OP_FETCH_GBL_S:
+        case OP_FETCH_GBL_E:
+        case OP_FETCH_GBL_FNC:
+        case OP_FETCH_GBL_V:
+        case OP_GLOBALADDRESS:
+            if (b >= prog->progs_numglobals || c >= prog->progs_numglobals)
+                prog->error_cmd("PRVM_LoadProgs: out of bounds global index (statement %d) in %s", i, prog->name);
+            prog->statements[i].op = op;
+            prog->statements[i].operand[0] = a;
+            prog->statements[i].operand[1] = remapglobal(b);
+            prog->statements[i].operand[2] = remapglobal(c);
+            prog->statements[i].jumpabsolute = -1;
+            break;
+        // global as-is as-is
+        case OP_BOUNDCHECK:
+            if (a >= prog->progs_numglobals)
+                prog->error_cmd("PRVM_LoadProgs: out of bounds global index (statement %d) in %s", i, prog->name);
+            prog->statements[i].op = op;
+            prog->statements[i].operand[0] = remapglobal(a);
+            prog->statements[i].operand[1] = b;
+            prog->statements[i].operand[2] = c;
+            prog->statements[i].jumpabsolute = -1;
+            break;
+        }
 	}
 	if(prog->numstatements < 1)
 	{
@@ -2438,6 +2490,10 @@ fail:
 		;
 	}
 
+    arrayext = PRVM_ED_FindGlobal(prog, "__ext__fasttrackarrays");
+    if(arrayext)
+        PRVM_ED_ParseEpair(prog, NULL, arrayext, "1", false);
+
 	prog->loaded = TRUE;
 
 	PRVM_UpdateBreakpoints(prog);
@@ -2613,7 +2669,7 @@ static void PRVM_Globals_f (void)
 				numculled++;
 				continue;
 			}
-		Con_Printf("%s\n", PRVM_GetString(prog, prog->globaldefs[i].s_name));
+		Con_Printf("^5%i ^7%s\n", prog->globaldefs[i].ofs, PRVM_GetString(prog, prog->globaldefs[i].s_name));
 	}
 	Con_Printf("%i global variables, %i culled, totalling %i bytes\n", prog->numglobals, numculled, prog->numglobals * 4);
 }

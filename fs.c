@@ -200,6 +200,8 @@ typedef struct
 #define QFILE_FLAG_DATA (1 << 2)
 /// real file will be removed on close
 #define QFILE_FLAG_REMOVE (1 << 3)
+/// data will be Mem_Free'ed on close
+#define QFILE_FLAG_MEMFREE (1 << 4)
 
 #define FILE_BUFF_SIZE 2048
 typedef struct
@@ -264,27 +266,16 @@ typedef struct dpackheader_s
 	int dirlen;
 } dpackheader_t;
 
-
-/*! \name Packages in memory
- * @{
- */
-/// the offset in packfile_t is the true contents offset
-#define PACKFILE_FLAG_TRUEOFFS (1 << 0)
-/// file compressed using the deflate algorithm
-#define PACKFILE_FLAG_DEFLATED (1 << 1)
-/// file is a symbolic link
-#define PACKFILE_FLAG_SYMLINK (1 << 2)
-
-typedef struct packfile_s
+struct packfile_s
 {
 	char name [MAX_QPATH];
 	int flags;
 	fs_offset_t offset;
 	fs_offset_t packsize;	///< size in the package
 	fs_offset_t realsize;	///< real file size (uncompressed)
-} packfile_t;
+};
 
-typedef struct pack_s
+struct pack_s
 {
 	char filename [MAX_OSPATH];
 	char shortname [MAX_QPATH];
@@ -293,7 +284,8 @@ typedef struct pack_s
 	int numfiles;
 	qboolean vpack;
 	packfile_t *files;
-} pack_t;
+	struct AssetArchive* cgfHandle;
+};
 //@}
 
 /// Search paths for files (including packages)
@@ -319,10 +311,6 @@ void FS_Ls_f(void);
 void FS_Which_f(void);
 
 static searchpath_t *FS_FindFile (const char *name, int* index, qboolean quiet);
-static packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
-									fs_offset_t offset, fs_offset_t packsize,
-									fs_offset_t realsize, int flags);
-
 
 /*
 =============================================================================
@@ -781,6 +769,35 @@ static pack_t *FS_LoadPackPK3 (const char *packfile)
 	return FS_LoadPackPK3FromFD(packfile, packhandle, false);
 }
 
+#include "cgf_private.h" // FIXME?
+
+static pack_t *FS_LoadPackCGF (const char *packfile)
+{
+	//FIXME: ugly circumvention of the entire damn API.
+
+	struct AssetArchive* ap;
+	pack_t *pack;
+	int fauxhandle = FS_SysOpenFD(packfile, "rb", true);
+
+	if(AssetArchive_openRead(&ap, packfile)) {
+		pack = (pack_t *)Mem_Alloc(fs_mempool, sizeof(pack_t));
+		pack->ignorecase = true;
+		strlcpy(pack->filename, packfile, sizeof(pack->filename));
+		pack->handle = fauxhandle;
+		pack->files = (packfile_t *)Mem_Alloc(fs_mempool, AssetArchive_countAssets(ap) * sizeof(packfile_t));
+
+		pack->numfiles = 0; //sic!
+		CGF_BuildFileList(pack, ap);
+
+		Con_DPrintf("Added packfile %s (cgf format, %i files)\n", packfile, pack->numfiles);
+
+		pack->cgfHandle = ap;
+		return pack;
+	}
+
+	Con_DPrintf("Failed to open packfile %s (cgf format)\n", packfile);
+	return NULL;
+}
 
 /*
 ====================
@@ -831,7 +848,7 @@ FS_AddFileToPack
 Add a file to the list of files contained into a package
 ====================
 */
-static packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
+packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
 									 fs_offset_t offset, fs_offset_t packsize,
 									 fs_offset_t realsize, int flags)
 {
@@ -1075,6 +1092,8 @@ static qboolean FS_AddPack_Fullpath(const char *pakfile, const char *shortname, 
 		pak = FS_LoadPackPK3 (pakfile);
 	else if(!strcasecmp(ext, "obb")) // android apk expansion
 		pak = FS_LoadPackPK3 (pakfile);
+	else if(!strcasecmp(ext, "cgf"))
+		pak = FS_LoadPackCGF (pakfile);
 	else
 		Con_Printf("\"%s\" does not have a pack extension\n", pakfile);
 
@@ -1204,6 +1223,14 @@ static void FS_AddGameDirectory (const char *dir)
 	listdirectory(&list, "", dir);
 	stringlistsort(&list, false);
 
+	for (i = 0;i < list.numstrings;i++)
+	{
+		if (!strcasecmp(FS_FileExtension(list.strings[i]), "cgf"))
+		{
+			FS_AddPack_Fullpath(list.strings[i], list.strings[i] + strlen(dir), NULL, false);
+		}
+	}
+
 	// add any PAK package in the directory
 	for (i = 0;i < list.numstrings;i++)
 	{
@@ -1310,6 +1337,9 @@ static void FS_ClearSearchPath (void)
 		fs_searchpaths = search->next;
 		if (search->pack && search->pack != fs_selfpack)
 		{
+            if(search->pack && search->pack->cgfHandle != NULL) {
+		AssetArchive_close(search->pack->cgfHandle);
+            }
 			if(!search->pack->vpack)
 			{
 				// close the file
@@ -1695,6 +1725,7 @@ FS_Init_SelfPack
 */
 void FS_Init_SelfPack (void)
 {
+    AssetArchive_init();
 	PK3_OpenLibrary ();
 	fs_mempool = Mem_AllocPool("file management", 0, NULL);
 	if(com_selffd >= 0)
@@ -1982,6 +2013,9 @@ void FS_Init (void)
 	if (fs_basedir[0] && fs_basedir[strlen(fs_basedir) - 1] != '/' && fs_basedir[strlen(fs_basedir) - 1] != '\\')
 		strlcat(fs_basedir, "/", sizeof(fs_basedir));
 
+#ifdef FS_FORCE_NOHOME
+    *fs_userdir = 0;
+#else
 	// Add the personal game directory
 	if((i = COM_CheckParm("-userdir")) && i < com_argc - 1)
 		dpsnprintf(fs_userdir, sizeof(fs_userdir), "%s/", com_argv[i+1]);
@@ -1991,7 +2025,7 @@ void FS_Init (void)
 	{
 		int dirmode;
 		int highestuserdirmode = USERDIRMODE_COUNT - 1;
-		int preferreduserdirmode = USERDIRMODE_COUNT - 1;
+		int preferreduserdirmode = USERDIRMODE_PREFERED;
 		int userdirstatus[USERDIRMODE_COUNT];
 #ifdef WIN32
 		// historical behavior...
@@ -2034,7 +2068,8 @@ void FS_Init (void)
 	// if userdir equal to basedir, clear it to avoid confusion later
 	if (!strcmp(fs_basedir, fs_userdir))
 		fs_userdir[0] = 0;
-
+#endif
+    
 	FS_ListGameDirs();
 
 	p = FS_CheckGameDir(gamedirname1);
@@ -2483,6 +2518,11 @@ static qfile_t *FS_OpenReadFile (const char *filename, qboolean quiet, qboolean 
 {
 	searchpath_t *search;
 	int pack_ind;
+	bool ok;
+	unsigned char* resbuf;
+	size_t rblen;
+	unsigned char* buf;
+	qfile_t* cgf_res;
 
 	search = FS_FindFile (filename, &pack_ind, quiet);
 
@@ -2500,6 +2540,29 @@ static qfile_t *FS_OpenReadFile (const char *filename, qboolean quiet, qboolean 
 	}
 
 	// So, we found it in a package...
+	// Is it a CGF?
+	if(search->pack->files[pack_ind].flags & PACKFILE_FLAG_CGF) {
+		ok = AssetArchive_loadOne(search->pack->cgfHandle, &resbuf, &rblen, filename);
+		if(ok) {
+			buf = (unsigned char*)Mem_Alloc(tempmempool, rblen + 1);
+			buf[rblen] = '\0';
+			memcpy(buf, resbuf, rblen);
+
+			if (developer.integer)
+				Con_DPrintf("loaded cgf file \"%s\" (%u bytes)\n", filename, (unsigned int)rblen);
+
+			free(resbuf);
+			cgf_res = FS_FileFromData(buf, rblen, quiet);
+            if(cgf_res != NULL) {
+                cgf_res->flags |= QFILE_FLAG_MEMFREE;
+            }
+            return cgf_res;
+		} else {
+			if (developer.integer)
+				Con_DPrintf("failed to load cgf file \"%s\"\n", filename);
+			return NULL;
+		}
+	}
 
 	// Is it a PK3 symlink?
 	// TODO also handle directory symlinks by parsing the whole structure...
@@ -2665,8 +2728,14 @@ Close a file
 */
 int FS_Close (qfile_t* file)
 {
+    void* cgf_ptr; //FIXME: ugly horrible hack.
 	if(file->flags & QFILE_FLAG_DATA)
 	{
+        if(file->flags & QFILE_FLAG_MEMFREE) {
+		//really, I'm sorry
+		cgf_ptr = (void*)(file->data);
+		Mem_Free(cgf_ptr);
+        }
 		Mem_Free(file);
 		return 0;
 	}

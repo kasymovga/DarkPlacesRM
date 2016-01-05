@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "csprogs.h"
 #include "cl_video.h"
 #include "dpsoftrast.h"
+#include "random.h"
 
 #ifdef SUPPORTD3D
 #include <d3d9.h>
@@ -64,7 +65,7 @@ cvar_t r_motionblur_mousefactor_minspeed = {CVAR_SAVE, "r_motionblur_mousefactor
 cvar_t r_motionblur_mousefactor_maxspeed = {CVAR_SAVE, "r_motionblur_mousefactor_maxspeed", "50", "upper value of mouse acceleration when it reaches the peak factor into blur equation"};
 
 // TODO do we want a r_equalize_entities cvar that works on all ents, or would that be a cheat?
-cvar_t r_equalize_entities_fullbright = {CVAR_SAVE, "r_equalize_entities_fullbright", "0", "render fullbright entities by equalizing their lightness, not by not rendering light"};
+cvar_t r_equalize_entities_fullbright = {CVAR_SAVE, "r_equalize_entities_fullbright", "1", "render fullbright entities by equalizing their lightness, not by not rendering light"};
 cvar_t r_equalize_entities_minambient = {CVAR_SAVE, "r_equalize_entities_minambient", "0.5", "light equalizing: ensure at least this ambient/diffuse ratio"};
 cvar_t r_equalize_entities_by = {CVAR_SAVE, "r_equalize_entities_by", "0.7", "light equalizing: exponent of dynamics compression (0 = no compression, 1 = full compression)"};
 cvar_t r_equalize_entities_to = {CVAR_SAVE, "r_equalize_entities_to", "0.8", "light equalizing: target light level"};
@@ -202,7 +203,7 @@ cvar_t r_bloom_colorscale = {CVAR_SAVE, "r_bloom_colorscale", "1", "how bright t
 
 cvar_t r_bloom_brighten = {CVAR_SAVE, "r_bloom_brighten", "2", "how bright the glow is, after subtract/power"};
 cvar_t r_bloom_blur = {CVAR_SAVE, "r_bloom_blur", "4", "how large the glow is"};
-cvar_t r_bloom_resolution = {CVAR_SAVE, "r_bloom_resolution", "320", "what resolution to perform the bloom effect at (independent of screen resolution)"};
+cvar_t r_bloom_resolution = {CVAR_SAVE, "r_bloom_resolution", "640", "what resolution to perform the bloom effect at (independent of screen resolution)"};
 cvar_t r_bloom_colorexponent = {CVAR_SAVE, "r_bloom_colorexponent", "1", "how exaggerated the glow is"};
 cvar_t r_bloom_colorsubtract = {CVAR_SAVE, "r_bloom_colorsubtract", "0.125", "reduces bloom colors by a certain amount"};
 cvar_t r_bloom_scenebrightness = {CVAR_SAVE, "r_bloom_scenebrightness", "1", "global rendering brightness when bloom is enabled"};
@@ -2770,7 +2771,7 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 			if (r_glsl_permutation->loc_Color_Ambient >= 0) qglUniform3f(r_glsl_permutation->loc_Color_Ambient, colormod[0] * ambientscale, colormod[1] * ambientscale, colormod[2] * ambientscale);
 			if (r_glsl_permutation->loc_Color_Diffuse >= 0) qglUniform3f(r_glsl_permutation->loc_Color_Diffuse, colormod[0] * diffusescale, colormod[1] * diffusescale, colormod[2] * diffusescale);
 			if (r_glsl_permutation->loc_Color_Specular >= 0) qglUniform3f(r_glsl_permutation->loc_Color_Specular, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale);
-	
+
 			// additive passes are only darkened by fog, not tinted
 			if (r_glsl_permutation->loc_FogColor >= 0)
 				qglUniform3f(r_glsl_permutation->loc_FogColor, 0, 0, 0);
@@ -2920,7 +2921,7 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 			DPSOFTRAST_Uniform3f(DPSOFTRAST_UNIFORM_Color_Ambient, colormod[0] * ambientscale, colormod[1] * ambientscale, colormod[2] * ambientscale);
 			DPSOFTRAST_Uniform3f(DPSOFTRAST_UNIFORM_Color_Diffuse, colormod[0] * diffusescale, colormod[1] * diffusescale, colormod[2] * diffusescale);
 			DPSOFTRAST_Uniform3f(DPSOFTRAST_UNIFORM_Color_Specular, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale);
-	
+
 			// additive passes are only darkened by fog, not tinted
 			DPSOFTRAST_Uniform3f(DPSOFTRAST_UNIFORM_FogColor, 0, 0, 0);
 			DPSOFTRAST_Uniform1f(DPSOFTRAST_UNIFORM_SpecularPower, rsurface.texture->specularpower * (r_shadow_glossexact.integer ? 0.25f : 1.0f) - 1.0f);
@@ -3831,9 +3832,9 @@ skinframe_t *R_SkinFrame_LoadMissing(void)
 	skinframe->reflect = NULL;
 	skinframe->hasalpha = false;
 
-	skinframe->avgcolor[0] = rand() / RAND_MAX;
-	skinframe->avgcolor[1] = rand() / RAND_MAX;
-	skinframe->avgcolor[2] = rand() / RAND_MAX;
+	skinframe->avgcolor[0] = xrand() / XRAND_MAX;
+	skinframe->avgcolor[1] = xrand() / XRAND_MAX;
+	skinframe->avgcolor[2] = xrand() / XRAND_MAX;
 	skinframe->avgcolor[3] = 1;
 
 	return skinframe;
@@ -5081,12 +5082,12 @@ static void R_View_UpdateEntityLighting (void)
 			VectorSet(ent->modellight_lightdir, 0, 0, 1);
 			continue;
 		}
-		
+
 		if (ent->flags & RENDER_CUSTOMIZEDMODELLIGHT)
 		{
 			// aleady updated by CSQC
 			// TODO: force modellight on BSP models in this case?
-			VectorCopy(ent->modellight_lightdir, tempdiffusenormal); 
+			VectorCopy(ent->modellight_lightdir, tempdiffusenormal);
 		}
 		else
 		{
@@ -6269,7 +6270,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 				r_refdef.view.usecustompvs = true;
 				r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, (r_refdef.viewcache.world_numclusters+7)>>3, false);
 			}
-			
+
 			// camera needs no clipplane
 			r_refdef.view.useclipplane = false;
 
@@ -6513,7 +6514,7 @@ static void R_Bloom_StartFrame(void)
 	r_fb.screentexcoord2f[6] = 0;
 	r_fb.screentexcoord2f[7] = 0;
 
-	if(r_fb.fbo) 
+	if(r_fb.fbo)
 	{
 		for (i = 1;i < 8;i += 2)
 		{
@@ -6568,7 +6569,7 @@ static void R_Bloom_MakeTexture(void)
 	float colorscale = r_bloom_colorscale.value;
 
 	r_refdef.stats[r_stat_bloom]++;
-    
+
 #if 0
     // this copy is unnecessary since it happens in R_BlendView already
 	if (!r_fb.fbo)
@@ -6649,7 +6650,7 @@ static void R_Bloom_MakeTexture(void)
 		}
 	}
 
-	range = r_bloom_blur.integer * r_fb.bloomwidth / 320;
+	range = r_bloom_blur.integer * r_fb.bloomwidth / r_bloom_resolution.integer;
 	brighten = r_bloom_brighten.value;
 	brighten = sqrt(brighten);
 	if(range >= 1)
@@ -6738,22 +6739,22 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 			{
 				// declare variables
 				float blur_factor, blur_mouseaccel, blur_velocity;
-				static float blur_average; 
+				static float blur_average;
 				static vec3_t blur_oldangles; // used to see how quickly the mouse is moving
 
 				// set a goal for the factoring
-				blur_velocity = bound(0, (VectorLength(cl.movement_velocity) - r_motionblur_velocityfactor_minspeed.value) 
+				blur_velocity = bound(0, (VectorLength(cl.movement_velocity) - r_motionblur_velocityfactor_minspeed.value)
 					/ max(1, r_motionblur_velocityfactor_maxspeed.value - r_motionblur_velocityfactor_minspeed.value), 1);
-				blur_mouseaccel = bound(0, ((fabs(VectorLength(cl.viewangles) - VectorLength(blur_oldangles)) * 10) - r_motionblur_mousefactor_minspeed.value) 
+				blur_mouseaccel = bound(0, ((fabs(VectorLength(cl.viewangles) - VectorLength(blur_oldangles)) * 10) - r_motionblur_mousefactor_minspeed.value)
 					/ max(1, r_motionblur_mousefactor_maxspeed.value - r_motionblur_mousefactor_minspeed.value), 1);
-				blur_factor = ((blur_velocity * r_motionblur_velocityfactor.value) 
+				blur_factor = ((blur_velocity * r_motionblur_velocityfactor.value)
 					+ (blur_mouseaccel * r_motionblur_mousefactor.value));
 
 				// from the goal, pick an averaged value between goal and last value
 				cl.motionbluralpha = bound(0, (cl.time - cl.oldtime) / max(0.001, r_motionblur_averaging.value), 1);
 				blur_average = blur_average * (1 - cl.motionbluralpha) + blur_factor * cl.motionbluralpha;
 
-				// enforce minimum amount of blur 
+				// enforce minimum amount of blur
 				blur_factor = blur_average * (1 - r_motionblur_minblur.value) + r_motionblur_minblur.value;
 
 				//Con_Printf("motionblur: direct factor: %f, averaged factor: %f, velocity: %f, mouse accel: %f \n", blur_factor, blur_average, blur_velocity, blur_mouseaccel);

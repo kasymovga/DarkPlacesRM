@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "hmac.h"
 #include "mdfour.h"
 #include <time.h>
+#include "random.h"
 
 #define QWMASTER_PORT 27000
 #define DPMASTER_PORT 27950
@@ -38,6 +39,19 @@ cvar_t sv_public_rejectreason = {0, "sv_public_rejectreason", "The server is clo
 static cvar_t sv_heartbeatperiod = {CVAR_SAVE, "sv_heartbeatperiod", "120", "how often to send heartbeat in seconds (only used if sv_public is 1)"};
 extern cvar_t sv_status_privacy;
 
+#ifdef VECXIS_RELEASE
+static cvar_t sv_masters [] =
+{
+	{CVAR_SAVE, "sv_master1", "", "user-chosen master server 1"},
+	{CVAR_SAVE, "sv_master2", "", "user-chosen master server 2"},
+	{CVAR_SAVE, "sv_master3", "", "user-chosen master server 3"},
+	{CVAR_SAVE, "sv_master4", "", "user-chosen master server 4"},
+	{0, "sv_masterextra1", "dpmaster1.vecxis.com", "Vecxis's master server 1 (admin: Player_2)"}, // admin: Player_2
+	{0, "sv_masterextra2", "dpmaster2.vecxis.com", "Vecxis's master server 2 (admin: Player_2)"}, // admin: Player_2
+	{0, "sv_masterextra3", "dpmaster3.vecxis.com", "Vecxis's master server 3 (admin: Player_2)"}, // admin: Player_2
+	{0, NULL, NULL, NULL}
+};
+#else
 static cvar_t sv_masters [] =
 {
 	{CVAR_SAVE, "sv_master1", "", "user-chosen master server 1"},
@@ -47,12 +61,15 @@ static cvar_t sv_masters [] =
 	{0, "sv_masterextra1", "69.59.212.88", "ghdigital.com - default master server 1 (admin: LordHavoc)"}, // admin: LordHavoc
 	{0, "sv_masterextra2", "107.161.23.68", "dpmaster.deathmask.net - default master server 2 (admin: Willis)"}, // admin: Willis
 	{0, "sv_masterextra3", "92.62.40.73", "dpmaster.tchr.no - default master server 3 (admin: tChr)"}, // admin: tChr
+	{0, "sv_masterextra4", "dpmaster.vecxis.com", "Vecxis's master server (admin: Player_2)"}, // admin: Player_2
+    {0, "sv_masterextra5", "91.121.161.160", "Nude Dudes master server (admins: Akari, J0k3r)"}, // admins: Akari, J0k3r
 #ifdef SUPPORTIPV6
-	{0, "sv_masterextra4", "[2a03:4000:2:225::51:334d]:27950", "dpmaster.sudo.rm-f.org - default master server 4 (admin: divVerent)"}, // admin: divVerent
-	{0, "sv_masterextra5", "[2604:180::4ac:98c1]:27950", "dpmaster.deathmask.net - default master server 5 ipv6 address of dpmaster.deathmask.net (admin: Willis)"}, // admin: Willis
+	{0, "sv_masterextra6", "[2a03:4000:2:225::51:334d]:27950", "dpmaster.sudo.rm-f.org - default master server 4 (admin: divVerent)"}, // admin: divVerent
+	{0, "sv_masterextra7", "[2604:180::4ac:98c1]:27950", "dpmaster.deathmask.net - default master server 5 ipv6 address of dpmaster.deathmask.net (admin: Willis)"}, // admin: Willis
 #endif
 	{0, NULL, NULL, NULL}
 };
+#endif
 
 #ifdef CONFIG_MENU
 static cvar_t sv_qwmasters [] =
@@ -625,7 +642,7 @@ int NetConn_Read(lhnetsocket_t *mysocket, void *data, int maxlength, lhnetaddres
 		return 0;
 	if (cl_netpacketloss_receive.integer)
 		for (i = 0;i < cl_numsockets;i++)
-			if (cl_sockets[i] == mysocket && (rand() % 100) < cl_netpacketloss_receive.integer)
+			if (cl_sockets[i] == mysocket && (xrand() % 100) < cl_netpacketloss_receive.integer)
 				return 0;
 	if (developer_networking.integer)
 	{
@@ -649,7 +666,7 @@ int NetConn_Write(lhnetsocket_t *mysocket, const void *data, int length, const l
 	int i;
 	if (cl_netpacketloss_send.integer)
 		for (i = 0;i < cl_numsockets;i++)
-			if (cl_sockets[i] == mysocket && (rand() % 100) < cl_netpacketloss_send.integer)
+			if (cl_sockets[i] == mysocket && (xrand() % 100) < cl_netpacketloss_send.integer)
 				return length;
 	if (mysocket->address.addresstype == LHNETADDRESSTYPE_LOOP && netconn_mutex)
 		Thread_LockMutex(netconn_mutex);
@@ -2446,7 +2463,7 @@ static void NetConn_BuildChallengeString(char *buffer, int bufferlength)
 	{
 		do
 		{
-			c = rand () % (127 - 33) + 33;
+			c = xrand () % (127 - 33) + 33;
 		} while (c == '\\' || c == ';' || c == '"' || c == '%' || c == '/');
 		buffer[i] = c;
 	}

@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "menu.h"
 #endif
 #include "cl_video.h"
+#include "random.h"
 
 const char *svc_strings[128] =
 {
@@ -227,7 +228,7 @@ static void CL_ParseStartSoundPacket(int largesoundindex)
 			attenuation = MSG_ReadByte(&cl_message) / 64.0;
 		else
 			attenuation = DEFAULT_SOUND_PACKET_ATTENUATION;
-	
+
 		speed = 1.0f;
 
 		ent = (channel>>3)&1023;
@@ -1089,22 +1090,34 @@ static void CL_BeginDownloads(qboolean aborteddownload)
 	{
 		size_t progsize;
 		cl.downloadcsqc = false;
-		if (cls.netcon
-		 && !sv.active
-		 && csqc_progname.string
-		 && csqc_progname.string[0]
-		 && csqc_progcrc.integer >= 0
-		 && cl_serverextension_download.integer
-		 && (FS_CRCFile(csqc_progname.string, &progsize) != csqc_progcrc.integer || ((int)progsize != csqc_progsize.integer && csqc_progsize.integer != -1))
-		 && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer)))
-		{
-			Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer);
-			if(cl_serverextension_download.integer == 2 && FS_HasZlib())
-				Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname.string));
-			else
-				Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname.string));
-			return;
-		}
+
+        if(cls.netcon && !sv.active && cl_serverextension_download.integer) {
+            if(csqc_progcrc_alt.integer >= 0) {
+                if(csqc_progname_alt.string && csqc_progname_alt.string[0]
+                    && (FS_CRCFile(csqc_progname_alt.string, &progsize) != csqc_progcrc_alt.integer || ((int)progsize != csqc_progsize_alt.integer && csqc_progsize_alt.integer != -1))
+                    && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname_alt.string, csqc_progsize_alt.integer, csqc_progcrc_alt.integer)))
+                {
+                    Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname_alt.string, csqc_progsize_alt.integer, csqc_progcrc_alt.integer);
+                    if(cl_serverextension_download.integer == 2 && FS_HasZlib())
+                        Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname_alt.string));
+                    else
+                        Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname_alt.string));
+                    return;
+                }
+            } else if(csqc_progname.string
+             && csqc_progname.string[0]
+             && csqc_progcrc.integer >= 0
+             && (FS_CRCFile(csqc_progname.string, &progsize) != csqc_progcrc.integer || ((int)progsize != csqc_progsize.integer && csqc_progsize.integer != -1))
+             && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer)))
+            {
+                Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer);
+                if(cl_serverextension_download.integer == 2 && FS_HasZlib())
+                    Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname.string));
+                else
+                    Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname.string));
+                return;
+            }
+        }
 	}
 
 	if (cl.loadmodel_current < cl.loadmodel_total)
@@ -1399,7 +1412,7 @@ static void CL_StopDownload(int size, int crc)
 			// save to disk only if we don't already have it
 			// (this is mainly for playing back demos)
 			existingcrc = FS_CRCFile(cls.qw_downloadname, &existingsize);
-			if (existingsize || IS_NEXUIZ_DERIVED(gamemode) || !strcmp(cls.qw_downloadname, csqc_progname.string))
+			if (existingsize || IS_NEXUIZ_DERIVED(gamemode) || !strcmp(cls.qw_downloadname, csqc_progname.string) || !strcmp(cls.qw_downloadname, csqc_progname_alt.string))
 				// let csprogs ALWAYS go to dlcache, to prevent "viral csprogs"; also, never put files outside dlcache for Nexuiz/Xonotic
 			{
 				if ((int)existingsize != size || existingcrc != crc)
@@ -1433,7 +1446,7 @@ static void CL_StopDownload(int size, int crc)
 				Con_Printf("Downloaded \"%s\" (%i bytes, %i CRC)\n", cls.qw_downloadname, size, crc);
 				FS_WriteFile(cls.qw_downloadname, cls.qw_downloadmemory, cls.qw_downloadmemorycursize);
 				extension = FS_FileExtension(cls.qw_downloadname);
-				if (!strcasecmp(extension, "pak") || !strcasecmp(extension, "pk3"))
+				if (!strcasecmp(extension, "pak") || !strcasecmp(extension, "pk3") || !strcasecmp(extension, "cgf"))
 					FS_Rescan();
 			}
 		}
@@ -2422,11 +2435,11 @@ static void CL_ParseTempEntity(void)
 			MSG_ReadVector(&cl_message, pos, cls.protocol);
 			CL_FindNonSolidLocation(pos, pos, 4);
 			CL_ParticleEffect(EFFECT_TE_SPIKE, 1, pos, pos, vec3_origin, vec3_origin, NULL, 0);
-			if (rand() % 5)
+			if (xrand() % 5)
 				S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 			else
 			{
-				rnd = rand() & 3;
+				rnd = xrand() & 3;
 				if (rnd == 1)
 					S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 				else if (rnd == 2)
@@ -2440,11 +2453,11 @@ static void CL_ParseTempEntity(void)
 			MSG_ReadVector(&cl_message, pos, cls.protocol);
 			CL_FindNonSolidLocation(pos, pos, 4);
 			CL_ParticleEffect(EFFECT_TE_SUPERSPIKE, 1, pos, pos, vec3_origin, vec3_origin, NULL, 0);
-			if (rand() % 5)
+			if (xrand() % 5)
 				S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 			else
 			{
-				rnd = rand() & 3;
+				rnd = xrand() & 3;
 				if (rnd == 1)
 					S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 				else if (rnd == 2)
@@ -2506,11 +2519,11 @@ static void CL_ParseTempEntity(void)
 			CL_ParticleEffect(EFFECT_TE_GUNSHOT, radius, pos, pos2, vec3_origin, vec3_origin, NULL, 0);
 			if(cl_sound_ric_gunshot.integer & RIC_GUNSHOT)
 			{
-				if (rand() % 5)
+				if (xrand() % 5)
 					S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 				else
 				{
-					rnd = rand() & 3;
+					rnd = xrand() & 3;
 					if (rnd == 1)
 						S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 					else if (rnd == 2)
@@ -2564,11 +2577,11 @@ static void CL_ParseTempEntity(void)
 			MSG_ReadVector(&cl_message, pos, cls.protocol);
 			CL_FindNonSolidLocation(pos, pos, 4);
 			CL_ParticleEffect(EFFECT_TE_SPIKE, 1, pos, pos, vec3_origin, vec3_origin, NULL, 0);
-			if (rand() % 5)
+			if (xrand() % 5)
 				S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 			else
 			{
-				rnd = rand() & 3;
+				rnd = xrand() & 3;
 				if (rnd == 1)
 					S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 				else if (rnd == 2)
@@ -2582,11 +2595,11 @@ static void CL_ParseTempEntity(void)
 			MSG_ReadVector(&cl_message, pos, cls.protocol);
 			CL_FindNonSolidLocation(pos, pos, 4);
 			CL_ParticleEffect(EFFECT_TE_SPIKEQUAD, 1, pos, pos, vec3_origin, vec3_origin, NULL, 0);
-			if (rand() % 5)
+			if (xrand() % 5)
 				S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 			else
 			{
-				rnd = rand() & 3;
+				rnd = xrand() & 3;
 				if (rnd == 1)
 					S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 				else if (rnd == 2)
@@ -2600,11 +2613,11 @@ static void CL_ParseTempEntity(void)
 			MSG_ReadVector(&cl_message, pos, cls.protocol);
 			CL_FindNonSolidLocation(pos, pos, 4);
 			CL_ParticleEffect(EFFECT_TE_SUPERSPIKE, 1, pos, pos, vec3_origin, vec3_origin, NULL, 0);
-			if (rand() % 5)
+			if (xrand() % 5)
 				S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 			else
 			{
-				rnd = rand() & 3;
+				rnd = xrand() & 3;
 				if (rnd == 1)
 					S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 				else if (rnd == 2)
@@ -2618,11 +2631,11 @@ static void CL_ParseTempEntity(void)
 			MSG_ReadVector(&cl_message, pos, cls.protocol);
 			CL_FindNonSolidLocation(pos, pos, 4);
 			CL_ParticleEffect(EFFECT_TE_SUPERSPIKEQUAD, 1, pos, pos, vec3_origin, vec3_origin, NULL, 0);
-			if (rand() % 5)
+			if (xrand() % 5)
 				S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 			else
 			{
-				rnd = rand() & 3;
+				rnd = xrand() & 3;
 				if (rnd == 1)
 					S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 				else if (rnd == 2)
@@ -2712,11 +2725,11 @@ static void CL_ParseTempEntity(void)
 			CL_ParticleEffect(EFFECT_TE_GUNSHOT, 1, pos, pos, vec3_origin, vec3_origin, NULL, 0);
 			if(cl_sound_ric_gunshot.integer & RIC_GUNSHOT)
 			{
-				if (rand() % 5)
+				if (xrand() % 5)
 					S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 				else
 				{
-					rnd = rand() & 3;
+					rnd = xrand() & 3;
 					if (rnd == 1)
 						S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 					else if (rnd == 2)
@@ -2734,11 +2747,11 @@ static void CL_ParseTempEntity(void)
 			CL_ParticleEffect(EFFECT_TE_GUNSHOTQUAD, 1, pos, pos, vec3_origin, vec3_origin, NULL, 0);
 			if(cl_sound_ric_gunshot.integer & RIC_GUNSHOTQUAD)
 			{
-				if (rand() % 5)
+				if (xrand() % 5)
 					S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 				else
 				{
-					rnd = rand() & 3;
+					rnd = xrand() & 3;
 					if (rnd == 1)
 						S_StartSound(-1, 0, cl.sfx_ric1, pos, 1, 1);
 					else if (rnd == 2)
@@ -2868,7 +2881,7 @@ static void CL_ParseTempEntity(void)
 			colorStart = MSG_ReadByte(&cl_message);
 			colorLength = MSG_ReadByte(&cl_message);
 			CL_ParticleExplosion2(pos, colorStart, colorLength);
-			tempcolor = palette_rgb[(rand()%colorLength) + colorStart];
+			tempcolor = palette_rgb[(xrand()%colorLength) + colorStart];
 			color[0] = tempcolor[0] * (2.0f / 255.0f);
 			color[1] = tempcolor[1] * (2.0f / 255.0f);
 			color[2] = tempcolor[2] * (2.0f / 255.0f);

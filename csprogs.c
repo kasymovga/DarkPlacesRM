@@ -562,9 +562,13 @@ void CL_VM_Parse_StuffCmd (const char *msg)
 		int sizeflags = csqc_progcrc.flags;
 		csqc_progcrc.flags &= ~CVAR_READONLY;
 		csqc_progsize.flags &= ~CVAR_READONLY;
+        csqc_progcrc_alt.flags &= ~CVAR_READONLY;
+        csqc_progsize_alt.flags &= ~CVAR_READONLY;
 		Cmd_ExecuteString (msg, src_command, true);
 		csqc_progcrc.flags = crcflags;
 		csqc_progsize.flags = sizeflags;
+        csqc_progcrc_alt.flags = crcflags;
+        csqc_progsize_alt.flags = sizeflags;
 		return;
 	}
 
@@ -982,7 +986,8 @@ extern cvar_t csqc_usedemoprogs;
 void CL_VM_Init (void)
 {
 	prvm_prog_t *prog = CLVM_prog;
-	const char* csprogsfn = NULL;
+    const char *csprogsname = NULL;
+	const char *csprogsfn = NULL;
 	unsigned char *csprogsdata = NULL;
 	fs_offset_t csprogsdatasize = 0;
 	int csprogsdatacrc, requiredcrc;
@@ -991,10 +996,22 @@ void CL_VM_Init (void)
 
 	// reset csqc_progcrc after reading it, so that changing servers doesn't
 	// expect csqc on the next server
-	requiredcrc = csqc_progcrc.integer;
-	requiredsize = csqc_progsize.integer;
+
+    requiredcrc = csqc_progcrc_alt.integer;
+
+    if(requiredcrc < 0) {
+    	requiredcrc = csqc_progcrc.integer;
+    	requiredsize = csqc_progsize.integer;
+        csprogsname = csqc_progname.string;
+    } else {
+        requiredsize = csqc_progsize_alt.integer;
+        csprogsname = csqc_progname_alt.string;
+    }
+
 	Cvar_SetValueQuick(&csqc_progcrc, -1);
 	Cvar_SetValueQuick(&csqc_progsize, -1);
+    Cvar_SetValueQuick(&csqc_progcrc_alt, -1);
+    Cvar_SetValueQuick(&csqc_progsize_alt, -1);
 
 	// if the server is not requesting a csprogs, then we're done here
 	if (requiredcrc < 0)
@@ -1003,7 +1020,7 @@ void CL_VM_Init (void)
 	// see if the requested csprogs.dat file matches the requested crc
 	if (!cls.demoplayback || csqc_usedemoprogs.integer)
 	{
-		csprogsfn = va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, requiredsize, requiredcrc);
+		csprogsfn = va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csprogsname, requiredsize, requiredcrc);
 		if(cls.caughtcsprogsdata && cls.caughtcsprogsdatasize == requiredsize && CRC_Block(cls.caughtcsprogsdata, (size_t)cls.caughtcsprogsdatasize) == requiredcrc)
 		{
 			Con_DPrintf("Using buffered \"%s\"\n", csprogsfn);
@@ -1020,7 +1037,7 @@ void CL_VM_Init (void)
 	}
 	if (!csprogsdata)
 	{
-		csprogsfn = csqc_progname.string;
+		csprogsfn = csprogsname;
 		csprogsdata = FS_LoadFile(csprogsfn, tempmempool, true, &csprogsdatasize);
 	}
 	if (csprogsdata)
@@ -1030,7 +1047,7 @@ void CL_VM_Init (void)
 		{
 			if (cls.demoplayback)
 			{
-				Con_Printf("^1Warning: Your %s is not the same version as the demo was recorded with (CRC/size are %i/%i but should be %i/%i)\n", csqc_progname.string, csprogsdatacrc, (int)csprogsdatasize, requiredcrc, requiredsize);
+				Con_Printf("^1Warning: Your %s is not the same version as the demo was recorded with (CRC/size are %i/%i but should be %i/%i)\n", csprogsname, csprogsdatacrc, (int)csprogsdatasize, requiredcrc, requiredsize);
 				// Mem_Free(csprogsdata);
 				// return;
 				// We WANT to continue here, and play the demo with different csprogs!
@@ -1039,7 +1056,7 @@ void CL_VM_Init (void)
 			else
 			{
 				Mem_Free(csprogsdata);
-				Con_Printf("^1Your %s is not the same version as the server (CRC is %i/%i but should be %i/%i)\n", csqc_progname.string, csprogsdatacrc, (int)csprogsdatasize, requiredcrc, requiredsize);
+				Con_Printf("^1Your %s is not the same version as the server (CRC is %i/%i but should be %i/%i)\n", csprogsname, csprogsdatacrc, (int)csprogsdatasize, requiredcrc, requiredsize);
 				CL_Disconnect();
 				return;
 			}
@@ -1050,9 +1067,9 @@ void CL_VM_Init (void)
 		if (requiredcrc >= 0)
 		{
 			if (cls.demoplayback)
-				Con_Printf("CL_VM_Init: demo requires CSQC, but \"%s\" wasn't found\n", csqc_progname.string);
+				Con_Printf("CL_VM_Init: demo requires CSQC, but \"%s\" wasn't found\n", csprogsname);
 			else
-				Con_Printf("CL_VM_Init: server requires CSQC, but \"%s\" wasn't found\n", csqc_progname.string);
+				Con_Printf("CL_VM_Init: server requires CSQC, but \"%s\" wasn't found\n", csprogsname);
 			CL_Disconnect();
 		}
 		return;
@@ -1061,7 +1078,7 @@ void CL_VM_Init (void)
 	PRVM_Prog_Init(prog);
 
 	// allocate the mempools
-	prog->progs_mempool = Mem_AllocPool(csqc_progname.string, 0, NULL);
+	prog->progs_mempool = Mem_AllocPool(csprogsname, 0, NULL);
 	prog->edictprivate_size = 0; // no private struct used
 	prog->name = "client";
 	prog->num_edicts = 1;
@@ -1113,7 +1130,7 @@ void CL_VM_Init (void)
 			i = 0;
 
 			CL_CutDemo(&demobuf, &demofilesize);
-			while(MakeDownloadPacket(csqc_progname.string, csprogsdata, (size_t)csprogsdatasize, csprogsdatacrc, i++, &sb, cls.protocol))
+			while(MakeDownloadPacket(csprogsname, csprogsdata, (size_t)csprogsdatasize, csprogsdatacrc, i++, &sb, cls.protocol))
 				CL_WriteDemoMessage(&sb);
 			CL_PasteDemo(&demobuf, &demofilesize);
 

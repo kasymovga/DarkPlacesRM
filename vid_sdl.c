@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "image.h"
 #include "dpsoftrast.h"
+#include "utf8lib.h"
 
 #ifndef __IPHONEOS__
 #ifdef MACOSX
@@ -66,7 +67,11 @@ int cl_available = true;
 qboolean vid_supportrefreshrate = false;
 
 static qboolean vid_usingmouse = false;
-static qboolean vid_usingmouse_relativeworks = false; // SDL2 workaround for unimplemented RelativeMouse mode
+/* 
+ * SDL2 workaround for unimplemented RelativeMouse mode
+ * defined with SDL_MOUSE_RELATIVE_DOES_NOT_SUCK at a later point
+ */
+static qboolean vid_usingmouse_relativeworks = false;
 static qboolean vid_usinghidecursor = false;
 static qboolean vid_hasfocus = false;
 static qboolean vid_isfullscreen;
@@ -100,6 +105,7 @@ static vid_mode_t desktop_mode;
 
 #ifndef SDLK_PERCENT
 #define SDLK_PERCENT '%'
+#if SDL_MAJOR_VERSION == 1
 #define SDLK_PRINTSCREEN SDLK_PRINT
 #define SDLK_SCROLLLOCK SDLK_SCROLLOCK
 #define SDLK_NUMLOCKCLEAR SDLK_NUMLOCK
@@ -113,6 +119,7 @@ static vid_mode_t desktop_mode;
 #define SDLK_KP_8 SDLK_KP8
 #define SDLK_KP_9 SDLK_KP9
 #define SDLK_KP_0 SDLK_KP0
+#endif
 #endif
 
 static int MapKey( unsigned int sdlkey )
@@ -203,10 +210,8 @@ static int MapKey( unsigned int sdlkey )
 	case SDLK_F10:                return K_F10;
 	case SDLK_F11:                return K_F11;
 	case SDLK_F12:                return K_F12;
-#if SDL_MAJOR_VERSION == 1
 	case SDLK_PRINTSCREEN:        return K_PRINTSCREEN;
 	case SDLK_SCROLLLOCK:         return K_SCROLLOCK;
-#endif
 	case SDLK_PAUSE:              return K_PAUSE;
 	case SDLK_INSERT:             return K_INS;
 	case SDLK_HOME:               return K_HOME;
@@ -222,27 +227,23 @@ static int MapKey( unsigned int sdlkey )
 	case SDLK_LEFT:               return K_LEFTARROW;
 	case SDLK_DOWN:               return K_DOWNARROW;
 	case SDLK_UP:                 return K_UPARROW;
-#if SDL_MAJOR_VERSION == 1
 	case SDLK_NUMLOCKCLEAR:       return K_NUMLOCK;
-#endif
 	case SDLK_KP_DIVIDE:          return K_KP_DIVIDE;
 	case SDLK_KP_MULTIPLY:        return K_KP_MULTIPLY;
 	case SDLK_KP_MINUS:           return K_KP_MINUS;
 	case SDLK_KP_PLUS:            return K_KP_PLUS;
 	case SDLK_KP_ENTER:           return K_KP_ENTER;
-#if SDL_MAJOR_VERSION == 1
-	case SDLK_KP_1:               return K_KP_1;
-	case SDLK_KP_2:               return K_KP_2;
-	case SDLK_KP_3:               return K_KP_3;
-	case SDLK_KP_4:               return K_KP_4;
+	case SDLK_KP_1:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_1 : K_END);
+	case SDLK_KP_2:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_2 : K_DOWNARROW);
+	case SDLK_KP_3:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_3 : K_PGDN);
+	case SDLK_KP_4:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_4 : K_LEFTARROW);
 	case SDLK_KP_5:               return K_KP_5;
-	case SDLK_KP_6:               return K_KP_6;
-	case SDLK_KP_7:               return K_KP_7;
-	case SDLK_KP_8:               return K_KP_8;
-	case SDLK_KP_9:               return K_KP_9;
-	case SDLK_KP_0:               return K_KP_0;
-#endif
-	case SDLK_KP_PERIOD:          return K_KP_PERIOD;
+	case SDLK_KP_6:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_6 : K_RIGHTARROW);
+	case SDLK_KP_7:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_7 : K_HOME);
+	case SDLK_KP_8:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_8 : K_UPARROW);
+	case SDLK_KP_9:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_9 : K_PGUP);
+	case SDLK_KP_0:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_0 : K_INS);
+	case SDLK_KP_PERIOD:          return ((SDL_GetModState() & KMOD_NUM) ? K_KP_PERIOD : K_DEL);
 //	case SDLK_APPLICATION:        return K_APPLICATION;
 //	case SDLK_POWER:              return K_POWER;
 	case SDLK_KP_EQUALS:          return K_KP_EQUALS;
@@ -423,8 +424,12 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 #if SDL_MAJOR_VERSION == 1
 		SDL_WM_GrabInput( relative ? SDL_GRAB_ON : SDL_GRAB_OFF );
 #else
+#ifdef SDL_MOUSE_RELATIVE_DOES_NOT_SUCK
 		vid_usingmouse_relativeworks = SDL_SetRelativeMouseMode(relative ? SDL_TRUE : SDL_FALSE) == 0;
-//		Con_Printf("VID_SetMouse(%i, %i, %i) relativeworks = %i\n", (int)fullscreengrab, (int)relative, (int)hidecursor, (int)vid_usingmouse_relativeworks);
+#else
+		vid_usingmouse_relativeworks = SDL_FALSE;
+#endif
+
 #endif
 #ifdef MACOSX
 		if(relative)
@@ -1001,7 +1006,7 @@ void IN_Move( void )
 	}
 	else
 	{
-		if (vid_usingmouse)
+		if (vid_usingmouse && vid_activewindow)
 		{
 			if (vid_stick_mouse.integer || !vid_usingmouse_relativeworks)
 			{
@@ -1071,11 +1076,15 @@ static keynum_t buttonremap[] =
 	K_MOUSE1,
 	K_MOUSE3,
 	K_MOUSE2,
+/*
+ * Mouse wheels are BUTTONS in SDL 1, they are NOT buttons in SDL2!
+ * Mapping them in sdl2 may or may not cause problems at some future date.
+ * Currently, mapping them is required to preserve button indices between SDL1 and SDL2 in Nexuiz and Vecxis.
+ */
 #if SDL_MAJOR_VERSION == 1
-	// TODO Find out how SDL maps these buttons. It looks like we should
-	// still include these for sdl2? At least the button indexes don't
-	// differ between SDL1 and SDL2 for me, thus this array should stay the
-	// same (in X11 button order).
+	K_MWHEELUP,
+	K_MWHEELDOWN,
+#else
 	K_MWHEELUP,
 	K_MWHEELDOWN,
 #endif
@@ -1113,7 +1122,16 @@ void Sys_SendKeyEvents( void )
 			case SDL_KEYUP:
 				keycode = MapKey(event.key.keysym.sym);
 				if (!VID_JoyBlockEmulatedKeys(keycode))
+				{
+					if(keycode == K_NUMLOCK || keycode == K_CAPSLOCK)
+					{
+						// simulate down followed by up
+						Key_Event(keycode, event.key.keysym.unicode, true);
+						Key_Event(keycode, event.key.keysym.unicode, false);
+						break;
+					}
 					Key_Event(keycode, event.key.keysym.unicode, (event.key.state == SDL_PRESSED));
+				}
 				break;
 			case SDL_ACTIVEEVENT:
 				if( event.active.state & SDL_APPACTIVE )
@@ -1207,9 +1225,8 @@ void Sys_SendKeyEvents( void )
 {
 	static qboolean sound_active = true;
 	int keycode;
-	int i;
-	int j;
-	int unicode;
+	int i, j;
+	Uchar unicode;
 	SDL_Event event;
 
 	VID_EnableJoystick(true);
@@ -1372,6 +1389,7 @@ void Sys_SendKeyEvents( void )
 						Key_Event(K_TEXT, unicode, false);
 					}
 				}
+
 				break;
 			case SDL_MOUSEMOTION:
 				break;
@@ -1943,6 +1961,7 @@ void GLES_Init(void)
 	vid.support.arb_draw_buffers = false;
 	vid.support.arb_multitexture = false;
 	vid.support.arb_occlusion_query = false;
+	vid.support.arb_query_buffer_object = false;
 	vid.support.arb_shadow = false;
 	vid.support.arb_texture_compression = false; // different (vendor-specific) formats than on desktop OpenGL...
 	vid.support.arb_texture_cube_map = SDL_GL_ExtensionSupported("GL_OES_texture_cube_map") != 0;
@@ -2176,8 +2195,12 @@ static SDL_Surface *VID_WrapSDL_SetVideoMode(int screenwidth, int screenheight, 
 }
 #else
 // Adding the OS independent XPM version --blub
+#ifdef VECXIS_RELEASE
+#include "vecxis.xpm"
+#else
 #include "darkplaces.xpm"
 #include "nexuiz.xpm"
+#endif
 #if SDL_MAJOR_VERSION == 1
 #if SDL_VIDEO_DRIVER_X11 && !SDL_VIDEO_DRIVER_QUARTZ
 #include <SDL_syswm.h>
@@ -2505,7 +2528,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 		desktop_mode.pixelheight_num = 1;
 		desktop_mode.pixelheight_denom = 1; // SDL does not provide this
 		if (mode->fullscreen) {
-			if (vid_desktopfullscreen.integer)
+			if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			{
 				mode->width = vi->current_w;
 				mode->height = vi->current_h;
@@ -2518,8 +2541,13 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 #else
 	{
 		if (mode->fullscreen) {
-			if (vid_desktopfullscreen.integer)
+			if (vid_desktopfullscreen.integer || sys_first_run.integer)
+			{
+				vid_mode_t *m = VID_GetDesktopMode();
+				mode->width = m->width;
+				mode->height = m->height;
 				windowflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+			}
 			else
 				windowflags |= SDL_WINDOW_FULLSCREEN;
 			vid_isfullscreen = true;
@@ -2670,7 +2698,7 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 		mode->bitsperpixel = vi->vfmt->BitsPerPixel;
 		flags |= SDL_FULLSCREEN;
 #else
-		if (vid_desktopfullscreen.integer)
+		if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			windowflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		else
 			windowflags |= SDL_WINDOW_FULLSCREEN;
@@ -2855,6 +2883,7 @@ void VID_Finish (void)
 	vid_usevsync = (vid_vsync.integer && !cls.timedemo);
 	if (vid_usingvsync != vid_usevsync)
 	{
+		vid_usingvsync = vid_usevsync;
 		if (SDL_GL_SetSwapInterval(vid_usevsync != 0) >= 0)
 			Con_DPrintf("Vsync %s\n", vid_usevsync ? "activated" : "deactivated");
 		else
@@ -2921,8 +2950,13 @@ size_t VID_ListModes(vid_mode_t *modes, size_t maxcount)
 #if SDL_MAJOR_VERSION == 1
 	SDL_Rect **vidmodes;
 	int bpp = SDL_GetVideoInfo()->vfmt->BitsPerPixel;
+#ifdef WIN64
+	SDL_Rect **ENDRECT = (SDL_Rect**)-1LL;
+#else
+	SDL_Rect **ENDRECT = (SDL_Rect**)-1;
+#endif
 
-	for(vidmodes = SDL_ListModes(NULL, SDL_FULLSCREEN|SDL_HWSURFACE); vidmodes && vidmodes != (SDL_Rect**)(-1) && *vidmodes; ++vidmodes)
+	for(vidmodes = SDL_ListModes(NULL, SDL_FULLSCREEN|SDL_HWSURFACE); vidmodes && vidmodes != ENDRECT && *vidmodes; ++vidmodes)
 	{
 		if(k >= maxcount)
 			break;
