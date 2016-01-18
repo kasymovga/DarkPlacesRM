@@ -163,7 +163,7 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 		CFLAGS_MAKEDEP=
 	endif
 
-	DP_LINK_ZLIB?=shared
+	DP_LINK_ZLIB?=dlopen
 	DP_LINK_JPEG?=dlopen
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
@@ -323,7 +323,7 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	endif
 	
 	DP_LINK_ZLIB?=dlopen
-	DP_LINK_JPEG?=shared
+	DP_LINK_JPEG?=dlopen
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
