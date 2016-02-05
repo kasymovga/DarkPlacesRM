@@ -3265,7 +3265,7 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 					matrix4x4_t temp_matrix2;
 					matrix4x4_t temp_matrix3;
 					temp_matrix1 = temp_matrix;
-					Matrix4x4_FromArray12FloatD3D(&temp_matrix2, model->data_baseboneposeinverse + (12*loadmodel->data_bones[transformindex].parent));
+					Matrix4x4_FromArray12FloatD3D(&temp_matrix2, model->data_baseboneposeinverse + (12*model->data_bones[transformindex].parent));
 					Matrix4x4_Invert_Simple(&temp_matrix3, &temp_matrix2);
 					Matrix4x4_Concat(&temp_matrix, &temp_matrix1, &temp_matrix3);
 				}
