@@ -252,7 +252,7 @@ static void CSQC_SetGlobals (double frametime)
 		VectorCopy(cl.punchvector, PRVM_clientglobalvector(view_punchvector));
 		PRVM_clientglobalfloat(maxclients) = cl.maxclients;
 
-        if(IS_OLDNEXUIZ_DERIVED(gamemode))
+        if(!IS_OLDNEXUIZ_DERIVED(gamemode))
             PRVM_clientglobalfloat(player_localentnum) = cl.viewentity;
 
 		CSQC_R_RecalcView();
