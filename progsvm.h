@@ -530,7 +530,6 @@ typedef struct prvm_prog_s
 {
 	double				starttime; // system time when PRVM_Prog_Load was called
 	double				profiletime; // system time when last PRVM_CallProfile was called (or PRVM_Prog_Load initially)
-	unsigned int		id; // increasing unique id of progs instance
 	mfunction_t			*functions;
 	char				*strings;
 	int					stringssize;
@@ -673,6 +672,8 @@ typedef struct prvm_prog_s
 
 	// printed together with backtraces
 	const char *statestring;
+
+	struct animatemodel_cache *animatemodel_cache;
 
 //	prvm_builtin_mem_t  *mem_list;
 
