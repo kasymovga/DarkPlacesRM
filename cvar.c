@@ -288,6 +288,20 @@ void Cvar_CompleteCvarPrint (const char *partial)
 			Con_Printf ("^3%s^7 is \"%s\" [\"%s\"] %s\n", cvar->name, cvar->string, cvar->defstring, cvar->description);
 }
 
+// check if a cvar is held by some progs
+static qboolean Cvar_IsAutoCvar(cvar_t *var)
+{
+	int i;
+	prvm_prog_t *prog;
+	for (i = 0;i < PRVM_PROG_MAX;i++)
+	{
+		prog = &prvm_prog_list[i];
+		if (prog->loaded && var->globaldefindex_progid[i] == prog->id && var->globaldefindex[i] >= 0)
+			return true;
+	}
+	return false;
+}
+
 // we assume that prog is already set to the target progs
 static void Cvar_UpdateAutoCvar(cvar_t *var)
 {
@@ -299,7 +313,7 @@ static void Cvar_UpdateAutoCvar(cvar_t *var)
 	for (i = 0;i < PRVM_PROG_MAX;i++)
 	{
 		prog = &prvm_prog_list[i];
-		if (prog->loaded && var->globaldefindex_progid[i] == prog->id)
+		if (prog->loaded && var->globaldefindex_progid[i] == prog->id && var->globaldefindex[i] >= 0)
 		{
 			// MUST BE SYNCED WITH prvm_edict.c PRVM_LoadProgs
 			switch(prog->globaldefs[var->globaldefindex[i]].type & ~DEF_SAVEGLOBAL)
