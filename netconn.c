@@ -97,7 +97,7 @@ char cl_readstring[MAX_INPUTLINE];
 char sv_readstring[MAX_INPUTLINE];
 
 cvar_t net_test = {0, "net_test", "0", "internal development use only, leave it alone (usually does nothing anyway)"};
-cvar_t net_usesizelimit = {0, "net_usesizelimit", "2", "use packet size limiting (0: never, 1: in non-CSQC mode, 2: always)"};
+cvar_t net_usesizelimit = {0, "net_usesizelimit", "1", "use packet size limiting (0: never, 1: in non-CSQC mode, 2: always)"};
 cvar_t net_burstreserve = {0, "net_burstreserve", "0.3", "how much of the burst time to reserve for packet size spikes"};
 cvar_t net_messagetimeout = {0, "net_messagetimeout","300", "drops players who have not sent any packets for this many seconds"};
 cvar_t net_connecttimeout = {0, "net_connecttimeout","15", "after requesting a connection, the client must reply within this many seconds or be dropped (cuts down on connect floods). Must be above 10 seconds."};
