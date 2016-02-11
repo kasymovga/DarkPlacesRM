@@ -63,13 +63,15 @@ static cvar_t sv_masters [] =
 	{0, "sv_masterextra3", "92.62.40.73", "dpmaster.tchr.no - default master server 3 (admin: tChr)"}, // admin: tChr
 	{0, "sv_masterextra4", "dpmaster.vecxis.com", "Vecxis's master server (admin: Player_2)"}, // admin: Player_2
     {0, "sv_masterextra5", "91.121.161.160", "Nude Dudes master server (admins: Akari, J0k3r)"}, // admins: Akari, J0k3r
-#ifdef SUPPORTIPV6
-	{0, "sv_masterextra6", "[2a03:4000:1::2e26:f351:3]:27950", "dpmaster.sudo.rm-f.org - default master server 4 (admin: divVerent)"}, // admin: divVerent
+#ifndef NOSUPPORTIPV6
+	{0, "sv_masterextra6", "[2a03:4000:2:225::51:334d]:27950", "dpmaster.sudo.rm-f.org - default master server 4 (admin: divVerent)"}, // admin: divVerent
+	{0, "sv_masterextra7", "[2604:180::4ac:98c1]:27950", "dpmaster.deathmask.net - default master server 5 ipv6 address of dpmaster.deathmask.net (admin: Willis)"}, // admin: Willis
 #endif
 	{0, NULL, NULL, NULL}
 };
 #endif
 
+#ifdef CONFIG_MENU
 static cvar_t sv_qwmasters [] =
 {
 	{CVAR_SAVE, "sv_qwmaster1", "", "user-chosen qwmaster server 1"},
@@ -83,6 +85,7 @@ static cvar_t sv_qwmasters [] =
 	{0, "sv_qwmasterextra5", "qwmaster.fodquake.net:27000", "Global master server. (admin: unknown)"},
 	{0, NULL, NULL, NULL}
 };
+#endif
 
 static double nextheartbeattime = 0;
 
@@ -93,6 +96,9 @@ static unsigned char sv_message_buf[NET_MAXMESSAGE];
 char cl_readstring[MAX_INPUTLINE];
 char sv_readstring[MAX_INPUTLINE];
 
+cvar_t net_test = {0, "net_test", "0", "internal development use only, leave it alone (usually does nothing anyway)"};
+cvar_t net_usesizelimit = {0, "net_usesizelimit", "1", "use packet size limiting (0: never, 1: in non-CSQC mode, 2: always)"};
+cvar_t net_burstreserve = {0, "net_burstreserve", "0.3", "how much of the burst time to reserve for packet size spikes"};
 cvar_t net_messagetimeout = {0, "net_messagetimeout","300", "drops players who have not sent any packets for this many seconds"};
 cvar_t net_connecttimeout = {0, "net_connecttimeout","15", "after requesting a connection, the client must reply within this many seconds or be dropped (cuts down on connect floods). Must be above 10 seconds."};
 cvar_t net_connectfloodblockingtimeout = {0, "net_connectfloodblockingtimeout", "5", "when a connection packet is received, it will block all future connect packets from that IP address for this many seconds (cuts down on connect floods). Note that this does not include retries from the same IP; these are handled earlier and let in."};
@@ -110,6 +116,7 @@ static cvar_t net_slist_timeout = {0, "net_slist_timeout", "4", "how long to lis
 static cvar_t net_slist_pause = {0, "net_slist_pause", "0", "when set to 1, the server list won't update until it is set back to 0"};
 static cvar_t net_slist_maxtries = {0, "net_slist_maxtries", "3", "how many times to ask the same server for information (more times gives better ping reports but takes longer)"};
 static cvar_t net_slist_favorites = {CVAR_SAVE | CVAR_NQUSERINFOHACK, "net_slist_favorites", "", "contains a list of IP addresses and ports to always query explicitly"};
+static cvar_t net_tos_dscp = {CVAR_SAVE, "net_tos_dscp", "32", "DiffServ Codepoint for network sockets (may need game restart to apply)"};
 static cvar_t gameversion = {0, "gameversion", "0", "version of game data (mod-specific) to be sent to querying clients"};
 static cvar_t gameversion_min = {0, "gameversion_min", "-1", "minimum version of game data (mod-specific), when client and server gameversion mismatch in the server browser the server is shown as incompatible; if -1, gameversion is used alone"};
 static cvar_t gameversion_max = {0, "gameversion_max", "-1", "maximum version of game data (mod-specific), when client and server gameversion mismatch in the server browser the server is shown as incompatible; if -1, gameversion is used alone"};
@@ -127,6 +134,7 @@ int serverreplycount = 0;
 
 challenge_t challenge[MAX_CHALLENGES];
 
+#ifdef CONFIG_MENU
 /// this is only false if there are still servers left to query
 static qboolean serverlist_querysleep = true;
 static qboolean serverlist_paused = false;
@@ -134,6 +142,7 @@ static qboolean serverlist_paused = false;
 /// reply is received, to avoid issuing queries while master replies are still
 /// flooding in (which would make a mess of the ping times)
 static double serverlist_querywaittime = 0;
+#endif
 
 static int cl_numsockets;
 static lhnetsocket_t *cl_sockets[16];
@@ -157,6 +166,7 @@ char sv_net_extresponse[NET_EXTRESPONSE_MAX][1400];
 int sv_net_extresponse_count = 0;
 int sv_net_extresponse_last = 0;
 
+#ifdef CONFIG_MENU
 // ServerList interface
 serverlist_mask_t serverlist_andmasks[SERVERLIST_ANDMASKCOUNT];
 serverlist_mask_t serverlist_ormasks[SERVERLIST_ORMASKCOUNT];
@@ -231,12 +241,19 @@ static qboolean _ServerList_Entry_Compare( serverlist_entry_t *A, serverlist_ent
 {
 	int result = 0; // > 0 if for numbers A > B and for text if A < B
 
-	if( serverlist_sortflags & SLSF_FAVORITESFIRST )
+	if( serverlist_sortflags & SLSF_CATEGORIES )
+	{
+		result = A->info.category - B->info.category;
+		if (result != 0)
+			return result < 0;
+	}
+
+	if( serverlist_sortflags & SLSF_FAVORITES )
 	{
 		if(A->info.isfavorite != B->info.isfavorite)
 			return A->info.isfavorite;
 	}
-
+	
 	switch( serverlist_sortbyfield ) {
 		case SLIF_PING:
 			result = A->info.ping - B->info.ping;
@@ -276,6 +293,9 @@ static qboolean _ServerList_Entry_Compare( serverlist_entry_t *A, serverlist_ent
 			break;
 		case SLIF_QCSTATUS:
 			result = strcasecmp( B->info.qcstatus, A->info.qcstatus ); // not really THAT useful, though
+			break;
+		case SLIF_CATEGORY:
+			result = A->info.category - B->info.category;
 			break;
 		case SLIF_ISFAVORITE:
 			result = !!B->info.isfavorite - !!A->info.isfavorite;
@@ -404,6 +424,8 @@ static qboolean _ServerList_Entry_Mask( serverlist_mask_t *mask, serverlist_info
 	if( *mask->info.players
 		&& !_ServerList_CompareStr( info->players, mask->tests[SLIF_PLAYERS], mask->info.players ) )
 		return false;
+	if( !_ServerList_CompareInt( info->category, mask->tests[SLIF_CATEGORY], mask->info.category ) )
+		return false;
 	if( !_ServerList_CompareInt( info->isfavorite, mask->tests[SLIF_ISFAVORITE], mask->info.isfavorite ))
 		return false;
 	return true;
@@ -440,7 +462,7 @@ static void ServerList_ViewList_Insert( serverlist_entry_t *entry )
 				break;
 			}
 		}
-		if(Crypto_RetrieveHostKey(&addr, 0, NULL, 0, idfp, sizeof(idfp), NULL))
+		if(Crypto_RetrieveHostKey(&addr, 0, NULL, 0, idfp, sizeof(idfp), NULL, NULL))
 		{
 			for(i = 0; i < nFavorites_idfp; ++i)
 			{
@@ -452,6 +474,9 @@ static void ServerList_ViewList_Insert( serverlist_entry_t *entry )
 			}
 		}
 	}
+
+	// refresh the "category"
+	entry->info.category = MR_GetServerListEntryCategory(entry);
 
 	// FIXME: change this to be more readable (...)
 	// now check whether it passes through the masks
@@ -600,6 +625,7 @@ void ServerList_QueryList(qboolean resetcache, qboolean querydp, qboolean queryq
 
 	NetConn_QueryMasters(querydp, queryqw);
 }
+#endif
 
 // rest
 
@@ -671,6 +697,7 @@ qboolean NetConn_CanSend(netconn_t *conn)
 	conn->outgoing_netgraph[conn->outgoing_packetcounter].unreliablebytes = NETGRAPH_NOPACKET;
 	conn->outgoing_netgraph[conn->outgoing_packetcounter].reliablebytes   = NETGRAPH_NOPACKET;
 	conn->outgoing_netgraph[conn->outgoing_packetcounter].ackbytes        = NETGRAPH_NOPACKET;
+	conn->outgoing_netgraph[conn->outgoing_packetcounter].cleartime       = conn->cleartime;
 	if (realtime > conn->cleartime)
 		return true;
 	else
@@ -680,7 +707,45 @@ qboolean NetConn_CanSend(netconn_t *conn)
 	}
 }
 
-int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolversion_t protocol, int rate, qboolean quakesignon_suppressreliables)
+static void NetConn_UpdateCleartime(double *cleartime, int rate, int burstsize, int len)
+{
+	double bursttime = burstsize / (double)rate;
+
+	// delay later packets to obey rate limit
+	if (*cleartime < realtime - bursttime)
+		*cleartime = realtime - bursttime;
+	*cleartime = *cleartime + len / (double)rate;
+
+	// limit bursts to one packet in size ("dialup mode" emulating old behaviour)
+	if (net_test.integer)
+	{
+		if (*cleartime < realtime)
+			*cleartime = realtime;
+	}
+}
+
+static int NetConn_AddCryptoFlag(crypto_t *crypto)
+{
+	// HACK: if an encrypted connection is used, randomly set some unused
+	// flags. When AES encryption is enabled, that will make resends differ
+	// from the original, so that e.g. substring filters in a router/IPS
+	// are unlikely to match a second time. See also "startkeylogger".
+	int flag = 0;
+	if (crypto->authenticated)
+	{
+		// Let's always set at least one of the bits.
+		int r = rand() % 7 + 1;
+		if (r & 1)
+			flag |= NETFLAG_CRYPTO0;
+		if (r & 2)
+			flag |= NETFLAG_CRYPTO1;
+		if (r & 4)
+			flag |= NETFLAG_CRYPTO2;
+	}
+	return flag;
+}
+
+int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolversion_t protocol, int rate, int burstsize, qboolean quakesignon_suppressreliables)
 {
 	int totallen = 0;
 	unsigned char sendbuffer[NET_HEADERSIZE+NET_MAXMESSAGE];
@@ -691,6 +756,8 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 	// (this mostly happens on level changes and disconnects and such)
 	if (conn->outgoing_netgraph[conn->outgoing_packetcounter].unreliablebytes == NETGRAPH_CHOKEDPACKET)
 		conn->outgoing_netgraph[conn->outgoing_packetcounter].unreliablebytes = NETGRAPH_NOPACKET;
+
+	conn->outgoing_netgraph[conn->outgoing_packetcounter].cleartime = conn->cleartime;
 
 	if (protocol == PROTOCOL_QUAKEWORLD)
 	{
@@ -714,9 +781,9 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 			sendreliable = true;
 		}
 		// outgoing unreliable packet number, and outgoing reliable packet number (0 or 1)
-		StoreLittleLong(sendbuffer, (unsigned int)conn->outgoing_unreliable_sequence | ((unsigned int)sendreliable<<31));
+		StoreLittleLong(sendbuffer, conn->outgoing_unreliable_sequence | (((unsigned int)sendreliable)<<31));
 		// last received unreliable packet number, and last received reliable packet number (0 or 1)
-		StoreLittleLong(sendbuffer + 4, (unsigned int)conn->qw.incoming_sequence | ((unsigned int)conn->qw.incoming_reliable_sequence<<31));
+		StoreLittleLong(sendbuffer + 4, conn->qw.incoming_sequence | (((unsigned int)conn->qw.incoming_reliable_sequence)<<31));
 		packetLen = 8;
 		conn->outgoing_unreliable_sequence++;
 		// client sends qport in every packet
@@ -783,20 +850,20 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 
 			packetLen = NET_HEADERSIZE + dataLen;
 
-			StoreBigLong(sendbuffer, packetLen | (NETFLAG_DATA | eom));
+			StoreBigLong(sendbuffer, packetLen | (NETFLAG_DATA | eom | NetConn_AddCryptoFlag(&conn->crypto)));
 			StoreBigLong(sendbuffer + 4, conn->nq.sendSequence - 1);
 			memcpy(sendbuffer + NET_HEADERSIZE, conn->sendMessage, dataLen);
 
 			conn->outgoing_netgraph[conn->outgoing_packetcounter].reliablebytes += packetLen + 28;
 
 			sendme = Crypto_EncryptPacket(&conn->crypto, &sendbuffer, packetLen, &cryptosendbuffer, &sendmelen, sizeof(cryptosendbuffer));
-			if (sendme && NetConn_Write(conn->mysocket, sendme, sendmelen, &conn->peeraddress) == (int)sendmelen)
+			if (sendme && NetConn_Write(conn->mysocket, sendme, (int)sendmelen, &conn->peeraddress) == (int)sendmelen)
 			{
 				conn->lastSendTime = realtime;
 				conn->packetsReSent++;
 			}
 
-			totallen += sendmelen + 28;
+			totallen += (int)sendmelen + 28;
 		}
 
 		// if we have a new reliable message to send, do so
@@ -832,7 +899,7 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 
 			packetLen = NET_HEADERSIZE + dataLen;
 
-			StoreBigLong(sendbuffer, packetLen | (NETFLAG_DATA | eom));
+			StoreBigLong(sendbuffer, packetLen | (NETFLAG_DATA | eom | NetConn_AddCryptoFlag(&conn->crypto)));
 			StoreBigLong(sendbuffer + 4, conn->nq.sendSequence);
 			memcpy(sendbuffer + NET_HEADERSIZE, conn->sendMessage, dataLen);
 
@@ -842,13 +909,13 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 
 			sendme = Crypto_EncryptPacket(&conn->crypto, &sendbuffer, packetLen, &cryptosendbuffer, &sendmelen, sizeof(cryptosendbuffer));
 			if(sendme)
-				NetConn_Write(conn->mysocket, sendme, sendmelen, &conn->peeraddress);
+				NetConn_Write(conn->mysocket, sendme, (int)sendmelen, &conn->peeraddress);
 
 			conn->lastSendTime = realtime;
 			conn->packetsSent++;
 			conn->reliableMessagesSent++;
 
-			totallen += sendmelen + 28;
+			totallen += (int)sendmelen + 28;
 		}
 
 		// if we have an unreliable message to send, do so
@@ -862,7 +929,7 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 				return -1;
 			}
 
-			StoreBigLong(sendbuffer, packetLen | NETFLAG_UNRELIABLE);
+			StoreBigLong(sendbuffer, packetLen | NETFLAG_UNRELIABLE | NetConn_AddCryptoFlag(&conn->crypto));
 			StoreBigLong(sendbuffer + 4, conn->outgoing_unreliable_sequence);
 			memcpy(sendbuffer + NET_HEADERSIZE, data->data, data->cursize);
 
@@ -872,21 +939,16 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 
 			sendme = Crypto_EncryptPacket(&conn->crypto, &sendbuffer, packetLen, &cryptosendbuffer, &sendmelen, sizeof(cryptosendbuffer));
 			if(sendme)
-				NetConn_Write(conn->mysocket, sendme, sendmelen, &conn->peeraddress);
+				NetConn_Write(conn->mysocket, sendme, (int)sendmelen, &conn->peeraddress);
 
 			conn->packetsSent++;
 			conn->unreliableMessagesSent++;
 
-			totallen += sendmelen + 28;
+			totallen += (int)sendmelen + 28;
 		}
 	}
 
-	// delay later packets to obey rate limit
-	if (conn->cleartime < realtime - 0.1)
-		conn->cleartime = realtime - 0.1;
-	conn->cleartime = conn->cleartime + (double)totallen / (double)rate;
-	if (conn->cleartime < realtime)
-		conn->cleartime = realtime;
+	NetConn_UpdateCleartime(&conn->cleartime, rate, burstsize, totallen);
 
 	return 0;
 }
@@ -955,7 +1017,7 @@ void NetConn_OpenClientPorts(void)
 		Con_Printf("Client using port %i\n", port);
 	NetConn_OpenClientPort(NULL, LHNETADDRESSTYPE_LOOP, 2);
 	NetConn_OpenClientPort(net_address.string, LHNETADDRESSTYPE_INET4, port);
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 	NetConn_OpenClientPort(net_address_ipv6.string, LHNETADDRESSTYPE_INET6, port);
 #endif
 }
@@ -1027,7 +1089,7 @@ void NetConn_OpenServerPorts(int opennetports)
 		NetConn_OpenServerPort(NULL, LHNETADDRESSTYPE_LOOP, 1, 1);
 	if (opennetports)
 	{
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 		qboolean ip4success = NetConn_OpenServerPort(net_address.string, LHNETADDRESSTYPE_INET4, port, 100);
 		NetConn_OpenServerPort(net_address_ipv6.string, LHNETADDRESSTYPE_INET6, port, ip4success ? 1 : 100);
 #else
@@ -1111,6 +1173,9 @@ void NetConn_UpdateSockets(void)
 {
 	int i, j;
 
+	// TODO add logic to automatically close sockets if needed
+	LHNET_DefaultDSCP(net_tos_dscp.integer);
+
 	if (cls.state != ca_dedicated)
 	{
 		if (clientport2 != cl_netport.integer)
@@ -1155,7 +1220,7 @@ void NetConn_UpdateSockets(void)
 
 static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, size_t length, protocolversion_t protocol, double newtimeout)
 {
-	int originallength = length;
+	int originallength = (int)length;
 	unsigned char sendbuffer[NET_HEADERSIZE+NET_MAXMESSAGE];
 	unsigned char cryptosendbuffer[NET_HEADERSIZE+NET_MAXMESSAGE+CRYPTO_HEADERSIZE];
 	unsigned char cryptoreadbuffer[NET_HEADERSIZE+NET_MAXMESSAGE+CRYPTO_HEADERSIZE];
@@ -1164,8 +1229,8 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 
 	if (protocol == PROTOCOL_QUAKEWORLD)
 	{
-		int sequence, sequence_ack;
-		int reliable_ack, reliable_message;
+		unsigned int sequence, sequence_ack;
+		qboolean reliable_ack, reliable_message;
 		int count;
 		//int qport;
 
@@ -1186,8 +1251,8 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 		}
 
 		conn->packetsReceived++;
-		reliable_message = (sequence >> 31) & 1;
-		reliable_ack = (sequence_ack >> 31) & 1;
+		reliable_message = (sequence >> 31) != 0;
+		reliable_ack = (sequence_ack >> 31) != 0;
 		sequence &= ~(1<<31);
 		sequence_ack &= ~(1<<31);
 		if (sequence <= conn->qw.incoming_sequence)
@@ -1200,10 +1265,17 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 		{
 			conn->droppedDatagrams += count;
 			//Con_DPrintf("Dropped %u datagram(s)\n", count);
+			// If too may packets have been dropped, only write the
+			// last NETGRAPH_PACKETS ones to the netgraph. Why?
+			// Because there's no point in writing more than
+			// these as the netgraph is going to be full anyway.
+			if (count > NETGRAPH_PACKETS)
+				count = NETGRAPH_PACKETS;
 			while (count--)
 			{
 				conn->incoming_packetcounter = (conn->incoming_packetcounter + 1) % NETGRAPH_PACKETS;
 				conn->incoming_netgraph[conn->incoming_packetcounter].time            = realtime;
+				conn->incoming_netgraph[conn->incoming_packetcounter].cleartime       = conn->incoming_cleartime;
 				conn->incoming_netgraph[conn->incoming_packetcounter].unreliablebytes = NETGRAPH_LOSTPACKET;
 				conn->incoming_netgraph[conn->incoming_packetcounter].reliablebytes   = NETGRAPH_NOPACKET;
 				conn->incoming_netgraph[conn->incoming_packetcounter].ackbytes        = NETGRAPH_NOPACKET;
@@ -1211,9 +1283,19 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 		}
 		conn->incoming_packetcounter = (conn->incoming_packetcounter + 1) % NETGRAPH_PACKETS;
 		conn->incoming_netgraph[conn->incoming_packetcounter].time            = realtime;
+		conn->incoming_netgraph[conn->incoming_packetcounter].cleartime       = conn->incoming_cleartime;
 		conn->incoming_netgraph[conn->incoming_packetcounter].unreliablebytes = originallength + 28;
 		conn->incoming_netgraph[conn->incoming_packetcounter].reliablebytes   = NETGRAPH_NOPACKET;
 		conn->incoming_netgraph[conn->incoming_packetcounter].ackbytes        = NETGRAPH_NOPACKET;
+		NetConn_UpdateCleartime(&conn->incoming_cleartime, cl_rate.integer, cl_rate_burstsize.integer, originallength + 28);
+
+		// limit bursts to one packet in size ("dialup mode" emulating old behaviour)
+		if (net_test.integer)
+		{
+			if (conn->cleartime < realtime)
+				conn->cleartime = realtime;
+		}
+
 		if (reliable_ack == conn->qw.reliable_sequence)
 		{
 			// received, now we will be able to send another reliable message
@@ -1233,13 +1315,13 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 		if (conn == cls.netcon)
 		{
 			SZ_Clear(&cl_message);
-			SZ_Write(&cl_message, data, length);
+			SZ_Write(&cl_message, data, (int)length);
 			MSG_BeginReading(&cl_message);
 		}
 		else
 		{
 			SZ_Clear(&sv_message);
-			SZ_Write(&sv_message, data, length);
+			SZ_Write(&sv_message, data, (int)length);
 			MSG_BeginReading(&sv_message);
 		}
 		return 2;
@@ -1253,7 +1335,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 		const void *sendme;
 		size_t sendmelen;
 
-		originallength = length;
+		originallength = (int)length;
 		data = (const unsigned char *) Crypto_DecryptPacket(&conn->crypto, data, length, cryptoreadbuffer, &length, sizeof(cryptoreadbuffer));
 		if(!data)
 			return 0;
@@ -1279,10 +1361,17 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 						count = sequence - conn->nq.unreliableReceiveSequence;
 						conn->droppedDatagrams += count;
 						//Con_DPrintf("Dropped %u datagram(s)\n", count);
+						// If too may packets have been dropped, only write the
+						// last NETGRAPH_PACKETS ones to the netgraph. Why?
+						// Because there's no point in writing more than
+						// these as the netgraph is going to be full anyway.
+						if (count > NETGRAPH_PACKETS)
+							count = NETGRAPH_PACKETS;
 						while (count--)
 						{
 							conn->incoming_packetcounter = (conn->incoming_packetcounter + 1) % NETGRAPH_PACKETS;
 							conn->incoming_netgraph[conn->incoming_packetcounter].time            = realtime;
+							conn->incoming_netgraph[conn->incoming_packetcounter].cleartime       = conn->incoming_cleartime;
 							conn->incoming_netgraph[conn->incoming_packetcounter].unreliablebytes = NETGRAPH_LOSTPACKET;
 							conn->incoming_netgraph[conn->incoming_packetcounter].reliablebytes   = NETGRAPH_NOPACKET;
 							conn->incoming_netgraph[conn->incoming_packetcounter].ackbytes        = NETGRAPH_NOPACKET;
@@ -1290,9 +1379,12 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 					}
 					conn->incoming_packetcounter = (conn->incoming_packetcounter + 1) % NETGRAPH_PACKETS;
 					conn->incoming_netgraph[conn->incoming_packetcounter].time            = realtime;
+					conn->incoming_netgraph[conn->incoming_packetcounter].cleartime       = conn->incoming_cleartime;
 					conn->incoming_netgraph[conn->incoming_packetcounter].unreliablebytes = originallength + 28;
 					conn->incoming_netgraph[conn->incoming_packetcounter].reliablebytes   = NETGRAPH_NOPACKET;
 					conn->incoming_netgraph[conn->incoming_packetcounter].ackbytes        = NETGRAPH_NOPACKET;
+					NetConn_UpdateCleartime(&conn->incoming_cleartime, cl_rate.integer, cl_rate_burstsize.integer, originallength + 28);
+
 					conn->nq.unreliableReceiveSequence = sequence + 1;
 					conn->lastMessageTime = realtime;
 					conn->timeout = realtime + newtimeout;
@@ -1302,13 +1394,13 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 						if (conn == cls.netcon)
 						{
 							SZ_Clear(&cl_message);
-							SZ_Write(&cl_message, data, length);
+							SZ_Write(&cl_message, data, (int)length);
 							MSG_BeginReading(&cl_message);
 						}
 						else
 						{
 							SZ_Clear(&sv_message);
-							SZ_Write(&sv_message, data, length);
+							SZ_Write(&sv_message, data, (int)length);
 							MSG_BeginReading(&sv_message);
 						}
 						return 2;
@@ -1321,6 +1413,8 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 			else if (flags & NETFLAG_ACK)
 			{
 				conn->incoming_netgraph[conn->incoming_packetcounter].ackbytes += originallength + 28;
+				NetConn_UpdateCleartime(&conn->incoming_cleartime, cl_rate.integer, cl_rate_burstsize.integer, originallength + 28);
+
 				if (sequence == (conn->nq.sendSequence - 1))
 				{
 					if (sequence == conn->nq.ackSequence)
@@ -1352,14 +1446,14 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 
 							packetLen = NET_HEADERSIZE + dataLen;
 
-							StoreBigLong(sendbuffer, packetLen | (NETFLAG_DATA | eom));
+							StoreBigLong(sendbuffer, packetLen | (NETFLAG_DATA | eom | NetConn_AddCryptoFlag(&conn->crypto)));
 							StoreBigLong(sendbuffer + 4, conn->nq.sendSequence);
 							memcpy(sendbuffer + NET_HEADERSIZE, conn->sendMessage, dataLen);
 
 							conn->nq.sendSequence++;
 
 							sendme = Crypto_EncryptPacket(&conn->crypto, &sendbuffer, packetLen, &cryptosendbuffer, &sendmelen, sizeof(cryptosendbuffer));
-							if (sendme && NetConn_Write(conn->mysocket, sendme, sendmelen, &conn->peeraddress) == (int)sendmelen)
+							if (sendme && NetConn_Write(conn->mysocket, sendme, (int)sendmelen, &conn->peeraddress) == (int)sendmelen)
 							{
 								conn->lastSendTime = realtime;
 								conn->packetsSent++;
@@ -1379,12 +1473,15 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 			{
 				unsigned char temppacket[8];
 				conn->incoming_netgraph[conn->incoming_packetcounter].reliablebytes   += originallength + 28;
+				NetConn_UpdateCleartime(&conn->incoming_cleartime, cl_rate.integer, cl_rate_burstsize.integer, originallength + 28);
+
 				conn->outgoing_netgraph[conn->outgoing_packetcounter].ackbytes        += 8 + 28;
-				StoreBigLong(temppacket, 8 | NETFLAG_ACK);
+
+				StoreBigLong(temppacket, 8 | NETFLAG_ACK | NetConn_AddCryptoFlag(&conn->crypto));
 				StoreBigLong(temppacket + 4, sequence);
 				sendme = Crypto_EncryptPacket(&conn->crypto, temppacket, 8, &cryptosendbuffer, &sendmelen, sizeof(cryptosendbuffer));
 				if(sendme)
-					NetConn_Write(conn->mysocket, sendme, sendmelen, &conn->peeraddress);
+					NetConn_Write(conn->mysocket, sendme, (int)sendmelen, &conn->peeraddress);
 				if (sequence == conn->nq.receiveSequence)
 				{
 					conn->lastMessageTime = realtime;
@@ -1392,7 +1489,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 					conn->nq.receiveSequence++;
 					if( conn->receiveMessageLength + length <= (int)sizeof( conn->receiveMessage ) ) {
 						memcpy(conn->receiveMessage + conn->receiveMessageLength, data, length);
-						conn->receiveMessageLength += length;
+						conn->receiveMessageLength += (int)length;
 					} else {
 						Con_Printf( "Reliable message (seq: %i) too big for message buffer!\n"
 									"Dropping the message!\n", sequence );
@@ -1409,13 +1506,13 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 							if (conn == cls.netcon)
 							{
 								SZ_Clear(&cl_message);
-								SZ_Write(&cl_message, conn->receiveMessage, length);
+								SZ_Write(&cl_message, conn->receiveMessage, (int)length);
 								MSG_BeginReading(&cl_message);
 							}
 							else
 							{
 								SZ_Clear(&sv_message);
-								SZ_Write(&sv_message, conn->receiveMessage, length);
+								SZ_Write(&sv_message, conn->receiveMessage, (int)length);
 								MSG_BeginReading(&sv_message);
 							}
 							return 2;
@@ -1435,7 +1532,9 @@ static void NetConn_ConnectionEstablished(lhnetsocket_t *mysocket, lhnetaddress_
 {
 	crypto_t *crypto;
 	cls.connect_trying = false;
+#ifdef CONFIG_MENU
 	M_Update_Return_Reason("");
+#endif
 	// the connection request succeeded, stop current connection and set up a new connection
 	CL_Disconnect();
 	// if we're connecting to a remote server, shut down any local server
@@ -1447,22 +1546,26 @@ static void NetConn_ConnectionEstablished(lhnetsocket_t *mysocket, lhnetaddress_
 	}
 	// allocate a net connection to keep track of things
 	cls.netcon = NetConn_Open(mysocket, peeraddress);
-	crypto = &cls.crypto;
-	if(crypto && crypto->authenticated)
+	crypto = &cls.netcon->crypto;
+	if(cls.crypto.authenticated)
 	{
-		Crypto_ServerFinishInstance(&cls.netcon->crypto, crypto);
-		Con_Printf("%s connection to %s has been established: server is %s@%.*s, I am %.*s@%.*s\n",
+		Crypto_FinishInstance(crypto, &cls.crypto);
+		Con_Printf("%s connection to %s has been established: server is %s@%s%.*s, I am %.*s@%s%.*s\n",
 				crypto->use_aes ? "Encrypted" : "Authenticated",
 				cls.netcon->address,
 				crypto->server_idfp[0] ? crypto->server_idfp : "-",
+				(crypto->server_issigned || !crypto->server_keyfp[0]) ? "" : "~",
 				crypto_keyfp_recommended_length, crypto->server_keyfp[0] ? crypto->server_keyfp : "-",
 				crypto_keyfp_recommended_length, crypto->client_idfp[0] ? crypto->client_idfp : "-",
+				(crypto->client_issigned || !crypto->client_keyfp[0]) ? "" : "~",
 				crypto_keyfp_recommended_length, crypto->client_keyfp[0] ? crypto->client_keyfp : "-"
 				);
 	}
 	Con_Printf("Connection accepted to %s\n", cls.netcon->address);
 	key_dest = key_game;
+#ifdef CONFIG_MENU
 	m_state = m_none;
+#endif
 	cls.demonum = -1;			// not in the demo loop now
 	cls.state = ca_connected;
 	cls.signon = 0;				// need all the signon messages before playing
@@ -1481,7 +1584,7 @@ static void NetConn_ConnectionEstablished(lhnetsocket_t *mysocket, lhnetaddress_
 		msg.data = buf;
 		msg.maxsize = sizeof(buf);
 		MSG_WriteChar(&msg, clc_nop);
-		NetConn_SendUnreliableMessage(cls.netcon, &msg, cls.protocol, 10000, false);
+		NetConn_SendUnreliableMessage(cls.netcon, &msg, cls.protocol, 10000, 0, false);
 	}
 }
 
@@ -1492,6 +1595,7 @@ int NetConn_IsLocalGame(void)
 	return false;
 }
 
+#ifdef CONFIG_MENU
 static int NetConn_ClientParsePacket_ServerList_ProcessReply(const char *addressstring)
 {
 	int n;
@@ -1700,17 +1804,21 @@ static void NetConn_ClientParsePacket_ServerList_ParseDPList(lhnetaddress_t *sen
 	serverlist_querysleep = false;
 	serverlist_querywaittime = realtime + 3;
 }
+#endif
 
 static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *data, int length, lhnetaddress_t *peeraddress)
 {
 	qboolean fromserver;
 	int ret, c;
-	const char *s;
-	char *string, addressstring2[128], ipstring[32];
+	char *string, addressstring2[128];
 	char stringbuf[16384];
 	char senddata[NET_HEADERSIZE+NET_MAXMESSAGE+CRYPTO_HEADERSIZE];
 	size_t sendlength;
+#ifdef CONFIG_MENU
 	char infostringvalue[MAX_INPUTLINE];
+	char ipstring[32];
+	const char *s;
+#endif
 	char vabuf[1024];
 
 	// quakeworld ingame packet
@@ -1746,20 +1854,20 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				if(sendlength)
 				{
 					memcpy(senddata, "\377\377\377\377", 4);
-					NetConn_Write(mysocket, senddata, sendlength+4, peeraddress);
+					NetConn_Write(mysocket, senddata, (int)sendlength+4, peeraddress);
 				}
 				break;
 			case CRYPTO_DISCARD:
 				if(sendlength)
 				{
 					memcpy(senddata, "\377\377\377\377", 4);
-					NetConn_Write(mysocket, senddata, sendlength+4, peeraddress);
+					NetConn_Write(mysocket, senddata, (int)sendlength+4, peeraddress);
 				}
 				return true;
 				break;
 			case CRYPTO_REPLACE:
 				string = senddata+4;
-				length = sendlength;
+				length = (int)sendlength;
 				break;
 		}
 
@@ -1786,12 +1894,12 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				e = strchr(rcon_password.string, ' ');
 				n = e ? e-rcon_password.string : (int)strlen(rcon_password.string);
 
-				if(HMAC_MDFOUR_16BYTES((unsigned char *) (buf + 29), (unsigned char *) argbuf, strlen(argbuf), (unsigned char *) rcon_password.string, n))
+				if(HMAC_MDFOUR_16BYTES((unsigned char *) (buf + 29), (unsigned char *) argbuf, (int)strlen(argbuf), (unsigned char *) rcon_password.string, n))
 				{
 					int k;
 					buf[45] = ' ';
 					strlcpy(buf + 46, argbuf, sizeof(buf) - 46);
-					NetConn_Write(mysocket, buf, 46 + strlen(buf + 46), peeraddress);
+					NetConn_Write(mysocket, buf, 46 + (int)strlen(buf + 46), peeraddress);
 					cls.rcon_commands[i][0] = 0;
 					--cls.rcon_trying;
 
@@ -1820,7 +1928,9 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			char protocolnames[1400];
 			Protocol_Names(protocolnames, sizeof(protocolnames));
 			Con_DPrintf("\"%s\" received, sending connect request back to %s\n", string, addressstring2);
+#ifdef CONFIG_MENU
 			M_Update_Return_Reason("Got challenge response");
+#endif
 			// update the server IP in the userinfo (QW servers expect this, and it is used by the reconnect command)
 			InfoString_SetValue(cls.userinfo, sizeof(cls.userinfo), "*ip", addressstring2);
 			// TODO: add userinfo stuff here instead of using NQ commands?
@@ -1830,7 +1940,9 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		if (length == 6 && !memcmp(string, "accept", 6) && cls.connect_trying)
 		{
 			// darkplaces or quake3
+#ifdef CONFIG_MENU
 			M_Update_Return_Reason("Accepted");
+#endif
 			NetConn_ConnectionEstablished(mysocket, peeraddress, PROTOCOL_DARKPLACES3);
 			return true;
 		}
@@ -1842,9 +1954,12 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			length = min(length - 7, (int)sizeof(rejectreason) - 1);
 			memcpy(rejectreason, string, length);
 			rejectreason[length] = 0;
+#ifdef CONFIG_MENU
 			M_Update_Return_Reason(rejectreason);
+#endif
 			return true;
 		}
+#ifdef CONFIG_MENU
 		if (length >= 15 && !memcmp(string, "statusResponse\x0A", 15))
 		{
 			serverlist_info_t *info;
@@ -1981,6 +2096,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			serverlist_querywaittime = realtime + 3;
 			return true;
 		}
+#endif
 		if (!strncmp(string, "extResponse ", 12))
 		{
 			++cl_net_extresponse_count;
@@ -2004,7 +2120,9 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		{
 			// challenge message
 			Con_Printf("challenge %s received, sending QuakeWorld connect request back to %s\n", string + 1, addressstring2);
+#ifdef CONFIG_MENU
 			M_Update_Return_Reason("Got QuakeWorld challenge response");
+#endif
 			cls.qw_qport = qport.integer;
 			// update the server IP in the userinfo (QW servers expect this, and it is used by the reconnect command)
 			InfoString_SetValue(cls.userinfo, sizeof(cls.userinfo), "*ip", addressstring2);
@@ -2014,12 +2132,15 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		if (length >= 1 && string[0] == 'j' && cls.connect_trying)
 		{
 			// accept message
+#ifdef CONFIG_MENU
 			M_Update_Return_Reason("QuakeWorld Accepted");
+#endif
 			NetConn_ConnectionEstablished(mysocket, peeraddress, PROTOCOL_QUAKEWORLD);
 			return true;
 		}
 		if (length > 2 && !memcmp(string, "n\\", 2))
 		{
+#ifdef CONFIG_MENU
 			serverlist_info_t *info;
 			int n;
 
@@ -2063,7 +2184,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			}
 
 			NetConn_ClientParsePacket_ServerList_UpdateCache(n);
-
+#endif
 			return true;
 		}
 		if (string[0] == 'n')
@@ -2085,8 +2206,10 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 	// netquake control packets, supported for compatibility only
 	if (length >= 5 && BuffBigLong(data) == ((int)NETFLAG_CTL | length) && !ENCRYPTION_REQUIRED)
 	{
+#ifdef CONFIG_MENU
 		int n;
 		serverlist_info_t *info;
+#endif
 
 		data += 4;
 		length -= 4;
@@ -2121,7 +2244,9 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 					Con_Printf("Connected to ProQuake %.1f server, enabling precise aim\n", cls.proquake_serverversion / 10.0f);
 				// update the server IP in the userinfo (QW servers expect this, and it is used by the reconnect command)
 				InfoString_SetValue(cls.userinfo, sizeof(cls.userinfo), "*ip", addressstring2);
+#ifdef CONFIG_MENU
 				M_Update_Return_Reason("Accepted");
+#endif
 				NetConn_ConnectionEstablished(mysocket, &clientportaddress, PROTOCOL_QUAKE);
 			}
 			break;
@@ -2129,11 +2254,14 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			if (developer_extra.integer)
 				Con_DPrintf("Datagram_ParseConnectionless: received CCREP_REJECT from %s.\n", addressstring2);
 			cls.connect_trying = false;
+#ifdef CONFIG_MENU
 			M_Update_Return_Reason((char *)MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring)));
+#endif
 			break;
 		case CCREP_SERVER_INFO:
 			if (developer_extra.integer)
 				Con_DPrintf("Datagram_ParseConnectionless: received CCREP_SERVER_INFO from %s.\n", addressstring2);
+#ifdef CONFIG_MENU
 			// LordHavoc: because the quake server may report weird addresses
 			// we just ignore it and keep the real address
 			MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring));
@@ -2152,7 +2280,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			info->protocol = MSG_ReadByte(&cl_message);
 
 			NetConn_ClientParsePacket_ServerList_UpdateCache(n);
-
+#endif
 			break;
 		case CCREP_RCON: // RocketGuy: ProQuake rcon support
 			if (developer_extra.integer)
@@ -2184,6 +2312,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 	return ret;
 }
 
+#ifdef CONFIG_MENU
 void NetConn_QueryQueueFrame(void)
 {
 	int index;
@@ -2272,6 +2401,7 @@ void NetConn_QueryQueueFrame(void)
 		}
 	}
 }
+#endif
 
 void NetConn_ClientFrame(void)
 {
@@ -2281,14 +2411,18 @@ void NetConn_ClientFrame(void)
 	NetConn_UpdateSockets();
 	if (cls.connect_trying && cls.connect_nextsendtime < realtime)
 	{
+#ifdef CONFIG_MENU
 		if (cls.connect_remainingtries == 0)
 			M_Update_Return_Reason("Connect: Waiting 10 seconds for reply");
+#endif
 		cls.connect_nextsendtime = realtime + 1;
 		cls.connect_remainingtries--;
 		if (cls.connect_remainingtries <= -10)
 		{
 			cls.connect_trying = false;
+#ifdef CONFIG_MENU
 			M_Update_Return_Reason("Connect: Failed");
+#endif
 			return;
 		}
 		// try challenge first (newer DP server or QW)
@@ -2322,7 +2456,9 @@ void NetConn_ClientFrame(void)
 //			R_TimeReport("clientparsepacket");
 		}
 	}
+#ifdef CONFIG_MENU
 	NetConn_QueryQueueFrame();
+#endif
 	if (cls.netcon && realtime > cls.netcon->timeout && !sv.active)
 	{
 		Con_Print("Connection timed out\n");
@@ -2394,7 +2530,7 @@ static qboolean NetConn_BuildStatusResponse(const char* challenge, char* out_msg
 						"%s%s"
 						"%s",
 						fullstatus ? "statusResponse" : "infoResponse",
-						gamename, com_modname, gameversion.integer, svs.maxclients,
+						gamenetworkfiltername, com_modname, gameversion.integer, svs.maxclients,
 						nb_clients, nb_bots, sv.worldbasename, hostname.string, NET_PROTOCOL_VERSION,
 						*qcstatus ? "\\qcstatus\\" : "", qcstatus,
 						challenge ? "\\challenge\\" : "", challenge ? challenge : "",
@@ -2462,7 +2598,7 @@ static qboolean NetConn_BuildStatusResponse(const char* challenge, char* out_msg
 					*p = 0;
 				}
 
-				if ((gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS || gamemode == GAME_XONOTIC) && (teamplay.integer > 0))
+				if (IS_NEXUIZ_DERIVED(gamemode) && (teamplay.integer > 0))
 				{
 					if(cl->frags == -666) // spectator
 						strlcpy(teambuf, " 0", sizeof(teambuf));
@@ -2590,7 +2726,7 @@ static qboolean hmac_mdfour_time_matching(lhnetaddress_t *peeraddress, const cha
 	if(abs(t1 - t2) > rcon_secure_maxdiff.integer)
 		return false;
 
-	if(!HMAC_MDFOUR_16BYTES((unsigned char *) mdfourbuf, (unsigned char *) s, slen, (unsigned char *) password, strlen(password)))
+	if(!HMAC_MDFOUR_16BYTES((unsigned char *) mdfourbuf, (unsigned char *) s, slen, (unsigned char *) password, (int)strlen(password)))
 		return false;
 
 	return !memcmp(mdfourbuf, hash, 16);
@@ -2613,7 +2749,7 @@ static qboolean hmac_mdfour_challenge_matching(lhnetaddress_t *peeraddress, cons
 	if (i == MAX_CHALLENGES)
 		return false;
 
-	if(!HMAC_MDFOUR_16BYTES((unsigned char *) mdfourbuf, (unsigned char *) s, slen, (unsigned char *) password, strlen(password)))
+	if(!HMAC_MDFOUR_16BYTES((unsigned char *) mdfourbuf, (unsigned char *) s, slen, (unsigned char *) password, (int)strlen(password)))
 		return false;
 
 	if(memcmp(mdfourbuf, hash, 16))
@@ -2638,7 +2774,7 @@ static const char *RCon_Authenticate(lhnetaddress_t *peeraddress, const char *pa
 	qboolean hasquotes;
 	qboolean restricted = false;
 	qboolean have_usernames = false;
-	char vabuf[1024];
+	static char vabuf[1024];
 
 	userpass_start = rcon_password.string;
 	while((userpass_end = strchr(userpass_start, ' ')))
@@ -2822,20 +2958,20 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				if(sendlength)
 				{
 					memcpy(senddata, "\377\377\377\377", 4);
-					NetConn_Write(mysocket, senddata, sendlength+4, peeraddress);
+					NetConn_Write(mysocket, senddata, (int)sendlength+4, peeraddress);
 				}
 				break;
 			case CRYPTO_DISCARD:
 				if(sendlength)
 				{
 					memcpy(senddata, "\377\377\377\377", 4);
-					NetConn_Write(mysocket, senddata, sendlength+4, peeraddress);
+					NetConn_Write(mysocket, senddata, (int)sendlength+4, peeraddress);
 				}
 				return true;
 				break;
 			case CRYPTO_REPLACE:
 				string = senddata+4;
-				length = sendlength;
+				length = (int)sendlength;
 				break;
 		}
 
@@ -2868,7 +3004,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			dpsnprintf(response, sizeof(response), "\377\377\377\377challenge %s", challenge[i].string);
 			response_len = strlen(response) + 1;
 			Crypto_ServerAppendToChallenge(string, length, response, &response_len, sizeof(response));
-			NetConn_Write(mysocket, response, response_len, peeraddress);
+			NetConn_Write(mysocket, response, (int)response_len, peeraddress);
 			return true;
 		}
 		if (length > 8 && !memcmp(string, "connect\\", 8))
@@ -2882,12 +3018,14 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				// no need to check challenge
 				if(crypto_developer.integer)
 				{
-					Con_Printf("%s connection to %s is being established: client is %s@%.*s, I am %.*s@%.*s\n",
+					Con_Printf("%s connection to %s is being established: client is %s@%s%.*s, I am %.*s@%s%.*s\n",
 							crypto->use_aes ? "Encrypted" : "Authenticated",
 							addressstring2,
 							crypto->client_idfp[0] ? crypto->client_idfp : "-",
+							(crypto->client_issigned || !crypto->client_keyfp[0]) ? "" : "~",
 							crypto_keyfp_recommended_length, crypto->client_keyfp[0] ? crypto->client_keyfp : "-",
 							crypto_keyfp_recommended_length, crypto->server_idfp[0] ? crypto->server_idfp : "-",
+							(crypto->server_issigned || !crypto->server_keyfp[0]) ? "" : "~",
 							crypto_keyfp_recommended_length, crypto->server_keyfp[0] ? crypto->server_keyfp : "-"
 						  );
 				}
@@ -2967,7 +3105,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 							return true;
 						}
 					}
-					if (client->spawned)
+					if (client->begun)
 					{
 						// client crashed and is coming back,
 						// keep their stuff intact
@@ -2975,7 +3113,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 							Con_Printf("Datagram_ParseConnectionless: sending \"accept\" to %s.\n", addressstring2);
 						NetConn_WriteString(mysocket, "\377\377\377\377accept", peeraddress);
 						if(crypto && crypto->authenticated)
-							Crypto_ServerFinishInstance(&client->netconnection->crypto, crypto);
+							Crypto_FinishInstance(&client->netconnection->crypto, crypto);
 						SV_SendServerinfo(client);
 					}
 					else
@@ -2985,7 +3123,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 						if (developer_extra.integer)
 							Con_Printf("Datagram_ParseConnectionless: sending duplicate accept to %s.\n", addressstring2);
 						if(crypto && crypto->authenticated)
-							Crypto_ServerFinishInstance(&client->netconnection->crypto, crypto);
+							Crypto_FinishInstance(&client->netconnection->crypto, crypto);
 						NetConn_WriteString(mysocket, "\377\377\377\377accept", peeraddress);
 					}
 					return true;
@@ -3007,7 +3145,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 					NetConn_WriteString(mysocket, "\377\377\377\377accept", peeraddress);
 					// now set up the client
 					if(crypto && crypto->authenticated)
-						Crypto_ServerFinishInstance(&conn->crypto, crypto);
+						Crypto_FinishInstance(&conn->crypto, crypto);
 					SV_ConnectClient(clientnum, conn);
 					NetConn_Heartbeat(1);
 					return true;
@@ -3230,7 +3368,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 
 					// if client is already spawned, re-send the
 					// serverinfo message as they'll need it to play
-					if (client->spawned)
+					if (client->begun)
 						SV_SendServerinfo(client);
 					return true;
 				}
@@ -3415,7 +3553,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 	}
 	if (host_client)
 	{
-		if ((ret = NetConn_ReceivedMessage(host_client->netconnection, data, length, sv.protocol, host_client->spawned ? net_messagetimeout.value : net_connecttimeout.value)) == 2)
+		if ((ret = NetConn_ReceivedMessage(host_client->netconnection, data, length, sv.protocol, host_client->begun ? net_messagetimeout.value : net_connecttimeout.value)) == 2)
 		{
 			SV_ReadClientMessage();
 			return ret;
@@ -3448,6 +3586,7 @@ void NetConn_SleepMicroseconds(int microseconds)
 	LHNET_SleepUntilPacket_Microseconds(microseconds);
 }
 
+#ifdef CONFIG_MENU
 void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 {
 	int i, j;
@@ -3501,7 +3640,7 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 					cmdname = "getservers";
 					extraoptions = "";
 				}
-				dpsnprintf(request, sizeof(request), "\377\377\377\377%s %s %u empty full%s", cmdname, gamename, NET_PROTOCOL_VERSION, extraoptions);
+				dpsnprintf(request, sizeof(request), "\377\377\377\377%s %s %u empty full%s", cmdname, gamenetworkfiltername, NET_PROTOCOL_VERSION, extraoptions);
 
 				// search internet
 				for (masternum = 0;sv_masters[masternum].name;masternum++)
@@ -3582,6 +3721,7 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 		M_Update_Return_Reason("No network");
 	}
 }
+#endif
 
 void NetConn_Heartbeat(int priority)
 {
@@ -3647,6 +3787,7 @@ void Net_Stats_f(void)
 		PrintStats(conn);
 }
 
+#ifdef CONFIG_MENU
 void Net_Refresh_f(void)
 {
 	if (m_state != m_slist) {
@@ -3683,6 +3824,7 @@ void Net_SlistQW_f(void)
 	} else
 		ServerList_QueryList(true, false, true, false);
 }
+#endif
 
 void NetConn_Init(void)
 {
@@ -3690,10 +3832,15 @@ void NetConn_Init(void)
 	lhnetaddress_t tempaddress;
 	netconn_mempool = Mem_AllocPool("network connections", 0, NULL);
 	Cmd_AddCommand("net_stats", Net_Stats_f, "print network statistics");
+#ifdef CONFIG_MENU
 	Cmd_AddCommand("net_slist", Net_Slist_f, "query dp master servers and print all server information");
 	Cmd_AddCommand("net_slistqw", Net_SlistQW_f, "query qw master servers and print all server information");
 	Cmd_AddCommand("net_refresh", Net_Refresh_f, "query dp master servers and refresh all server information");
+#endif
 	Cmd_AddCommand("heartbeat", Net_Heartbeat_f, "send a heartbeat to the master server (updates your server information)");
+	Cvar_RegisterVariable(&net_test);
+	Cvar_RegisterVariable(&net_usesizelimit);
+	Cvar_RegisterVariable(&net_burstreserve);
 	Cvar_RegisterVariable(&rcon_restricted_password);
 	Cvar_RegisterVariable(&rcon_restricted_commands);
 	Cvar_RegisterVariable(&rcon_secure_maxdiff);
@@ -3703,6 +3850,8 @@ void NetConn_Init(void)
 	Cvar_RegisterVariable(&net_slist_maxtries);
 	Cvar_RegisterVariable(&net_slist_favorites);
 	Cvar_RegisterVariable(&net_slist_pause);
+	if(LHNET_DefaultDSCP(-1) >= 0) // register cvar only if supported
+		Cvar_RegisterVariable(&net_tos_dscp);
 	Cvar_RegisterVariable(&net_messagetimeout);
 	Cvar_RegisterVariable(&net_connecttimeout);
 	Cvar_RegisterVariable(&net_connectfloodblockingtimeout);

@@ -21,8 +21,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef MENU_H
 #define MENU_H
 
-#define M_PROG_FILENAME "menu.dat"
-
 enum m_state_e {
 	m_none,
 	m_main,
@@ -83,6 +81,7 @@ extern void (*MR_Draw) (void);
 extern void (*MR_ToggleMenu) (int mode);
 extern void (*MR_Shutdown) (void);
 extern void (*MR_NewMap) (void);
+extern int (*MR_GetServerListEntryCategory) (const serverlist_entry_t *entry);
 
 typedef struct video_resolution_s
 {

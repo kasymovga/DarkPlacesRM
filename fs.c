@@ -22,14 +22,6 @@
 		Boston, MA  02111-1307, USA
 */
 
-#ifdef __APPLE__
-// include SDL for IPHONEOS code
-# include <TargetConditionals.h>
-# if TARGET_OS_IPHONE
-#  include <SDL.h>
-# endif
-#endif
-
 #include <limits.h>
 #include <fcntl.h>
 
@@ -46,6 +38,12 @@
 #endif
 
 #include "quakedef.h"
+
+#if TARGET_OS_IPHONE
+// include SDL for IPHONEOS code
+# include <SDL.h>
+#endif
+
 #include "thread.h"
 
 #include "fs.h"
@@ -576,6 +574,16 @@ static qboolean PK3_GetEndOfCentralDir (const char *packfile, int packhandle, pk
 
 	Mem_Free (buffer);
 
+	if (
+			eocd->cdir_size > filesize ||
+			eocd->cdir_offset >= filesize ||
+			eocd->cdir_offset + eocd->cdir_size > filesize
+	   )
+	{
+		// Obviously invalid central directory.
+		return false;
+	}
+
 	return true;
 }
 
@@ -595,7 +603,11 @@ static int PK3_BuildFileList (pack_t *pack, const pk3_endOfCentralDir_t *eocd)
 
 	// Load the central directory in memory
 	central_dir = (unsigned char *)Mem_Alloc (tempmempool, eocd->cdir_size);
-	lseek (pack->handle, eocd->cdir_offset, SEEK_SET);
+	if (lseek (pack->handle, eocd->cdir_offset, SEEK_SET) == -1)
+	{
+		Mem_Free (central_dir);
+		return -1;
+	}
 	if(read (pack->handle, central_dir, eocd->cdir_size) != (fs_offset_t) eocd->cdir_size)
 	{
 		Mem_Free (central_dir);
@@ -644,7 +656,7 @@ static int PK3_BuildFileList (pack_t *pack, const pk3_endOfCentralDir_t *eocd)
 		if ((ptr[8] & 0x21) == 0 && (ptr[38] & 0x18) == 0)
 		{
 			// Still enough bytes for the name?
-			if (remaining < namesize || namesize >= (int)sizeof (*pack->files))
+			if (namesize < 0 || remaining < namesize || namesize >= (int)sizeof (*pack->files))
 			{
 				Mem_Free (central_dir);
 				return -1;
@@ -816,7 +828,11 @@ static qboolean PK3_GetTrueFileOffset (packfile_t *pfile, pack_t *pack)
 		return true;
 
 	// Load the local file description
-	lseek (pack->handle, pfile->offset, SEEK_SET);
+	if (lseek (pack->handle, pfile->offset, SEEK_SET) == -1)
+	{
+		Con_Printf ("Can't seek in package %s\n", pack->filename);
+		return false;
+	}
 	count = read (pack->handle, buffer, ZIP_LOCAL_CHUNK_BASE_SIZE);
 	if (count != ZIP_LOCAL_CHUNK_BASE_SIZE || BuffBigLong (buffer) != ZIP_DATA_HEADER)
 	{
@@ -891,6 +907,25 @@ packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
 	pfile->flags = flags;
 
 	return pfile;
+}
+
+
+static void FS_mkdir (const char *path)
+{
+	if(COM_CheckParm("-readonly"))
+		return;
+
+#if WIN32
+	if (_mkdir (path) == -1)
+#else
+	if (mkdir (path, 0777) == -1)
+#endif
+	{
+		// No logging for this. The only caller is FS_CreatePath (which
+		// calls it in ways that will intentionally produce EEXIST),
+		// and its own callers always use the directory afterwards and
+		// thus will detect failure that way.
+	}
 }
 
 
@@ -989,7 +1024,7 @@ static pack_t *FS_LoadPackPAK (const char *packfile)
 
 	numpackfiles = header.dirlen / sizeof(dpackfile_t);
 
-	if (numpackfiles > MAX_FILES_IN_PACK)
+	if (numpackfiles < 0 || numpackfiles > MAX_FILES_IN_PACK)
 	{
 		Con_Printf ("%s has %i files\n", packfile, numpackfiles);
 		close(packhandle);
@@ -1007,7 +1042,7 @@ static pack_t *FS_LoadPackPAK (const char *packfile)
 	}
 
 	pack = (pack_t *)Mem_Alloc(fs_mempool, sizeof (pack_t));
-	pack->ignorecase = false; // PAK is case sensitive
+	pack->ignorecase = true; // PAK is sensitive in Quake1 but insensitive in Quake2
 	strlcpy (pack->filename, packfile, sizeof (pack->filename));
 	pack->handle = packhandle;
 	pack->numfiles = 0;
@@ -1018,6 +1053,9 @@ static pack_t *FS_LoadPackPAK (const char *packfile)
 	{
 		fs_offset_t offset = (unsigned int)LittleLong (info[i].filepos);
 		fs_offset_t size = (unsigned int)LittleLong (info[i].filelen);
+
+		// Ensure a zero terminated file name (required by format).
+		info[i].name[sizeof(info[i].name) - 1] = 0;
 
 		FS_AddFileToPack (info[i].name, pack, offset, size, size, PACKFILE_FLAG_TRUEOFFS);
 	}
@@ -1089,6 +1127,8 @@ static qboolean FS_AddPack_Fullpath(const char *pakfile, const char *shortname, 
 	else if(!strcasecmp(ext, "pak"))
 		pak = FS_LoadPackPAK (pakfile);
 	else if(!strcasecmp(ext, "pk3"))
+		pak = FS_LoadPackPK3 (pakfile);
+	else if(!strcasecmp(ext, "obb")) // android apk expansion
 		pak = FS_LoadPackPK3 (pakfile);
 	else if(!strcasecmp(ext, "cgf"))
 		pak = FS_LoadPackCGF (pakfile);
@@ -1241,7 +1281,7 @@ static void FS_AddGameDirectory (const char *dir)
 	// add any PK3 package in the directory
 	for (i = 0;i < list.numstrings;i++)
 	{
-		if (!strcasecmp(FS_FileExtension(list.strings[i]), "pk3") || !strcasecmp(FS_FileExtension(list.strings[i]), "pk3dir"))
+		if (!strcasecmp(FS_FileExtension(list.strings[i]), "pk3") || !strcasecmp(FS_FileExtension(list.strings[i]), "obb") || !strcasecmp(FS_FileExtension(list.strings[i]), "pk3dir"))
 		{
 			FS_AddPack_Fullpath(list.strings[i], list.strings[i] + strlen(dir), NULL, false);
 		}
@@ -1632,7 +1672,7 @@ FS_CheckGameDir
 const char *FS_CheckGameDir(const char *gamedir)
 {
 	const char *ret;
-	char buf[8192];
+	static char buf[8192];
 	char vabuf[1024];
 
 	if (FS_CheckNastyPath(gamedir, true))
@@ -1662,7 +1702,7 @@ const char *FS_CheckGameDir(const char *gamedir)
 static void FS_ListGameDirs(void)
 {
 	stringlist_t list, list2;
-	int i, j;
+	int i;
 	const char *info;
 	char vabuf[1024];
 
@@ -1703,8 +1743,8 @@ static void FS_ListGameDirs(void)
 			continue;
 		if(!*info)
 			continue;
-		strlcpy(fs_all_gamedirs[fs_all_gamedirs_count].name, list2.strings[i], sizeof(fs_all_gamedirs[j].name));
-		strlcpy(fs_all_gamedirs[fs_all_gamedirs_count].description, info, sizeof(fs_all_gamedirs[j].description));
+		strlcpy(fs_all_gamedirs[fs_all_gamedirs_count].name, list2.strings[i], sizeof(fs_all_gamedirs[fs_all_gamedirs_count].name));
+		strlcpy(fs_all_gamedirs[fs_all_gamedirs_count].description, info, sizeof(fs_all_gamedirs[fs_all_gamedirs_count].description));
 		++fs_all_gamedirs_count;
 	}
 }
@@ -1777,7 +1817,7 @@ static int FS_ChooseUserDir(userdirmode_t userdirmode, char *userdir, size_t use
 	{
 		// fs_basedir is "" by default, to utilize this you can simply add your gamedir to the Resources in xcode
 		// fs_userdir stores configurations to the Documents folder of the app
-		strlcpy(userdir, maxlength, "../Documents/");
+		strlcpy(userdir, "../Documents/", MAX_OSPATH);
 		return 1;
 	}
 	return -1;
@@ -1906,6 +1946,8 @@ static int FS_ChooseUserDir(userdirmode_t userdirmode, char *userdir, size_t use
 #endif
 
 
+#if !defined(__IPHONEOS__)
+
 #ifdef WIN32
 	// historical behavior...
 	if (userdirmode == USERDIRMODE_NOHOME && strcmp(gamedirname1, "id1"))
@@ -1923,7 +1965,7 @@ static int FS_ChooseUserDir(userdirmode_t userdirmode, char *userdir, size_t use
 	if(access(va(vabuf, sizeof(vabuf), "%s%s/", userdir, gamedirname1), W_OK | X_OK) >= 0)
 		fd = 1;
 	else
-		fd = 0;
+		fd = -1;
 #endif
 	if(fd >= 0)
 	{
@@ -1936,6 +1978,7 @@ static int FS_ChooseUserDir(userdirmode_t userdirmode, char *userdir, size_t use
 		else
 			return 0; // probably good - failed to write but maybe we need to create path
 	}
+#endif
 }
 
 /*
@@ -1968,6 +2011,8 @@ void FS_Init (void)
 // If the base directory is explicitly defined by the compilation process
 #ifdef DP_FS_BASEDIR
 		strlcpy(fs_basedir, DP_FS_BASEDIR, sizeof(fs_basedir));
+#elif defined(__ANDROID__)
+		dpsnprintf(fs_basedir, sizeof(fs_basedir), "/sdcard/%s/", gameuserdirname);
 #elif defined(MACOSX)
 		// FIXME: is there a better way to find the directory outside the .app, without using Objective-C?
 		if (strstr(com_argv[0], ".app/"))
@@ -2190,6 +2235,9 @@ int FS_SysOpenFD(const char *filepath, const char *mode, qboolean nonblocking)
 	if (nonblocking)
 		opt |= O_NONBLOCK;
 
+	if(COM_CheckParm("-readonly") && mod != O_RDONLY)
+		return -1;
+
 #ifdef WIN32
 # if _MSC_VER >= 1400
 	_sopen_s(&handle, filepath, mod | opt, (dolock ? ((mod == O_RDONLY) ? _SH_DENYRD : _SH_DENYRW) : _SH_DENYNO), _S_IREAD | _S_IWRITE);
@@ -2387,17 +2435,9 @@ int FS_CheckNastyPath (const char *path, qboolean isgamedir)
 	if (path[0] == '/')
 		return 2; // attempt to go outside the game directory
 
-	// all: don't allow . characters before the last slash (it should only be used in filenames, not path elements), this catches all imaginable cases of ./, ../, .../, etc
-	if (strchr(path, '.'))
-	{
-		if (isgamedir)
-		{
-			// gamedir is entirely path elements, so simply forbid . entirely
-			return 2;
-		}
-		if (strchr(path, '.') < strrchr(path, '/'))
-			return 2; // possible attempt to go outside the game directory
-	}
+	// all: don't allow . character immediately before a slash, this catches all imaginable cases of ./, ../, .../, etc
+	if (strstr(path, "./"))
+		return 2; // possible attempt to go outside the game directory
 
 	// all: forbid trailing slash on gamedir
 	if (isgamedir && path[strlen(path)-1] == '/')
@@ -2744,7 +2784,15 @@ int FS_Close (qfile_t* file)
 	if (file->filename)
 	{
 		if (file->flags & QFILE_FLAG_REMOVE)
-			remove(file->filename);
+		{
+			if (remove(file->filename) == -1)
+			{
+				// No need to report this. If removing a just
+				// written file failed, this most likely means
+				// someone else deleted it first - which we
+				// like.
+			}
+		}
 
 		Mem_Free((void *) file->filename);
 	}
@@ -2773,25 +2821,41 @@ Write "datasize" bytes into a file
 */
 fs_offset_t FS_Write (qfile_t* file, const void* data, size_t datasize)
 {
-	fs_offset_t result;
+	fs_offset_t written = 0;
 
 	// If necessary, seek to the exact file position we're supposed to be
 	if (file->buff_ind != file->buff_len)
-		lseek (file->handle, file->buff_ind - file->buff_len, SEEK_CUR);
+	{
+		if (lseek (file->handle, file->buff_ind - file->buff_len, SEEK_CUR) == -1)
+		{
+			Con_Printf("WARNING: could not seek in %s.\n", file->filename);
+		}
+	}
 
 	// Purge cached data
 	FS_Purge (file);
 
 	// Write the buffer and update the position
-	result = write (file->handle, data, (fs_offset_t)datasize);
+	// LordHavoc: to hush a warning about passing size_t to an unsigned int parameter on Win64 we do this as multiple writes if the size would be too big for an integer (we never write that big in one go, but it's a theory)
+	while (written < (fs_offset_t)datasize)
+	{
+		// figure out how much to write in one chunk
+		fs_offset_t maxchunk = 1<<30; // 1 GiB
+		int chunk = (int)min((fs_offset_t)datasize - written, maxchunk);
+		int result = (int)write (file->handle, (const unsigned char *)data + written, chunk);
+		// if at least some was written, add it to our accumulator
+		if (result > 0)
+			written += result;
+		// if the result is not what we expected, consider the write to be incomplete
+		if (result != chunk)
+			break;
+	}
 	file->position = lseek (file->handle, 0, SEEK_CUR);
 	if (file->real_length < file->position)
 		file->real_length = file->position;
 
-	if (result < 0)
-		return 0;
-
-	return result;
+	// note that this will never be less than 0 even if the write failed
+	return written;
 }
 
 
@@ -2859,7 +2923,12 @@ fs_offset_t FS_Read (qfile_t* file, void* buffer, size_t buffersize)
 		{
 			if (count > (fs_offset_t)buffersize)
 				count = (fs_offset_t)buffersize;
-			lseek (file->handle, file->offset + file->position, SEEK_SET);
+			if (lseek (file->handle, file->offset + file->position, SEEK_SET) == -1)
+			{
+				// Seek failed. When reading from a pipe, and
+				// the caller never called FS_Seek, this still
+				// works fine.  So no reporting this error.
+			}
 			nb = read (file->handle, &((unsigned char*)buffer)[done], count);
 			if (nb > 0)
 			{
@@ -2874,7 +2943,12 @@ fs_offset_t FS_Read (qfile_t* file, void* buffer, size_t buffersize)
 		{
 			if (count > (fs_offset_t)sizeof (file->buff))
 				count = (fs_offset_t)sizeof (file->buff);
-			lseek (file->handle, file->offset + file->position, SEEK_SET);
+			if (lseek (file->handle, file->offset + file->position, SEEK_SET) == -1)
+			{
+				// Seek failed. When reading from a pipe, and
+				// the caller never called FS_Seek, this still
+				// works fine.  So no reporting this error.
+			}
 			nb = read (file->handle, file->buff, count);
 			if (nb > 0)
 			{
@@ -3147,7 +3221,8 @@ int FS_Seek (qfile_t* file, fs_offset_t offset, int whence)
 		ztk->in_len = 0;
 		ztk->in_position = 0;
 		file->position = 0;
-		lseek (file->handle, file->offset, SEEK_SET);
+		if (lseek (file->handle, file->offset, SEEK_SET) == -1)
+			Con_Printf("IMPOSSIBLE: couldn't seek in already opened pk3 file.\n");
 
 		// Reset the Zlib stream
 		ztk->zstream.next_in = ztk->input;
@@ -3344,7 +3419,7 @@ void FS_DefaultExtension (char *path, const char *extension, size_t size_path)
 
 	// if path doesn't have a .EXT, append extension
 	// (extension should include the .)
-	src = path + strlen(path) - 1;
+	src = path + strlen(path);
 
 	while (*src != '/' && src != path)
 	{
@@ -3437,15 +3512,6 @@ int FS_SysFileType (const char *path)
 qboolean FS_SysFileExists (const char *path)
 {
 	return FS_SysFileType (path) != FS_FILETYPE_NONE;
-}
-
-void FS_mkdir (const char *path)
-{
-#if WIN32
-	_mkdir (path);
-#else
-	mkdir (path, 0777);
-#endif
 }
 
 /*
@@ -3787,6 +3853,8 @@ const char *FS_WhichPack(const char *filename)
 	searchpath_t *sp = FS_FindFile(filename, &index, true);
 	if(sp && sp->pack)
 		return sp->pack->shortname;
+	else if(sp)
+		return "";
 	else
 		return 0;
 }
@@ -3825,7 +3893,7 @@ qboolean FS_IsRegisteredQuakePack(const char *name)
 				int diff;
 
 				middle = (left + right) / 2;
-				diff = !strcmp_funct (pak->files[middle].name, "gfx/pop.lmp");
+				diff = strcmp_funct (pak->files[middle].name, "gfx/pop.lmp");
 
 				// Found it
 				if (!diff)
@@ -3893,7 +3961,7 @@ unsigned char *FS_Deflate(const unsigned char *data, size_t size, size_t *deflat
 	}
 
 	strm.next_in = (unsigned char*)data;
-	strm.avail_in = size;
+	strm.avail_in = (unsigned int)size;
 
 	tmp = (unsigned char *) Mem_Alloc(tempmempool, size);
 	if(!tmp)
@@ -3904,7 +3972,7 @@ unsigned char *FS_Deflate(const unsigned char *data, size_t size, size_t *deflat
 	}
 
 	strm.next_out = tmp;
-	strm.avail_out = size;
+	strm.avail_out = (unsigned int)size;
 
 	if(qz_deflate(&strm, Z_FINISH) != Z_STREAM_END)
 	{
@@ -3936,8 +4004,7 @@ unsigned char *FS_Deflate(const unsigned char *data, size_t size, size_t *deflat
 		return NULL;
 	}
 
-	if(deflated_size)
-		*deflated_size = (size_t)strm.total_out;
+	*deflated_size = (size_t)strm.total_out;
 
 	memcpy(out, tmp, strm.total_out);
 	Mem_Free(tmp);
@@ -3994,7 +4061,7 @@ unsigned char *FS_Inflate(const unsigned char *data, size_t size, size_t *inflat
 	}
 
 	strm.next_in = (unsigned char*)data;
-	strm.avail_in = size;
+	strm.avail_in = (unsigned int)size;
 
 	do
 	{
@@ -4051,8 +4118,7 @@ unsigned char *FS_Inflate(const unsigned char *data, size_t size, size_t *inflat
 	memcpy(out, outbuf.data, outbuf.cursize);
 	Mem_Free(outbuf.data);
 
-	if(inflated_size)
-		*inflated_size = (size_t)outbuf.cursize;
+	*inflated_size = (size_t)outbuf.cursize;
 	
 	return out;
 }

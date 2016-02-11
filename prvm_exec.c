@@ -107,7 +107,162 @@ const char *prvm_opnames[] =
 "^2OR",
 
 "BITAND",
-"BITOR"
+"BITOR",  // 65
+
+NULL,    // 66
+NULL,    // 67
+NULL,    // 68
+NULL,    // 69
+NULL,    // 70
+NULL,    // 71
+NULL,    // 72
+NULL,    // 73
+NULL,    // 74
+NULL,    // 75
+NULL,    // 76
+NULL,    // 77
+NULL,    // 78
+NULL,    // 79
+"^3FETCH_GBL_F",      // 80
+"^3FETCH_GBL_V",      // 81
+"^3FETCH_GBL_S",      // 82
+"^3FETCH_GBL_E",      // 83
+"^3FETCH_GBL_FNC",    // 84
+NULL,    // 85
+NULL,    // 86
+NULL,    // 87
+NULL,    // 88
+NULL,    // 89
+NULL,    // 90
+NULL,    // 91
+NULL,    // 92
+NULL,    // 93
+NULL,    // 94
+NULL,    // 95
+NULL,    // 96
+NULL,    // 97
+NULL,    // 98
+NULL,    // 99
+NULL,    // 100
+NULL,    // 101
+NULL,    // 102
+NULL,    // 103
+NULL,    // 104
+NULL,    // 105
+NULL,    // 106
+NULL,    // 107
+NULL,    // 108
+NULL,    // 109
+NULL,    // 110
+NULL,    // 111
+NULL,    // 112
+NULL,    // 113
+NULL,    // 114
+NULL,    // 115
+NULL,    // 116
+NULL,    // 117
+NULL,    // 118
+NULL,    // 119
+NULL,    // 120
+NULL,    // 121
+NULL,    // 122
+"^3CONV_FTOI",    // 123
+NULL,    // 124
+NULL,    // 125
+NULL,    // 126
+NULL,    // 127
+NULL,    // 128
+NULL,    // 129
+NULL,    // 130
+NULL,    // 131
+"^3MUL_I",    // 132
+NULL,    // 133
+NULL,    // 134
+NULL,    // 135
+NULL,    // 136
+NULL,    // 137
+NULL,    // 138
+NULL,    // 139
+NULL,    // 140
+NULL,    // 141
+NULL,    // 142
+"^3GLOBALADDRESS",    // 143
+NULL,    // 144
+NULL,    // 145
+NULL,    // 146
+NULL,    // 147
+NULL,    // 148
+NULL,    // 149
+NULL,    // 150
+NULL,    // 151
+NULL,    // 152
+NULL,    // 153
+NULL,    // 154
+NULL,    // 155
+NULL,    // 156
+NULL,    // 157
+NULL,    // 158
+NULL,    // 159
+NULL,    // 160
+NULL,    // 161
+NULL,    // 162
+NULL,    // 163
+NULL,    // 164
+NULL,    // 165
+NULL,    // 166
+NULL,    // 167
+NULL,    // 168
+NULL,    // 169
+NULL,    // 170
+NULL,    // 171
+NULL,    // 172
+NULL,    // 173
+NULL,    // 174
+NULL,    // 175
+NULL,    // 176
+NULL,    // 177
+NULL,    // 178
+NULL,    // 179
+NULL,    // 180
+NULL,    // 181
+NULL,    // 182
+NULL,    // 183
+NULL,    // 184
+NULL,    // 185
+NULL,    // 186
+NULL,    // 187
+NULL,    // 188
+NULL,    // 189
+NULL,    // 190
+NULL,    // 191
+NULL,    // 192
+NULL,    // 193
+NULL,    // 194
+NULL,    // 195
+NULL,    // 196
+"^3GSTOREP_I",    // 197
+"^3GSTOREP_F",    // 198
+"^3GSTOREP_ENT",  // 199
+"^3GSTOREP_FLD",  // 200
+"^3GSTOREP_S",    // 201
+"^3GSTOREP_FNC",  // 202
+"^3GSTOREP_V",    // 203
+NULL,    // 204
+NULL,    // 205
+NULL,    // 206
+NULL,    // 207
+NULL,    // 208
+NULL,    // 209
+NULL,    // 210
+"^3BOUNDCHECK",   // 211
+NULL,    // 212
+NULL,    // 213
+NULL,    // 214
+NULL,    // 215
+NULL,    // 216
+NULL,    // 217
+NULL,    // 218
+NULL,    // 219
 };
 
 
@@ -119,6 +274,7 @@ const char *prvm_opnames[] =
 PRVM_PrintStatement
 =================
 */
+extern cvar_t prvm_coverage;
 extern cvar_t prvm_statementprofiling;
 extern cvar_t prvm_timeprofiling;
 static void PRVM_PrintStatement(prvm_prog_t *prog, mstatement_t *s)
@@ -129,7 +285,12 @@ static void PRVM_PrintStatement(prvm_prog_t *prog, mstatement_t *s)
 
 	Con_Printf("s%i: ", opnum);
 	if( prog->statement_linenums )
-		Con_Printf( "%s:%i: ", PRVM_GetString( prog, prog->xfunction->s_file ), prog->statement_linenums[ opnum ] );
+	{
+		if ( prog->statement_columnnums )
+			Con_Printf( "%s:%i:%i: ", PRVM_GetString( prog, prog->xfunction->s_file ), prog->statement_linenums[ opnum ], prog->statement_columnnums[ opnum ] );
+		else
+			Con_Printf( "%s:%i: ", PRVM_GetString( prog, prog->xfunction->s_file ), prog->statement_linenums[ opnum ] );
+	}
 
 	if (prvm_statementprofiling.integer)
 		Con_Printf("%7.0f ", prog->statement_profile[s - prog->statements]);
@@ -180,8 +341,11 @@ void PRVM_PrintFunctionStatements (prvm_prog_t *prog, const char *name)
 	for (i = firststatement;i < endstatement;i++)
 	{
 		PRVM_PrintStatement(prog, prog->statements + i);
-		prog->statement_profile[i] = 0;
+		if (!(prvm_coverage.integer & 4))
+			prog->statement_profile[i] = 0;
 	}
+	if (prvm_coverage.integer & 4)
+		Con_Printf("Collecting statement coverage, not flushing statement profile.\n");
 }
 
 /*
@@ -224,7 +388,17 @@ void PRVM_StackTrace (prvm_prog_t *prog)
 		if (!f)
 			Con_Print("<NULL FUNCTION>\n");
 		else
-			Con_Printf("%12s : %s : statement %i\n", PRVM_GetString(prog, f->s_file), PRVM_GetString(prog, f->s_name), prog->stack[i].s - f->first_statement);
+		{
+			if (prog->statement_linenums)
+			{
+				if (prog->statement_columnnums)
+					Con_Printf("%12s:%i:%i : %s : statement %i\n", PRVM_GetString(prog, f->s_file), prog->statement_linenums[prog->stack[i].s], prog->statement_columnnums[prog->stack[i].s], PRVM_GetString(prog, f->s_name), prog->stack[i].s - f->first_statement);
+				else
+					Con_Printf("%12s:%i : %s : statement %i\n", PRVM_GetString(prog, f->s_file), prog->statement_linenums[prog->stack[i].s], PRVM_GetString(prog, f->s_name), prog->stack[i].s - f->first_statement);
+			}
+			else
+				Con_Printf("%12s : %s : statement %i\n", PRVM_GetString(prog, f->s_file), PRVM_GetString(prog, f->s_name), prog->stack[i].s - f->first_statement);
+		}
 	}
 }
 
@@ -440,6 +614,12 @@ void PRVM_Profile_f (void)
 	prvm_prog_t *prog;
 	int howmany;
 
+	if (prvm_coverage.integer & 1)
+	{
+		Con_Printf("Collecting function coverage, cannot profile - sorry!\n");
+		return;
+	}
+
 	howmany = 1<<30;
 	if (Cmd_Argc() == 3)
 		howmany = atoi(Cmd_Argv(2));
@@ -460,6 +640,12 @@ void PRVM_ChildProfile_f (void)
 	prvm_prog_t *prog;
 	int howmany;
 
+	if (prvm_coverage.integer & 1)
+	{
+		Con_Printf("Collecting function coverage, cannot profile - sorry!\n");
+		return;
+	}
+
 	howmany = 1<<30;
 	if (Cmd_Argc() == 3)
 		howmany = atoi(Cmd_Argv(2));
@@ -475,21 +661,26 @@ void PRVM_ChildProfile_f (void)
 	PRVM_Profile(prog, howmany, 0, 1);
 }
 
-void PRVM_PrintState(prvm_prog_t *prog)
+void PRVM_PrintState(prvm_prog_t *prog, int stack_index)
 {
 	int i;
+	mfunction_t *func = prog->xfunction;
+	int st = prog->xstatement;
+	if (stack_index > 0 && stack_index <= prog->depth)
+	{
+		func = prog->stack[prog->depth - stack_index].f;
+		st = prog->stack[prog->depth - stack_index].s;
+	}
 	if (prog->statestring)
 	{
 		Con_Printf("Caller-provided information: %s\n", prog->statestring);
 	}
-	if (prog->xfunction)
+	if (func)
 	{
 		for (i = -7; i <= 0;i++)
-			if (prog->xstatement + i >= prog->xfunction->first_statement)
-				PRVM_PrintStatement(prog, prog->statements + prog->xstatement + i);
+			if (st + i >= func->first_statement)
+				PRVM_PrintStatement(prog, prog->statements + st + i);
 	}
-	else
-		Con_Print("null function executing??\n");
 	PRVM_StackTrace(prog);
 }
 
@@ -507,7 +698,7 @@ void PRVM_Crash(prvm_prog_t *prog)
 	if( prog->depth > 0 )
 	{
 		Con_Printf("QuakeC crash report for %s:\n", prog->name);
-		PRVM_PrintState(prog);
+		PRVM_PrintState(prog, 0);
 	}
 
 	if(prvm_errordump.integer)
@@ -644,6 +835,46 @@ void PRVM_Init_Exec(prvm_prog_t *prog)
 	// nothing here yet
 }
 
+/*
+==================
+Coverage
+==================
+*/
+// Note: in these two calls, prog->xfunction is assumed to be sane.
+static const char *PRVM_WhereAmI(char *buf, size_t bufsize, prvm_prog_t *prog, mfunction_t *func, int statement)
+{
+	if (prog->statement_linenums)
+	{
+		if (prog->statement_columnnums)
+			return va(buf, bufsize, "%s:%i:%i(%s, %i)", PRVM_GetString(prog, func->s_file), prog->statement_linenums[statement], prog->statement_columnnums[statement], PRVM_GetString(prog, func->s_name), statement - func->first_statement);
+		else
+			return va(buf, bufsize, "%s:%i(%s, %i)", PRVM_GetString(prog, func->s_file), prog->statement_linenums[statement], PRVM_GetString(prog, func->s_name), statement - func->first_statement);
+	}
+	else
+		return va(buf, bufsize, "%s(%s, %i)", PRVM_GetString(prog, func->s_file), PRVM_GetString(prog, func->s_name), statement - func->first_statement);
+}
+static void PRVM_FunctionCoverageEvent(prvm_prog_t *prog, mfunction_t *func)
+{
+	++prog->functions_covered;
+	Con_Printf("prvm_coverage: %s just called %s for the first time. Coverage: %.2f%%.\n", prog->name, PRVM_GetString(prog, func->s_name), prog->functions_covered * 100.0 / prog->numfunctions);
+}
+void PRVM_ExplicitCoverageEvent(prvm_prog_t *prog, mfunction_t *func, int statement)
+{
+	char vabuf[128];
+	++prog->explicit_covered;
+	Con_Printf("prvm_coverage: %s just executed a coverage() statement at %s for the first time. Coverage: %.2f%%.\n", prog->name, PRVM_WhereAmI(vabuf, sizeof(vabuf), prog, func, statement), prog->explicit_covered * 100.0 / prog->numexplicitcoveragestatements);
+}
+static void PRVM_StatementCoverageEvent(prvm_prog_t *prog, mfunction_t *func, int statement)
+{
+	char vabuf[128];
+	++prog->statements_covered;
+	Con_Printf("prvm_coverage: %s just executed a statement at %s for the first time. Coverage: %.2f%%.\n", prog->name, PRVM_WhereAmI(vabuf, sizeof(vabuf), prog, func, statement), prog->statements_covered * 100.0 / prog->numstatements);
+}
+
+#ifdef __GNUC__
+#define HAVE_COMPUTED_GOTOS 1
+#endif
+
 #define OPA ((prvm_eval_t *)&prog->globals.fp[st->operand[0]])
 #define OPB ((prvm_eval_t *)&prog->globals.fp[st->operand[1]])
 #define OPC ((prvm_eval_t *)&prog->globals.fp[st->operand[2]])
@@ -652,6 +883,7 @@ extern cvar_t prvm_statementprofiling;
 extern qboolean prvm_runawaycheck;
 
 #ifdef PROFILING
+#ifdef CONFIG_MENU
 /*
 ====================
 MVM_ExecuteProgram
@@ -667,6 +899,20 @@ void MVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessag
 	int		restorevm_tempstringsbuf_cursize;
 	double  calltime;
 	double tm, starttm;
+	prvm_vec_t tempfloat;
+	// these may become out of date when a builtin is called, and are updated accordingly
+	prvm_vec_t *cached_edictsfields = prog->edictsfields;
+	unsigned int cached_entityfields = prog->entityfields;
+	unsigned int cached_entityfields_3 = prog->entityfields - 3;
+	unsigned int cached_entityfieldsarea = prog->entityfieldsarea;
+	unsigned int cached_entityfieldsarea_entityfields = prog->entityfieldsarea - prog->entityfields;
+	unsigned int cached_entityfieldsarea_3 = prog->entityfieldsarea - 3;
+	unsigned int cached_entityfieldsarea_entityfields_3 = prog->entityfieldsarea - prog->entityfields - 3;
+	unsigned int cached_max_edicts = prog->max_edicts;
+	// these do not change
+	mstatement_t *cached_statements = prog->statements;
+	qboolean cached_allowworldwrites = prog->allowworldwrites;
+	unsigned int cached_flag = prog->flag;
 
 	calltime = Sys_DirtyTime();
 
@@ -697,11 +943,12 @@ void MVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessag
 	// instead of counting instructions, we count jumps
 	jumpcount = 0;
 	// add one to the callcount of this function because otherwise engine-called functions aren't counted
-	prog->xfunction->callcount++;
+	if (prog->xfunction->callcount++ == 0 && (prvm_coverage.integer & 1))
+		PRVM_FunctionCoverageEvent(prog, prog->xfunction);
 
 chooseexecprogram:
 	cachedpr_trace = prog->trace;
-	if (prvm_statementprofiling.integer || prog->trace)
+	if (prog->trace || prog->watch_global_type != ev_void || prog->watch_field_type != ev_void || prog->break_statement >= 0)
 	{
 #define PRVMSLOWINTERPRETER 1
 		if (prvm_timeprofiling.integer)
@@ -742,6 +989,7 @@ cleanup:
 	if (prog == SVVM_prog)
 		SV_FlushBroadcastMessages();
 }
+#endif
 
 /*
 ====================
@@ -758,6 +1006,20 @@ void CLVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessa
 	int		restorevm_tempstringsbuf_cursize;
 	double  calltime;
 	double tm, starttm;
+	prvm_vec_t tempfloat;
+	// these may become out of date when a builtin is called, and are updated accordingly
+	prvm_vec_t *cached_edictsfields = prog->edictsfields;
+	unsigned int cached_entityfields = prog->entityfields;
+	unsigned int cached_entityfields_3 = prog->entityfields - 3;
+	unsigned int cached_entityfieldsarea = prog->entityfieldsarea;
+	unsigned int cached_entityfieldsarea_entityfields = prog->entityfieldsarea - prog->entityfields;
+	unsigned int cached_entityfieldsarea_3 = prog->entityfieldsarea - 3;
+	unsigned int cached_entityfieldsarea_entityfields_3 = prog->entityfieldsarea - prog->entityfields - 3;
+	unsigned int cached_max_edicts = prog->max_edicts;
+	// these do not change
+	mstatement_t *cached_statements = prog->statements;
+	qboolean cached_allowworldwrites = prog->allowworldwrites;
+	unsigned int cached_flag = prog->flag;
 
 	calltime = Sys_DirtyTime();
 
@@ -788,11 +1050,12 @@ void CLVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessa
 	// instead of counting instructions, we count jumps
 	jumpcount = 0;
 	// add one to the callcount of this function because otherwise engine-called functions aren't counted
-	prog->xfunction->callcount++;
+	if (prog->xfunction->callcount++ == 0 && (prvm_coverage.integer & 1))
+		PRVM_FunctionCoverageEvent(prog, prog->xfunction);
 
 chooseexecprogram:
 	cachedpr_trace = prog->trace;
-	if (prvm_statementprofiling.integer || prog->trace)
+	if (prog->trace || prog->watch_global_type != ev_void || prog->watch_field_type != ev_void || prog->break_statement >= 0)
 	{
 #define PRVMSLOWINTERPRETER 1
 		if (prvm_timeprofiling.integer)
@@ -854,6 +1117,20 @@ void PRVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessa
 	int		restorevm_tempstringsbuf_cursize;
 	double  calltime;
 	double tm, starttm;
+	prvm_vec_t tempfloat;
+	// these may become out of date when a builtin is called, and are updated accordingly
+	prvm_vec_t *cached_edictsfields = prog->edictsfields;
+	unsigned int cached_entityfields = prog->entityfields;
+	unsigned int cached_entityfields_3 = prog->entityfields - 3;
+	unsigned int cached_entityfieldsarea = prog->entityfieldsarea;
+	unsigned int cached_entityfieldsarea_entityfields = prog->entityfieldsarea - prog->entityfields;
+	unsigned int cached_entityfieldsarea_3 = prog->entityfieldsarea - 3;
+	unsigned int cached_entityfieldsarea_entityfields_3 = prog->entityfieldsarea - prog->entityfields - 3;
+	unsigned int cached_max_edicts = prog->max_edicts;
+	// these do not change
+	mstatement_t *cached_statements = prog->statements;
+	qboolean cached_allowworldwrites = prog->allowworldwrites;
+	unsigned int cached_flag = prog->flag;
 
 	calltime = Sys_DirtyTime();
 
@@ -884,11 +1161,12 @@ void PRVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessa
 	// instead of counting instructions, we count jumps
 	jumpcount = 0;
 	// add one to the callcount of this function because otherwise engine-called functions aren't counted
-	prog->xfunction->callcount++;
+	if (prog->xfunction->callcount++ == 0 && (prvm_coverage.integer & 1))
+		PRVM_FunctionCoverageEvent(prog, prog->xfunction);
 
 chooseexecprogram:
 	cachedpr_trace = prog->trace;
-	if (prvm_statementprofiling.integer || prog->trace)
+	if (prog->trace || prog->watch_global_type != ev_void || prog->watch_field_type != ev_void || prog->break_statement >= 0)
 	{
 #define PRVMSLOWINTERPRETER 1
 		if (prvm_timeprofiling.integer)

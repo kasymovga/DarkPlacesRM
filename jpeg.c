@@ -588,6 +588,12 @@ qboolean JPEG_OpenLibrary (void)
 
 	jpeg_tried_loading = true;
 
+#ifdef __ANDROID__
+	// loading the native Android libjpeg.so causes crashes
+	Con_Printf("Not opening libjpeg.so dynamically on Android - use LINK_TO_LIBJPEG instead if it is needed.\n");
+	return false;
+#endif
+
 	// Load the DLL
 	return Sys_LoadLibrary (dllnames, &jpeg_dll, jpegfuncs);
 #endif
@@ -1037,8 +1043,8 @@ size_t JPEG_SaveImage_to_Buffer (char *jpegbuf, size_t jpegsize, int width, int 
 	}
 #endif
 
-	//quality_guess = (100 * jpegsize - 41000) / (width*height) + 2; // fits random data
-	quality_guess   = (256 * jpegsize - 81920) / (width*height) - 8; // fits Nexuiz's/Xonotic's map pictures
+	//quality_guess = (int)((100 * jpegsize - 41000) / (width*height) + 2); // fits random data
+	quality_guess   = (int)((256 * jpegsize - 81920) / (width*height) - 8); // fits Nexuiz's/Xonotic's map pictures
 
 	quality_guess = bound(0, quality_guess, 100);
 	quality = bound(0, quality_guess + sv_writepicture_quality.integer, 100); // assume it can do 10 failed attempts

@@ -118,7 +118,7 @@ typedef enum opcode_e
 	OP_OR,
 
 	OP_BITAND,
-	OP_BITOR,
+	OP_BITOR,          // 65
 
     // extensions for fastarrays begin here
 

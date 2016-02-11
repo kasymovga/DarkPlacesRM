@@ -19,7 +19,9 @@
 #include "slre.h"
 
 extern cvar_t prvm_backtraceforwarnings;
+#ifdef USEODE
 extern dllhandle_t ode_dll;
+#endif
 
 // LordHavoc: changed this to NOT use a return statement, so that it can be used in functions that must return a value
 void VM_Warning(prvm_prog_t *prog, const char *fmt, ...)
@@ -38,7 +40,7 @@ void VM_Warning(prvm_prog_t *prog, const char *fmt, ...)
 	if(prvm_backtraceforwarnings.integer && recursive != realtime) // NOTE: this compares to the time, just in case if PRVM_PrintState causes a Host_Error and keeps recursive set
 	{
 		recursive = realtime;
-		PRVM_PrintState(prog);
+		PRVM_PrintState(prog, 0);
 		recursive = -1;
 	}
 }
@@ -99,7 +101,10 @@ void VM_FrameBlendFromFrameGroupBlend(frameblend_t *frameblend, const framegroup
 
 	memset(blend, 0, MAX_FRAMEBLENDS * sizeof(*blend));
 
-	if (!model || !model->surfmesh.isanimated)
+	// rpolzer: Not testing isanimated here - a model might have
+	// "animations" that move no vertices (but only bones), thus rendering
+	// may assume it's not animated while processing can't.
+	if (!model)
 	{
 		blend[0].lerp = 1;
 		return;
@@ -277,19 +282,21 @@ static qboolean checkextension(prvm_prog_t *prog, const char *name)
 			e++;
 		if ((e - start) == len && !strncasecmp(start, name, len))
 		{
+#ifdef USEODE
 			// special sheck for ODE
 			if (!strncasecmp("DP_PHYSICS_ODE", name, 14))
 			{
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 				return ode_dll ? true : false;
 #else
-#ifdef ODE_STATIC
+#ifdef LINK_TO_LIBODE
 				return true;
 #else
 				return false;
 #endif
 #endif
 			}
+#endif
 
 			// special sheck for d0_blind_id
 			if (!strcasecmp("DP_CRYPTO", name))
@@ -2302,8 +2309,8 @@ void VM_strlennocol(prvm_prog_t *prog)
 
 	szString = PRVM_G_STRING(OFS_PARM0);
 
-	//nCnt = COM_StringLengthNoColors(szString, 0, NULL);
-	nCnt = u8_COM_StringLengthNoColors(szString, 0, NULL);
+	//nCnt = (int)COM_StringLengthNoColors(szString, 0, NULL);
+	nCnt = (int)u8_COM_StringLengthNoColors(szString, 0, NULL);
 
 	PRVM_G_FLOAT(OFS_RETURN) = nCnt;
 }
@@ -2417,7 +2424,7 @@ void VM_substring(prvm_prog_t *prog)
 
 	if (start < 0) // FTE_STRINGS feature
 	{
-		u_slength = u8_strlen(s);
+		u_slength = (int)u8_strlen(s);
 		start += u_slength;
 		start = bound(0, start, u_slength);
 	}
@@ -2425,7 +2432,7 @@ void VM_substring(prvm_prog_t *prog)
 	if (length < 0) // FTE_STRINGS feature
 	{
 		if (!u_slength) // it's not calculated when it's not needed above
-			u_slength = u8_strlen(s);
+			u_slength = (int)u8_strlen(s);
 		length += u_slength - start + 1;
 	}
 		
@@ -2776,7 +2783,7 @@ void VM_tokenizebyseparator (prvm_prog_t *prog)
 		if (!s[0])
 			continue;
 		separators[numseparators] = s;
-		separatorlen[numseparators] = strlen(s);
+		separatorlen[numseparators] = (int)strlen(s);
 		numseparators++;
 	}
 
@@ -2883,7 +2890,7 @@ void VM_isserver(prvm_prog_t *prog)
 {
 	VM_SAFEPARMCOUNT(0,VM_serverstate);
 
-	PRVM_G_FLOAT(OFS_RETURN) = sv.active && (svs.maxclients > 1 || cls.state == ca_dedicated);
+	PRVM_G_FLOAT(OFS_RETURN) = sv.active;
 }
 
 /*
@@ -2962,7 +2969,9 @@ VM_gettime
 float	gettime(prvm_prog_t *prog)
 =========
 */
+#ifdef CONFIG_CD
 float CDAudio_GetPosition(void);
+#endif
 void VM_gettime(prvm_prog_t *prog)
 {
 	int timer_index;
@@ -2990,9 +2999,11 @@ void VM_gettime(prvm_prog_t *prog)
 			case 3: // GETTIME_UPTIME
 				PRVM_G_FLOAT(OFS_RETURN) = realtime;
 				break;
+#ifdef CONFIG_CD
 			case 4: // GETTIME_CDTRACK
 				PRVM_G_FLOAT(OFS_RETURN) = CDAudio_GetPosition();
 				break;
+#endif
 			default:
 				VM_Warning(prog, "VM_gettime: %s: unsupported timer specified, returning realtime\n", prog->name);
 				PRVM_G_FLOAT(OFS_RETURN) = realtime;
@@ -4512,23 +4523,25 @@ string altstr_prepare(string)
 */
 void VM_altstr_prepare(prvm_prog_t *prog)
 {
-	char *out;
 	const char *instr, *in;
-	int size;
 	char outstr[VM_STRINGTEMP_LENGTH];
+	size_t outpos;
 
 	VM_SAFEPARMCOUNT( 1, VM_altstr_prepare );
 
 	instr = PRVM_G_STRING( OFS_PARM0 );
 
-	for( out = outstr, in = instr, size = sizeof(outstr) - 1 ; size && *in ; size--, in++, out++ )
-		if( *in == '\'' ) {
-			*out++ = '\\';
-			*out = '\'';
-			size--;
-		} else
-			*out = *in;
-	*out = 0;
+	for (in = instr, outpos = 0; *in && outpos < sizeof(outstr) - 1; ++in)
+	{
+		if (*in == '\'' && outpos < sizeof(outstr) - 2)
+		{
+			outstr[outpos++] = '\\';
+			outstr[outpos++] = '\'';
+		}
+		else
+			outstr[outpos++] = *in;
+	}
+	outstr[outpos] = 0;
 
 	PRVM_G_INT( OFS_RETURN ) = PRVM_SetTempString(prog,  outstr );
 }
@@ -4724,7 +4737,95 @@ static int BufStr_SortStringsDOWN (const void *in1, const void *in2)
 	return strncmp(b, a, stringbuffers_sortlength);
 }
 
-static prvm_stringbuffer_t* strbuf_get(prvm_prog_t *prog, int handle) {
+prvm_stringbuffer_t *BufStr_FindCreateReplace (prvm_prog_t *prog, int bufindex, int flags, const char *format)
+{
+	prvm_stringbuffer_t *stringbuffer;
+	int i;
+
+	if (bufindex < 0)
+		return NULL;
+
+	// find buffer with wanted index
+	if (bufindex < (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray))
+	{
+		if ( (stringbuffer = (prvm_stringbuffer_t*) Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, bufindex)) )
+		{
+			if (stringbuffer->flags & STRINGBUFFER_TEMP)
+				stringbuffer->flags = flags; // created but has not been used yet
+			return stringbuffer;
+		}
+		return NULL;
+	}
+
+	// allocate new buffer with wanted index
+	while(1)
+	{
+		stringbuffer = (prvm_stringbuffer_t *) Mem_ExpandableArray_AllocRecord(&prog->stringbuffersarray);
+		stringbuffer->flags = STRINGBUFFER_TEMP;
+		for (i = 0;stringbuffer != Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i);i++);
+		if (i == bufindex)
+		{
+			stringbuffer->flags = flags; // mark as used
+			break;
+		}
+	}
+	return stringbuffer;
+}
+
+void BufStr_Set(prvm_prog_t *prog, prvm_stringbuffer_t *stringbuffer, int strindex, const char *str)
+{
+	size_t  alloclen;
+
+	if (!stringbuffer || strindex < 0)
+		return;
+
+	BufStr_Expand(prog, stringbuffer, strindex);
+	stringbuffer->num_strings = max(stringbuffer->num_strings, strindex + 1);
+	if (stringbuffer->strings[strindex])
+		Mem_Free(stringbuffer->strings[strindex]);
+	stringbuffer->strings[strindex] = NULL;
+
+	if (str)
+	{
+		// not the NULL string!
+		alloclen = strlen(str) + 1;
+		stringbuffer->strings[strindex] = (char *)Mem_Alloc(prog->progs_mempool, alloclen);
+		memcpy(stringbuffer->strings[strindex], str, alloclen);
+	}
+
+	BufStr_Shrink(prog, stringbuffer);
+}
+
+void BufStr_Del(prvm_prog_t *prog, prvm_stringbuffer_t *stringbuffer)
+{
+	int i;
+	
+	if (!stringbuffer)
+		return;
+
+	for (i = 0;i < stringbuffer->num_strings;i++)
+		if (stringbuffer->strings[i])
+			Mem_Free(stringbuffer->strings[i]);
+	if (stringbuffer->strings)
+		Mem_Free(stringbuffer->strings);
+	if(stringbuffer->origin)
+		PRVM_Free((char *)stringbuffer->origin);
+	Mem_ExpandableArray_FreeRecord(&prog->stringbuffersarray, stringbuffer);
+}
+
+void BufStr_Flush(prvm_prog_t *prog)
+{
+	prvm_stringbuffer_t *stringbuffer;
+	int i, numbuffers;
+
+	numbuffers = (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
+	for (i = 0; i < numbuffers; i++)
+		if ( (stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i)) )
+			BufStr_Del(prog, stringbuffer);
+	Mem_ExpandableArray_NewArray(&prog->stringbuffersarray, prog->progs_mempool, sizeof(prvm_stringbuffer_t), 64);
+}
+
+static prvm_stringbuffer_t* BufStr_Get(prvm_prog_t *prog, int handle) {
     return (prvm_stringbuffer_t*)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, handle);
 }
 
@@ -4755,7 +4856,7 @@ void VM_buf_create (prvm_prog_t *prog)
 	stringbuffer->origin = PRVM_AllocationOrigin(prog);
 	// optional flags parm
 	if (prog->argc >= 2)
-		stringbuffer->flags = (int)PRVM_G_FLOAT(OFS_PARM1) & 0xFF;
+		stringbuffer->flags = (int)PRVM_G_FLOAT(OFS_PARM1) & STRINGBUFFER_QCFLAGS;
 	PRVM_G_FLOAT(OFS_RETURN) = i;
 }
 
@@ -4772,19 +4873,9 @@ void VM_buf_del (prvm_prog_t *prog)
 {
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(1, VM_buf_del);
-	stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
-    if (stringbuffer)
-	{
-		int i;
-		for (i = 0;i < stringbuffer->num_strings;i++)
-			if (stringbuffer->strings[i])
-				Mem_Free(stringbuffer->strings[i]);
-		if (stringbuffer->strings)
-			Mem_Free(stringbuffer->strings);
-		if(stringbuffer->origin)
-			PRVM_Free((char *)stringbuffer->origin);
-		Mem_ExpandableArray_FreeRecord(&prog->stringbuffersarray, stringbuffer);
-	}
+	stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+	if (stringbuffer)
+		BufStr_Del(prog, stringbuffer);
 	else
 	{
 		VM_Warning(prog, "VM_buf_del: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4804,7 +4895,7 @@ void VM_buf_getsize (prvm_prog_t *prog)
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(1, VM_buf_getsize);
 
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		PRVM_G_FLOAT(OFS_RETURN) = -1;
@@ -4828,7 +4919,7 @@ void VM_buf_copy (prvm_prog_t *prog)
 	int i;
 	VM_SAFEPARMCOUNT(2, VM_buf_copy);
 
-    srcstringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    srcstringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!srcstringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_copy: invalid source buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4840,7 +4931,7 @@ void VM_buf_copy (prvm_prog_t *prog)
 		VM_Warning(prog, "VM_buf_copy: source == destination (%i) in %s\n", i, prog->name);
 		return;
 	}
-    dststringbuffer = strbuf_get(prog, i);
+    dststringbuffer = BufStr_Get(prog, i);
 	if(!dststringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_copy: invalid destination buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -4881,7 +4972,7 @@ void VM_buf_sort (prvm_prog_t *prog)
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(3, VM_buf_sort);
 
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_sort: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4920,7 +5011,7 @@ void VM_buf_implode (prvm_prog_t *prog)
 	size_t			l;
 	VM_SAFEPARMCOUNT(2, VM_buf_implode);
 
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	PRVM_G_INT(OFS_RETURN) = OFS_NULL;
 	if(!stringbuffer)
 	{
@@ -4959,7 +5050,7 @@ void VM_bufstr_get (prvm_prog_t *prog)
 	VM_SAFEPARMCOUNT(2, VM_bufstr_get);
 
 	PRVM_G_INT(OFS_RETURN) = OFS_NULL;
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_get: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4984,14 +5075,13 @@ void bufstr_set(float bufhandle, float string_index, string str) = #466;
 */
 void VM_bufstr_set (prvm_prog_t *prog)
 {
-	size_t alloclen;
 	int				strindex;
 	prvm_stringbuffer_t *stringbuffer;
 	const char		*news;
 
 	VM_SAFEPARMCOUNT(3, VM_bufstr_set);
 
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_set: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5004,23 +5094,8 @@ void VM_bufstr_set (prvm_prog_t *prog)
 		return;
 	}
 
-	BufStr_Expand(prog, stringbuffer, strindex);
-	stringbuffer->num_strings = max(stringbuffer->num_strings, strindex + 1);
-
-	if(stringbuffer->strings[strindex])
-		Mem_Free(stringbuffer->strings[strindex]);
-	stringbuffer->strings[strindex] = NULL;
-
-	if(PRVM_G_INT(OFS_PARM2))
-	{
-		// not the NULL string!
-		news = PRVM_G_STRING(OFS_PARM2);
-		alloclen = strlen(news) + 1;
-		stringbuffer->strings[strindex] = (char *)Mem_Alloc(prog->progs_mempool, alloclen);
-		memcpy(stringbuffer->strings[strindex], news, alloclen);
-	}
-
-	BufStr_Shrink(prog, stringbuffer);
+	news = PRVM_G_STRING(OFS_PARM2);
+	BufStr_Set(prog, stringbuffer, strindex, news);
 }
 
 /*
@@ -5040,7 +5115,7 @@ void VM_bufstr_add (prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNT(3, VM_bufstr_add);
 
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	PRVM_G_FLOAT(OFS_RETURN) = -1;
 	if(!stringbuffer)
 	{
@@ -5084,7 +5159,7 @@ void VM_bufstr_free (prvm_prog_t *prog)
 	prvm_stringbuffer_t	*stringbuffer;
 	VM_SAFEPARMCOUNT(2, VM_bufstr_free);
 
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_free: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5119,21 +5194,19 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	size_t alloclen;
 	prvm_stringbuffer_t *stringbuffer;
 	char string[VM_STRINGTEMP_LENGTH];
-	int filenum, strindex, c, end;
+	int strindex, c, end;
 	const char *filename;
 	char vabuf[1024];
+	qfile_t *file;
 
 	VM_SAFEPARMCOUNT(2, VM_buf_loadfile);
 
 	// get file
 	filename = PRVM_G_STRING(OFS_PARM0);
-	for (filenum = 0;filenum < PRVM_MAX_OPENFILES;filenum++)
-		if (prog->openfiles[filenum] == NULL)
-			break;
-	prog->openfiles[filenum] = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "data/%s", filename), false);
-	if (prog->openfiles[filenum] == NULL)
-		prog->openfiles[filenum] = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "%s", filename), false);
-	if (prog->openfiles[filenum] == NULL)
+	file = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "data/%s", filename), false);
+	if (file == NULL)
+		file = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "%s", filename), false);
+	if (file == NULL)
 	{
 		if (developer_extra.integer)
 			VM_Warning(prog, "VM_buf_loadfile: failed to open file %s in %s\n", filename, prog->name);
@@ -5142,7 +5215,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	}
 
 	// get string buffer
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_loadfile: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -5158,7 +5231,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 		end = 0;
 		for (;;)
 		{
-			c = FS_Getc(prog->openfiles[filenum]);
+			c = FS_Getc(file);
 			if (c == '\r' || c == '\n' || c < 0)
 				break;
 			if (end < VM_STRINGTEMP_LENGTH - 1)
@@ -5168,9 +5241,9 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 		// remove \n following \r
 		if (c == '\r')
 		{
-			c = FS_Getc(prog->openfiles[filenum]);
+			c = FS_Getc(file);
 			if (c != '\n')
-				FS_UnGetc(prog->openfiles[filenum], (unsigned char)c);
+				FS_UnGetc(file, (unsigned char)c);
 		}
 		// add and continue
 		if (c >= 0 || end)
@@ -5187,10 +5260,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	}
 
 	// close file
-	FS_Close(prog->openfiles[filenum]);
-	prog->openfiles[filenum] = NULL;
-	if (prog->openfiles_origin[filenum])
-		PRVM_Free((char *)prog->openfiles_origin[filenum]);
+	FS_Close(file);
 	PRVM_G_FLOAT(OFS_RETURN) = 1;
 }
 
@@ -5223,7 +5293,7 @@ void VM_buf_writefile(prvm_prog_t *prog)
 	}
 	
 	// get string buffer
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_writefile: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -5265,7 +5335,7 @@ void VM_buf_writefile(prvm_prog_t *prog)
 	{
 		if (stringbuffer->strings[strindex])
 		{
-			if ((strlength = strlen(stringbuffer->strings[strindex])))
+			if ((strlength = (int)strlen(stringbuffer->strings[strindex])))
 				FS_Write(prog->openfiles[filenum], stringbuffer->strings[strindex], strlength);
 			FS_Write(prog->openfiles[filenum], "\n", 1);
 		}
@@ -5288,7 +5358,7 @@ static const char *detect_match_rule(char *pattern, int *matchrule)
 	char *ppos, *qpos;
 	int patternlength;
 
-	patternlength = strlen(pattern);
+	patternlength = (int)strlen(pattern);
 	ppos = strchr(pattern, '*');
 	qpos = strchr(pattern, '?');
 	// has ? - pattern
@@ -5377,7 +5447,7 @@ void VM_bufstr_find(prvm_prog_t *prog)
 	PRVM_G_FLOAT(OFS_RETURN) = -1;
 
 	// get string buffer
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_find: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5398,7 +5468,7 @@ void VM_bufstr_find(prvm_prog_t *prog)
 		strlcpy(string, PRVM_G_STRING(OFS_PARM1), sizeof(string));
 		match = detect_match_rule(string, &matchrule);
 	}
-	matchlen = strlen(match);
+	matchlen = (int)strlen(match);
 
 	// find
 	i = (prog->argc > 3) ? (int)PRVM_G_FLOAT(OFS_PARM3) : 0;
@@ -5446,7 +5516,7 @@ void VM_matchpattern(prvm_prog_t *prog)
 	}
 
 	// offset
-	l = strlen(match);
+	l = (int)strlen(match);
 	if (prog->argc > 3)
 		s += max(0, min((unsigned int)PRVM_G_FLOAT(OFS_PARM3), strlen(s)-1));
 
@@ -5471,7 +5541,7 @@ void VM_buf_cvarlist(prvm_prog_t *prog)
 	prvm_stringbuffer_t	*stringbuffer;
 	VM_SAFEPARMCOUNTRANGE(2, 3, VM_buf_cvarlist);
 
-    stringbuffer = strbuf_get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_free: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5681,7 +5751,7 @@ void VM_strstrofs (prvm_prog_t *prog)
 	instr = PRVM_G_STRING(OFS_PARM0);
 	match = PRVM_G_STRING(OFS_PARM1);
 	firstofs = (prog->argc > 2)?(int)PRVM_G_FLOAT(OFS_PARM2):0;
-	firstofs = u8_bytelen(instr, firstofs);
+	firstofs = (int)u8_bytelen(instr, firstofs);
 
 	if (firstofs && (firstofs < 0 || firstofs > (int)strlen(instr)))
 	{
@@ -5704,7 +5774,7 @@ void VM_str2chr (prvm_prog_t *prog)
 	int index;
 	VM_SAFEPARMCOUNT(2, VM_str2chr);
 	s = PRVM_G_STRING(OFS_PARM0);
-	index = u8_bytelen(s, (int)PRVM_G_FLOAT(OFS_PARM1));
+	index = (int)u8_bytelen(s, (int)PRVM_G_FLOAT(OFS_PARM1));
 
 	if((unsigned)index < strlen(s))
 	{
@@ -5834,7 +5904,7 @@ void VM_strconv (prvm_prog_t *prog)
 	redalpha = (int) PRVM_G_FLOAT(OFS_PARM1);	//0 same, 1 white, 2 red,  5 alternate, 6 alternate-alternate
 	rednum = (int) PRVM_G_FLOAT(OFS_PARM2);	//0 same, 1 white, 2 red, 3 redspecial, 4 whitespecial, 5 alternate, 6 alternate-alternate
 	VM_VarString(prog, 3, (char *) resbuf, sizeof(resbuf));
-	len = strlen((char *) resbuf);
+	len = (int)strlen((char *) resbuf);
 
 	for (i = 0; i < len; i++, result++)	//should this be done backwards?
 	{
@@ -5986,7 +6056,7 @@ void VM_digest_hex(prvm_prog_t *prog)
 	if(!digest)
 		digest = "";
 	VM_VarString(prog, 1, s, sizeof(s));
-	len = strlen(s);
+	len = (int)strlen(s);
 
 	outlen = 0;
 
@@ -6168,7 +6238,7 @@ void VM_whichpack (prvm_prog_t *prog)
 	fn = PRVM_G_STRING(OFS_PARM0);
 	pack = FS_WhichPack(fn);
 
-	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, pack ? pack : "");
+	PRVM_G_INT(OFS_RETURN) = pack ? PRVM_SetTempString(prog, pack) : 0;
 }
 
 typedef struct
@@ -6177,6 +6247,7 @@ typedef struct
 	double starttime;
 	float id;
 	char buffer[MAX_INPUTLINE];
+	char posttype[128];
 	unsigned char *postdata; // free when uri_to_prog_t is freed
 	size_t postlen;
 	char *sigdata; // free when uri_to_prog_t is freed
@@ -6336,7 +6407,8 @@ void VM_uri_get (prvm_prog_t *prog)
 			handle->sigdata[handle->siglen] = 0;
 		}
 out1:
-		ret = Curl_Begin_ToMemory_POST(url, handle->sigdata, 0, posttype, handle->postdata, handle->postlen, (unsigned char *) handle->buffer, sizeof(handle->buffer), uri_to_string_callback, handle);
+		strlcpy(handle->posttype, posttype, sizeof(handle->posttype));
+		ret = Curl_Begin_ToMemory_POST(url, handle->sigdata, 0, handle->posttype, handle->postdata, handle->postlen, (unsigned char *) handle->buffer, sizeof(handle->buffer), uri_to_string_callback, handle);
 	}
 	else
 	{
@@ -6843,7 +6915,8 @@ nolength:
 			default:
 verbatim:
 				if(o < end - 1)
-					*o++ = *s++;
+					*o++ = *s;
+				++s;
 				break;
 		}
 	}
@@ -7381,6 +7454,14 @@ void VM_physics_addtorque(prvm_prog_t *prog)
 	f.type = ODEFUNC_TORQUE;
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM1), f.v1);
 	VM_physics_ApplyCmd(ed, &f);
+}
+
+extern cvar_t prvm_coverage;
+void VM_coverage(prvm_prog_t *prog)
+{
+	VM_SAFEPARMCOUNT(0, VM_coverage);
+	if (prog->explicit_profile[prog->xstatement]++ == 0 && (prvm_coverage.integer & 2))
+		PRVM_ExplicitCoverageEvent(prog, prog->xfunction, prog->xstatement);
 }
 
 #define CFEX_SETARGC if(prog->funcargbuffer_argc < (int)PRVM_G_FLOAT(OFS_PARM0) + 1) prog->funcargbuffer_argc = (int)PRVM_G_FLOAT(OFS_PARM0) + 1;

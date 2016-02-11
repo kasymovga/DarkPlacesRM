@@ -133,7 +133,6 @@ static int vid_x11_gammarampsize = 0;
 cvar_t vid_dgamouse = {CVAR_SAVE, "vid_dgamouse", "0", "make use of DGA mouse input"};
 static qboolean vid_usingdgamouse = false;
 #endif
-cvar_t vid_netwmfullscreen = {CVAR_SAVE, "vid_netwmfullscreen", "0", "make use _NET_WM_STATE_FULLSCREEN; turn this off if fullscreen does not work for you"};
 
 qboolean vidmode_ext = false;
 
@@ -142,9 +141,10 @@ static int win_x, win_y;
 static XF86VidModeModeInfo init_vidmode, game_vidmode;
 static qboolean vid_isfullscreen = false;
 static qboolean vid_isvidmodefullscreen = false;
-static qboolean vid_isnetwmfullscreen = false;
+static qboolean vid_isdesktopfullscreen = false;
 static qboolean vid_isoverrideredirect = false;
 
+static vid_mode_t desktop_mode;
 static Visual *vidx11_visual;
 static Colormap vidx11_colormap;
 
@@ -287,6 +287,10 @@ static int XLateKey(XKeyEvent *ev, Uchar *ascii)
 		case XK_KP_Add:  key = K_KP_PLUS; break;
 		case XK_KP_Subtract: key = K_KP_MINUS; break;
 		case XK_KP_Divide: key = K_KP_SLASH; break;
+
+		case XK_Num_Lock: key = K_NUMLOCK; break;
+		case XK_Caps_Lock: key = K_CAPSLOCK; break;
+		case XK_Scroll_Lock: key = K_SCROLLOCK; break;
 
 		case XK_asciicircum:	*ascii = key = '^'; break; // for some reason, XLookupString returns "" on this one for Grunt|2
 
@@ -658,28 +662,37 @@ static void HandleEvents(void)
 			// window changed size/location
 			win_x = event.xconfigure.x;
 			win_y = event.xconfigure.y;
-			if((vid_resizable.integer < 2 || vid_isnetwmfullscreen) && (vid.width != event.xconfigure.width || vid.height != event.xconfigure.height))
+			// HACK on X11, we just request fullscreen mode, but
+			// cannot guess what the window manager will do for us
+			// exactly. That is why we read back the resolution we
+			// actually got here.
+			if(vid_isdesktopfullscreen)
+			{
+				desktop_mode.width = event.xconfigure.width;
+				desktop_mode.height = event.xconfigure.height;
+			}
+			if((vid_resizable.integer < 2 || vid_isdesktopfullscreen) && (vid.width != event.xconfigure.width || vid.height != event.xconfigure.height))
 			{
 				vid.width = event.xconfigure.width;
 				vid.height = event.xconfigure.height;
-				if(vid_isnetwmfullscreen)
+				if(vid_isdesktopfullscreen)
 					Con_Printf("NetWM fullscreen: actually using resolution %dx%d\n", vid.width, vid.height);
 				else
 					Con_DPrintf("Updating to ConfigureNotify resolution %dx%d\n", vid.width, vid.height);
 
-				DPSOFTRAST_Flush();
-
-				if(vid.softdepthpixels)
-					free(vid.softdepthpixels);
-
-				DestroyXImages();
-				XSync(vidx11_display, False);
-				if(!BuildXImages(vid.width, vid.height))
-					return;
-				XSync(vidx11_display, False);
-
-				vid.softpixels = (unsigned int *) vidx11_ximage[vidx11_ximage_pos]->data;
-				vid.softdepthpixels = (unsigned int *)calloc(4, vid.width * vid.height);
+				if(vid.renderpath == RENDERPATH_SOFT)
+				{
+					DPSOFTRAST_Flush();
+					if(vid.softdepthpixels)
+						free(vid.softdepthpixels);
+					DestroyXImages();
+					XSync(vidx11_display, False);
+					if(!BuildXImages(vid.width, vid.height))
+						return;
+					XSync(vidx11_display, False);
+					vid.softpixels = (unsigned int *) vidx11_ximage[vidx11_ximage_pos]->data;
+					vid.softdepthpixels = (unsigned int *)calloc(4, vid.width * vid.height);
+				}
 			}
 			break;
 		case DestroyNotify:
@@ -707,7 +720,7 @@ static void HandleEvents(void)
 				XF86VidModeSetViewPort(vidx11_display, vidx11_screen, 0, 0);
 			}
 
-			if(vid_isnetwmfullscreen)
+			if(vid_isdesktopfullscreen)
 			{
 				// make sure it's fullscreen
 				XEvent event;
@@ -749,7 +762,7 @@ static void HandleEvents(void)
 			if (vid_isoverrideredirect)
 				break;
 
-			if(vid_isnetwmfullscreen && event.xfocus.mode == NotifyNormal)
+			if(vid_isdesktopfullscreen && event.xfocus.mode == NotifyNormal)
 			{
 				// iconify netwm fullscreen window when it loses focus
 				// when the user selects it in the taskbar, the window manager will map it again and send MapNotify
@@ -870,7 +883,7 @@ void VID_Shutdown(void)
 
 	vid_hidden = true;
 	vid_isfullscreen = false;
-	vid_isnetwmfullscreen = false;
+	vid_isdesktopfullscreen = false;
 	vid_isvidmodefullscreen = false;
 	vid_isoverrideredirect = false;
 	vidx11_display = NULL;
@@ -913,18 +926,18 @@ void VID_Finish (void)
 				vid.softpixels = (unsigned int *) vidx11_ximage[vidx11_ximage_pos]->data;
 				DPSOFTRAST_SetRenderTargets(vid.width, vid.height, vid.softdepthpixels, vid.softpixels, NULL, NULL, NULL);
 
+				++vidx11_shmwait;
+				XShmPutImage(vidx11_display, win, vidx11_gc, vidx11_ximage[!vidx11_ximage_pos], 0, 0, 0, 0, vid.width, vid.height, True);
+
 				// save mouse motion so we can deal with it later
 				in_mouse_x = 0;
 				in_mouse_y = 0;
-				while(vidx11_shmwait)
+				while(vidx11_shmwait > 1)
 					HandleEvents();
 				in_mouse_x_save += in_mouse_x;
 				in_mouse_y_save += in_mouse_y;
 				in_mouse_x = 0;
 				in_mouse_y = 0;
-
-				++vidx11_shmwait;
-				XShmPutImage(vidx11_display, win, vidx11_gc, vidx11_ximage[!vidx11_ximage_pos], 0, 0, 0, 0, vid.width, vid.height, True);
 			} else {
 				// no buffer switching here, we just flush the renderer
 				DPSOFTRAST_Finish();
@@ -978,7 +991,7 @@ void VID_Init(void)
 #ifdef USEDGA
 	Cvar_RegisterVariable (&vid_dgamouse);
 #endif
-	Cvar_RegisterVariable (&vid_netwmfullscreen);
+	Cvar_RegisterVariable (&vid_desktopfullscreen);
 	InitSig(); // trap evil signals
 // COMMANDLINEOPTION: Input: -nomouse disables mouse support (see also vid_mouse cvar)
 	if (COM_CheckParm ("-nomouse"))
@@ -1030,7 +1043,7 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 	char vabuf[1024];
 
 	vid_isfullscreen = false;
-	vid_isnetwmfullscreen = false;
+	vid_isdesktopfullscreen = false;
 	vid_isvidmodefullscreen = false;
 	vid_isoverrideredirect = false;
 
@@ -1056,6 +1069,13 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 	vidx11_screen = DefaultScreen(vidx11_display);
 	root = RootWindow(vidx11_display, vidx11_screen);
 
+	desktop_mode.width = DisplayWidth(vidx11_display, vidx11_screen);
+	desktop_mode.height = DisplayHeight(vidx11_display, vidx11_screen);
+	desktop_mode.bpp = DefaultDepth(vidx11_display, vidx11_screen);
+	desktop_mode.refreshrate = 60; // FIXME
+	desktop_mode.pixelheight_num = 1; // FIXME
+	desktop_mode.pixelheight_denom = 1; // FIXME
+
 	// Get video mode list
 	MajorVersion = MinorVersion = 0;
 	if (!XF86VidModeQueryVersion(vidx11_display, &MajorVersion, &MinorVersion))
@@ -1068,10 +1088,10 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 
 	if (mode->fullscreen)
 	{
-		if(vid_netwmfullscreen.integer)
+		if(vid_desktopfullscreen.integer)
 		{
 			// TODO detect WM support
-			vid_isnetwmfullscreen = true;
+			vid_isdesktopfullscreen = true;
 			vid_isfullscreen = true;
 			// width and height will be filled in later
 			Con_DPrintf("Using NetWM fullscreen mode\n");
@@ -1155,7 +1175,7 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 
 	if (mode->fullscreen)
 	{
-		if(vid_isnetwmfullscreen)
+		if(vid_isdesktopfullscreen)
 		{
 			mask = CWBackPixel | CWColormap | CWSaveUnder | CWBackingStore | CWEventMask;
 			attr.backing_store = NotUseful;
@@ -1228,7 +1248,7 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 	clshints->res_class = strdup("DarkPlaces");
 
 	szhints = XAllocSizeHints();
-	if(vid_resizable.integer == 0 && !vid_isnetwmfullscreen)
+	if(vid_resizable.integer == 0 && !vid_isdesktopfullscreen)
 	{
 		szhints->min_width = szhints->max_width = mode->width;
 		szhints->min_height = szhints->max_height = mode->height;
@@ -1330,7 +1350,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 	char vabuf[1024];
 
 	vid_isfullscreen = false;
-	vid_isnetwmfullscreen = false;
+	vid_isdesktopfullscreen = false;
 	vid_isvidmodefullscreen = false;
 	vid_isoverrideredirect = false;
 
@@ -1372,6 +1392,13 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 	vidx11_screen = DefaultScreen(vidx11_display);
 	root = RootWindow(vidx11_display, vidx11_screen);
 
+	desktop_mode.width = DisplayWidth(vidx11_display, vidx11_screen);
+	desktop_mode.height = DisplayHeight(vidx11_display, vidx11_screen);
+	desktop_mode.bpp = DefaultDepth(vidx11_display, vidx11_screen);
+	desktop_mode.refreshrate = 60; // FIXME
+	desktop_mode.pixelheight_num = 1; // FIXME
+	desktop_mode.pixelheight_denom = 1; // FIXME
+
 	// Get video mode list
 	MajorVersion = MinorVersion = 0;
 	if (!XF86VidModeQueryVersion(vidx11_display, &MajorVersion, &MinorVersion))
@@ -1403,10 +1430,10 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 
 	if (mode->fullscreen)
 	{
-		if(vid_netwmfullscreen.integer)
+		if(vid_desktopfullscreen.integer)
 		{
 			// TODO detect WM support
-			vid_isnetwmfullscreen = true;
+			vid_isdesktopfullscreen = true;
 			vid_isfullscreen = true;
 			// width and height will be filled in later
 			Con_DPrintf("Using NetWM fullscreen mode\n");
@@ -1490,7 +1517,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 
 	if (mode->fullscreen)
 	{
-		if(vid_isnetwmfullscreen)
+		if(vid_isdesktopfullscreen)
 		{
 			mask = CWBackPixel | CWColormap | CWSaveUnder | CWBackingStore | CWEventMask;
 			attr.backing_store = NotUseful;
@@ -1563,7 +1590,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 	clshints->res_class = strdup("DarkPlaces");
 
 	szhints = XAllocSizeHints();
-	if(vid_resizable.integer == 0 && !vid_isnetwmfullscreen)
+	if(vid_resizable.integer == 0 && !vid_isdesktopfullscreen)
 	{
 		szhints->min_width = szhints->max_width = mode->width;
 		szhints->min_height = szhints->max_height = mode->height;
@@ -1714,6 +1741,11 @@ void IN_Move (void)
 	VID_EnableJoystick(true);
 	VID_BuildJoyState(&joystate);
 	VID_ApplyJoyState(&joystate);
+}
+
+vid_mode_t *VID_GetDesktopMode(void)
+{
+	return &desktop_mode;
 }
 
 size_t VID_ListModes(vid_mode_t *modes, size_t maxcount)

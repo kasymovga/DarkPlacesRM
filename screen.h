@@ -83,8 +83,9 @@ typedef struct scr_touchscreenarea_s
 }
 scr_touchscreenarea_t;
 
+// FIXME: should resize dynamically?
 extern int scr_numtouchscreenareas;
-extern scr_touchscreenarea_t scr_touchscreenareas[16];
+extern scr_touchscreenarea_t scr_touchscreenareas[128];
 
 #endif
 

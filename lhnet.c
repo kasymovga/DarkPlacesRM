@@ -5,7 +5,7 @@
 #ifdef _MSC_VER
 #pragma comment(lib, "ws2_32.lib")
 #endif
-# ifdef SUPPORTIPV6
+# ifndef NOSUPPORTIPV6
 // Windows XP or higher is required for getaddrinfo, but the inclusion of wspiapi provides fallbacks for older versions
 # define _WIN32_WINNT 0x0501
 # endif
@@ -33,7 +33,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 #include <net/if.h>
 #endif
 #endif
@@ -97,7 +97,7 @@ typedef struct lhnetaddressnative_s
 	{
 		struct sockaddr sock;
 		struct sockaddr_in in;
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 		struct sockaddr_in6 in6;
 #endif
 	}
@@ -139,7 +139,7 @@ int LHNETADDRESS_FromPort(lhnetaddress_t *vaddress, lhnetaddresstype_t addressty
 		address->addr.in.sin_family = AF_INET;
 		address->addr.in.sin_port = htons((unsigned short)port);
 		return 1;
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 	case LHNETADDRESSTYPE_INET6:
 		// [0:0:0:0:0:0:0:0]:port  (IN6ADDR_ANY, binds to all interfaces)
 		memset(address, 0, sizeof(*address));
@@ -153,7 +153,7 @@ int LHNETADDRESS_FromPort(lhnetaddress_t *vaddress, lhnetaddresstype_t addressty
 	return 0;
 }
 
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 static int LHNETADDRESS_Resolve(lhnetaddressnative_t *address, const char *name, int port)
 {
 	char port_buff [16];
@@ -453,7 +453,7 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 		address->port = port;
 		if (address->addresstype == LHNETADDRESSTYPE_INET6)
 		{
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 			address->addr.in6.sin6_port = htons((unsigned short)port);
 			return 1;
 #endif
@@ -471,7 +471,7 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 	{
 		if (hostentry->h_addrtype == AF_INET6)
 		{
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 			// great it worked
 			address->addresstype = LHNETADDRESSTYPE_INET6;
 			address->port = port;
@@ -535,9 +535,9 @@ int LHNETADDRESS_ToString(const lhnetaddress_t *vaddress, char *string, int stri
 {
 	lhnetaddressnative_t *address = (lhnetaddressnative_t *)vaddress;
 	const unsigned char *a;
-	*string = 0;
 	if (!address || !string || stringbuffersize < 1)
 		return 0;
+	*string = 0;
 	switch(address->addresstype)
 	{
 	default:
@@ -579,7 +579,7 @@ int LHNETADDRESS_ToString(const lhnetaddress_t *vaddress, char *string, int stri
 			}
 		}
 		break;
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 	case LHNETADDRESSTYPE_INET6:
 		a = (const unsigned char *)(&address->addr.in6.sin6_addr);
 		if (includeport)
@@ -614,7 +614,7 @@ int LHNETADDRESS_GetAddressType(const lhnetaddress_t *address)
 
 const char *LHNETADDRESS_GetInterfaceName(const lhnetaddress_t *vaddress, char *ifname, size_t ifnamelength)
 {
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 	lhnetaddressnative_t *address = (lhnetaddressnative_t *)vaddress;
 
 	if (address && address->addresstype == LHNETADDRESSTYPE_INET6)
@@ -659,7 +659,7 @@ int LHNETADDRESS_SetPort(lhnetaddress_t *vaddress, int port)
 	case LHNETADDRESSTYPE_INET4:
 		address->addr.in.sin_port = htons((unsigned short)port);
 		return 1;
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 	case LHNETADDRESSTYPE_INET6:
 		address->addr.in6.sin6_port = htons((unsigned short)port);
 		return 1;
@@ -691,7 +691,7 @@ int LHNETADDRESS_Compare(const lhnetaddress_t *vaddress1, const lhnetaddress_t *
 		if (address1->port != address2->port)
 			return -1;
 		return 0;
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 	case LHNETADDRESSTYPE_INET6:
 		if (address1->addr.in6.sin6_family != address2->addr.in6.sin6_family)
 			return 1;
@@ -723,6 +723,7 @@ lhnetpacket_t;
 static int lhnet_active;
 static lhnetsocket_t lhnet_socketlist;
 static lhnetpacket_t lhnet_packetlist;
+static int lhnet_default_dscp = 0;
 #ifdef WIN32
 static int lhnet_didWSAStartup = 0;
 static WSADATA lhnet_winsockdata;
@@ -739,6 +740,18 @@ void LHNET_Init(void)
 	lhnet_didWSAStartup = !WSAStartup(MAKEWORD(1, 1), &lhnet_winsockdata);
 	if (!lhnet_didWSAStartup)
 		Con_Print("LHNET_Init: WSAStartup failed, networking disabled\n");
+#endif
+}
+
+int LHNET_DefaultDSCP(int dscp)
+{
+#ifdef IP_TOS
+	int prev = lhnet_default_dscp;
+	if(dscp >= 0)
+		lhnet_default_dscp = dscp;
+	return prev;
+#else
+	return -1;
 #endif
 }
 
@@ -899,14 +912,14 @@ lhnetsocket_t *LHNET_OpenSocket_Connectionless(lhnetaddress_t *address)
 			}
 			break;
 		case LHNETADDRESSTYPE_INET4:
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 		case LHNETADDRESSTYPE_INET6:
 #endif
 #ifdef WIN32
 			if (lhnet_didWSAStartup)
 			{
 #endif
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 				if ((lhnetsocket->inetsocket = socket(address->addresstype == LHNETADDRESSTYPE_INET6 ? PF_INET6 : PF_INET, SOCK_DGRAM, IPPROTO_UDP)) != -1)
 #else
 				if ((lhnetsocket->inetsocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) != -1)
@@ -959,13 +972,19 @@ lhnetsocket_t *LHNET_OpenSocket_Connectionless(lhnetaddress_t *address)
 							}
 #endif
 
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 							if (address->addresstype == LHNETADDRESSTYPE_INET6)
 							{
 								namelen = sizeof(localaddress->addr.in6);
 								bindresult = bind(lhnetsocket->inetsocket, &localaddress->addr.sock, namelen);
 								if (bindresult != -1)
-									getsockname(lhnetsocket->inetsocket, &localaddress->addr.sock, &namelen);
+								{
+									if (getsockname(lhnetsocket->inetsocket, &localaddress->addr.sock, &namelen))
+									{
+										// If getsockname failed, we can assume the bound socket is useless.
+										bindresult = -1;
+									}
+								}
 							}
 							else
 #endif
@@ -973,13 +992,29 @@ lhnetsocket_t *LHNET_OpenSocket_Connectionless(lhnetaddress_t *address)
 								namelen = sizeof(localaddress->addr.in);
 								bindresult = bind(lhnetsocket->inetsocket, &localaddress->addr.sock, namelen);
 								if (bindresult != -1)
-									getsockname(lhnetsocket->inetsocket, &localaddress->addr.sock, &namelen);
+								{
+									if (getsockname(lhnetsocket->inetsocket, &localaddress->addr.sock, &namelen))
+									{
+										// If getsockname failed, we can assume the bound socket is useless.
+										bindresult = -1;
+									}
+								}
 							}
 							if (bindresult != -1)
 							{
 								int i = 1;
 								// enable broadcast on this socket
 								setsockopt(lhnetsocket->inetsocket, SOL_SOCKET, SO_BROADCAST, (char *)&i, sizeof(i));
+#ifdef IP_TOS
+								{
+									// enable DSCP for ToS support
+									int tos = lhnet_default_dscp << 2;
+									if (setsockopt(lhnetsocket->inetsocket, IPPROTO_IP, IP_TOS, (char *) &tos, sizeof(tos)))
+									{
+										// Error in setsockopt - fine, we'll simply set no TOS then.
+									}
+								}
+#endif
 								lhnetsocket->next = &lhnet_socketlist;
 								lhnetsocket->prev = lhnetsocket->next->prev;
 								lhnetsocket->next->prev = lhnetsocket;
@@ -1120,7 +1155,7 @@ int LHNET_Read(lhnetsocket_t *lhnetsocket, void *content, int maxcontentlength, 
 			Con_DPrintf("LHNET_Read: recvfrom returned error: %s\n", LHNETPRIVATE_StrError());
 		}
 	}
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 	else if (lhnetsocket->address.addresstype == LHNETADDRESSTYPE_INET6)
 	{
 		SOCKLEN_T inetaddresslength;
@@ -1188,7 +1223,7 @@ int LHNET_Write(lhnetsocket_t *lhnetsocket, const void *content, int contentleng
 			Con_DPrintf("LHNET_Write: sendto returned error: %s\n", LHNETPRIVATE_StrError());
 		}
 	}
-#ifdef SUPPORTIPV6
+#ifndef NOSUPPORTIPV6
 	else if (lhnetsocket->address.addresstype == LHNETADDRESSTYPE_INET6)
 	{
 		value = sendto(lhnetsocket->inetsocket, (char *)content, contentlength, 0, (struct sockaddr *)&address->addr.in6, sizeof(struct sockaddr_in6));
