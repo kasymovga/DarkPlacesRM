@@ -441,6 +441,10 @@ endif
 endif
 endif
 
+ifeq ($(ISVECXIS), 1)
+CFLAGS_EXTRA+=-DVECXIS_RELEASE
+endif
+
 ifdef DP_FS_BASEDIR
 	CFLAGS_FS=-DDP_FS_BASEDIR=\"$(DP_FS_BASEDIR)\"
 else
