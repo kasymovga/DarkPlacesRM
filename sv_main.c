@@ -2026,7 +2026,6 @@ void SV_WriteClientdataToMessage (client_t *client, prvm_edict_t *ent, sizebuf_t
 
     if(client->edict != ent) {
         // DP_RM_CLIENTDATAENT
-        Con_Printf("forcing!\n");
         MSG_WriteByte(msg, svc_setangle);
         for (i=0 ; i < 3 ; i++)
             MSG_WriteAngle(msg, PRVM_serveredictvector(ent, v_angle)[i], sv.protocol);
