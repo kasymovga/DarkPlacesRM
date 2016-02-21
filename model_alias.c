@@ -2943,7 +2943,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 				p->quat[3] = LittleFloat(p->quat[3]);
 				p->frametime = LittleFloat(p->frametime);
 #ifdef PSKQUATNEGATIONS
-				if (index % numbones)
+				if (numbones && index % numbones)
 				{
 					p->quat[0] *= -1;
 					p->quat[1] *= -1;
