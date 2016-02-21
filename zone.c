@@ -731,6 +731,8 @@ void *Mem_ExpandableArray_AllocRecord(memexpandablearray_t *l)
 				{
 					l->arrays[i].allocflags[j] = true;
 					l->arrays[i].numflaggedrecords++;
+					if (l->arrays[i].data == NULL)
+						Sys_Error("Mem_ExpandableArray_AllocRecord: Setting dead memory?");
 					memset(l->arrays[i].data + l->recordsize * j, 0, l->recordsize);
 					return (void *)(l->arrays[i].data + l->recordsize * j);
 				}
