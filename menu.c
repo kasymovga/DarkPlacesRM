@@ -5577,8 +5577,8 @@ void MR_Init(void)
 			if(video_resolutions[i].conwidth > video_resolutions[i].width || video_resolutions[i].conheight > video_resolutions[i].height)
 			{
 				int f1, f2;
-				f1 = video_resolutions[i].conwidth > video_resolutions[i].width;
-				f2 = video_resolutions[i].conheight > video_resolutions[i].height;
+				f1 = min(video_resolutions[i].conwidth, video_resolutions[i].width);
+				f2 = max(video_resolutions[i].conheight, video_resolutions[i].height);
 				if(f1 > f2)
 				{
 					video_resolutions[i].conwidth = video_resolutions[i].width;
