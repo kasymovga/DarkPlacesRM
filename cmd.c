@@ -275,11 +275,10 @@ Cbuf_Execute
 static qboolean Cmd_PreprocessString( const char *intext, char *outtext, unsigned maxoutlen, cmdalias_t *alias );
 void Cbuf_Execute (void)
 {
-	int i;
+	int i, line_cur, line_len;
 	char *text;
 	char line[MAX_INPUTLINE];
 	char preprocessed[MAX_INPUTLINE];
-	char *firstchar;
 	qboolean quotes;
 	char *comment;
 
@@ -346,15 +345,16 @@ void Cbuf_Execute (void)
 		}
 
 // execute the command line
-		firstchar = line;
-		while(*firstchar && ISWHITESPACE(*firstchar))
-			++firstchar;
+		line_cur = 0;
+		line_len = strlen(line);
+		while(line_cur < line_len && line[line_cur] && ISWHITESPACE(line[line_cur]))
+			line_cur++;
 		if(
-			(strncmp(firstchar, "alias", 5) || !ISWHITESPACE(firstchar[5]))
+			(line_cur + 4 < line_len && line[line_cur] && (strncmp(&line[line_cur], "bind", 4) || !ISWHITESPACE(line[line_cur + 4])))
 			&&
-			(strncmp(firstchar, "bind", 4) || !ISWHITESPACE(firstchar[4]))
+			(line_cur + 5 < line_len && line[line_cur] && (strncmp(&line[line_cur], "alias", 5) || !ISWHITESPACE(line[line_cur + 5])))
 			&&
-			(strncmp(firstchar, "in_bind", 7) || !ISWHITESPACE(firstchar[7]))
+			(line_cur + 7 < line_len && line[line_cur] && (strncmp(&line[line_cur], "in_bind", 7) || !ISWHITESPACE(line[line_cur + 7])))
 		)
 		{
 			if(Cmd_PreprocessString( line, preprocessed, sizeof(preprocessed), NULL ))
