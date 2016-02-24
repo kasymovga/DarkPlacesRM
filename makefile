@@ -64,7 +64,7 @@ TARGETS_PROFILE=sv-profile cl-profile sdl-profile
 TARGETS_RELEASE=sv-release cl-release sdl-release
 TARGETS_RELEASE_PROFILE=sv-release-profile cl-release-profile sdl-release-profile
 TARGETS_NEXUIZ=sv-nexuiz cl-nexuiz sdl-nexuiz
-TARGETS_VECXIS=sv-vecxis sdl-vecxis
+TARGETS_VECXIS=sv-vecxis sdl2-vecxis
 
 ###### Optional features #####
 DP_CDDA?=enabled
