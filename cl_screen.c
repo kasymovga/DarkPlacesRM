@@ -340,7 +340,7 @@ static void SCR_DrawNetGraph_DrawGraph (int graphx, int graphy, int graphwidth, 
 	y = graphy + graphheight;
 	dpsnprintf(bytesstring, sizeof(bytesstring), "%i", totalbytes);
 	DrawQ_String(x, y, label      , 0, textsize, textsize, 1.0f, 1.0f, 1.0f, 1.0f, 0, NULL, false, FONT_DEFAULT);y += textsize;
-	DrawQ_String(x, y, bytesstring, 0, textsize, textsize, 1.0f, 1.0f, 1.0f, 1.0f, 0, NULL, false, FONT_DEFAULT);y += textsize;
+	DrawQ_String(x, y, bytesstring, 0, textsize, textsize, 1.0f, 1.0f, 1.0f, 1.0f, 0, NULL, false, FONT_DEFAULT);
 }
 
 /*
@@ -1154,7 +1154,7 @@ static void R_TimeReport_EndFrame(void)
 		graph_data = cls.r_speeds_graph_data;
 		graph_current = cls.r_speeds_graph_current;
 		graph_length = cls.r_speeds_graph_length;
-		for (stat = 0;stat < r_stat_count;stat++)
+		for (stat = 0;graph_data && stat < r_stat_count;stat++)
 			graph_data[stat * graph_length + graph_current] = r_refdef.stats[stat];
 
 		// update the graph ranges
@@ -1191,7 +1191,6 @@ static void R_TimeReport_EndFrame(void)
 
 		// count how many stats match our pattern
 		stats = 0;
-		color = 0;
 		for (color = 0;color < R_SPEEDS_GRAPH_COLORS;color++)
 		{
 			// look at all stat names and find ones matching the filter
@@ -1220,7 +1219,6 @@ static void R_TimeReport_EndFrame(void)
 			// get space in a vertex buffer to draw this
 			numlines = stats * (graph_length - 1);
 			v = R_Mesh_PrepareVertices_Generic_Lock(numlines * 2);
-			stats = 0;
 			for (color = 0;color < R_SPEEDS_GRAPH_COLORS;color++)
 			{
 				// look at all stat names and find ones matching the filter
