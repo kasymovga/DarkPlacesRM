@@ -2031,7 +2031,7 @@ static void EntityFrame5_ExpandEdicts(entityframe5_database_t *d, int newmax)
 		d->priorities = (unsigned char *)data;data += d->maxedicts * sizeof(unsigned char);
 		d->updateframenum = (int *)data;data += d->maxedicts * sizeof(int);
 		d->states = (entity_state_t *)data;data += d->maxedicts * sizeof(entity_state_t);
-		d->visiblebits = (unsigned char *)data;data += (d->maxedicts+7)/8 * sizeof(unsigned char);
+		d->visiblebits = (unsigned char *)data;//data += (d->maxedicts+7)/8 * sizeof(unsigned char);
 		if (oldmaxedicts)
 		{
 			memcpy(d->deltabits, olddeltabits, oldmaxedicts * sizeof(int));
@@ -3296,7 +3296,9 @@ void EntityFrameQW_CL_ReadFrame(qboolean delta)
 	newsnapindex = cl.qw_validsequence & QW_UPDATE_MASK;
 	newsnap = d->snapshot + newsnapindex;
 	memset(newsnap, 0, sizeof(*newsnap));
-	oldsnap = NULL;
+	/* old snap should be overwritten if its going to be used, but if not we avoid a null pointer dereference */
+	//oldsnap = NULL;
+	oldsnap = newsnap;
 	if (delta)
 	{
 		number = MSG_ReadByte(&cl_message);
