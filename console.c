@@ -602,7 +602,6 @@ void Log_ConPrint (const char *msg)
 			memcpy (newqueue, logqueue, logq_ind);
 			Mem_Free (logqueue);
 			logqueue = newqueue;
-			remain = logq_size - logq_ind;
 		}
 		memcpy (&logqueue[logq_ind], msg, len);
 		logq_ind += len;
@@ -2155,7 +2154,6 @@ qboolean GetMapList (const char *s, char *completedname, int completednamebuffer
 		char desc[64];
 		desc[0] = 0;
 		strlcpy(message, "^1ERROR: open failed^7", sizeof(message));
-		p = 0;
 		f = FS_OpenVirtualFile(t->filenames[i], true);
 		if(f)
 		{
@@ -2655,7 +2653,7 @@ static const char **Nicks_CompleteBuildList(int count)
 
 	Nicks_CutMatches(count);
 
-	buf[bpos] = NULL;
+	buf[bpos] = '\0';
 	return buf;
 }
 
@@ -3017,7 +3015,7 @@ void Con_CompleteCommandLine (void)
 	if (n)
 		cmd = *(list[3] = Nicks_CompleteBuildList(n));
 
-	for (cmd_len = (int)strlen(s);;cmd_len++)
+	for (cmd_len = (int)strlen(s); cmd && cmd_len && cmd[cmd_len] != '\0'; cmd_len++)
 	{
 		const char **l;
 		for (i = 0; i < 3; i++)
@@ -3025,13 +3023,6 @@ void Con_CompleteCommandLine (void)
 				for (l = list[i];*l;l++)
 					if ((*l)[cmd_len] != cmd[cmd_len])
 						goto done;
-		// all possible matches share this character, so we continue...
-		if (!cmd[cmd_len])
-		{
-			// if all matches ended at the same position, stop
-			// (this means there is only one match)
-			break;
-		}
 	}
 done:
 
