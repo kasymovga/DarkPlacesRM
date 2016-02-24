@@ -2353,10 +2353,9 @@ static void R_InitParticleTexture (void)
 		unsigned char noise3[64][64], data2[64][16][4];
 		// nexbeam
 		fractalnoise(&noise3[0][0], 64, 4);
-		m = 0;
 		for (y = 0;y < 64;y++)
 		{
-			dy = (y - 0.5f*64) / (64*0.5f-1);
+// 			dy = (y - 0.5f*64) / (64*0.5f-1);
 			for (x = 0;x < 16;x++)
 			{
 				dx = (x - 0.5f*16) / (16*0.5f-2);
@@ -2868,10 +2867,7 @@ static void R_DrawParticle_TransparentCallback(const entity_render_t *ent, const
 	}
 
 	// now render batches of particles based on blendmode and texture
-	blendmode = PBLEND_INVALID;
 	texture = NULL;
-	batchstart = 0;
-	batchcount = 0;
 	R_Mesh_PrepareVertices_Generic_Arrays(numsurfaces * 4, particle_vertex3f, particle_color4f, particle_texcoord2f);
 	for (surfacelistindex = 0;surfacelistindex < numsurfaces;)
 	{

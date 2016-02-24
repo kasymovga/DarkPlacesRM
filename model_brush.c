@@ -2612,8 +2612,6 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			surface->lightmapinfo->extents[i] = (int) ceil(texmaxs[i] / 16.0) * 16 - surface->lightmapinfo->texturemins[i];
 		}
 
-		smax = surface->lightmapinfo->extents[0] >> 4;
-		tmax = surface->lightmapinfo->extents[1] >> 4;
 		ssize = (surface->lightmapinfo->extents[0] >> 4) + 1;
 		tsize = (surface->lightmapinfo->extents[1] >> 4) + 1;
 
@@ -8427,7 +8425,7 @@ void Mod_OBJ_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->surfmesh.data_normal3f = (float *)data;data += numvertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_texcoordtexture2f = (float *)data;data += numvertices * sizeof(float[2]);
 	if (loadmodel->surfmesh.num_vertices <= 65536)
-		loadmodel->surfmesh.data_element3s = (unsigned short *)data;data += loadmodel->surfmesh.num_triangles * sizeof(unsigned short[3]);
+		loadmodel->surfmesh.data_element3s = (unsigned short *)data;//data += loadmodel->surfmesh.num_triangles * sizeof(unsigned short[3]);
 
 	for (j = 0;j < loadmodel->surfmesh.num_vertices;j++)
 	{
