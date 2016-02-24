@@ -2176,7 +2176,6 @@ void S_Update(const matrix4x4_t *listenermatrix)
 			if(mindist_trans - maxdist_trans == 0)
 			{
 				spatialmethod = SPATIAL_THRESH;
-				mindist_trans = snd_spatialization_min_radius.value;
 			}
 			else
 			{
