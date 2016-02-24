@@ -1636,16 +1636,20 @@ static int NetConn_ClientParsePacket_ServerList_ProcessReply(const char *address
 		++serverlist_cachecount;
 	}
 	// if this is the first reply from this server, count it as having replied
-	pingtime = (int)((realtime - entry->querytime) * 1000.0 + 0.5);
-	pingtime = bound(0, pingtime, 9999);
-	if (entry->query == SQS_REFRESHING) {
-		entry->info.ping = pingtime;
-		entry->query = SQS_QUERIED;
+	if (entry) {
+		pingtime = (int)((realtime - entry->querytime) * 1000.0 + 0.5);
+		pingtime = bound(0, pingtime, 9999);
+		if (entry->query == SQS_REFRESHING) {
+			entry->info.ping = pingtime;
+			entry->query = SQS_QUERIED;
+		} else {
+			// convert to unsigned to catch the -1
+			// I still dont like this but its better than the old 10000 magic ping number - as in easier to type and read :( [11/8/2007 Black]
+			entry->info.ping = min((unsigned) entry->info.ping, (unsigned) pingtime);
+			serverreplycount++;
+		}
 	} else {
-		// convert to unsigned to catch the -1
-		// I still dont like this but its better than the old 10000 magic ping number - as in easier to type and read :( [11/8/2007 Black]
-		entry->info.ping = min((unsigned) entry->info.ping, (unsigned) pingtime);
-		serverreplycount++;
+			Con_DPrintf("NetConn_ClientParsePacket_ServerList_ProcessReply: bogus serverlist_cachecount?");
 	}
 	
 	// other server info is updated by the caller
@@ -3011,7 +3015,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		{
 			crypto_t *crypto = Crypto_ServerGetInstance(peeraddress);
 			string += 7;
-			length -= 7;
+// 			length -= 7; // we always return from this if-block
 
 			if(crypto && crypto->authenticated)
 			{
