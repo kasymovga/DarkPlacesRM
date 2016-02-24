@@ -1348,15 +1348,17 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 	map->sfy = mapstart->sfy;
 
 	pitch = map->glyphSize * FONT_CHARS_PER_LINE * bytesPerPixel;
+	
+	data = (unsigned char *)Mem_Alloc(font_mempool, (FONT_CHAR_LINES * map->glyphSize) * pitch);
+	if (!data)
+	{
+		Con_Printf("ERROR: Failed to allocate memory for font %s size %g\n", font->name, map->size);
+		Mem_Free(map);
+		return false;
+	}
+
 	if (map->pic->tex == r_texture_notexture)
 	{
-		data = (unsigned char *)Mem_Alloc(font_mempool, (FONT_CHAR_LINES * map->glyphSize) * pitch);
-		if (!data)
-		{
-			Con_Printf("ERROR: Failed to allocate memory for font %s size %g\n", font->name, map->size);
-			Mem_Free(map);
-			return false;
-		}
 		// initialize as white texture with zero alpha
 		tp = 0;
 		while (tp < (FONT_CHAR_LINES * map->glyphSize) * pitch)
@@ -1387,6 +1389,7 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 	     ch < (FT_ULong)map->start + FONT_CHARS_PER_MAP;
 	     ++ch)
 	{
+		usefont = NULL;
 		FT_ULong glyphIndex;
 		int w, h, x, y;
 		FT_GlyphSlot glyph;
@@ -1416,7 +1419,6 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 		//status = qFT_Load_Char(face, ch, FT_LOAD_RENDER);
 		// we need the glyphIndex
 		face = (FT_Face)font->face;
-		usefont = NULL;
 		if (font->image_font && mapch == ch && img_fontmap[mapch])
 		{
 			map->glyphs[mapch].image = true;
@@ -1452,7 +1454,7 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 
 		if (!usefont)
 		{
-			usefont = font;
+// 			usefont = font;
 			face = (FT_Face)font->face;
 			status = qFT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER | load_flags);
 			if (status)
@@ -1534,7 +1536,7 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); ch <<= 2; dst += bytesPerPixel;
 						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); ch <<= 2; dst += bytesPerPixel;
 						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); ch <<= 2; dst += bytesPerPixel;
-						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); ch <<= 2; dst += bytesPerPixel;
+						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); dst += bytesPerPixel;
 					}
 					break;
 				case FT_PIXEL_MODE_GRAY4:
