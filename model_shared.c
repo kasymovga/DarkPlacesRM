@@ -1074,7 +1074,7 @@ shadowmesh_t *Mod_ShadowMesh_Alloc(mempool_t *mempool, int maxverts, int maxtria
 		newmesh->vertexhashentries = (shadowmeshvertexhash_t *)data;data += maxverts * sizeof(shadowmeshvertexhash_t);
 	}
 	if (maxverts <= 65536)
-		newmesh->element3s = (unsigned short *)data;data += maxtriangles * sizeof(unsigned short[3]);
+		newmesh->element3s = (unsigned short *)data;//data += maxtriangles * sizeof(unsigned short[3]);
 	return newmesh;
 }
 
@@ -1208,24 +1208,27 @@ shadowmesh_t *Mod_ShadowMesh_Begin(mempool_t *mempool, int maxverts, int maxtria
 
 static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 {
-	if (!mesh->numverts)
+	if (!mesh || !mesh->numverts)
 		return;
 
 	// build r_vertexmesh_t array
 	// (compressed interleaved array for D3D)
-	if (!mesh->vertexmesh && mesh->texcoord2f && vid.useinterleavedarrays)
+	if (!mesh->vertexmesh && vid.useinterleavedarrays && mesh->texcoord2f && mesh->vertex3f && mesh->svector3f && mesh->tvector3f && mesh->normal3f)
 	{
-		int vertexindex;
-		int numvertices = mesh->numverts;
-		r_vertexmesh_t *vertexmesh;
-		mesh->vertexmesh = vertexmesh = (r_vertexmesh_t*)Mem_Alloc(mempool, numvertices * sizeof(*mesh->vertexmesh));
-		for (vertexindex = 0;vertexindex < numvertices;vertexindex++, vertexmesh++)
-		{
-			VectorCopy(mesh->vertex3f + 3*vertexindex, vertexmesh->vertex3f);
-			VectorScale(mesh->svector3f + 3*vertexindex, 1.0f, vertexmesh->svector3f);
-			VectorScale(mesh->tvector3f + 3*vertexindex, 1.0f, vertexmesh->tvector3f);
-			VectorScale(mesh->normal3f + 3*vertexindex, 1.0f, vertexmesh->normal3f);
-			Vector2Copy(mesh->texcoord2f + 2*vertexindex, vertexmesh->texcoordtexture2f);
+		r_vertexmesh_t *vertexmesh = (r_vertexmesh_t*)Mem_Alloc(mempool, mesh->numverts * sizeof(*mesh->vertexmesh));
+		if (vertexmesh != NULL) {
+			mesh->vertexmesh = vertexmesh;
+			int vertexindex;
+			for (vertexindex = 0;vertexindex < mesh->numverts;vertexindex++, vertexmesh++)
+			{
+				VectorCopy(mesh->vertex3f + 3*vertexindex, vertexmesh->vertex3f);
+				VectorScale(mesh->svector3f + 3*vertexindex, 1.0f, vertexmesh->svector3f);
+				VectorScale(mesh->tvector3f + 3*vertexindex, 1.0f, vertexmesh->tvector3f);
+				VectorScale(mesh->normal3f + 3*vertexindex, 1.0f, vertexmesh->normal3f);
+				Vector2Copy(mesh->texcoord2f + 2*vertexindex, vertexmesh->texcoordtexture2f);
+			}
+		} else {
+			Sys_Error("Mod_ShadowMesh_CreateVBOs: can't allocate memory for vertexmesh\n");
 		}
 	}
 
@@ -4060,7 +4063,7 @@ static void Mod_GenerateLightmaps_UnweldTriangles(dp_model_t *model)
 	model->surfmesh.data_tvector3f = (float *)data;data += model->surfmesh.num_vertices * sizeof(float[3]);
 	model->surfmesh.data_texcoordtexture2f = (float *)data;data += model->surfmesh.num_vertices * sizeof(float[2]);
 	model->surfmesh.data_texcoordlightmap2f = (float *)data;data += model->surfmesh.num_vertices * sizeof(float[2]);
-	model->surfmesh.data_lightmapcolor4f = (float *)data;data += model->surfmesh.num_vertices * sizeof(float[4]);
+	model->surfmesh.data_lightmapcolor4f = (float *)data;//data += model->surfmesh.num_vertices * sizeof(float[4]);
 	if (model->surfmesh.num_vertices > 65536)
 		model->surfmesh.data_element3s = NULL;
 
@@ -4227,7 +4230,6 @@ static void Mod_GenerateLightmaps_CreateLightmaps(dp_model_t *model)
 	for (surfaceindex = 0;surfaceindex < model->num_surfaces;surfaceindex++)
 	{
 		surface = model->data_surfaces + surfaceindex;
-		e = model->surfmesh.data_element3i + surface->num_firsttriangle*3;
 		lmscalepixels = lm_basescalepixels;
 		for (retry = 0;retry < 30;retry++)
 		{
