@@ -11031,6 +11031,9 @@ static void R_DrawTextureSurfaceList_ShowSurfaces(int texturenumsurfaces, const 
 	c[1] *= 2 * r_refdef.view.colorscale;
 	c[2] *= 2 * r_refdef.view.colorscale;
 
+	GL_BlendFunc(GL_ONE, GL_ZERO);
+	GL_DepthMask(writedepth);
+		
 	if (rsurface.texture != NULL) {
 		if(rsurface.texture->currentmaterialflags & MATERIALFLAG_WATERALPHA)
 			c[3] *= r_wateralpha.value;
@@ -11055,42 +11058,30 @@ static void R_DrawTextureSurfaceList_ShowSurfaces(int texturenumsurfaces, const 
 			GL_BlendFunc(rsurface.texture->customblendfunc[0], rsurface.texture->customblendfunc[1]);
 			GL_DepthMask(false);
 		}
-		else
-		{
-			GL_BlendFunc(GL_ONE, GL_ZERO);
-			GL_DepthMask(writedepth);
-		}
-	}
-	else
-	{
-		GL_BlendFunc(GL_ONE, GL_ZERO);
-		GL_DepthMask(writedepth);
 	}
 
 	if (r_showsurfaces.integer == 3)
 	{
 		rsurface.passcolor4f = NULL;
 
-		if (rsurface.texture) {
-			if (rsurface.texture->currentmaterialflags & MATERIALFLAG_FULLBRIGHT)
-			{
-				RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_NOGAPS, texturenumsurfaces, texturesurfacelist);
+		if (rsurface.texture && rsurface.texture->currentmaterialflags & MATERIALFLAG_FULLBRIGHT)
+		{
+		RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_NOGAPS, texturenumsurfaces, texturesurfacelist);
 
-				rsurface.passcolor4f = NULL;
-				rsurface.passcolor4f_vertexbuffer = 0;
-				rsurface.passcolor4f_bufferoffset = 0;
-			}
-			else if (rsurface.texture->currentmaterialflags & MATERIALFLAG_MODELLIGHT)
-			{
-				qboolean applycolor = true;
-				float one = 1.0;
+			rsurface.passcolor4f = NULL;
+			rsurface.passcolor4f_vertexbuffer = 0;
+			rsurface.passcolor4f_bufferoffset = 0;
+		}
+		else if (rsurface.texture && rsurface.texture->currentmaterialflags & MATERIALFLAG_MODELLIGHT)
+		{
+			qboolean applycolor = true;
+			float one = 1.0;
 
-				RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_ARRAY_NORMAL | BATCHNEED_NOGAPS, texturenumsurfaces, texturesurfacelist);
+			RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_ARRAY_NORMAL | BATCHNEED_NOGAPS, texturenumsurfaces, texturesurfacelist);
 
-				r_refdef.lightmapintensity = 1;
-				RSurf_DrawBatch_GL11_ApplyVertexShade(&one, &one, &one, &one, &applycolor);
-				r_refdef.lightmapintensity = 0; // we're in showsurfaces, after all
-			}
+			r_refdef.lightmapintensity = 1;
+			RSurf_DrawBatch_GL11_ApplyVertexShade(&one, &one, &one, &one, &applycolor);
+			r_refdef.lightmapintensity = 0; // we're in showsurfaces, after all
 		}
 		else if (FAKELIGHT_ENABLED)
 		{
