@@ -2025,25 +2025,32 @@ void SV_WriteClientdataToMessage (client_t *client, prvm_edict_t *ent, sizebuf_t
 //
 	SV_SetIdealPitch ();		// how much to look up / down ideally
 
-// a fixangle might get lost in a dropped packet.  Oh well.
-	if(PRVM_serveredictfloat(ent, fixangle))
-	{
-		// angle fixing was requested by global thinking code...
-		// so store the current angles for later use
-		VectorCopy(PRVM_serveredictvector(ent, angles), host_client->fixangle_angles);
-		host_client->fixangle_angles_set = TRUE;
+    if(client->edict != ent) {
+        // DP_RM_CLIENTDATAENT
+        MSG_WriteByte(msg, svc_setangle);
+        for (i=0 ; i < 3 ; i++)
+            MSG_WriteAngle(msg, PRVM_serveredictvector(ent, v_angle)[i], sv.protocol);
+    } else {
+        // a fixangle might get lost in a dropped packet.  Oh well.
+        if(PRVM_serveredictfloat(ent, fixangle))
+        {
+            // angle fixing was requested by global thinking code...
+            // so store the current angles for later use
+            VectorCopy(PRVM_serveredictvector(ent, angles), host_client->fixangle_angles);
+            host_client->fixangle_angles_set = TRUE;
 
-		// and clear fixangle for the next frame
-		PRVM_serveredictfloat(ent, fixangle) = 0;
-	}
+            // and clear fixangle for the next frame
+            PRVM_serveredictfloat(ent, fixangle) = 0;
+        }
 
-	if (host_client->fixangle_angles_set)
-	{
-		MSG_WriteByte (msg, svc_setangle);
-		for (i=0 ; i < 3 ; i++)
-			MSG_WriteAngle (msg, host_client->fixangle_angles[i], sv.protocol);
-		host_client->fixangle_angles_set = FALSE;
-	}
+        if (host_client->fixangle_angles_set)
+        {
+            MSG_WriteByte (msg, svc_setangle);
+            for (i=0 ; i < 3 ; i++)
+                MSG_WriteAngle (msg, host_client->fixangle_angles[i], sv.protocol);
+            host_client->fixangle_angles_set = FALSE;
+        }
+    }
 
 	// the runes are in serverflags, pack them into the items value, also pack
 	// in the items2 value for mission pack huds
@@ -2424,16 +2431,23 @@ static void SV_SendClientDatagram (client_t *client)
 
 	if (host_client->begun)
 	{
+        prvm_prog_t *prog = SVVM_prog;
+        prvm_edict_t *srcent = client->edict;
+
+        // DP_RM_CLIENTDATAENT
+        if(PRVM_serveredictedict(client->edict, clientdataent))
+            srcent = PRVM_EDICT_NUM(PRVM_serveredictedict(client->edict, clientdataent));
+
 		// the player is in the game
 		MSG_WriteByte (&msg, svc_time);
 		MSG_WriteFloat (&msg, sv.time);
 
 		// add the client specific data to the datagram
-		SV_WriteClientdataToMessage (client, client->edict, &msg, stats);
+		SV_WriteClientdataToMessage(client, srcent, &msg, stats);
 		// now update the stats[] array using any registered custom fields
-		VM_SV_UpdateCustomStats(client, client->edict, &msg, stats);
+		VM_SV_UpdateCustomStats(client, srcent, &msg, stats);
 		// set host_client->statsdeltabits
-		Protocol_UpdateClientStats (stats);
+		Protocol_UpdateClientStats(stats);
 
 		// add as many queued unreliable messages (effects) as we can fit
 		// limit effects to half of the remaining space
