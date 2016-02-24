@@ -1018,7 +1018,6 @@ static char *R_ShaderStrCat(const char **strings)
 		len += strlen(t);
 	len++;
 	s = string = (char *)Mem_Alloc(r_main_mempool, len);
-	len = 0;
 	for (p = strings;(t = *p);p++)
 	{
 		len = strlen(t);
@@ -11001,15 +11000,23 @@ static void R_DrawTextureSurfaceList_ShowSurfaces(int texturenumsurfaces, const 
 	int vi;
 	int j;
 	r_vertexgeneric_t *batchvertex;
-	float c[4];
+	float c[4] = {0};
 
 //	R_Mesh_ResetTextureState();
 	R_SetupShader_Generic_NoTexture(false, false);
 
-	if(rsurface.texture && rsurface.texture->currentskinframe)
-	{
-		memcpy(c, rsurface.texture->currentskinframe->avgcolor, sizeof(c));
-		c[3] *= rsurface.texture->currentalpha;
+	if (rsurface.texture != NULL) {
+		if(rsurface.texture->currentskinframe)
+		{
+			memcpy(c, rsurface.texture->currentskinframe->avgcolor, sizeof(c));
+			c[3] = rsurface.texture->currentalpha;
+		}
+		if (rsurface.texture->pantstexture || rsurface.texture->shirttexture)
+		{
+			c[0] = 0.5 * (rsurface.colormap_pantscolor[0] * 0.3 + rsurface.colormap_shirtcolor[0] * 0.7);
+			c[1] = 0.5 * (rsurface.colormap_pantscolor[1] * 0.3 + rsurface.colormap_shirtcolor[1] * 0.7);
+			c[2] = 0.5 * (rsurface.colormap_pantscolor[2] * 0.3 + rsurface.colormap_shirtcolor[2] * 0.7);
+		}
 	}
 	else
 	{
@@ -11019,40 +11026,40 @@ static void R_DrawTextureSurfaceList_ShowSurfaces(int texturenumsurfaces, const 
 		c[3] = 1;
 	}
 
-	if (rsurface.texture->pantstexture || rsurface.texture->shirttexture)
-	{
-		c[0] = 0.5 * (rsurface.colormap_pantscolor[0] * 0.3 + rsurface.colormap_shirtcolor[0] * 0.7);
-		c[1] = 0.5 * (rsurface.colormap_pantscolor[1] * 0.3 + rsurface.colormap_shirtcolor[1] * 0.7);
-		c[2] = 0.5 * (rsurface.colormap_pantscolor[2] * 0.3 + rsurface.colormap_shirtcolor[2] * 0.7);
-	}
-
 	// brighten it up (as texture value 127 means "unlit")
 	c[0] *= 2 * r_refdef.view.colorscale;
 	c[1] *= 2 * r_refdef.view.colorscale;
 	c[2] *= 2 * r_refdef.view.colorscale;
 
-	if(rsurface.texture->currentmaterialflags & MATERIALFLAG_WATERALPHA)
-		c[3] *= r_wateralpha.value;
+	if (rsurface.texture != NULL) {
+		if(rsurface.texture->currentmaterialflags & MATERIALFLAG_WATERALPHA)
+			c[3] *= r_wateralpha.value;
 
-	if(rsurface.texture->currentmaterialflags & MATERIALFLAG_ALPHA && c[3] != 1)
-	{
-		GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		GL_DepthMask(false);
-	}
-	else if(rsurface.texture->currentmaterialflags & MATERIALFLAG_ADD)
-	{
-		GL_BlendFunc(GL_ONE, GL_ONE);
-		GL_DepthMask(false);
-	}
-	else if(rsurface.texture->currentmaterialflags & MATERIALFLAG_ALPHATEST)
-	{
-		GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // can't do alpha test without texture, so let's blend instead
-		GL_DepthMask(false);
-	}
-	else if(rsurface.texture->currentmaterialflags & MATERIALFLAG_CUSTOMBLEND)
-	{
-		GL_BlendFunc(rsurface.texture->customblendfunc[0], rsurface.texture->customblendfunc[1]);
-		GL_DepthMask(false);
+		if(rsurface.texture->currentmaterialflags & MATERIALFLAG_ALPHA && c[3] != 1)
+		{
+			GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			GL_DepthMask(false);
+		}
+		else if(rsurface.texture->currentmaterialflags & MATERIALFLAG_ADD)
+		{
+			GL_BlendFunc(GL_ONE, GL_ONE);
+			GL_DepthMask(false);
+		}
+		else if(rsurface.texture->currentmaterialflags & MATERIALFLAG_ALPHATEST)
+		{
+			GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // can't do alpha test without texture, so let's blend instead
+			GL_DepthMask(false);
+		}
+		else if(rsurface.texture->currentmaterialflags & MATERIALFLAG_CUSTOMBLEND)
+		{
+			GL_BlendFunc(rsurface.texture->customblendfunc[0], rsurface.texture->customblendfunc[1]);
+			GL_DepthMask(false);
+		}
+		else
+		{
+			GL_BlendFunc(GL_ONE, GL_ZERO);
+			GL_DepthMask(writedepth);
+		}
 	}
 	else
 	{
@@ -11064,24 +11071,26 @@ static void R_DrawTextureSurfaceList_ShowSurfaces(int texturenumsurfaces, const 
 	{
 		rsurface.passcolor4f = NULL;
 
-		if (rsurface.texture->currentmaterialflags & MATERIALFLAG_FULLBRIGHT)
-		{
-			RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_NOGAPS, texturenumsurfaces, texturesurfacelist);
+		if (rsurface.texture) {
+			if (rsurface.texture->currentmaterialflags & MATERIALFLAG_FULLBRIGHT)
+			{
+				RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_NOGAPS, texturenumsurfaces, texturesurfacelist);
 
-			rsurface.passcolor4f = NULL;
-			rsurface.passcolor4f_vertexbuffer = 0;
-			rsurface.passcolor4f_bufferoffset = 0;
-		}
-		else if (rsurface.texture->currentmaterialflags & MATERIALFLAG_MODELLIGHT)
-		{
-			qboolean applycolor = true;
-			float one = 1.0;
+				rsurface.passcolor4f = NULL;
+				rsurface.passcolor4f_vertexbuffer = 0;
+				rsurface.passcolor4f_bufferoffset = 0;
+			}
+			else if (rsurface.texture->currentmaterialflags & MATERIALFLAG_MODELLIGHT)
+			{
+				qboolean applycolor = true;
+				float one = 1.0;
 
-			RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_ARRAY_NORMAL | BATCHNEED_NOGAPS, texturenumsurfaces, texturesurfacelist);
+				RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_ARRAY_NORMAL | BATCHNEED_NOGAPS, texturenumsurfaces, texturesurfacelist);
 
-			r_refdef.lightmapintensity = 1;
-			RSurf_DrawBatch_GL11_ApplyVertexShade(&one, &one, &one, &one, &applycolor);
-			r_refdef.lightmapintensity = 0; // we're in showsurfaces, after all
+				r_refdef.lightmapintensity = 1;
+				RSurf_DrawBatch_GL11_ApplyVertexShade(&one, &one, &one, &one, &applycolor);
+				r_refdef.lightmapintensity = 0; // we're in showsurfaces, after all
+			}
 		}
 		else if (FAKELIGHT_ENABLED)
 		{
