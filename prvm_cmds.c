@@ -5541,10 +5541,10 @@ void VM_buf_cvarlist(prvm_prog_t *prog)
 	prvm_stringbuffer_t	*stringbuffer;
 	VM_SAFEPARMCOUNTRANGE(2, 3, VM_buf_cvarlist);
 
-    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
+	stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
-		VM_Warning(prog, "VM_bufstr_free: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
+		VM_Warning(prog, "VM_buf_cvarlist: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
 		return;
 	}
 
@@ -5588,6 +5588,11 @@ void VM_buf_cvarlist(prvm_prog_t *prog)
 	stringbuffer->max_strings = stringbuffer->num_strings = n;
 	if (stringbuffer->max_strings)
 		stringbuffer->strings = (char **)Mem_Alloc(prog->progs_mempool, sizeof(stringbuffer->strings[0]) * stringbuffer->max_strings);
+	
+	if (stringbuffer->strings == NULL) {
+		VM_Warning(prog, "VM_buf_cvarlist: can't allocate space for buffer in %s\n", prog->name);
+		return;
+	}
 	
 	n = 0;
 	for(cvar = cvar_vars; cvar; cvar = cvar->next)
