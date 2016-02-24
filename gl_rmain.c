@@ -8040,17 +8040,6 @@ static void R_tcMod_ApplyToMatrix(matrix4x4_t *texmatrix, q3shaderinfo_layer_tcm
 	float offsetd[2];
 	float tcmat[12];
 	matrix4x4_t matrix, temp;
-	// if shadertime exceeds about 9 hours (32768 seconds), just wrap it,
-	// it's better to have one huge fixup every 9 hours than gradual
-	// degradation over time which looks consistently bad after many hours.
-	//
-	// tcmod scroll in particular suffers from this degradation which can't be
-	// effectively worked around even with floor() tricks because we don't
-	// know if tcmod scroll is the last tcmod being applied, and for clampmap
-	// a workaround involving floor() would be incorrect anyway...
-	shadertime = rsurface.shadertime;
-	if (shadertime >= 32768.0f)
-		shadertime -= floor(rsurface.shadertime * (1.0f / 32768.0f)) * 32768.0f;
 	switch(tcmod->tcmod)
 	{
 		case Q3TCMOD_COUNT:
