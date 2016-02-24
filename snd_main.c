@@ -680,8 +680,7 @@ void S_Startup (void)
 		snd_format_t suggest_fmt;
 		qboolean accepted;
 
-		accepted = false;
-		do
+		do //accepted?
 		{
 			Con_Printf("S_Startup: initializing sound output format: %dHz, %d bit, %d channels...\n",
 						chosen_fmt.speed, chosen_fmt.width * 8,
@@ -2003,7 +2002,6 @@ static void S_PaintAndSubmit (void)
 
 	// Update sound time
 	snd_usethreadedmixing = false;
-	usesoundtimehack = true;
 	if (cls.timedemo) // SUPER NASTY HACK to mix non-realtime sound for more reliable benchmarking
 	{
 		usesoundtimehack = 1;
