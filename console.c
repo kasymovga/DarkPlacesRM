@@ -3015,7 +3015,7 @@ void Con_CompleteCommandLine (void)
 	if (n)
 		cmd = *(list[3] = Nicks_CompleteBuildList(n));
 
-	for (cmd_len = (int)strlen(s); cmd && cmd_len && cmd[cmd_len] != '\0'; cmd_len++)
+	for (cmd_len = (int)strlen(s); cmd && cmd[cmd_len] != '\0'; cmd_len++)
 	{
 		const char **l;
 		for (i = 0; i < 3; i++)
