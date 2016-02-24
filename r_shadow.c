@@ -3482,7 +3482,7 @@ void R_RTLight_Compile(rtlight_t *rtlight)
 		rtlight->static_numshadowtrispvsbytes = numshadowtrispvsbytes;
 		rtlight->static_shadowtrispvs = (unsigned char *)data;data += numshadowtrispvsbytes;
 		rtlight->static_numlighttrispvsbytes = numlighttrispvsbytes;
-		rtlight->static_lighttrispvs = (unsigned char *)data;data += numlighttrispvsbytes;
+		rtlight->static_lighttrispvs = (unsigned char *)data;//data += numlighttrispvsbytes;
 		if (rtlight->static_numsurfaces)
 			memcpy(rtlight->static_surfacelist, r_shadow_buffer_surfacelist, rtlight->static_numsurfaces * sizeof(*rtlight->static_surfacelist));
 		if (rtlight->static_numleafs)
@@ -6510,7 +6510,7 @@ void R_Shadow_EditLights_DrawSelectedLightProperties(void)
 	dpsnprintf(temp, sizeof(temp), "Diffuse      : %.2f\n", r_shadow_selectedlight->diffusescale);DrawQ_String(x, y, temp, 0, 8, 8, 1, 1, 1, 1, 0, NULL, true, FONT_DEFAULT);y += 8;
 	dpsnprintf(temp, sizeof(temp), "Specular     : %.2f\n", r_shadow_selectedlight->specularscale);DrawQ_String(x, y, temp, 0, 8, 8, 1, 1, 1, 1, 0, NULL, true, FONT_DEFAULT);y += 8;
 	dpsnprintf(temp, sizeof(temp), "NormalMode   : %s\n", (r_shadow_selectedlight->flags & LIGHTFLAG_NORMALMODE) ? "yes" : "no");DrawQ_String(x, y, temp, 0, 8, 8, 1, 1, 1, 1, 0, NULL, true, FONT_DEFAULT);y += 8;
-	dpsnprintf(temp, sizeof(temp), "RealTimeMode : %s\n", (r_shadow_selectedlight->flags & LIGHTFLAG_REALTIMEMODE) ? "yes" : "no");DrawQ_String(x, y, temp, 0, 8, 8, 1, 1, 1, 1, 0, NULL, true, FONT_DEFAULT);y += 8;
+	dpsnprintf(temp, sizeof(temp), "RealTimeMode : %s\n", (r_shadow_selectedlight->flags & LIGHTFLAG_REALTIMEMODE) ? "yes" : "no");DrawQ_String(x, y, temp, 0, 8, 8, 1, 1, 1, 1, 0, NULL, true, FONT_DEFAULT)//;y += 8;
 }
 
 static void R_Shadow_EditLights_ToggleShadow_f(void)

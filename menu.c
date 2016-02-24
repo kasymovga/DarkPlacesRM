@@ -448,7 +448,7 @@ static void M_Main_Draw (void)
 		y+=8;
 		s = "You may consider adding";M_Print ((640-strlen(s)*8)*0.5, y, s);y+=8;
 		s = "-basedir /path/to/game";M_Print ((640-strlen(s)*8)*0.5, y, s);y+=8;
-		s = "to your launch commandline";M_Print ((640-strlen(s)*8)*0.5, y, s);y+=8;
+		s = "to your launch commandline";M_Print ((640-strlen(s)*8)*0.5, y, s);//y+=8;
 		M_Print (640/2 - 48, 480/2, "Open Console"); //The console usually better shows errors (failures)
 		M_Print (640/2 - 48, 480/2 + 8, "Quit");
 		M_DrawCharacter(640/2 - 56, 480/2 + (8 * m_main_cursor), 12+((int)(realtime*4)&1));
