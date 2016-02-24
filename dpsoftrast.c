@@ -5607,12 +5607,12 @@ int DPSOFTRAST_Init(int width, int height, int numthreads, int interlace, unsign
 	dpsoftrast.interlace = dpsoftrast.usethreads ? bound(0, interlace, 1) : 0;
 	dpsoftrast.numthreads = dpsoftrast.usethreads ? bound(1, numthreads, 64) : 1;
 	dpsoftrast.threads = (DPSOFTRAST_State_Thread *)MM_CALLOC(dpsoftrast.numthreads, sizeof(DPSOFTRAST_State_Thread));
-	for (i = 0; i < dpsoftrast.numthreads; i++)
+	for (i = 0; dpsoftrast.threads && i < dpsoftrast.numthreads; i++)
 	{
 		DPSOFTRAST_State_Thread *thread = &dpsoftrast.threads[i];
 		thread->index = i;
 		thread->cullface = GL_BACK;
-       	thread->colormask[0] = 1; 
+		thread->colormask[0] = 1; 
 		thread->colormask[1] = 1;
 		thread->colormask[2] = 1;
 		thread->colormask[3] = 1;
