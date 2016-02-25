@@ -998,6 +998,13 @@ static void CL_UpdateNetworkEntity(entity_t *e, int recursionlimit, qboolean int
 		matrix = &r->matrix;
 		// some properties of the tag entity carry over
 		e->render.flags |= r->flags & (RENDER_EXTERIORMODEL | RENDER_VIEWMODEL);
+		//Use user defined tag in case of forced player model
+		if (e->render.model && r->model && cl_force_player_model_weapontag_index &&
+				!strncmp(e->render.model->name, "models/weapons/", 15) &&
+				!strncmp(r->model->name, "models/player", 13))
+		{
+			e->state_current.tagindex = cl_force_player_model_weapontag_index;
+		}
 		// if a valid tagindex is used, make it relative to that tag instead
 		if (e->state_current.tagentity && e->state_current.tagindex >= 1 && r->model)
 		{
