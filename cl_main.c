@@ -2492,7 +2492,7 @@ void CL_Init (void)
 
 	// for QW connections
 	Cvar_RegisterVariable(&qport);
-	Cvar_SetValueQuick(&qport, (xrand() * XRAND_MAX + xrand()) & 0xffff);
+	Cvar_SetValueQuick(&qport, xrand() & 0xffff);
 
 	Cmd_AddCommand("timerefresh", CL_TimeRefresh_f, "turn quickly and print rendering statistcs");
 
