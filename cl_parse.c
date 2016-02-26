@@ -2155,7 +2155,7 @@ Server information pertaining to this client only
 */
 static void CL_ParseClientdata (void)
 {
-	int i, bits;
+	int i, bits, message;
 
 	VectorCopy (cl.mpunchangle[0], cl.mpunchangle[1]);
 	VectorCopy (cl.mpunchvector[0], cl.mpunchvector[1]);
@@ -2251,8 +2251,13 @@ static void CL_ParseClientdata (void)
 		cl.stats[STAT_NAILS] = MSG_ReadByte(&cl_message);
 		cl.stats[STAT_ROCKETS] = MSG_ReadByte(&cl_message);
 		cl.stats[STAT_CELLS] = MSG_ReadByte(&cl_message);
-		if (gamemode == GAME_HIPNOTIC || gamemode == GAME_ROGUE || gamemode == GAME_QUOTH || IS_OLDNEXUIZ_DERIVED(gamemode))
-			cl.stats[STAT_ACTIVEWEAPON] = (1<<MSG_ReadByte(&cl_message));
+		if (gamemode == GAME_HIPNOTIC || gamemode == GAME_ROGUE || gamemode == GAME_QUOTH || IS_OLDNEXUIZ_DERIVED(gamemode)) {
+			if ( (message = MSG_ReadByte(&cl_message)) <= (sizeof(int) * CHAR_BIT)) {
+				cl.stats[STAT_ACTIVEWEAPON] = (1 << message);
+			} else {
+				cl.stats[STAT_ACTIVEWEAPON] = 0;
+			}
+		}
 		else
 			cl.stats[STAT_ACTIVEWEAPON] = MSG_ReadByte(&cl_message);
 	}
