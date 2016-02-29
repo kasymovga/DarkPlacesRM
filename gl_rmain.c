@@ -8035,7 +8035,6 @@ static float R_EvaluateQ3WaveFunc(q3wavefunc_t func, const float *parms)
 static void R_tcMod_ApplyToMatrix(matrix4x4_t *texmatrix, q3shaderinfo_layer_tcmod_t *tcmod, int currentmaterialflags)
 {
 	int w, h, idx;
-	float shadertime;
 	float f;
 	float offsetd[2];
 	float tcmat[12];

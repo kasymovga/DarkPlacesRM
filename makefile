@@ -276,7 +276,7 @@ ifeq ($(D3D), 1)
 	LDFLAGS_D3D=-ld3d9
 else
 	CFLAGS_D3D=
-	CFLAGS_WARNINGS=-Wall -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes
+	CFLAGS_WARNINGS=-Wall -Werror -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes
 	LDFLAGS_D3D=
 endif
 

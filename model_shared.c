@@ -1232,8 +1232,8 @@ static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 	{
 		r_vertexmesh_t *vertexmesh = (r_vertexmesh_t*)Mem_Alloc(mempool, mesh->numverts * sizeof(*mesh->vertexmesh));
 		if (vertexmesh != NULL) {
-			mesh->vertexmesh = vertexmesh;
 			int vertexindex;
+			mesh->vertexmesh = vertexmesh;
 			for (vertexindex = 0;vertexindex < mesh->numverts;vertexindex++, vertexmesh++)
 			{
 				VectorCopy(mesh->vertex3f + 3*vertexindex, vertexmesh->vertex3f);

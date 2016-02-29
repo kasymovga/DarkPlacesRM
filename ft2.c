@@ -1389,7 +1389,6 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 	     ch < (FT_ULong)map->start + FONT_CHARS_PER_MAP;
 	     ++ch)
 	{
-		usefont = NULL;
 		FT_ULong glyphIndex;
 		int w, h, x, y;
 		FT_GlyphSlot glyph;
@@ -1399,6 +1398,7 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 		FT_Face face;
 		int pad_l, pad_r, pad_t, pad_b;
 
+		usefont = NULL;
 		mapch = ch - map->start;
 
 		if (developer_font.integer)
