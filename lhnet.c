@@ -57,6 +57,15 @@
 #include "lhnet.h"
 
 #if defined(WIN32)
+
+#ifdef EWOULDBLOCK
+    #undef EWOULDBLOCK
+#endif
+
+#ifdef ECONNREFUSED
+    #undef ECONNREFUSED
+#endif
+
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #define ECONNREFUSED WSAECONNREFUSED
 

@@ -394,6 +394,7 @@ static dllhandle_t zlib_dll = NULL;
 #endif
 
 #ifdef WIN32
+#ifndef FS_FORCE_NOHOME
 static HRESULT (WINAPI *qSHGetFolderPath) (HWND hwndOwner, int nFolder, HANDLE hToken, DWORD dwFlags, LPTSTR pszPath);
 static dllfunction_t shfolderfuncs[] =
 {
@@ -440,6 +441,7 @@ static const char* ole32dllnames [] =
 	NULL
 };
 static dllhandle_t ole32_dll = NULL;
+#endif
 #endif
 
 /*
@@ -1810,6 +1812,7 @@ void FS_Init_SelfPack (void)
 	}
 }
 
+#ifndef FS_FORCE_NOHOME
 static int FS_ChooseUserDir(userdirmode_t userdirmode, char *userdir, size_t userdirsize)
 {
 #if defined(__IPHONEOS__)
@@ -1980,6 +1983,7 @@ static int FS_ChooseUserDir(userdirmode_t userdirmode, char *userdir, size_t use
 	}
 #endif
 }
+#endif
 
 /*
 ================
@@ -2178,9 +2182,11 @@ void FS_Shutdown (void)
 	PK3_CloseLibrary ();
 
 #ifdef WIN32
+#ifndef FS_FORCE_NOHOME
 	Sys_UnloadLibrary (&shfolder_dll);
 	Sys_UnloadLibrary (&shell32_dll);
 	Sys_UnloadLibrary (&ole32_dll);
+#endif
 #endif
 
 	if (fs_mutex)
