@@ -288,7 +288,7 @@ static inline bool real_LoadMany(struct AssetArchive* a, uint8_t* data[],
     }
 
     if(!a || !data || !filenames || !count) {
-        Con_Printf("cgf: bad req: %p %p %p %p %lu\n", a, data, dlens, filenames, count);
+        Con_Printf("cgf: bad req: %p %p %p %p %lu\n", a, data, dlens, filenames, (long unsigned int)count);
         return false;
     }
 
