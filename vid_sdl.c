@@ -2431,6 +2431,8 @@ static void VID_OutputVersion(void)
 }
 
 #ifdef WIN32
+#if SDL_MAJOR_VERSION == 1
+#else
 static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
 {
 	LONG width = mode->width; // vid_width
@@ -2472,6 +2474,7 @@ static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
 		rect->top = workArea.top + max(0, (workHeight - height) / 2);
 	}
 }
+#endif
 #endif
 
 static qboolean VID_InitModeGL(viddef_mode_t *mode)
