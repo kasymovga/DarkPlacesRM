@@ -234,6 +234,7 @@ const char *vm_sv_extensions =
 "DP_RM_CVAR_WATCHED "
 "DP_RM_REGEX2 "
 "DP_RM_CLIENTDATAENT "
+"DP_RM_CLIPGROUP "
 //"EXT_CSQC " // not ready yet
 ;
 
