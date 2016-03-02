@@ -40,7 +40,7 @@ static inline uint64_t siphash_Block(const char* name, const size_t len) {
 }
 
 void Cvar_InitTable(void) {
-    uint64_t tmp;
+    uint64_t tmp = 0;
     int i;
 
     for(i=0; i<16; ++i) {
