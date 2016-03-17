@@ -2435,6 +2435,9 @@ static void VID_OutputVersion(void)
 #else
 static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
 {
+    int workHeight, workWidth, titleBarPixels, screenHeight;
+    RECT workArea;
+
 	LONG width = mode->width; // vid_width
 	LONG height = mode->height; // vid_height
 
@@ -2445,16 +2448,15 @@ static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
 	rect->bottom = height;
 	AdjustWindowRectEx(rect, WS_CAPTION|WS_THICKFRAME, false, 0);
 
-	RECT workArea;
 	SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
-	int workWidth = workArea.right - workArea.left;
-	int workHeight = workArea.bottom - workArea.top;
+	workWidth = workArea.right - workArea.left;
+	workHeight = workArea.bottom - workArea.top;
 
 	// SDL forces the window height to be <= screen height - 27px (on Win8.1 - probably intended for the title bar) 
 	// If the task bar is docked to the the left screen border and we move the window to negative y,
 	// there would be some part of the regular desktop visible on the bottom of the screen.
-	int titleBarPixels = 2;
-	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+	titleBarPixels = 2;
+	screenHeight = GetSystemMetrics(SM_CYSCREEN);
 	if (screenHeight == workHeight)
 		titleBarPixels = -rect->top;
 
