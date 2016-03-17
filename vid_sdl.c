@@ -2502,6 +2502,8 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 		flags |= SDL_RESIZABLE;
 #else
 		windowflags |= SDL_WINDOW_RESIZABLE;
+
+    SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, vid_desktopfullscreen.integer? "0" : "1");
 #endif
 
 	VID_OutputVersion();
