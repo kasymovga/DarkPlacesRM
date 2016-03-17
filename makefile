@@ -298,7 +298,7 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	LDFLAGS_SDL=$(LDFLAGS_WINSDL)
 
 	# TODO: is this /usr on all systems? How do we invoke the correct sdl-config?
-	SDL_CONFIG=/usr/$(TARGET)/bin/sdl-config
+	SDL_CONFIG?=/usr/$(TARGET)/bin/sdl-config
 	SDLCONFIG_CFLAGS=$(SDLCONFIG_UNIXCFLAGS)
 	#SDLCONFIG_LIBS=$(SDLCONFIG_UNIXLIBS)
 	SDLCONFIG_LIBS?=-Wl,-Bstatic `$(SDL_CONFIG) --static-libs` -Wl,-Bdynamic
