@@ -1076,18 +1076,18 @@ static keynum_t buttonremap[] =
 	K_MOUSE1,
 	K_MOUSE3,
 	K_MOUSE2,
+
 /*
  * Mouse wheels are BUTTONS in SDL 1, they are NOT buttons in SDL2!
- * Mapping them in sdl2 may or may not cause problems at some future date.
- * Currently, mapping them is required to preserve button indices between SDL1 and SDL2 in Nexuiz and Vecxis.
+ * Mapping them here will cause MOUSE4 and MOUSE5 to register as MWHEELUP and MWHEELDOWN respectively,
+ * making them effectively useless.
  */
+
 #if SDL_MAJOR_VERSION == 1
 	K_MWHEELUP,
 	K_MWHEELDOWN,
-#else
-	K_MWHEELUP,
-	K_MWHEELDOWN,
 #endif
+
 	K_MOUSE4,
 	K_MOUSE5,
 	K_MOUSE6,
