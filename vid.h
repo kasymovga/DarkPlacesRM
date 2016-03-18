@@ -210,6 +210,10 @@ extern cvar_t vid_minheight;
 extern cvar_t vid_sRGB;
 extern cvar_t vid_sRGB_fallback;
 
+extern cvar_t vid_ime_composition;
+extern cvar_t vid_ime_cursor;
+extern cvar_t vid_ime_selection_length;
+
 extern cvar_t gl_finish;
 
 extern cvar_t v_gamma;

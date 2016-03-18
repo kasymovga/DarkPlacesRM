@@ -211,6 +211,10 @@ cvar_t v_glslgamma = {CVAR_SAVE, "v_glslgamma", "1", "enables use of GLSL to app
 cvar_t v_glslgamma_2d = {CVAR_SAVE, "v_glslgamma_2d", "0", "applies GLSL gamma to 2d pictures (HUD, fonts)"};
 cvar_t v_psycho = {0, "v_psycho", "0", "easter egg"};
 
+cvar_t vid_ime_composition = {CVAR_READONLY, "vid_ime_composition", "", "WIP"};
+cvar_t vid_ime_cursor = {CVAR_READONLY, "vid_ime_cursor", "0", "WIP"};
+cvar_t vid_ime_selection_length = {CVAR_READONLY, "vid_ime_selection_length", "0", "WIP"};
+
 // brand of graphics chip
 const char *gl_vendor;
 // graphics chip model and other information
@@ -1782,6 +1786,10 @@ void VID_Shared_Init(void)
 	Cvar_RegisterVariable(&gl_finish);
 	Cvar_RegisterVariable(&vid_sRGB);
 	Cvar_RegisterVariable(&vid_sRGB_fallback);
+
+    Cvar_RegisterVariable(&vid_ime_composition);
+    Cvar_RegisterVariable(&vid_ime_cursor);
+    Cvar_RegisterVariable(&vid_ime_selection_length);
 
 	Cvar_RegisterVariable(&joy_active);
 #ifdef WIN32

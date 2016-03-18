@@ -384,18 +384,29 @@ qboolean VID_HasScreenKeyboardSupport(void)
 void VID_ShowKeyboard(qboolean show)
 {
 #if SDL_MAJOR_VERSION != 1
-	if (!SDL_HasScreenKeyboardSupport())
-		return;
+	// if (!SDL_HasScreenKeyboardSupport())
+		// return;
 
 	if (show)
 	{
-		if (!SDL_IsTextInputActive())
+		if (!SDL_IsTextInputActive()) {
+            SDL_Rect r;
+
+            r.x = 0;
+            r.y = 0;
+            r.w = 256;
+            r.h = 256;
+
 			SDL_StartTextInput();
+            SDL_SetTextInputRect(&r);
+        }
 	}
 	else
 	{
-		if (SDL_IsTextInputActive())
+		if (SDL_IsTextInputActive()) {
 			SDL_StopTextInput();
+            SDL_SetTextInputRect(NULL);
+        }
 	}
 #endif
 }
@@ -1359,7 +1370,9 @@ void Sys_SendKeyEvents( void )
 #ifdef DEBUGSDLEVENTS
 				Con_DPrintf("SDL_Event: SDL_TEXTEDITING - composition = %s, cursor = %d, selection lenght = %d\n", event.edit.text, event.edit.start, event.edit.length);
 #endif
-				// FIXME!  this is where composition gets supported
+                Cvar_SetQuick(&vid_ime_composition, event.edit.text);
+                Cvar_SetValueQuick(&vid_ime_cursor, event.edit.start);
+                Cvar_SetValueQuick(&vid_ime_selection_length, event.edit.length);
 				break;
 			case SDL_TEXTINPUT:
 #ifdef DEBUGSDLEVENTS
@@ -1367,9 +1380,15 @@ void Sys_SendKeyEvents( void )
 #endif
 				// convert utf8 string to char
 				// NOTE: this code is supposed to run even if utf8enable is 0
-				unicode = u8_getchar_utf8_enabled(event.text.text + (int)u8_bytelen(event.text.text, 0), NULL);
-				Key_Event(K_TEXT, unicode, true);
-				Key_Event(K_TEXT, unicode, false);
+                {
+                    const char *txt = event.text.text;
+                    while(*txt) {
+                        unicode = u8_getchar_utf8_enabled(txt + (int)u8_bytelen(txt, 0), &txt);
+                        Key_Event(K_TEXT, unicode, true);
+                        Key_Event(K_TEXT, unicode, false);
+                    }
+                }
+
 				break;
 			case SDL_MOUSEMOTION:
 				break;

@@ -95,6 +95,7 @@ cvar_t showtime_format = {CVAR_SAVE, "showtime_format", "%H:%M:%S", "format stri
 cvar_t showdate = {CVAR_SAVE, "showdate", "0", "shows current date (useful on screenshots)"};
 cvar_t showdate_format = {CVAR_SAVE, "showdate_format", "%Y-%m-%d", "format string for date"};
 cvar_t showtex = {0, "showtex", "0", "shows the name of the texture on the crosshair (for map debugging)"};
+cvar_t showime = {0, "showime", "1", "shows the current IME composition, if any"};
 cvar_t sbar_alpha_bg = {CVAR_SAVE, "sbar_alpha_bg", "0.4", "opacity value of the statusbar background image"};
 cvar_t sbar_alpha_fg = {CVAR_SAVE, "sbar_alpha_fg", "1", "opacity value of the statusbar weapon/item icons and numbers"};
 cvar_t sbar_hudselector = {CVAR_SAVE, "sbar_hudselector", "0", "selects which of the builtin hud layouts to use (meaning is somewhat dependent on gamemode, so nexuiz has a very different set of hud layouts than quake for example)"};
@@ -369,6 +370,7 @@ void Sbar_Init (void)
 	Cvar_RegisterVariable(&showdate);
 	Cvar_RegisterVariable(&showdate_format);
 	Cvar_RegisterVariable(&showtex);
+    Cvar_RegisterVariable(&showime);
 	Cvar_RegisterVariable(&sbar_alpha_bg);
 	Cvar_RegisterVariable(&sbar_alpha_fg);
 	Cvar_RegisterVariable(&sbar_hudselector);
@@ -1106,6 +1108,7 @@ void Sbar_ShowFPS(void)
 	char blurstring[32];
 	char topspeedstring[48];
 	char texstring[MAX_QPATH];
+    char imestring[64];
 	qboolean red = false;
 	soundstring[0] = 0;
 	fpsstring[0] = 0;
@@ -1117,6 +1120,7 @@ void Sbar_ShowFPS(void)
 	blurstring[0] = 0;
 	texstring[0] = 0;
 	topspeedstring[0] = 0;
+    imestring[0] = 0;
 	if (showfps.integer)
 	{
 		red = (showfps_framerate < 1.0f);
@@ -1214,6 +1218,11 @@ void Sbar_ShowFPS(void)
 			strlcpy(texstring, "(no texture hit)", sizeof(texstring));
 		fps_strings++;
 	}
+    if (showime.integer && *vid_ime_composition.string)
+    {
+        strlcpy(imestring, vid_ime_composition.string, sizeof(imestring));
+        fps_strings++;
+    }
 	if (fps_strings)
 	{
 		fps_scalex = 12;
@@ -1294,8 +1303,27 @@ void Sbar_ShowFPS(void)
 			fps_x = vid_conwidth.integer - DrawQ_TextWidth(texstring, 0, fps_scalex, fps_scaley, true, FONT_INFOBAR);
 			DrawQ_Fill(fps_x, fps_y, vid_conwidth.integer - fps_x, fps_scaley, 0, 0, 0, 0.5, 0);
 			DrawQ_String(fps_x, fps_y, texstring, 0, fps_scalex, fps_scaley, 1, 1, 1, 1, 0, NULL, true, FONT_INFOBAR);
-// 			fps_y += fps_scaley;
+            fps_y += fps_scaley;
 		}
+        if (imestring[0])
+        {
+            fps_x = vid_conwidth.integer - DrawQ_TextWidth(imestring, 0, fps_scalex, fps_scaley, true, FONT_INFOBAR);
+            DrawQ_Fill(fps_x, fps_y, vid_conwidth.integer - fps_x, fps_scaley, 0, 0, 0, 0.5, 0);
+
+            /*
+             * FIXME: I have no idea what I'm actually supposed to do with the cursor position and selection length,
+             *        if anything at all.
+             *
+            if(vid_ime_selection_length.integer > 0) {
+                DrawQ_Fill(fps_x, fps_y,
+                    DrawQ_TextWidth(imestring, vid_ime_selection_length.integer, fps_scalex, fps_scaley, true, FONT_INFOBAR),
+                    fps_scaley, 0, 1, 0, 0.5, 0);
+            }
+            */
+
+            DrawQ_String(fps_x, fps_y, imestring, 0, fps_scalex, fps_scaley, 1, 1, 1, 1, 0, NULL, true, FONT_INFOBAR);
+//          fps_y += fps_scaley;
+        }
 	}
 }
 
