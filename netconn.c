@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // note this defaults on for dedicated servers, off for listen servers
 cvar_t sv_public = {0, "sv_public", "0", "1: advertises this server on the master server (so that players can find it in the server browser); 0: allow direct queries only; -1: do not respond to direct queries; -2: do not allow anyone to connect; -3: already block at getchallenge level"};
 cvar_t sv_public_rejectreason = {0, "sv_public_rejectreason", "The server is closing.", "Rejection reason for connects when sv_public is -2"};
+cvar_t net_extra_gamenetworkfiltername = {0, "net_extra_gamenetworkfiltername", "", "Extra game network filter name"};
 static cvar_t sv_heartbeatperiod = {CVAR_SAVE, "sv_heartbeatperiod", "120", "how often to send heartbeat in seconds (only used if sv_public is 1)"};
 extern cvar_t sv_status_privacy;
 
@@ -623,7 +624,9 @@ void ServerList_QueryList(qboolean resetcache, qboolean querydp, qboolean queryq
 
 	//_ServerList_Test();
 
-	NetConn_QueryMasters(querydp, queryqw);
+	NetConn_QueryMasters(querydp, queryqw, gamenetworkfiltername);
+	if (net_extra_gamenetworkfiltername.string[0])
+		NetConn_QueryMasters(querydp, queryqw, net_extra_gamenetworkfiltername.string);
 }
 #endif
 
@@ -3591,7 +3594,7 @@ void NetConn_SleepMicroseconds(int microseconds)
 }
 
 #ifdef CONFIG_MENU
-void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
+void NetConn_QueryMasters(qboolean querydp, qboolean queryqw, const char *filtername)
 {
 	int i, j;
 	int masternum;
@@ -3644,7 +3647,7 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 					cmdname = "getservers";
 					extraoptions = "";
 				}
-				dpsnprintf(request, sizeof(request), "\377\377\377\377%s %s %u empty full%s", cmdname, gamenetworkfiltername, NET_PROTOCOL_VERSION, extraoptions);
+				dpsnprintf(request, sizeof(request), "\377\377\377\377%s %s %u empty full%s", cmdname, filtername, NET_PROTOCOL_VERSION, extraoptions);
 
 				// search internet
 				for (masternum = 0;sv_masters[masternum].name;masternum++)
@@ -3873,6 +3876,7 @@ void NetConn_Init(void)
 	Cvar_RegisterVariable(&sv_public);
 	Cvar_RegisterVariable(&sv_public_rejectreason);
 	Cvar_RegisterVariable(&sv_heartbeatperiod);
+	Cvar_RegisterVariable(&net_extra_gamenetworkfiltername);
 	for (i = 0;sv_masters[i].name;i++)
 		Cvar_RegisterVariable(&sv_masters[i]);
 	Cvar_RegisterVariable(&gameversion);

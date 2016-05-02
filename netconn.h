@@ -457,7 +457,7 @@ void NetConn_Heartbeat(int priority);
 void Net_Stats_f(void);
 
 #ifdef CONFIG_MENU
-void NetConn_QueryMasters(qboolean querydp, qboolean queryqw);
+void NetConn_QueryMasters(qboolean querydp, qboolean queryqw, const char *filtername);
 void NetConn_QueryQueueFrame(void);
 void Net_Slist_f(void);
 void Net_SlistQW_f(void);
