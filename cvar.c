@@ -20,38 +20,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // cvar.c -- dynamic variable tracking
 
 #include "quakedef.h"
-#include "siphash.h"
-
-#include <time.h>
+#include "hashtable.h"
 
 const char *cvar_dummy_description = "custom cvar";
 
 cvar_t *cvar_vars = NULL;
-cvar_t *cvar_hashtable[CVAR_HASHSIZE];
+hashtable_t *cvar_hashtable = NULL;
 const char *cvar_null_string = "";
-
-static uint8_t hashtable_key[16];
-
-static inline uint64_t siphash_Block(const char* name, const size_t len) {
-    uint64_t res;
-    siphash(&res, (const uint8_t*)name, len, hashtable_key);
-
-    return res;
-}
-
-void Cvar_InitTable(void) {
-    uint64_t tmp = 0;
-    int i;
-
-    for(i=0; i<16; ++i) {
-        if(0 == i) {
-            tmp = (uint64_t)clock();
-        } else if(8 == i) {
-            tmp = (uint64_t)time(NULL);
-        }
-        hashtable_key[i] ^= ((tmp >> (8*(i%8))) & UINT8_C(0xff));
-    }
-}
 
 /*
 ============
@@ -60,16 +35,10 @@ Cvar_FindVar
 */
 cvar_t *Cvar_FindVar (const char *var_name)
 {
-	int hashindex;
-	cvar_t *var;
+	cvar_t *cvar;
+	cvar = (cvar_t*) HashTable_Locate(var_name, cvar_hashtable);
 
-	// use hash lookup to minimize search time
-	hashindex = siphash_Block(var_name, strlen(var_name)) % CVAR_HASHSIZE;
-	for (var = cvar_hashtable[hashindex];var;var = var->nextonhashchain)
-		if (!strcmp (var_name, var->name))
-			return var;
-
-	return NULL;
+	return cvar;
 }
 
 cvar_t *Cvar_FindVarAfter (const char *prev_var_name, int neededflags)
@@ -78,7 +47,7 @@ cvar_t *Cvar_FindVarAfter (const char *prev_var_name, int neededflags)
 
 	if (*prev_var_name)
 	{
-		var = Cvar_FindVar (prev_var_name);
+		var = Cvar_FindVar(prev_var_name);
 		if (!var)
 			return NULL;
 		var = var->next;
@@ -96,36 +65,6 @@ cvar_t *Cvar_FindVarAfter (const char *prev_var_name, int neededflags)
 	return var;
 }
 
-static cvar_t *Cvar_FindVarLink (const char *var_name, cvar_t **parent, cvar_t ***link, cvar_t **prev_alpha)
-{
-	int hashindex;
-	cvar_t *var;
-
-	// use hash lookup to minimize search time
-	hashindex = siphash_Block(var_name, strlen(var_name)) % CVAR_HASHSIZE;
-	if(parent) *parent = NULL;
-	if(prev_alpha) *prev_alpha = NULL;
-	if(link) *link = &cvar_hashtable[hashindex];
-	for (var = cvar_hashtable[hashindex];var;var = var->nextonhashchain)
-	{
-		if (!strcmp (var_name, var->name))
-		{
-			if(!prev_alpha || var == cvar_vars)
-				return var;
-
-			*prev_alpha = cvar_vars;
-			// if prev_alpha happens to become NULL then there has been some inconsistency elsewhere
-			// already - should I still insert '*prev_alpha &&' in the loop?
-			while((*prev_alpha)->next != var)
-				*prev_alpha = (*prev_alpha)->next;
-			return var;
-		}
-		if(parent) *parent = var;
-	}
-
-	return NULL;
-}
-
 /*
 ============
 Cvar_VariableValue
@@ -141,7 +80,7 @@ float Cvar_VariableValueOr (const char *var_name, float def)
 	return atof (var->string);
 }
 
-float Cvar_VariableValue (const char *var_name)
+inline float Cvar_VariableValue (const char *var_name)
 {
 	return Cvar_VariableValueOr(var_name, 0);
 }
@@ -350,28 +289,28 @@ static void Cvar_UpdateAutoCvar(cvar_t *var)
 // called after loading a savegame
 void Cvar_UpdateAllAutoCvars(void)
 {
-	cvar_t *var;
-	for (var = cvar_vars ; var ; var = var->next)
-		Cvar_UpdateAutoCvar(var);
+	cvar_t *cvar;
+	for (cvar = cvar_vars ; cvar ; cvar = cvar->next)
+		Cvar_UpdateAutoCvar(cvar);
 }
 
-static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *var, char *oldvalue) {
+static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *cvar, char *oldvalue) {
     int func = PRVM_allfunction(CvarUpdated);
     if(!func)
         return;
 
-    PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, var->name);
+    PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, cvar->name);
     PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldvalue);
     prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
 }
 
-static void Cvar_NotifyAllProgs(cvar_t *var, char *oldvalue) {
+static void Cvar_NotifyAllProgs(cvar_t *cvar, char *oldvalue) {
     int i;
 
     for(i = 0; i < PRVM_PROG_MAX; ++i) {
         prvm_prog_t *prog = &prvm_prog_list[i];
         if(prog->loaded)
-            Cvar_NotifyProg(prog, var, oldvalue);
+            Cvar_NotifyProg(prog, cvar, oldvalue);
     }
 }
 
@@ -392,11 +331,11 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 	if (!changed)
 		return;
 
-    if(var->flags & CVAR_WATCHED) {
-        valuelen = strlen(var->string);
-        oldval = (char*)Z_Malloc(valuelen + 1);
-        memcpy(oldval, var->string, valuelen + 1);
-    }
+	if(var->flags & CVAR_WATCHED) {
+		valuelen = strlen(var->string);
+		oldval = (char*)Z_Malloc(valuelen + 1);
+		memcpy(oldval, var->string, valuelen + 1);
+	}
 
 	// LordHavoc: don't reallocate when the buffer is the same size
 	valuelen = strlen(value);
@@ -471,10 +410,10 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 
 	Cvar_UpdateAutoCvar(var);
 
-    if(oldval) { // CVAR_WATCHED
-        Cvar_NotifyAllProgs(var, oldval);
-        Z_Free(oldval);
-    }
+	if(oldval) { // CVAR_WATCHED
+		Cvar_NotifyAllProgs(var, oldval);
+		Z_Free(oldval);
+	}
 }
 
 void Cvar_SetQuick (cvar_t *var, const char *value)
@@ -495,7 +434,7 @@ void Cvar_Set (const char *var_name, const char *value)
 {
 	cvar_t *var;
 
-	if(!strcmp(var_name, "r_glsl")) {
+	if(IS_OLDNEXUIZ_DERIVED(gamemode) && !strcmp(var_name, "r_glsl")) {
 		Con_Printf("Cvar_Set: Attempted to set %s, updating vid_gl20 instead to preserve Nexuiz compatibility\n", var_name);
 		var = Cvar_FindVar("vid_gl20");
 	} else
@@ -543,99 +482,95 @@ Cvar_RegisterVariable
 Adds a freestanding variable to the variable list.
 ============
 */
-void Cvar_RegisterVariable (cvar_t *variable)
+void Cvar_RegisterVariable (cvar_t *var)
 {
-	int hashindex;
 	cvar_t *current, *next, *cvar;
 	char *oldstr;
 	size_t alloclen;
 	int i;
 
 	if (developer_extra.integer)
-		Con_DPrintf("Cvar_RegisterVariable({\"%s\", \"%s\", %i});\n", variable->name, variable->string, variable->flags);
+		Con_DPrintf("Cvar_RegisterVariable({\"%s\", \"%s\", %i});\n", var->name, var->string, var->flags);
 
 // first check to see if it has already been defined
-	cvar = Cvar_FindVar (variable->name);
+	cvar = Cvar_FindVar (var->name);
 	if (cvar)
 	{
 		if (cvar->flags & CVAR_ALLOCATED)
 		{
 			if (developer_extra.integer)
 				Con_DPrintf("...  replacing existing allocated cvar {\"%s\", \"%s\", %i}\n", cvar->name, cvar->string, cvar->flags);
-			// fixed variables replace allocated ones
-			// (because the engine directly accesses fixed variables)
+			// fixed vars replace allocated ones
+			// (because the engine directly accesses fixed vars)
 			// NOTE: this isn't actually used currently
 			// (all cvars are registered before config parsing)
-			variable->flags |= (cvar->flags & ~CVAR_ALLOCATED);
-			// cvar->string is now owned by variable instead
-			variable->string = cvar->string;
-			variable->defstring = cvar->defstring;
-			variable->value = atof (variable->string);
-			variable->integer = (int) variable->value;
+			var->flags |= (cvar->flags & ~CVAR_ALLOCATED);
+			// cvar->string is now owned by var instead
+			var->string = cvar->string;
+			var->defstring = cvar->defstring;
+			var->value = atof (var->string);
+			var->integer = (int) var->value;
 			// Preserve autocvar status.
-			memcpy(variable->globaldefindex, cvar->globaldefindex, sizeof(variable->globaldefindex));
-			memcpy(variable->globaldefindex_stringno, cvar->globaldefindex_stringno, sizeof(variable->globaldefindex_stringno));
+			memcpy(var->globaldefindex, cvar->globaldefindex, sizeof(var->globaldefindex));
+			memcpy(var->globaldefindex_stringno, cvar->globaldefindex_stringno, sizeof(var->globaldefindex_stringno));
 			// replace cvar with this one...
-			variable->next = cvar->next;
+			var->next = cvar->next;
 			if (cvar_vars == cvar)
 			{
 				// head of the list is easy to change
-				cvar_vars = variable;
+				cvar_vars = var;
 			}
 			else
 			{
 				// otherwise find it somewhere in the list
 				for (current = cvar_vars;current->next != cvar;current = current->next)
 					;
-				current->next = variable;
+				current->next = var;
 			}
 
+			HashTable_Add(var->name, cvar_hashtable, var);
 			// get rid of old allocated cvar
 			// (but not cvar->string and cvar->defstring, because we kept those)
 			Z_Free((char *)cvar->name);
 			Z_Free(cvar);
 		}
 		else
-			Con_DPrintf("Can't register variable %s, already defined\n", variable->name);
+			Con_DPrintf("Can't register var %s, already defined\n", var->name);
 		return;
 	}
 
 // check for overlap with a command
-	if (Cmd_Exists (variable->name))
+	if (Cmd_Exists (var->name))
 	{
-		Con_Printf("Cvar_RegisterVariable: %s is a command\n", variable->name);
+		Con_Printf("Cvar_RegisterVariable: %s is a command\n", var->name);
 		return;
 	}
 
 // copy the value off, because future sets will Z_Free it
-	oldstr = (char *)variable->string;
-	alloclen = strlen(variable->string) + 1;
-	variable->string = (char *)Z_Malloc (alloclen);
-	memcpy ((char *)variable->string, oldstr, alloclen);
-	variable->defstring = (char *)Z_Malloc (alloclen);
-	memcpy ((char *)variable->defstring, oldstr, alloclen);
-	variable->value = atof (variable->string);
-	variable->integer = (int) variable->value;
+	oldstr = (char *)var->string;
+	alloclen = strlen(var->string) + 1;
+	var->string = (char *)Z_Malloc (alloclen);
+	memcpy ((char *)var->string, oldstr, alloclen);
+	var->defstring = (char *)Z_Malloc (alloclen);
+	memcpy ((char *)var->defstring, oldstr, alloclen);
+	var->value = atof (var->string);
+	var->integer = (int) var->value;
 
 	// Mark it as not an autocvar.
 	for (i = 0;i < PRVM_PROG_MAX;i++)
-		variable->globaldefindex[i] = -1;
+		var->globaldefindex[i] = -1;
 
-// link the variable in
-// alphanumerical order
-	for( current = NULL, next = cvar_vars ; next && strcmp( next->name, variable->name ) < 0 ; current = next, next = next->next )
+// link the variables alphanumerical order
+	for( current = NULL, next = cvar_vars ; next && strcmp( next->name, var->name ) < 0 ; current = next, next = next->next )
 		;
 	if( current ) {
-		current->next = variable;
+		current->next = var;
 	} else {
-		cvar_vars = variable;
+		cvar_vars = var;
 	}
-	variable->next = next;
+	var->next = next;
 
-	// link to head of list in this hash table index
-	hashindex = siphash_Block(variable->name, strlen(variable->name)) % CVAR_HASHSIZE;
-	variable->nextonhashchain = cvar_hashtable[hashindex];
-	cvar_hashtable[hashindex] = variable;
+	HashTable_Add(var->name, cvar_hashtable, var);
 }
 
 /*
@@ -647,14 +582,13 @@ Adds a newly allocated variable to the variable list or sets its value.
 */
 cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *newdescription)
 {
-	int hashindex;
 	cvar_t *current, *next, *cvar;
 	int i;
 
 	if (developer_extra.integer)
 		Con_DPrintf("Cvar_Get(\"%s\", \"%s\", %i);\n", name, value, flags);
 
-	if(!strcmp(name, "r_glsl")) {
+	if(IS_OLDNEXUIZ_DERIVED(gamemode) && !strcmp(name, "r_glsl")) {
 		Con_Printf("Cvar_Set: Attempted to set %s, updating vid_gl20 instead to preserve Nexuiz compatibility\n", name);
 		cvar = Cvar_FindVar("vid_gl20");
 		Cvar_SetQuick(cvar, value);
@@ -662,11 +596,11 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 	}
 
 // first check to see if it has already been defined
-	cvar = Cvar_FindVar (name);
+	cvar = Cvar_FindVar(name);
 	if (cvar)
 	{
 		cvar->flags |= flags;
-		Cvar_SetQuick_Internal (cvar, value);
+		Cvar_SetQuick_Internal(cvar, value);
 		if(newdescription && (cvar->flags & CVAR_ALLOCATED))
 		{
 			if(cvar->description != cvar_dummy_description)
@@ -705,6 +639,8 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 	cvar->value = atof (cvar->string);
 	cvar->integer = (int) cvar->value;
 
+	HashTable_Add(name, cvar_hashtable, cvar);
+
 	if(newdescription && *newdescription)
 		cvar->description = (char *)Mem_strdup(zonemempool, newdescription);
 	else
@@ -724,11 +660,6 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 		cvar_vars = cvar;
 	cvar->next = next;
 
-	// link to head of list in this hash table index
-	hashindex = siphash_Block(cvar->name, strlen(cvar->name)) % CVAR_HASHSIZE;
-	cvar->nextonhashchain = cvar_hashtable[hashindex];
-	cvar_hashtable[hashindex] = cvar;
-
 	return cvar;
 }
 
@@ -740,12 +671,11 @@ Cvar_Command
 Handles variable inspection and changing from the console
 ============
 */
-qboolean	Cvar_Command (void)
-{
-	cvar_t			*v;
+qboolean Cvar_Command (void) {
+	cvar_t *v;
 
 // check variables
-	v = Cvar_FindVar (Cmd_Argv(0));
+	v = Cvar_FindVar(Cmd_Argv(0));
 	if (!v)
 		return false;
 
@@ -759,12 +689,12 @@ qboolean	Cvar_Command (void)
 	if (developer_extra.integer)
 		Con_DPrint("Cvar_Command: ");
 
-	if (v->flags & CVAR_READONLY && strcmp(v->name, "r_glsl"))
+	if ((v->flags & CVAR_READONLY) && (IS_OLDNEXUIZ_DERIVED(gamemode) && strcmp(v->name, "r_glsl")))
 	{
 		Con_Printf("%s is read-only\n", v->name);
 		return true;
 	}
-	Cvar_Set (v->name, Cmd_Argv(1));
+	Cvar_Set(v->name, Cmd_Argv(1));
 	if (developer_extra.integer)
 		Con_DPrint("\n");
 	return true;
@@ -773,121 +703,110 @@ qboolean	Cvar_Command (void)
 
 void Cvar_UnlockDefaults (void)
 {
-	cvar_t *var;
+	cvar_t *cvar;
 	// unlock the default values of all cvars
-	for (var = cvar_vars ; var ; var = var->next)
-		var->flags &= ~CVAR_DEFAULTSET;
+	for (cvar = cvar_vars ; cvar ; cvar = cvar->next)
+		cvar->flags &= ~CVAR_DEFAULTSET;
 }
 
 
 void Cvar_LockDefaults_f (void)
 {
-	cvar_t *var;
+	cvar_t *cvar;
 	// lock in the default values of all cvars
-	for (var = cvar_vars ; var ; var = var->next)
+	for (cvar = cvar_vars ; cvar ; cvar = cvar->next)
 	{
-		if (!(var->flags & CVAR_DEFAULTSET))
+		if (!(cvar->flags & CVAR_DEFAULTSET))
 		{
 			size_t alloclen;
 
-			//Con_Printf("locking cvar %s (%s -> %s)\n", var->name, var->string, var->defstring);
-			var->flags |= CVAR_DEFAULTSET;
-			Z_Free((char *)var->defstring);
-			alloclen = strlen(var->string) + 1;
-			var->defstring = (char *)Z_Malloc(alloclen);
-			memcpy((char *)var->defstring, var->string, alloclen);
+			//Con_Printf("locking cvar %s (%s -> %s)\n", cvar->name, cvar->string, cvar->defstring);
+			cvar->flags |= CVAR_DEFAULTSET;
+			Z_Free((char *)cvar->defstring);
+			alloclen = strlen(cvar->string) + 1;
+			cvar->defstring = (char *)Z_Malloc(alloclen);
+			memcpy((char *)cvar->defstring, cvar->string, alloclen);
 		}
 	}
 }
 
 void Cvar_SaveInitState(void)
 {
-	cvar_t *c;
-	for (c = cvar_vars;c;c = c->next)
+	cvar_t *cvar;
+	for (cvar = cvar_vars;cvar;cvar = cvar->next)
 	{
-		c->initstate = true;
-		c->initflags = c->flags;
-		c->initdefstring = Mem_strdup(zonemempool, c->defstring);
-		c->initstring = Mem_strdup(zonemempool, c->string);
-		c->initvalue = c->value;
-		c->initinteger = c->integer;
-		VectorCopy(c->vector, c->initvector);
+		cvar->initstate = true;
+		cvar->initflags = cvar->flags;
+		cvar->initdefstring = Mem_strdup(zonemempool, cvar->defstring);
+		cvar->initstring = Mem_strdup(zonemempool, cvar->string);
+		cvar->initvalue = cvar->value;
+		cvar->initinteger = cvar->integer;
+		VectorCopy(cvar->vector, cvar->initvector);
 	}
 }
 
 void Cvar_RestoreInitState(void)
 {
-	int hashindex;
-	cvar_t *c, **cp;
-	cvar_t *c2, **cp2;
-	for (cp = &cvar_vars;(c = *cp);)
+	cvar_t *cvar, *cvar_previous;
+	for (cvar_previous = cvar_vars;(cvar = cvar_previous);)
 	{
-		if (c->initstate)
+		if (cvar->initstate)
 		{
 			// restore this cvar, it existed at init
-			if (((c->flags ^ c->initflags) & CVAR_MAXFLAGSVAL)
-			 || strcmp(c->defstring ? c->defstring : "", c->initdefstring ? c->initdefstring : "")
-			 || strcmp(c->string ? c->string : "", c->initstring ? c->initstring : ""))
+			if (((cvar->flags ^ cvar->initflags) & CVAR_MAXFLAGSVAL)
+			 || strcmp(cvar->defstring ? cvar->defstring : "", cvar->initdefstring ? cvar->initdefstring : "")
+			 || strcmp(cvar->string ? cvar->string : "", cvar->initstring ? cvar->initstring : ""))
 			{
-				Con_DPrintf("Cvar_RestoreInitState: Restoring cvar \"%s\"\n", c->name);
-				if (c->defstring)
-					Z_Free((char *)c->defstring);
-				c->defstring = Mem_strdup(zonemempool, c->initdefstring);
-				if (c->string)
-					Z_Free((char *)c->string);
-				c->string = Mem_strdup(zonemempool, c->initstring);
+				Con_DPrintf("Cvar_RestoreInitState: Restoring cvar \"%s\"\n", cvar->name);
+				if (cvar->defstring)
+					Z_Free((char *)cvar->defstring);
+				cvar->defstring = Mem_strdup(zonemempool, cvar->initdefstring);
+				if (cvar->string)
+					Z_Free((char *)cvar->string);
+				cvar->string = Mem_strdup(zonemempool, cvar->initstring);
 			}
-			c->flags = c->initflags;
-			c->value = c->initvalue;
-			c->integer = c->initinteger;
-			VectorCopy(c->initvector, c->vector);
-			cp = &c->next;
+			cvar->flags = cvar->initflags;
+			cvar->value = cvar->initvalue;
+			cvar->integer = cvar->initinteger;
+			VectorCopy(cvar->initvector, cvar->vector);
+			cvar_previous = cvar->next;
 		}
 		else
 		{
-			if (!(c->flags & CVAR_ALLOCATED))
+			if (!(cvar->flags & CVAR_ALLOCATED))
 			{
-				Con_DPrintf("Cvar_RestoreInitState: Unable to destroy cvar \"%s\", it was registered after init!\n", c->name);
+				Con_DPrintf("Cvar_RestoreInitState: Unable to destroy cvar \"%s\", it was registered after init!\n", cvar->name);
 				// In this case, at least reset it to the default.
-				if((c->flags & CVAR_NORESETTODEFAULTS) == 0)
-					Cvar_SetQuick(c, c->defstring);
-				cp = &c->next;
+				if((cvar->flags & CVAR_NORESETTODEFAULTS) == 0)
+					Cvar_SetQuick(cvar, cvar->defstring);
+				cvar_previous = cvar->next;
 				continue;
 			}
-			if (Cvar_IsAutoCvar(c))
+			if (Cvar_IsAutoCvar(cvar))
 			{
-				Con_DPrintf("Cvar_RestoreInitState: Unable to destroy cvar \"%s\", it is an autocvar used by running progs!\n", c->name);
+				Con_DPrintf("Cvar_RestoreInitState: Unable to destroy cvar \"%s\", it is an autocvar used by running progs!\n", cvar->name);
 				// In this case, at least reset it to the default.
-				if((c->flags & CVAR_NORESETTODEFAULTS) == 0)
-					Cvar_SetQuick(c, c->defstring);
-				cp = &c->next;
+				if((cvar->flags & CVAR_NORESETTODEFAULTS) == 0)
+					Cvar_SetQuick(cvar, cvar->defstring);
+				cvar_previous = cvar->next;
 				continue;
 			}
 			// remove this cvar, it did not exist at init
-			Con_DPrintf("Cvar_RestoreInitState: Destroying cvar \"%s\"\n", c->name);
-			// unlink struct from hash
-			hashindex = siphash_Block(c->name, strlen(c->name)) % CVAR_HASHSIZE;
-			for (cp2 = &cvar_hashtable[hashindex];(c2 = *cp2);)
-			{
-				if (c2 == c)
-				{
-					*cp2 = c2->nextonhashchain;
-					break;
-				}
-				else
-					cp2 = &c2->nextonhashchain;
-			}
+			Con_DPrintf("Cvar_RestoreInitState: Destroying cvar \"%s\"\n", cvar->name);
+			HashTable_Remove(cvar->name, cvar_hashtable);
+
 			// unlink struct from main list
-			*cp = c->next;
+			cvar_previous = cvar->next;
+			
 			// free strings
-			if (c->defstring)
-				Z_Free((char *)c->defstring);
-			if (c->string)
-				Z_Free((char *)c->string);
-			if (c->description && c->description != cvar_dummy_description)
-				Z_Free((char *)c->description);
+			if (cvar->defstring)
+				Z_Free((char *)cvar->defstring);
+			if (cvar->string)
+				Z_Free((char *)cvar->string);
+			if (cvar->description && cvar->description != cvar_dummy_description)
+				Z_Free((char *)cvar->description);
 			// free struct
-			Z_Free(c);
+			Z_Free(cvar);
 		}
 	}
 }
@@ -993,6 +912,8 @@ void Cvar_List_f (void)
 	}
 	else
 		Con_Printf("%i cvar(s)\n", count);
+
+	HashTable_List(cvar_hashtable);
 }
 // 2000-01-09 CvarList command by Maddes
 
@@ -1009,7 +930,7 @@ void Cvar_Set_f (void)
 
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
-	if (cvar && cvar->flags & CVAR_READONLY && strcmp(cvar->name, "r_glsl"))
+	if ((cvar && cvar->flags & CVAR_READONLY) && (IS_OLDNEXUIZ_DERIVED(gamemode) && strcmp(cvar->name, "r_glsl")))
 	{
 		Con_Printf("Set: %s is read-only\n", cvar->name);
 		return;
@@ -1035,7 +956,7 @@ void Cvar_SetA_f (void)
 
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
-	if (cvar && cvar->flags & CVAR_READONLY && strcmp(cvar->name, "r_glsl"))
+	if ((cvar && cvar->flags & CVAR_READONLY) && (IS_OLDNEXUIZ_DERIVED(gamemode) && strcmp(cvar->name, "r_glsl")))
 	{
 		Con_Printf("SetA: %s is read-only\n", cvar->name);
 		return;
@@ -1051,7 +972,7 @@ void Cvar_SetA_f (void)
 void Cvar_Del_f (void)
 {
 	int i;
-	cvar_t *cvar, *parent, **link, *prev;
+	cvar_t *cvar;
 
 	if(Cmd_Argc() < 2)
 	{
@@ -1060,7 +981,7 @@ void Cvar_Del_f (void)
 	}
 	for(i = 1; i < Cmd_Argc(); ++i)
 	{
-		cvar = Cvar_FindVarLink(Cmd_Argv(i), &parent, &link, &prev);
+		cvar = Cvar_FindVar(Cmd_Argv(i));
 		if(!cvar)
 		{
 			Con_Printf("Del: %s is not defined\n", Cmd_Argv(i));
@@ -1079,18 +1000,14 @@ void Cvar_Del_f (void)
 		if(cvar == cvar_vars)
 		{
 			cvar_vars = cvar->next;
-		}
-		else
-		{
-			// in this case, prev must be set, otherwise there has been some inconsistensy
-			// elsewhere already... should I still check for prev != NULL?
-			prev->next = cvar->next;
+		} else {
+			cvar_t *cvar_previous;
+			for (cvar_previous = cvar_vars; strcmp(cvar->name, cvar_previous->name); cvar_previous = cvar_previous->next)
+				;
+			cvar_previous->next = cvar->next;
 		}
 
-		if(parent)
-			parent->nextonhashchain = cvar->nextonhashchain;
-		else if(link)
-			*link = cvar->nextonhashchain;
+		HashTable_Remove(Cmd_Argv(i), cvar_hashtable);
 
 		if(cvar->description != cvar_dummy_description)
 			Z_Free((char *)cvar->description);

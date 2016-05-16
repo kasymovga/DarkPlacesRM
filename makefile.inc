@@ -126,6 +126,7 @@ OBJ_COMMON= \
 	utf8lib.o \
 	gl_draw.o \
 	gl_rsurf.o \
+	hashtable.o \
 	hmac.o \
 	host_cmd.o \
 	image_png.o \

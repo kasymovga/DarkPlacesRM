@@ -139,9 +139,7 @@ typedef struct cvar_s
 	int globaldefindex[3];
 	int globaldefindex_stringno[3];
 
-	//menucvar_t menuinfo;
 	struct cvar_s *next;
-	struct cvar_s *nextonhashchain;
 } cvar_t;
 
 /*
@@ -238,6 +236,7 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 
 extern const char *cvar_dummy_description; // ALWAYS the same pointer
 extern cvar_t *cvar_vars; // used to list all cvars
+extern hashtable_t *cvar_hashtable; // a hashmap of the cvars
 
 void Cvar_UpdateAllAutoCvars(void); // updates ALL autocvars of the active prog to the cvar values (savegame loading)
 
