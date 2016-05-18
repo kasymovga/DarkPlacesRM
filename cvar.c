@@ -912,8 +912,6 @@ void Cvar_List_f (void)
 	}
 	else
 		Con_Printf("%i cvar(s)\n", count);
-
-	HashTable_List(cvar_hashtable);
 }
 // 2000-01-09 CvarList command by Maddes
 
