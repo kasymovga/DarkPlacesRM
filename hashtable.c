@@ -232,3 +232,42 @@ void HashTable_List(const hashtable_t *map) {
 	printf("Total index count: %d\n", count);
 	printf("Total unique indices: %d\n", unique);
 }
+
+/* HashTable_Count_Total
+ * Return the count of hashes in a tabe. */
+int HashTable_Count_Total(const hashtable_t *map) {
+	hashtable_entry_t *entry;
+	int ret = 0;
+	int i;
+
+	if (!map || !map->name || !map->table)
+		return -1;
+
+	for (i=0; i < map->size; i++) {
+		if ( (entry = map->table[i])) {
+			while (entry) {
+				entry = entry->next;
+				ret++;
+			}
+		}
+	}
+	return ret;
+}
+
+/* HashTable_List_Unique
+ * Return the count of unique hashes in a tabe. */
+int HashTable_Count_Unique(const hashtable_t *map) {
+	hashtable_entry_t *entry;
+	int ret = 0;
+	int i;
+
+	if (!map || !map->name || !map->table)
+		return -1;
+
+	for (i=0; i < map->size; i++) {
+		if ( (entry = map->table[i])) {
+			ret++;
+		}
+	}
+	return ret;
+}

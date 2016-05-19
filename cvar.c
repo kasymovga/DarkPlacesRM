@@ -915,6 +915,23 @@ void Cvar_List_f (void)
 }
 // 2000-01-09 CvarList command by Maddes
 
+void Cvar_Hashtable_f(void){
+	float count, unique;
+
+	count = (float) HashTable_Count_Total(cvar_hashtable);
+	unique = (float) HashTable_Count_Unique(cvar_hashtable);
+
+	if (count < 0 || unique < 0) {
+		Con_Printf("HASHTABLE ERROR: Bad cvar map. Reporting %f total, %f unique\n", count, unique);
+	}
+
+	Con_Printf("Cvar map size: %d\n", cvar_hashtable->size);
+	Con_Printf("Total cvar hashes: %f\n", count);
+	Con_Printf("Unique cvar hashes: %f\n", unique);
+	Con_Printf("Hash efficiency: %f\n", unique / count);
+	Con_Printf("Map fill ratio: %f\n", unique / (float) cvar_hashtable->size);
+}
+
 void Cvar_Set_f (void)
 {
 	cvar_t *cvar;

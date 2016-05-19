@@ -223,6 +223,7 @@ const char **Cvar_CompleteBuildList (const char *partial);
 /// Added by EvilTypeGuy eviltypeguy@qeradiant.com
 /// Thanks to Matthias "Maddes" Buecher, http://www.inside3d.com/qip/
 void Cvar_List_f (void);
+void Cvar_Hashtable_f (void);
 
 void Cvar_Set_f (void);
 void Cvar_SetA_f (void);

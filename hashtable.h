@@ -23,5 +23,7 @@ void *HashTable_Locate(const char* str, const hashtable_t *map);
 hashtable_entry_t *HashTable_Add(const char* str, hashtable_t *map, void *object);
 void HashTable_Remove(const char* str, const hashtable_t *map);
 void HashTable_List(const hashtable_t *map);
+int HashTable_Count_Total(const hashtable_t *map);
+int HashTable_Count_Unique(const hashtable_t *map);
 
 #endif
