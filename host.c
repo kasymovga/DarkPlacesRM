@@ -1196,13 +1196,11 @@ static void Host_Init (void)
 	if (COM_CheckParm("-benchmark")) {
         Xrand_Init(1);
 		srand(0); // predictable random sequence for -benchmark
-    }
+	}
 	else {
         Xrand_Init(0);
 		srand((unsigned int)time(NULL));
-    }
-
-    Cvar_InitTable();
+	}
 
 	// FIXME: this is evil, but possibly temporary
 	// LordHavoc: doesn't seem very temporary...
@@ -1240,6 +1238,10 @@ static void Host_Init (void)
 
 	// used by everything
 	Memory_Init();
+
+	if ( (cvar_hashtable = HashTable_New("cvar", CVAR_HASHSIZE)) == NULL) {
+		Sys_Error("Can't initialize cvar_hashtable!\n"); // can't continue at this point!
+	}
 
 	// initialize console command/cvar/alias/command execution systems
 	Cmd_Init();
