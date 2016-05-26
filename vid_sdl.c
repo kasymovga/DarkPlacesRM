@@ -61,6 +61,8 @@ io_connect_t IN_GetIOHandle(void)
 #define SDL_R_RESTART
 #endif
 
+#define SDL_MOUSE_RELATIVE_DOES_NOT_SUCK
+
 // Tell startup code that we have a client
 int cl_available = true;
 
@@ -426,6 +428,7 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 #else
 #ifdef SDL_MOUSE_RELATIVE_DOES_NOT_SUCK
 		vid_usingmouse_relativeworks = SDL_SetRelativeMouseMode(relative ? SDL_TRUE : SDL_FALSE) == 0;
+        Con_DPrintf("VID_SetMouse(%i, %i, %i) relativeworks = %i\n", (int)fullscreengrab, (int)relative, (int)hidecursor, (int)vid_usingmouse_relativeworks);
 #else
 		vid_usingmouse_relativeworks = SDL_FALSE;
 #endif
