@@ -39,6 +39,9 @@ cvar_t mod_generatelightmaps_gridsamples = {CVAR_SAVE, "mod_generatelightmaps_gr
 cvar_t mod_generatelightmaps_lightmapradius = {CVAR_SAVE, "mod_generatelightmaps_lightmapradius", "16", "sampling area around each lightmap pixel"};
 cvar_t mod_generatelightmaps_vertexradius = {CVAR_SAVE, "mod_generatelightmaps_vertexradius", "16", "sampling area around each vertex"};
 cvar_t mod_generatelightmaps_gridradius = {CVAR_SAVE, "mod_generatelightmaps_gridradius", "64", "sampling area around each lightgrid cell center"};
+cvar_t cl_force_player_model = {CVAR_SAVE, "cl_force_player_model", "", "Force player model"};
+cvar_t cl_force_player_model_weapontag = {CVAR_SAVE, "cl_force_player_model_weapontag", "bip01 r hand", "Use this tag for weapon model when cl_force_player_model enabled"};
+int cl_force_player_model_weapontag_index;
 
 dp_model_t *loadmodel;
 
@@ -63,7 +66,7 @@ static q3shader_data_t* q3shader_data;
 static void mod_start(void)
 {
 	int i, count;
-	int nummodels = Mem_ExpandableArray_IndexRange(&models);
+	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
 
 	SCR_PushLoadingScreen(false, "Loading models", 1.0);
@@ -86,7 +89,7 @@ static void mod_start(void)
 static void mod_shutdown(void)
 {
 	int i;
-	int nummodels = Mem_ExpandableArray_IndexRange(&models);
+	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
 
 	for (i = 0;i < nummodels;i++)
@@ -101,7 +104,7 @@ static void mod_newmap(void)
 {
 	msurface_t *surface;
 	int i, j, k, surfacenum, ssize, tsize;
-	int nummodels = Mem_ExpandableArray_IndexRange(&models);
+	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
 
 	for (i = 0;i < nummodels;i++)
@@ -174,6 +177,8 @@ void Mod_Init (void)
 	Cvar_RegisterVariable(&mod_generatelightmaps_lightmapradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_vertexradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_gridradius);
+	Cvar_RegisterVariable(&cl_force_player_model);
+	Cvar_RegisterVariable(&cl_force_player_model_weapontag);
 
 	Cmd_AddCommand ("modellist", Mod_Print, "prints a list of loaded models");
 	Cmd_AddCommand ("modelprecache", Mod_Precache, "load a model");
@@ -200,12 +205,6 @@ void Mod_UnloadModel (dp_model_t *mod)
 	used = mod->used;
 	if (mod->mempool)
 	{
-		if (mod->surfmesh.vertex3fbuffer)
-			R_Mesh_DestroyMeshBuffer(mod->surfmesh.vertex3fbuffer);
-		mod->surfmesh.vertex3fbuffer = NULL;
-		if (mod->surfmesh.vertexmeshbuffer)
-			R_Mesh_DestroyMeshBuffer(mod->surfmesh.vertexmeshbuffer);
-		mod->surfmesh.vertexmeshbuffer = NULL;
 		if (mod->surfmesh.data_element3i_indexbuffer)
 			R_Mesh_DestroyMeshBuffer(mod->surfmesh.data_element3i_indexbuffer);
 		mod->surfmesh.data_element3i_indexbuffer = NULL;
@@ -424,6 +423,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		return mod;
 	}
 
+	if (!strncmp(mod->name, "models/player", 13) && cl_force_player_model.string[0])
+		strlcpy(mod->name, cl_force_player_model.string, sizeof(mod->name));
+
 	crc = 0;
 	buf = NULL;
 
@@ -507,7 +509,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		else if (!memcmp(buf, "ACTRHEAD", 8)) Mod_PSKMODEL_Load(mod, buf, bufend);
 		else if (!memcmp(buf, "INTERQUAKEMODEL", 16)) Mod_INTERQUAKEMODEL_Load(mod, buf, bufend);
 		else if (strlen(mod->name) >= 4 && !strcmp(mod->name + strlen(mod->name) - 4, ".map")) Mod_MAP_Load(mod, buf, bufend);
-		else if (num == BSPVERSION || num == 30 || !memcmp(buf, "BSP2", 4)) Mod_Q1BSP_Load(mod, buf, bufend);
+		else if (num == BSPVERSION || num == 30 || !memcmp(buf, "BSP2", 4) || !memcmp(buf, "2PSB", 4)) Mod_Q1BSP_Load(mod, buf, bufend);
 		else Con_Printf("Mod_LoadModel: model \"%s\" is of unknown/unsupported type\n", mod->name);
 		Mem_Free(buf);
 
@@ -530,6 +532,13 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 	// no fatal errors occurred, so this model is ready to use.
 	mod->loaded = true;
+	if (!strncmp(mod->name, "models/player", 13))
+	{
+		if (cl_force_player_model.string[0] && cl_force_player_model_weapontag.string[0])
+			cl_force_player_model_weapontag_index = Mod_Alias_GetTagIndexForName(mod, 0, cl_force_player_model_weapontag.string);
+		else
+			cl_force_player_model_weapontag_index = 0;
+	}
 
 	SCR_PopLoadingScreen(false);
 
@@ -539,7 +548,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 void Mod_ClearUsed(void)
 {
 	int i;
-	int nummodels = Mem_ExpandableArray_IndexRange(&models);
+	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
 	for (i = 0;i < nummodels;i++)
 		if ((mod = (dp_model_t*) Mem_ExpandableArray_RecordAtIndex(&models, i)) && mod->name[0])
@@ -549,7 +558,7 @@ void Mod_ClearUsed(void)
 void Mod_PurgeUnused(void)
 {
 	int i;
-	int nummodels = Mem_ExpandableArray_IndexRange(&models);
+	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
 	for (i = 0;i < nummodels;i++)
 	{
@@ -579,7 +588,7 @@ dp_model_t *Mod_FindName(const char *name, const char *parentname)
 	// if we're not dedicatd, the renderer calls will crash without video
 	Host_StartVideo();
 
-	nummodels = Mem_ExpandableArray_IndexRange(&models);
+	nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 
 	if (!name[0])
 		Host_Error ("Mod_ForName: empty name");
@@ -632,7 +641,7 @@ Reloads all models if they have changed
 void Mod_Reload(void)
 {
 	int i, count;
-	int nummodels = Mem_ExpandableArray_IndexRange(&models);
+	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
 
 	SCR_PushLoadingScreen(false, "Reloading models", 1.0);
@@ -663,7 +672,7 @@ Mod_Print
 static void Mod_Print(void)
 {
 	int i;
-	int nummodels = Mem_ExpandableArray_IndexRange(&models);
+	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
 
 	Con_Print("Loaded models:\n");
@@ -1080,7 +1089,7 @@ shadowmesh_t *Mod_ShadowMesh_Alloc(mempool_t *mempool, int maxverts, int maxtria
 		newmesh->vertexhashentries = (shadowmeshvertexhash_t *)data;data += maxverts * sizeof(shadowmeshvertexhash_t);
 	}
 	if (maxverts <= 65536)
-		newmesh->element3s = (unsigned short *)data;data += maxtriangles * sizeof(unsigned short[3]);
+		newmesh->element3s = (unsigned short *)data;//data += maxtriangles * sizeof(unsigned short[3]);
 	return newmesh;
 }
 
@@ -1214,42 +1223,37 @@ shadowmesh_t *Mod_ShadowMesh_Begin(mempool_t *mempool, int maxverts, int maxtria
 
 static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 {
-	if (!mesh->numverts)
+	if (!mesh || !mesh->numverts)
 		return;
 
 	// build r_vertexmesh_t array
 	// (compressed interleaved array for D3D)
-	if (!mesh->vertexmesh && mesh->texcoord2f && vid.useinterleavedarrays)
+	if (!mesh->vertexmesh && vid.useinterleavedarrays && mesh->texcoord2f && mesh->vertex3f && mesh->svector3f && mesh->tvector3f && mesh->normal3f)
 	{
-		int vertexindex;
-		int numvertices = mesh->numverts;
-		r_vertexmesh_t *vertexmesh;
-		mesh->vertexmesh = vertexmesh = (r_vertexmesh_t*)Mem_Alloc(mempool, numvertices * sizeof(*mesh->vertexmesh));
-		for (vertexindex = 0;vertexindex < numvertices;vertexindex++, vertexmesh++)
-		{
-			VectorCopy(mesh->vertex3f + 3*vertexindex, vertexmesh->vertex3f);
-			VectorScale(mesh->svector3f + 3*vertexindex, 1.0f, vertexmesh->svector3f);
-			VectorScale(mesh->tvector3f + 3*vertexindex, 1.0f, vertexmesh->tvector3f);
-			VectorScale(mesh->normal3f + 3*vertexindex, 1.0f, vertexmesh->normal3f);
-			Vector2Copy(mesh->texcoord2f + 2*vertexindex, vertexmesh->texcoordtexture2f);
+		r_vertexmesh_t *vertexmesh = (r_vertexmesh_t*)Mem_Alloc(mempool, mesh->numverts * sizeof(*mesh->vertexmesh));
+		if (vertexmesh != NULL) {
+			int vertexindex;
+			mesh->vertexmesh = vertexmesh;
+			for (vertexindex = 0;vertexindex < mesh->numverts;vertexindex++, vertexmesh++)
+			{
+				VectorCopy(mesh->vertex3f + 3*vertexindex, vertexmesh->vertex3f);
+				VectorScale(mesh->svector3f + 3*vertexindex, 1.0f, vertexmesh->svector3f);
+				VectorScale(mesh->tvector3f + 3*vertexindex, 1.0f, vertexmesh->tvector3f);
+				VectorScale(mesh->normal3f + 3*vertexindex, 1.0f, vertexmesh->normal3f);
+				Vector2Copy(mesh->texcoord2f + 2*vertexindex, vertexmesh->texcoordtexture2f);
+			}
+		} else {
+			Sys_Error("Mod_ShadowMesh_CreateVBOs: can't allocate memory for vertexmesh\n");
 		}
 	}
 
-	// upload r_vertexmesh_t array as a buffer
-	if (mesh->vertexmesh && !mesh->vertexmeshbuffer)
-		mesh->vertexmeshbuffer = R_Mesh_CreateMeshBuffer(mesh->vertexmesh, mesh->numverts * sizeof(*mesh->vertexmesh), loadmodel->name, false, false, false);
-
-	// upload vertex3f array as a buffer
-	if (mesh->vertex3f && !mesh->vertex3fbuffer)
-		mesh->vertex3fbuffer = R_Mesh_CreateMeshBuffer(mesh->vertex3f, mesh->numverts * sizeof(float[3]), loadmodel->name, false, false, false);
-
 	// upload short indices as a buffer
 	if (mesh->element3s && !mesh->element3s_indexbuffer)
-		mesh->element3s_indexbuffer = R_Mesh_CreateMeshBuffer(mesh->element3s, mesh->numtriangles * sizeof(short[3]), loadmodel->name, true, false, true);
+		mesh->element3s_indexbuffer = R_Mesh_CreateMeshBuffer(mesh->element3s, mesh->numtriangles * sizeof(short[3]), loadmodel->name, true, false, false, true);
 
 	// upload int indices as a buffer
 	if (mesh->element3i && !mesh->element3i_indexbuffer && !mesh->element3s)
-		mesh->element3i_indexbuffer = R_Mesh_CreateMeshBuffer(mesh->element3i, mesh->numtriangles * sizeof(int[3]), loadmodel->name, true, false, false);
+		mesh->element3i_indexbuffer = R_Mesh_CreateMeshBuffer(mesh->element3i, mesh->numtriangles * sizeof(int[3]), loadmodel->name, true, false, false, false);
 
 	// vertex buffer is several arrays and we put them in the same buffer
 	//
@@ -1258,21 +1262,23 @@ static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 	// other hand animated models don't use a lot of vertices anyway...
 	if (!mesh->vbo_vertexbuffer && !vid.useinterleavedarrays)
 	{
-		size_t size;
+		int size;
 		unsigned char *mem;
 		size = 0;
+		mesh->vbooffset_vertexmesh         = size;if (mesh->vertexmesh        ) size += mesh->numverts * sizeof(r_vertexmesh_t);
 		mesh->vbooffset_vertex3f           = size;if (mesh->vertex3f          ) size += mesh->numverts * sizeof(float[3]);
 		mesh->vbooffset_svector3f          = size;if (mesh->svector3f         ) size += mesh->numverts * sizeof(float[3]);
 		mesh->vbooffset_tvector3f          = size;if (mesh->tvector3f         ) size += mesh->numverts * sizeof(float[3]);
 		mesh->vbooffset_normal3f           = size;if (mesh->normal3f          ) size += mesh->numverts * sizeof(float[3]);
 		mesh->vbooffset_texcoord2f         = size;if (mesh->texcoord2f        ) size += mesh->numverts * sizeof(float[2]);
 		mem = (unsigned char *)Mem_Alloc(tempmempool, size);
+		if (mesh->vertexmesh        ) memcpy(mem + mesh->vbooffset_vertexmesh        , mesh->vertexmesh        , mesh->numverts * sizeof(r_vertexmesh_t));
 		if (mesh->vertex3f          ) memcpy(mem + mesh->vbooffset_vertex3f          , mesh->vertex3f          , mesh->numverts * sizeof(float[3]));
 		if (mesh->svector3f         ) memcpy(mem + mesh->vbooffset_svector3f         , mesh->svector3f         , mesh->numverts * sizeof(float[3]));
 		if (mesh->tvector3f         ) memcpy(mem + mesh->vbooffset_tvector3f         , mesh->tvector3f         , mesh->numverts * sizeof(float[3]));
 		if (mesh->normal3f          ) memcpy(mem + mesh->vbooffset_normal3f          , mesh->normal3f          , mesh->numverts * sizeof(float[3]));
 		if (mesh->texcoord2f        ) memcpy(mem + mesh->vbooffset_texcoord2f        , mesh->texcoord2f        , mesh->numverts * sizeof(float[2]));
-		mesh->vbo_vertexbuffer = R_Mesh_CreateMeshBuffer(mem, size, "shadowmesh", false, false, false);
+		mesh->vbo_vertexbuffer = R_Mesh_CreateMeshBuffer(mem, size, "shadowmesh", false, false, false, false);
 		Mem_Free(mem);
 	}
 }
@@ -1361,10 +1367,6 @@ void Mod_ShadowMesh_Free(shadowmesh_t *mesh)
 	shadowmesh_t *nextmesh;
 	for (;mesh;mesh = nextmesh)
 	{
-		if (mesh->vertex3fbuffer)
-			R_Mesh_DestroyMeshBuffer(mesh->vertex3fbuffer);
-		if (mesh->vertexmeshbuffer)
-			R_Mesh_DestroyMeshBuffer(mesh->vertexmeshbuffer);
 		if (mesh->element3i_indexbuffer)
 			R_Mesh_DestroyMeshBuffer(mesh->element3i_indexbuffer);
 		if (mesh->element3s_indexbuffer)
@@ -1594,7 +1596,7 @@ static void Q3Shader_AddToHash (q3shaderinfo_t* shader)
 	unsigned short hash = CRC_Block_CaseInsensitive ((const unsigned char *)shader->name, strlen (shader->name));
 	q3shader_hash_entry_t* entry = q3shader_data->hash + (hash % Q3SHADER_HASH_SIZE);
 	q3shader_hash_entry_t* lastEntry = NULL;
-	while (entry != NULL)
+	do
 	{
 		if (strcasecmp (entry->shader.name, shader->name) == 0)
 		{
@@ -1627,6 +1629,7 @@ static void Q3Shader_AddToHash (q3shaderinfo_t* shader)
 		lastEntry = entry;
 		entry = entry->chain;
 	}
+	while (entry != NULL);
 	if (entry == NULL)
 	{
 		if (lastEntry->shader.name[0] != 0)
@@ -1707,7 +1710,7 @@ void Mod_LoadQ3Shaders(void)
 						break;
 					}
 					// name
-					j = strlen(com_token)+1;
+					j = (int)strlen(com_token)+1;
 					custsurfaceparmnames[numcustsurfaceflags] = (char *)Mem_Alloc(tempmempool, j);
 					strlcpy(custsurfaceparmnames[numcustsurfaceflags], com_token, j+1);
 					// value
@@ -1734,6 +1737,24 @@ void Mod_LoadQ3Shaders(void)
 		while (COM_ParseToken_QuakeC(&text, false))
 		{
 			memset (&shader, 0, sizeof(shader));
+			shader.name[0] = 0;
+			shader.surfaceparms = 0;
+			shader.surfaceflags = 0;
+			shader.textureflags = 0;
+			shader.numlayers = 0;
+			shader.lighting = false;
+			shader.vertexalpha = false;
+			shader.textureblendalpha = false;
+			shader.primarylayer = 0;
+			shader.backgroundlayer = 0;
+			shader.skyboxname[0] = 0;
+			shader.deforms[0].deform = Q3DEFORM_NONE;
+			shader.dpnortlight = false;
+			shader.dpshadow = false;
+			shader.dpnoshadow = false;
+			shader.dpmeshcollisions = false;
+			shader.dpshaderkill = false;
+			shader.dpreflectcube[0] = 0;
 			shader.reflectmin = 0;
 			shader.reflectmax = 1;
 			shader.refractfactor = 1;
@@ -1741,14 +1762,19 @@ void Mod_LoadQ3Shaders(void)
 			shader.reflectfactor = 1;
 			Vector4Set(shader.reflectcolor4f, 1, 1, 1, 1);
 			shader.r_water_wateralpha = 1;
+			shader.r_water_waterscroll[0] = 0;
+			shader.r_water_waterscroll[1] = 0;
 			shader.offsetmapping = (mod_q3shader_default_offsetmapping.value) ? OFFSETMAPPING_DEFAULT : OFFSETMAPPING_OFF;
 			shader.offsetscale = mod_q3shader_default_offsetmapping_scale.value;
 			shader.offsetbias = mod_q3shader_default_offsetmapping_bias.value;
-			shader.specularscalemod = 1;
-			shader.specularpowermod = 1;
 			shader.biaspolygonoffset = mod_q3shader_default_polygonoffset.value;
 			shader.biaspolygonfactor = mod_q3shader_default_polygonfactor.value;
 			shader.transparentsort = TRANSPARENTSORT_DISTANCE;
+			shader.specularscalemod = 1;
+			shader.specularpowermod = 1;
+			shader.rtlightambient = 0;
+			// WHEN ADDING DEFAULTS HERE, REMEMBER TO PUT DEFAULTS IN ALL LOADERS
+			// JUST GREP FOR "specularscalemod = 1".
 
 			strlcpy(shader.name, com_token, sizeof(shader.name));
 			if (!COM_ParseToken_QuakeC(&text, false) || strcasecmp(com_token, "{"))
@@ -2436,6 +2462,7 @@ qboolean Mod_LoadTextureFromQ3Shader(texture_t *texture, const char *name, qbool
 	if (!name)
 		name = "";
 	strlcpy(texture->name, name, sizeof(texture->name));
+	texture->basealpha = 1.0f;
 	shader = name[0] ? Mod_LookupQ3Shader(name) : NULL;
 
 	texflagsmask = ~0;
@@ -2455,8 +2482,8 @@ qboolean Mod_LoadTextureFromQ3Shader(texture_t *texture, const char *name, qbool
 	texture->specularscalemod = 1;
 	texture->specularpowermod = 1; 
 	texture->rtlightambient = 0;
-	// WHEN ADDING DEFAULTS HERE, REMEMBER TO SYNC TO SHADER LOADING ABOVE
-	// HERE, AND Q1BSP LOADING
+	texture->transparentsort = TRANSPARENTSORT_DISTANCE;
+	// WHEN ADDING DEFAULTS HERE, REMEMBER TO PUT DEFAULTS IN ALL LOADERS
 	// JUST GREP FOR "specularscalemod = 1".
 
 	if (shader)
@@ -2739,6 +2766,8 @@ nothing                GL_ZERO GL_ONE
 				{
 					if(texture->skinframes[0]->hasalpha)
 						texture->basematerialflags |= MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_NOSHADOW;
+					if (texture->q2contents)
+						texture->supercontents = Mod_Q2BSP_SuperContentsFromNativeContents(loadmodel, texture->q2contents);
 				}
 				else
 					success = false;
@@ -2995,12 +3024,12 @@ void Mod_BuildVBOs(void)
 
 	// build r_vertexmesh_t array
 	// (compressed interleaved array for D3D)
-	if (!loadmodel->surfmesh.vertexmesh && vid.useinterleavedarrays)
+	if (!loadmodel->surfmesh.data_vertexmesh && vid.useinterleavedarrays)
 	{
 		int vertexindex;
 		int numvertices = loadmodel->surfmesh.num_vertices;
 		r_vertexmesh_t *vertexmesh;
-		loadmodel->surfmesh.vertexmesh = vertexmesh = (r_vertexmesh_t*)Mem_Alloc(loadmodel->mempool, numvertices * sizeof(*loadmodel->surfmesh.vertexmesh));
+		loadmodel->surfmesh.data_vertexmesh = vertexmesh = (r_vertexmesh_t*)Mem_Alloc(loadmodel->mempool, numvertices * sizeof(r_vertexmesh_t));
 		for (vertexindex = 0;vertexindex < numvertices;vertexindex++, vertexmesh++)
 		{
 			VectorCopy(loadmodel->surfmesh.data_vertex3f + 3*vertexindex, vertexmesh->vertex3f);
@@ -3012,24 +3041,20 @@ void Mod_BuildVBOs(void)
 			Vector2Copy(loadmodel->surfmesh.data_texcoordtexture2f + 2*vertexindex, vertexmesh->texcoordtexture2f);
 			if (loadmodel->surfmesh.data_texcoordlightmap2f)
 				Vector2Scale(loadmodel->surfmesh.data_texcoordlightmap2f + 2*vertexindex, 1.0f, vertexmesh->texcoordlightmap2f);
+			if (loadmodel->surfmesh.data_skeletalindex4ub)
+				Vector4Copy(loadmodel->surfmesh.data_skeletalindex4ub + 4*vertexindex, vertexmesh->skeletalindex4ub);
+			if (loadmodel->surfmesh.data_skeletalweight4ub)
+				Vector4Copy(loadmodel->surfmesh.data_skeletalweight4ub + 4*vertexindex, vertexmesh->skeletalweight4ub);
 		}
 	}
 
-	// upload r_vertexmesh_t array as a buffer
-	if (loadmodel->surfmesh.vertexmesh && !loadmodel->surfmesh.vertexmeshbuffer)
-		loadmodel->surfmesh.vertexmeshbuffer = R_Mesh_CreateMeshBuffer(loadmodel->surfmesh.vertexmesh, loadmodel->surfmesh.num_vertices * sizeof(*loadmodel->surfmesh.vertexmesh), loadmodel->name, false, false, false);
-
-	// upload vertex3f array as a buffer
-	if (loadmodel->surfmesh.data_vertex3f && !loadmodel->surfmesh.vertex3fbuffer)
-		loadmodel->surfmesh.vertex3fbuffer = R_Mesh_CreateMeshBuffer(loadmodel->surfmesh.data_vertex3f, loadmodel->surfmesh.num_vertices * sizeof(float[3]), loadmodel->name, false, false, false);
-
 	// upload short indices as a buffer
 	if (loadmodel->surfmesh.data_element3s && !loadmodel->surfmesh.data_element3s_indexbuffer)
-		loadmodel->surfmesh.data_element3s_indexbuffer = R_Mesh_CreateMeshBuffer(loadmodel->surfmesh.data_element3s, loadmodel->surfmesh.num_triangles * sizeof(short[3]), loadmodel->name, true, false, true);
+		loadmodel->surfmesh.data_element3s_indexbuffer = R_Mesh_CreateMeshBuffer(loadmodel->surfmesh.data_element3s, loadmodel->surfmesh.num_triangles * sizeof(short[3]), loadmodel->name, true, false, false, true);
 
 	// upload int indices as a buffer
 	if (loadmodel->surfmesh.data_element3i && !loadmodel->surfmesh.data_element3i_indexbuffer && !loadmodel->surfmesh.data_element3s)
-		loadmodel->surfmesh.data_element3i_indexbuffer = R_Mesh_CreateMeshBuffer(loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles * sizeof(int[3]), loadmodel->name, true, false, false);
+		loadmodel->surfmesh.data_element3i_indexbuffer = R_Mesh_CreateMeshBuffer(loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles * sizeof(int[3]), loadmodel->name, true, false, false, false);
 
 	// only build a vbo if one has not already been created (this is important for brush models which load specially)
 	// vertex buffer is several arrays and we put them in the same buffer
@@ -3039,9 +3064,10 @@ void Mod_BuildVBOs(void)
 	// other hand animated models don't use a lot of vertices anyway...
 	if (!loadmodel->surfmesh.vbo_vertexbuffer && !vid.useinterleavedarrays)
 	{
-		size_t size;
+		int size;
 		unsigned char *mem;
 		size = 0;
+		loadmodel->surfmesh.vbooffset_vertexmesh         = size;if (loadmodel->surfmesh.data_vertexmesh        ) size += loadmodel->surfmesh.num_vertices * sizeof(r_vertexmesh_t);
 		loadmodel->surfmesh.vbooffset_vertex3f           = size;if (loadmodel->surfmesh.data_vertex3f          ) size += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
 		loadmodel->surfmesh.vbooffset_svector3f          = size;if (loadmodel->surfmesh.data_svector3f         ) size += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
 		loadmodel->surfmesh.vbooffset_tvector3f          = size;if (loadmodel->surfmesh.data_tvector3f         ) size += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
@@ -3049,7 +3075,10 @@ void Mod_BuildVBOs(void)
 		loadmodel->surfmesh.vbooffset_texcoordtexture2f  = size;if (loadmodel->surfmesh.data_texcoordtexture2f ) size += loadmodel->surfmesh.num_vertices * sizeof(float[2]);
 		loadmodel->surfmesh.vbooffset_texcoordlightmap2f = size;if (loadmodel->surfmesh.data_texcoordlightmap2f) size += loadmodel->surfmesh.num_vertices * sizeof(float[2]);
 		loadmodel->surfmesh.vbooffset_lightmapcolor4f    = size;if (loadmodel->surfmesh.data_lightmapcolor4f   ) size += loadmodel->surfmesh.num_vertices * sizeof(float[4]);
+		loadmodel->surfmesh.vbooffset_skeletalindex4ub   = size;if (loadmodel->surfmesh.data_skeletalindex4ub  ) size += loadmodel->surfmesh.num_vertices * sizeof(unsigned char[4]);
+		loadmodel->surfmesh.vbooffset_skeletalweight4ub  = size;if (loadmodel->surfmesh.data_skeletalweight4ub ) size += loadmodel->surfmesh.num_vertices * sizeof(unsigned char[4]);
 		mem = (unsigned char *)Mem_Alloc(tempmempool, size);
+		if (loadmodel->surfmesh.data_vertexmesh        ) memcpy(mem + loadmodel->surfmesh.vbooffset_vertexmesh        , loadmodel->surfmesh.data_vertexmesh        , loadmodel->surfmesh.num_vertices * sizeof(r_vertexmesh_t));
 		if (loadmodel->surfmesh.data_vertex3f          ) memcpy(mem + loadmodel->surfmesh.vbooffset_vertex3f          , loadmodel->surfmesh.data_vertex3f          , loadmodel->surfmesh.num_vertices * sizeof(float[3]));
 		if (loadmodel->surfmesh.data_svector3f         ) memcpy(mem + loadmodel->surfmesh.vbooffset_svector3f         , loadmodel->surfmesh.data_svector3f         , loadmodel->surfmesh.num_vertices * sizeof(float[3]));
 		if (loadmodel->surfmesh.data_tvector3f         ) memcpy(mem + loadmodel->surfmesh.vbooffset_tvector3f         , loadmodel->surfmesh.data_tvector3f         , loadmodel->surfmesh.num_vertices * sizeof(float[3]));
@@ -3057,7 +3086,9 @@ void Mod_BuildVBOs(void)
 		if (loadmodel->surfmesh.data_texcoordtexture2f ) memcpy(mem + loadmodel->surfmesh.vbooffset_texcoordtexture2f , loadmodel->surfmesh.data_texcoordtexture2f , loadmodel->surfmesh.num_vertices * sizeof(float[2]));
 		if (loadmodel->surfmesh.data_texcoordlightmap2f) memcpy(mem + loadmodel->surfmesh.vbooffset_texcoordlightmap2f, loadmodel->surfmesh.data_texcoordlightmap2f, loadmodel->surfmesh.num_vertices * sizeof(float[2]));
 		if (loadmodel->surfmesh.data_lightmapcolor4f   ) memcpy(mem + loadmodel->surfmesh.vbooffset_lightmapcolor4f   , loadmodel->surfmesh.data_lightmapcolor4f   , loadmodel->surfmesh.num_vertices * sizeof(float[4]));
-		loadmodel->surfmesh.vbo_vertexbuffer = R_Mesh_CreateMeshBuffer(mem, size, loadmodel->name, false, false, false);
+		if (loadmodel->surfmesh.data_skeletalindex4ub  ) memcpy(mem + loadmodel->surfmesh.vbooffset_skeletalindex4ub  , loadmodel->surfmesh.data_skeletalindex4ub  , loadmodel->surfmesh.num_vertices * sizeof(unsigned char[4]));
+		if (loadmodel->surfmesh.data_skeletalweight4ub ) memcpy(mem + loadmodel->surfmesh.vbooffset_skeletalweight4ub , loadmodel->surfmesh.data_skeletalweight4ub , loadmodel->surfmesh.num_vertices * sizeof(unsigned char[4]));
+		loadmodel->surfmesh.vbo_vertexbuffer = R_Mesh_CreateMeshBuffer(mem, size, loadmodel->name, false, false, false, false);
 		Mem_Free(mem);
 	}
 }
@@ -3241,7 +3272,27 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 
 			// strangely the smd angles are for a transposed matrix, so we
 			// have to generate a transposed matrix, then convert that...
-			Matrix4x4_FromBonePose7s(&posematrix, model->num_posescale, model->data_poses7s + 7*(model->num_bones * poseindex + transformindex));
+			if (writetriangles)
+			{
+				matrix4x4_t temp_matrix;
+				Matrix4x4_FromArray12FloatD3D(&temp_matrix, model->data_baseboneposeinverse + (12*transformindex));
+
+				if (model->data_bones[transformindex].parent >= 0)
+				{
+					matrix4x4_t temp_matrix1;
+					matrix4x4_t temp_matrix2;
+					matrix4x4_t temp_matrix3;
+					temp_matrix1 = temp_matrix;
+					Matrix4x4_FromArray12FloatD3D(&temp_matrix2, model->data_baseboneposeinverse + (12*model->data_bones[transformindex].parent));
+					Matrix4x4_Invert_Simple(&temp_matrix3, &temp_matrix2);
+					Matrix4x4_Concat(&temp_matrix, &temp_matrix1, &temp_matrix3);
+				}
+				Matrix4x4_Invert_Simple(&posematrix, &temp_matrix);
+
+			}
+			else
+				Matrix4x4_FromBonePose7s(&posematrix, model->num_posescale, model->data_poses7s + 7*(model->num_bones * (poseindex + firstpose) + transformindex));
+
 			Matrix4x4_ToArray12FloatGL(&posematrix, mtest[0]);
 			AnglesFromVectors(angles, mtest[0], mtest[2], false);
 			if (angles[0] >= 180) angles[0] -= 360;
@@ -3425,7 +3476,7 @@ static void Mod_Decompile_f(void)
 			{
 				// individual frame
 				// check for additional frames with same name
-				for (l = 0, k = strlen(animname);animname[l];l++)
+				for (l = 0, k = (int)strlen(animname);animname[l];l++)
 					if(animname[l] < '0' || animname[l] > '9')
 						k = l + 1;
 				if(k > 0 && animname[k-1] == '_')
@@ -3435,7 +3486,7 @@ static void Mod_Decompile_f(void)
 				for (j = i + 1;j < mod->numframes;j++)
 				{
 					strlcpy(animname2, mod->animscenes[j].name, sizeof(animname2));
-					for (l = 0, k = strlen(animname2);animname2[l];l++)
+					for (l = 0, k = (int)strlen(animname2);animname2[l];l++)
 						if(animname2[l] < '0' || animname2[l] > '9')
 							k = l + 1;
 					if(k > 0 && animname[k-1] == '_')
@@ -4027,19 +4078,10 @@ static void Mod_GenerateLightmaps_UnweldTriangles(dp_model_t *model)
 	model->surfmesh.data_tvector3f = (float *)data;data += model->surfmesh.num_vertices * sizeof(float[3]);
 	model->surfmesh.data_texcoordtexture2f = (float *)data;data += model->surfmesh.num_vertices * sizeof(float[2]);
 	model->surfmesh.data_texcoordlightmap2f = (float *)data;data += model->surfmesh.num_vertices * sizeof(float[2]);
-	model->surfmesh.data_lightmapcolor4f = (float *)data;data += model->surfmesh.num_vertices * sizeof(float[4]);
+	model->surfmesh.data_lightmapcolor4f = (float *)data;//data += model->surfmesh.num_vertices * sizeof(float[4]);
 	if (model->surfmesh.num_vertices > 65536)
 		model->surfmesh.data_element3s = NULL;
 
-	if (model->surfmesh.vertexmesh)
-		Mem_Free(model->surfmesh.vertexmesh);
-	model->surfmesh.vertexmesh = NULL;
-	if (model->surfmesh.vertex3fbuffer)
-		R_Mesh_DestroyMeshBuffer(model->surfmesh.vertex3fbuffer);
-	model->surfmesh.vertex3fbuffer = NULL;
-	if (model->surfmesh.vertexmeshbuffer)
-		R_Mesh_DestroyMeshBuffer(model->surfmesh.vertexmeshbuffer);
-	model->surfmesh.vertexmeshbuffer = NULL;
 	if (model->surfmesh.data_element3i_indexbuffer)
 		R_Mesh_DestroyMeshBuffer(model->surfmesh.data_element3i_indexbuffer);
 	model->surfmesh.data_element3i_indexbuffer = NULL;
@@ -4203,7 +4245,6 @@ static void Mod_GenerateLightmaps_CreateLightmaps(dp_model_t *model)
 	for (surfaceindex = 0;surfaceindex < model->num_surfaces;surfaceindex++)
 	{
 		surface = model->data_surfaces + surfaceindex;
-		e = model->surfmesh.data_element3i + surface->num_firsttriangle*3;
 		lmscalepixels = lm_basescalepixels;
 		for (retry = 0;retry < 30;retry++)
 		{

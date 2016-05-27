@@ -292,9 +292,6 @@ static void PNG_warning_fn(void *png, const char *message)
 	Con_Printf("PNG_LoadImage: warning: %s\n", message);
 }
 
-extern int	image_width;
-extern int	image_height;
-
 unsigned char *PNG_LoadImage_BGRA (const unsigned char *raw, int filesize, int *miplevel)
 {
 	unsigned int c;
@@ -314,7 +311,7 @@ unsigned char *PNG_LoadImage_BGRA (const unsigned char *raw, int filesize, int *
 	png = (void *)qpng_create_read_struct(
 		(qpng_access_version_number() / 100 == 102) ? PNG_LIBPNG_VER_STRING_12 :
 		(qpng_access_version_number() / 100 == 104) ? PNG_LIBPNG_VER_STRING_14 :
-        (qpng_access_version_number() / 100 == 105) ? PNG_LIBPNG_VER_STRING_15 :
+		(qpng_access_version_number() / 100 == 105) ? PNG_LIBPNG_VER_STRING_15 :
 		PNG_LIBPNG_VER_STRING_16, // nasty hack... whatever
 		0, PNG_error_fn, PNG_warning_fn
 	);
@@ -496,7 +493,7 @@ qboolean PNG_SaveImage_preflipped (const char *filename, int width, int height, 
 	png = (void *)qpng_create_write_struct( 
 		(qpng_access_version_number() / 100 == 102) ? PNG_LIBPNG_VER_STRING_12 :
 		(qpng_access_version_number() / 100 == 104) ? PNG_LIBPNG_VER_STRING_14 :
-        (qpng_access_version_number() / 100 == 105) ? PNG_LIBPNG_VER_STRING_15 :
+		(qpng_access_version_number() / 100 == 105) ? PNG_LIBPNG_VER_STRING_15 :
 		PNG_LIBPNG_VER_STRING_16, // nasty hack... whatever
 		0, PNG_error_fn, PNG_warning_fn
 	);
@@ -520,6 +517,8 @@ qboolean PNG_SaveImage_preflipped (const char *filename, int width, int height, 
 	if (setjmp((_JBTYPE *)png))
 #elif defined(MACOSX) || defined(WIN32)
 	if (setjmp((int *)png))
+#elif defined(__ANDROID__)
+	if (setjmp((long *)png))
 #else
 	if (setjmp((__jmp_buf_tag *)png))
 #endif

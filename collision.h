@@ -2,10 +2,14 @@
 #ifndef COLLISION_H
 #define COLLISION_H
 
-typedef struct plane_s
+typedef union plane_s
 {
-	vec3_t	normal;
-	float	dist;
+	struct
+	{
+		vec3_t	normal;
+		vec_t	dist;
+	};
+	vec4_t normal_and_dist;
 }
 plane_t;
 
@@ -16,6 +20,8 @@ typedef struct trace_s
 	int allsolid;
 	// if true, the initial point was in solid (see hitsupercontentsmask)
 	int startsolid;
+	// this is set to true in world.c if startsolid was set in a trace against world
+	int worldstartsolid;
 	// this is set to true in world.c if startsolid was set in a trace against a SOLID_BSP entity, in other words this is true if the entity is stuck in a door or wall, but not if stuck in another normal entity
 	int bmodelstartsolid;
 	// if true, the trace passed through empty somewhere
@@ -25,12 +31,9 @@ typedef struct trace_s
 	// (set only by Q1BSP tracing)
 	int inwater;
 	// fraction of the total distance that was traveled before impact
+	// in case of impact this is actually nudged a bit off the surface
 	// (1.0 = did not hit anything)
 	double fraction;
-	// like fraction but is not nudged away from the surface (better for
-	// comparisons between two trace structs, as only one nudge for the final
-	// result is ever needed)
-	double realfraction;
 	// final position of the trace (simply a point between start and end)
 	double endpos[3];
 	// surface normal at impact (not really correct for edge collisions)
@@ -77,8 +80,15 @@ typedef struct colplanef_s
 {
 	const struct texture_s *texture;
 	int q3surfaceflags;
-	vec3_t normal;
-	vec_t dist;
+	union
+	{
+		struct
+		{
+			vec3_t normal;
+			vec_t dist;
+		};
+		vec4_t normal_and_dist;
+	};
 }
 colplanef_t;
 
@@ -153,12 +163,12 @@ void Collision_TraceBrushTriangleFloat(trace_t *trace, const colbrushf_t *thisbr
 // passedict is excluded from clipping checks
 struct frameblend_s;
 struct skeleton_s;
-void Collision_ClipToGenericEntity(trace_t *trace, dp_model_t *model, const struct frameblend_s *frameblend, const struct skeleton_s *skeleton, const vec3_t bodymins, const vec3_t bodymaxs, int bodysupercontents, matrix4x4_t *matrix, matrix4x4_t *inversematrix, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int hitsupercontentsmask);
-void Collision_ClipLineToGenericEntity(trace_t *trace, dp_model_t *model, const struct frameblend_s *frameblend, const struct skeleton_s *skeleton, const vec3_t bodymins, const vec3_t bodymaxs, int bodysupercontents, matrix4x4_t *matrix, matrix4x4_t *inversematrix, const vec3_t start, const vec3_t end, int hitsupercontentsmask, qboolean hitsurfaces);
+void Collision_ClipToGenericEntity(trace_t *trace, dp_model_t *model, const struct frameblend_s *frameblend, const struct skeleton_s *skeleton, const vec3_t bodymins, const vec3_t bodymaxs, int bodysupercontents, matrix4x4_t *matrix, matrix4x4_t *inversematrix, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int hitsupercontentsmask, float extend);
+void Collision_ClipLineToGenericEntity(trace_t *trace, dp_model_t *model, const struct frameblend_s *frameblend, const struct skeleton_s *skeleton, const vec3_t bodymins, const vec3_t bodymaxs, int bodysupercontents, matrix4x4_t *matrix, matrix4x4_t *inversematrix, const vec3_t start, const vec3_t end, int hitsupercontentsmask, float extend, qboolean hitsurfaces);
 void Collision_ClipPointToGenericEntity(trace_t *trace, dp_model_t *model, const struct frameblend_s *frameblend, const struct skeleton_s *skeleton, const vec3_t bodymins, const vec3_t bodymaxs, int bodysupercontents, matrix4x4_t *matrix, matrix4x4_t *inversematrix, const vec3_t start, int hitsupercontentsmask);
 // like above but does not do a transform and does nothing if model is NULL
-void Collision_ClipToWorld(trace_t *trace, dp_model_t *model, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int hitsupercontents);
-void Collision_ClipLineToWorld(trace_t *trace, dp_model_t *model, const vec3_t start, const vec3_t end, int hitsupercontents, qboolean hitsurfaces);
+void Collision_ClipToWorld(trace_t *trace, dp_model_t *model, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int hitsupercontents, float extend);
+void Collision_ClipLineToWorld(trace_t *trace, dp_model_t *model, const vec3_t start, const vec3_t end, int hitsupercontents, float extend, qboolean hitsurfaces);
 void Collision_ClipPointToWorld(trace_t *trace, dp_model_t *model, const vec3_t start, int hitsupercontents);
 // caching surface trace for renderer (NOT THREAD SAFE)
 void Collision_Cache_ClipLineToGenericEntitySurfaces(trace_t *trace, dp_model_t *model, matrix4x4_t *matrix, matrix4x4_t *inversematrix, const vec3_t start, const vec3_t end, int hitsupercontentsmask);
@@ -168,9 +178,6 @@ void Collision_Cache_ClipLineToWorldSurfaces(trace_t *trace, dp_model_t *model, 
 // updates fraction, endpos, plane and surface info if new fraction is shorter
 void Collision_CombineTraces(trace_t *cliptrace, const trace_t *trace, void *touch, qboolean isbmodel);
 
-// shorten a trace by the given factor
-void Collision_ShortenTrace(trace_t *trace, float shorten_factor, const vec3_t end);
-
 // this enables rather large debugging spew!
 // settings:
 // 0 = no spew
@@ -179,11 +186,9 @@ void Collision_ShortenTrace(trace_t *trace, float shorten_factor, const vec3_t e
 // 3 = spew detailed trace flow (bsp tree recursion info)
 #define COLLISIONPARANOID 0
 
-// make every trace <collision_endposnudge>qu longer, and shorten the result, to work around a stupid bug somewhere
-#define COLLISION_STUPID_TRACE_ENDPOS_IN_SOLID_WORKAROUND
-#ifdef COLLISION_STUPID_TRACE_ENDPOS_IN_SOLID_WORKAROUND
-extern cvar_t collision_endposnudge;
-#endif
-
+extern cvar_t collision_impactnudge;
+extern cvar_t collision_extendtracelinelength;
+extern cvar_t collision_extendtraceboxlength;
+extern cvar_t collision_extendmovelength;
 
 #endif

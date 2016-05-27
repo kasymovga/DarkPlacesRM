@@ -1,9 +1,5 @@
 
 #ifdef WIN32
-#ifdef _MSC_VER
-#pragma comment(lib, "sdl.lib")
-#pragma comment(lib, "sdlmain.lib")
-#endif
 #include <io.h>
 #include "conio.h"
 #else
@@ -12,9 +8,29 @@
 #include <sys/time.h>
 #endif
 
+#ifdef __ANDROID__
+#include <android/log.h>
+
+#ifndef FNDELAY
+#define FNDELAY		O_NDELAY
+#endif
+#endif
+
 #include <signal.h>
 
 #include <SDL.h>
+
+#ifdef WIN32
+#ifdef _MSC_VER
+#if SDL_MAJOR_VERSION == 1
+#pragma comment(lib, "sdl.lib")
+#pragma comment(lib, "sdlmain.lib")
+#else
+#pragma comment(lib, "sdl2.lib")
+#pragma comment(lib, "sdl2main.lib")
+#endif
+#endif
+#endif
 
 #include "quakedef.h"
 
@@ -24,6 +40,9 @@
 
 void Sys_Shutdown (void)
 {
+#ifdef __ANDROID__
+	Sys_AllowProfiling(false);
+#endif
 #ifndef WIN32
 	fcntl (0, F_SETFL, fcntl (0, F_GETFL, 0) & ~FNDELAY);
 #endif
@@ -55,6 +74,12 @@ void Sys_Error (const char *error, ...)
 static int outfd = 1;
 void Sys_PrintToTerminal(const char *text)
 {
+#ifdef __ANDROID__
+	if (developer.integer > 0)
+	{
+		__android_log_write(ANDROID_LOG_DEBUG, com_argv[0], text);
+	}
+#else
 	if(outfd < 0)
 		return;
 #ifdef FNDELAY
@@ -69,7 +94,7 @@ void Sys_PrintToTerminal(const char *text)
 #endif
 		while(*text)
 		{
-			fs_offset_t written = (fs_offset_t)write(outfd, text, strlen(text));
+			fs_offset_t written = (fs_offset_t)write(outfd, text, (int)strlen(text));
 			if(written <= 0)
 				break; // sorry, I cannot do anything about this error - without an output
 			text += written;
@@ -79,6 +104,7 @@ void Sys_PrintToTerminal(const char *text)
 	}
 #endif
 	//fprintf(stdout, "%s", text);
+#endif
 }
 
 char *Sys_ConsoleInput(void)
@@ -120,8 +146,8 @@ char *Sys_ConsoleInput(void)
 				len = 0;
 		}
 #else
-		fd_set fdset;
 		struct timeval timeout;
+		fd_set fdset = {}; //TODO: Remove the " = {}" when scan-build no longer wrongly detects this as an error.
 		FD_ZERO(&fdset);
 		FD_SET(0, &fdset); // stdin
 		timeout.tv_sec = 0;
@@ -143,7 +169,21 @@ char *Sys_ConsoleInput(void)
 
 char *Sys_GetClipboardData (void)
 {
-#ifdef WIN32
+#if SDL_MAJOR_VERSION != 1
+	char *data = NULL;
+	char *cliptext;
+
+	cliptext = SDL_GetClipboardText();
+	if (cliptext != NULL) {
+		size_t allocsize;
+		allocsize = strlen(cliptext) + 1;
+		data = (char *)Z_Malloc (allocsize);
+		strlcpy (data, cliptext, allocsize);
+		SDL_free(cliptext);
+	}
+
+	return data;
+#elif defined(WIN32)
 	char *data = NULL;
 	char *cliptext;
 
@@ -177,6 +217,10 @@ void Sys_InitConsole (void)
 int main (int argc, char *argv[])
 {
 	signal(SIGFPE, SIG_IGN);
+
+#ifdef __ANDROID__
+	Sys_AllowProfiling(true);
+#endif
 
 	com_argc = argc;
 	com_argv = (const char **)argv;

@@ -24,7 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "snd_main.h"
 #include "snd_ogg.h"
 #include "snd_wav.h"
-#include "snd_modplug.h"
 
 
 /*
@@ -91,7 +90,7 @@ snd_buffer_t *Snd_CreateSndBuffer (const unsigned char *samples, unsigned int sa
 	sb->format.channels = in_format->channels;
 	sb->format.width = in_format->width;
 	sb->format.speed = sb_speed;
-	sb->maxframes = newsampleframes;
+	sb->maxframes = (unsigned int)newsampleframes;
 	sb->nbframes = 0;
 
 	if (!Snd_AppendToSndBuffer (sb, samples, sampleframes, in_format))
@@ -191,7 +190,7 @@ qboolean Snd_AppendToSndBuffer (snd_buffer_t* sb, const unsigned char *samples, 
 			else
 			{
 				tmpcount = outcount - total_out;
-				interpolation_limit = (int)ceil((double)(((remain_in / format->channels) - 1) << FRACTIONAL_BITS) / fracstep);
+				interpolation_limit = (int)ceil((double)((remain_in / max(1,format->channels - 1)) << FRACTIONAL_BITS) / fracstep);
 				if (interpolation_limit > tmpcount)
 					interpolation_limit = tmpcount;
 			}
@@ -290,7 +289,7 @@ qboolean Snd_AppendToSndBuffer (snd_buffer_t* sb, const unsigned char *samples, 
 		}
 	}
 
-	sb->nbframes += outcount;
+	sb->nbframes += (unsigned int)outcount;
 	return true;
 }
 
@@ -344,11 +343,6 @@ qboolean S_LoadSound (sfx_t *sfx, qboolean complain)
 			if (OGG_LoadVorbisFile (namebuffer, sfx))
 				goto loaded;
 		}
-		else
-		{
-			if (ModPlug_LoadModPlugFile (namebuffer, sfx))
-				goto loaded;
-		}
 	}
 
 	// LordHavoc: then try without the added sound/ as wav and ogg
@@ -366,11 +360,6 @@ qboolean S_LoadSound (sfx_t *sfx, qboolean complain)
 	if (len >= 4 && !strcasecmp (namebuffer + len - 4, ".ogg"))
 	{
 		if (OGG_LoadVorbisFile (namebuffer, sfx))
-			goto loaded;
-	}
-	else
-	{
-		if (ModPlug_LoadModPlugFile (namebuffer, sfx))
 			goto loaded;
 	}
 

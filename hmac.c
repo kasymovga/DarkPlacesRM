@@ -39,7 +39,6 @@ qboolean hmac(
 		for(i = k; i < hblock; ++i)
 			k_xor_opad[i] = 0;
 		key = k_xor_opad;
-		k = hblock;
 	}
 
 	for(i = 0; i < hblock; ++i)

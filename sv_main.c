@@ -113,9 +113,8 @@ cvar_t sv_gameplayfix_nogravityonground = {0, "sv_gameplayfix_nogravityonground"
 cvar_t sv_gameplayfix_setmodelrealbox = {0, "sv_gameplayfix_setmodelrealbox", "1", "fixes a bug in Quake that made setmodel always set the entity box to ('-16 -16 -16', '16 16 16') rather than properly checking the model box, breaks some poorly coded mods"};
 cvar_t sv_gameplayfix_slidemoveprojectiles = {0, "sv_gameplayfix_slidemoveprojectiles", "1", "allows MOVETYPE_FLY/FLYMISSILE/TOSS/BOUNCE/BOUNCEMISSILE entities to finish their move in a frame even if they hit something, fixes 'gravity accumulation' bug for grenades on steep slopes"};
 cvar_t sv_gameplayfix_stepdown = {0, "sv_gameplayfix_stepdown", "0", "attempts to step down stairs, not just up them (prevents the familiar thud..thud..thud.. when running down stairs and slopes)"};
-cvar_t sv_gameplayfix_stepwhilejumping = {0, "sv_gameplayfix_stepwhilejumping", "1", "applies step-up onto a ledge even while airborn, useful if you would otherwise just-miss the floor when running across small areas with gaps (for instance running across the moving platforms in dm2, or jumping to the megahealth and red armor in dm2 rather than using the bridge)"};
 cvar_t sv_gameplayfix_stepmultipletimes = {0, "sv_gameplayfix_stepmultipletimes", "0", "applies step-up onto a ledge more than once in a single frame, when running quickly up stairs"};
-cvar_t sv_gameplayfix_nostepmoveonsteepslopes = {0, "sv_gameplayfix_nostepmoveonsteepslopes", "0", "grude fix which prevents MOVETYPE_STEP (not swimming or flying) to move on slopes whose angle is bigger than 45 degree"};
+cvar_t sv_gameplayfix_nostepmoveonsteepslopes = {0, "sv_gameplayfix_nostepmoveonsteepslopes", "0", "crude fix which prevents MOVETYPE_STEP (not swimming or flying) to move on slopes whose angle is bigger than 45 degree"};
 cvar_t sv_gameplayfix_swiminbmodels = {0, "sv_gameplayfix_swiminbmodels", "1", "causes pointcontents (used to determine if you are in a liquid) to check bmodel entities as well as the world model, so you can swim around in (possibly moving) water bmodel entities"};
 cvar_t sv_gameplayfix_upwardvelocityclearsongroundflag = {0, "sv_gameplayfix_upwardvelocityclearsongroundflag", "1", "prevents monsters, items, and most other objects from being stuck to the floor when pushed around by damage, and other situations in mods"};
 cvar_t sv_gameplayfix_downtracesupportsongroundflag = {0, "sv_gameplayfix_downtracesupportsongroundflag", "1", "prevents very short moves from clearing onground (which may make the player stick to the floor at high netfps)"};
@@ -124,8 +123,9 @@ cvar_t sv_gameplayfix_unstickplayers = {0, "sv_gameplayfix_unstickplayers", "1",
 cvar_t sv_gameplayfix_unstickentities = {0, "sv_gameplayfix_unstickentities", "1", "hack to check if entities are crossing world collision hull and try to move them to the right position"};
 cvar_t sv_gameplayfix_fixedcheckwatertransition = {0, "sv_gameplayfix_fixedcheckwatertransition", "1", "fix two very stupid bugs in SV_CheckWaterTransition when watertype is CONTENTS_EMPTY (the bugs causes waterlevel to be 1 on first frame, -1 on second frame - the fix makes it 0 on both frames)"};
 cvar_t sv_gravity = {CVAR_NOTIFY, "sv_gravity","800", "how fast you fall (512 = roughly earth gravity)"};
+cvar_t sv_init_frame_count = {0, "sv_init_frame_count", "2", "number of frames to run to allow everything to settle before letting clients connect"};
 cvar_t sv_idealpitchscale = {0, "sv_idealpitchscale","0.8", "how much to look up/down slopes and stairs when not using freelook"};
-cvar_t sv_jumpstep = {CVAR_NOTIFY, "sv_jumpstep", "0", "whether you can step up while jumping (sv_gameplayfix_stepwhilejumping must also be 1)"};
+cvar_t sv_jumpstep = {CVAR_NOTIFY, "sv_jumpstep", "0", "whether you can step up while jumping"};
 cvar_t sv_jumpvelocity = {0, "sv_jumpvelocity", "270", "cvar that can be used by QuakeC code for jump velocity"};
 cvar_t sv_maxairspeed = {0, "sv_maxairspeed", "30", "maximum speed a player can accelerate to when airborn (note that it is possible to completely stop by moving the opposite direction)"};
 cvar_t sv_maxrate = {CVAR_SAVE | CVAR_NOTIFY, "sv_maxrate", "1000000", "upper limit on client rate cvar, should reflect your network connection quality"};
@@ -194,8 +194,10 @@ cvar_t sv_autodemo_perclient_nameformat = {CVAR_SAVE, "sv_autodemo_perclient_nam
 cvar_t sv_autodemo_perclient_discardable = {CVAR_SAVE, "sv_autodemo_perclient_discardable", "0", "Allow game code to decide whether a demo should be kept or discarded."};
 
 cvar_t halflifebsp = {0, "halflifebsp", "0", "indicates the current map is hlbsp format (useful to know because of different bounding box sizes)"};
+cvar_t sv_mapformat_is_quake2 = {0, "sv_mapformat_is_quake2", "0", "indicates the current map is q2bsp format (useful to know because of different entity behaviors, .frame on submodels and other things)"};
+cvar_t sv_mapformat_is_quake3 = {0, "sv_mapformat_is_quake3", "0", "indicates the current map is q2bsp format (useful to know because of different entity behaviors)"};
 
-cvar_t dprm_version = {CVAR_READONLY, "dprm_version", "1", "The DarkPlacesRM version"};
+cvar_t dprm_version = {CVAR_READONLY, "dprm_version", "2", "The DarkPlacesRM version"};
 
 server_t sv;
 server_static_t svs;
@@ -434,6 +436,10 @@ void SV_Init (void)
 	extern cvar_t csqc_progsize;
 	extern cvar_t csqc_usedemoprogs;
 
+    extern cvar_t csqc_progname_alt;
+    extern cvar_t csqc_progcrc_alt;
+    extern cvar_t csqc_progsize_alt;
+
 	Cvar_RegisterVariable(&sv_worldmessage);
 	Cvar_RegisterVariable(&sv_worldname);
 	Cvar_RegisterVariable(&sv_worldnamenoextension);
@@ -443,6 +449,10 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&csqc_progcrc);
 	Cvar_RegisterVariable (&csqc_progsize);
 	Cvar_RegisterVariable (&csqc_usedemoprogs);
+
+    Cvar_RegisterVariable (&csqc_progname_alt);
+    Cvar_RegisterVariable (&csqc_progcrc_alt);
+    Cvar_RegisterVariable (&csqc_progsize_alt);
 
 	Cmd_AddCommand("sv_saveentfile", SV_SaveEntFile_f, "save map entities to .ent file (to allow external editing)");
 	Cmd_AddCommand("sv_areastats", SV_AreaStats_f, "prints statistics on entity culling during collision traces");
@@ -525,7 +535,6 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_gameplayfix_setmodelrealbox);
 	Cvar_RegisterVariable (&sv_gameplayfix_slidemoveprojectiles);
 	Cvar_RegisterVariable (&sv_gameplayfix_stepdown);
-	Cvar_RegisterVariable (&sv_gameplayfix_stepwhilejumping);
 	Cvar_RegisterVariable (&sv_gameplayfix_stepmultipletimes);
 	Cvar_RegisterVariable (&sv_gameplayfix_nostepmoveonsteepslopes);
 	Cvar_RegisterVariable (&sv_gameplayfix_swiminbmodels);
@@ -536,6 +545,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_gameplayfix_unstickentities);
 	Cvar_RegisterVariable (&sv_gameplayfix_fixedcheckwatertransition);
 	Cvar_RegisterVariable (&sv_gravity);
+	Cvar_RegisterVariable (&sv_init_frame_count);
 	Cvar_RegisterVariable (&sv_idealpitchscale);
 	Cvar_RegisterVariable (&sv_jumpstep);
 	Cvar_RegisterVariable (&sv_jumpvelocity);
@@ -608,6 +618,8 @@ void SV_Init (void)
 
 	Cvar_RegisterVariable (&halflifebsp);
 	Cvar_RegisterVariable (&dprm_version);
+	Cvar_RegisterVariable (&sv_mapformat_is_quake2);
+	Cvar_RegisterVariable (&sv_mapformat_is_quake3);
 
 	sv_mempool = Mem_AllocPool("server", 0, NULL);
 }
@@ -919,7 +931,6 @@ void SV_SendServerinfo (client_t *client)
 	{
 		client->csqcentityscope[i] = 0;
 		client->csqcentitysendflags[i] = 0xFFFFFF;
-		client->csqcentityglobalhistory[i] = 0;
 	}
 	for (i = 0;i < NUM_CSQCENTITYDB_FRAMES;i++)
 	{
@@ -939,7 +950,7 @@ void SV_SendServerinfo (client_t *client)
 	MSG_WriteString (&client->netconnection->message,message);
 
 	SV_StopDemoRecording(client); // to split up demos into different files
-	if(sv_autodemo_perclient.integer && client->netconnection)
+	if(sv_autodemo_perclient.integer)
 	{
 		char demofile[MAX_OSPATH];
 		char ipaddress[MAX_QPATH];
@@ -953,6 +964,7 @@ void SV_SendServerinfo (client_t *client)
 			dpsnprintf (demofile, sizeof(demofile), "%s_%s_%d_%s.dem", Sys_TimeString (sv_autodemo_perclient_nameformat.string), sv.worldbasename, PRVM_NUM_FOR_EDICT(client->edict), ipaddress);
 
 		SV_StartDemoRecording(client, demofile, -1);
+		SV_WriteNetnameIntoDemo(client);
 	}
 
 	//[515]: init csprogs according to version of svprogs, check the crc, etc.
@@ -966,6 +978,16 @@ void SV_SendServerinfo (client_t *client)
 		MSG_WriteByte (&client->netconnection->message, svc_stufftext);
 		MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progcrc %i\n", sv.csqc_progcrc));
 
+        if(sv.csqc_progname_alt[0]) {
+            Con_DPrintf("sending alternative csqc info to client (\"%s\" with size %i and crc %i)\n", sv.csqc_progname_alt, sv.csqc_progsize_alt, sv.csqc_progcrc_alt);
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progname_alt %s\n", sv.csqc_progname_alt));
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progsize_alt %i\n", sv.csqc_progsize_alt));
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progcrc_alt %i\n", sv.csqc_progcrc_alt));
+        }
+
 		if(client->sv_demo_file != NULL)
 		{
 			int i;
@@ -975,8 +997,13 @@ void SV_SendServerinfo (client_t *client)
 			sb.data = (unsigned char *) buf;
 			sb.maxsize = sizeof(buf);
 			i = 0;
+
 			while(MakeDownloadPacket(sv.csqc_progname, svs.csqc_progdata, sv.csqc_progsize, sv.csqc_progcrc, i++, &sb, sv.protocol))
 				SV_WriteDemoMessage(client, &sb, false);
+
+            if(sv.csqc_progname_alt[0])
+                while(MakeDownloadPacket(sv.csqc_progname_alt, svs.csqc_progdata_alt, sv.csqc_progsize_alt, sv.csqc_progcrc_alt, i++, &sb, sv.protocol))
+                    SV_WriteDemoMessage(client, &sb, false);
 		}
 
 		//[515]: init stufftext string (it is sent before svc_serverinfo)
@@ -1037,7 +1064,9 @@ void SV_SendServerinfo (client_t *client)
 	MSG_WriteByte (&client->netconnection->message, svc_signonnum);
 	MSG_WriteByte (&client->netconnection->message, 1);
 
+	client->prespawned = false;		// need prespawn, spawn, etc
 	client->spawned = false;		// need prespawn, spawn, etc
+	client->begun = false;			// need prespawn, spawn, etc
 	client->sendsignon = 1;			// send this message, and increment to 2, 2 will be set to 0 by the prespawn command
 
 	// clear movement info until client enters the new level properly
@@ -1089,19 +1118,23 @@ void SV_ConnectClient (int clientnum, netconn_t *netconnection)
 
 	if(client->netconnection && client->netconnection->crypto.authenticated)
 	{
-		Con_Printf("%s connection to %s has been established: client is %s@%.*s, I am %.*s@%.*s\n",
+		Con_Printf("%s connection to %s has been established: client is %s@%s%.*s, I am %.*s@%s%.*s\n",
 				client->netconnection->crypto.use_aes ? "Encrypted" : "Authenticated",
 				client->netconnection->address,
 				client->netconnection->crypto.client_idfp[0] ? client->netconnection->crypto.client_idfp : "-",
+				(client->netconnection->crypto.client_issigned || !client->netconnection->crypto.client_keyfp[0]) ? "" : "~",
 				crypto_keyfp_recommended_length, client->netconnection->crypto.client_keyfp[0] ? client->netconnection->crypto.client_keyfp : "-",
 				crypto_keyfp_recommended_length, client->netconnection->crypto.server_idfp[0] ? client->netconnection->crypto.server_idfp : "-",
+				(client->netconnection->crypto.server_issigned || !client->netconnection->crypto.server_keyfp[0]) ? "" : "~",
 				crypto_keyfp_recommended_length, client->netconnection->crypto.server_keyfp[0] ? client->netconnection->crypto.server_keyfp : "-"
 				);
 	}
 
 	strlcpy(client->name, "unconnected", sizeof(client->name));
 	strlcpy(client->old_name, "unconnected", sizeof(client->old_name));
+	client->prespawned = false;
 	client->spawned = false;
+	client->begun = false;
 	client->edict = PRVM_EDICT_NUM(clientnum+1);
 	if (client->netconnection)
 		client->netconnection->message.allowoverflow = true;		// we can catch it
@@ -1110,9 +1143,6 @@ void SV_ConnectClient (int clientnum, netconn_t *netconnection)
 	client->unreliablemsg.maxsize = sizeof(client->unreliablemsg_data);
 	// updated by receiving "rate" command from client, this is also the default if not using a DP client
 	client->rate = 1000000000;
-	// no limits for local player
-	if (client->netconnection && LHNETADDRESS_GetAddressType(&client->netconnection->peeraddress) == LHNETADDRESSTYPE_LOOP)
-		client->rate = 1000000000;
 	client->connecttime = realtime;
 
 	if (!sv.loadgame)
@@ -1134,7 +1164,7 @@ void SV_ConnectClient (int clientnum, netconn_t *netconnection)
 	if (client->netconnection)
 		SV_SendServerinfo (client);
 	else
-		client->spawned = true;
+		client->prespawned = client->spawned = client->begun = true;
 }
 
 
@@ -1689,7 +1719,7 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 			}
 
 			// or not seen by random tracelines
-			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel->brush.TraceLineOfSight && !r_trippy.integer)
+			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel && sv.worldmodel->brush.TraceLineOfSight && !r_trippy.integer)
 			{
 				int samples =
 					s->number <= svs.maxclients
@@ -1995,25 +2025,32 @@ void SV_WriteClientdataToMessage (client_t *client, prvm_edict_t *ent, sizebuf_t
 //
 	SV_SetIdealPitch ();		// how much to look up / down ideally
 
-// a fixangle might get lost in a dropped packet.  Oh well.
-	if(PRVM_serveredictfloat(ent, fixangle))
-	{
-		// angle fixing was requested by global thinking code...
-		// so store the current angles for later use
-		VectorCopy(PRVM_serveredictvector(ent, angles), host_client->fixangle_angles);
-		host_client->fixangle_angles_set = TRUE;
+    if(client->edict != ent) {
+        // DP_RM_CLIENTDATAENT
+        MSG_WriteByte(msg, svc_setangle);
+        for (i=0 ; i < 3 ; i++)
+            MSG_WriteAngle(msg, PRVM_serveredictvector(ent, v_angle)[i], sv.protocol);
+    } else {
+        // a fixangle might get lost in a dropped packet.  Oh well.
+        if(PRVM_serveredictfloat(ent, fixangle))
+        {
+            // angle fixing was requested by global thinking code...
+            // so store the current angles for later use
+            VectorCopy(PRVM_serveredictvector(ent, angles), host_client->fixangle_angles);
+            host_client->fixangle_angles_set = TRUE;
 
-		// and clear fixangle for the next frame
-		PRVM_serveredictfloat(ent, fixangle) = 0;
-	}
+            // and clear fixangle for the next frame
+            PRVM_serveredictfloat(ent, fixangle) = 0;
+        }
 
-	if (host_client->fixangle_angles_set)
-	{
-		MSG_WriteByte (msg, svc_setangle);
-		for (i=0 ; i < 3 ; i++)
-			MSG_WriteAngle (msg, host_client->fixangle_angles[i], sv.protocol);
-		host_client->fixangle_angles_set = FALSE;
-	}
+        if (host_client->fixangle_angles_set)
+        {
+            MSG_WriteByte (msg, svc_setangle);
+            for (i=0 ; i < 3 ; i++)
+                MSG_WriteAngle (msg, host_client->fixangle_angles[i], sv.protocol);
+            host_client->fixangle_angles_set = FALSE;
+        }
+    }
 
 	// the runes are in serverflags, pack them into the items value, also pack
 	// in the items2 value for mission pack huds
@@ -2217,7 +2254,8 @@ void SV_WriteClientdataToMessage (client_t *client, prvm_edict_t *ent, sizebuf_t
 		MSG_WriteByte (msg, stats[STAT_NAILS]);
 		MSG_WriteByte (msg, stats[STAT_ROCKETS]);
 		MSG_WriteByte (msg, stats[STAT_CELLS]);
-		if (gamemode == GAME_HIPNOTIC || gamemode == GAME_ROGUE || gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS)
+
+		if (gamemode == GAME_HIPNOTIC || gamemode == GAME_ROGUE || gamemode == GAME_QUOTH || IS_OLDNEXUIZ_DERIVED(gamemode))
 		{
 			for (i = 0;i < 32;i++)
 				if (stats[STAT_ACTIVEWEAPON] & (1<<i))
@@ -2244,7 +2282,7 @@ void SV_FlushBroadcastMessages(void)
 		return;
 	for (i = 0, client = svs.clients;i < svs.maxclients;i++, client++)
 	{
-		if (!client->spawned || !client->netconnection || client->unreliablemsg.cursize + sv.datagram.cursize > client->unreliablemsg.maxsize || client->unreliablemsg_splitpoints >= (int)(sizeof(client->unreliablemsg_splitpoint)/sizeof(client->unreliablemsg_splitpoint[0])))
+		if (!client->begun || !client->netconnection || client->unreliablemsg.cursize + sv.datagram.cursize > client->unreliablemsg.maxsize || client->unreliablemsg_splitpoints >= (int)(sizeof(client->unreliablemsg_splitpoint)/sizeof(client->unreliablemsg_splitpoint[0])))
 			continue;
 		SZ_Write(&client->unreliablemsg, sv.datagram.data, sv.datagram.cursize);
 		client->unreliablemsg_splitpoint[client->unreliablemsg_splitpoints++] = client->unreliablemsg.cursize;
@@ -2296,6 +2334,7 @@ static void SV_SendClientDatagram (client_t *client)
 	sizebuf_t msg;
 	int stats[MAX_CL_STATS];
 	static unsigned char sv_sendclientdatagram_buf[NET_MAXMESSAGE];
+	double timedelta;
 
 	// obey rate limit by limiting packet frequency if the packet size
 	// limiting fails
@@ -2343,13 +2382,31 @@ static void SV_SendClientDatagram (client_t *client)
 		//
 		// at very low rates (or very small sys_ticrate) the packet size is
 		// not reduced below 128, but packets may be sent less often
-		maxsize = (int)(clientrate * sys_ticrate.value);
+
+		// how long are bursts?
+		timedelta = host_client->rate_burstsize / (double)client->rate;
+
+		// how much of the burst do we keep reserved?
+		timedelta *= 1 - net_burstreserve.value;
+
+		// only try to use excess time
+		timedelta = bound(0, realtime - host_client->netconnection->cleartime, timedelta);
+
+		// but we know next packet will be in sys_ticrate, so we can use up THAT bandwidth
+		timedelta += sys_ticrate.value;
+
+		// note: packet overhead (not counted in maxsize) is 28 bytes
+		maxsize = (int)(clientrate * timedelta) - 28;
+
+		// put it in sound bounds
 		maxsize = bound(128, maxsize, 1400);
 		maxsize2 = 1400;
+
 		// csqc entities can easily exceed 128 bytes, so disable throttling in
 		// mods that use csqc (they are likely to use less bandwidth anyway)
-		if (sv.csqc_progsize > 0)
+		if((net_usesizelimit.integer == 1) ? (sv.csqc_progsize > 0) : (net_usesizelimit.integer < 1))
 			maxsize = maxsize2;
+
 		break;
 	}
 
@@ -2372,18 +2429,25 @@ static void SV_SendClientDatagram (client_t *client)
 	msg.cursize = 0;
 	msg.allowoverflow = false;
 
-	if (host_client->spawned)
+	if (host_client->begun)
 	{
+        prvm_prog_t *prog = SVVM_prog;
+        prvm_edict_t *srcent = client->edict;
+
+        // DP_RM_CLIENTDATAENT
+        if(PRVM_serveredictedict(client->edict, clientdataent))
+            srcent = PRVM_EDICT_NUM(PRVM_serveredictedict(client->edict, clientdataent));
+
 		// the player is in the game
 		MSG_WriteByte (&msg, svc_time);
 		MSG_WriteFloat (&msg, sv.time);
 
 		// add the client specific data to the datagram
-		SV_WriteClientdataToMessage (client, client->edict, &msg, stats);
+		SV_WriteClientdataToMessage(client, srcent, &msg, stats);
 		// now update the stats[] array using any registered custom fields
-		VM_SV_UpdateCustomStats(client, client->edict, &msg, stats);
+		VM_SV_UpdateCustomStats(client, srcent, &msg, stats);
 		// set host_client->statsdeltabits
-		Protocol_UpdateClientStats (stats);
+		Protocol_UpdateClientStats(stats);
 
 		// add as many queued unreliable messages (effects) as we can fit
 		// limit effects to half of the remaining space
@@ -2432,7 +2496,7 @@ static void SV_SendClientDatagram (client_t *client)
 	SV_WriteDemoMessage(client, &msg, false);
 
 // send the datagram
-	NetConn_SendUnreliableMessage (client->netconnection, &msg, sv.protocol, clientrate, client->sendsignon == 2);
+	NetConn_SendUnreliableMessage (client->netconnection, &msg, sv.protocol, clientrate, client->rate_burstsize, client->sendsignon == 2);
 	if (client->sendsignon == 1 && !client->netconnection->message.cursize)
 		client->sendsignon = 2; // prevent reliable until client sends prespawn (this is the keepalive phase)
 }
@@ -2464,13 +2528,14 @@ static void SV_UpdateToReliableMessages (void)
 			name = "";
 		// always point the string back at host_client->name to keep it safe
 		//strlcpy (host_client->name, name, sizeof (host_client->name));
- 	
+
 		if (name != host_client->name) // prevent buffer overlap SIGABRT on Mac OSX
- 			strlcpy (host_client->name, name, sizeof (host_client->name));
+			strlcpy (host_client->name, name, sizeof (host_client->name));
+
 		PRVM_serveredictstring(host_client->edict, netname) = PRVM_SetEngineString(prog, host_client->name);
 		if (strcmp(host_client->old_name, host_client->name))
 		{
-			if (host_client->spawned)
+			if (host_client->begun)
 				SV_BroadcastPrintf("%s ^7changed name to %s\n", host_client->old_name, host_client->name);
 			strlcpy(host_client->old_name, host_client->name, sizeof(host_client->old_name));
 			// send notification to all clients
@@ -2498,7 +2563,8 @@ static void SV_UpdateToReliableMessages (void)
 		// always point the string back at host_client->name to keep it safe
 		//strlcpy (host_client->playermodel, model, sizeof (host_client->playermodel));
 		if (model != host_client->playermodel) // prevent buffer overlap SIGABRT on Mac OSX
- 			strlcpy (host_client->playermodel, model, sizeof (host_client->playermodel));
+			strlcpy (host_client->playermodel, model, sizeof (host_client->playermodel));
+
 		PRVM_serveredictstring(host_client->edict, playermodel) = PRVM_SetEngineString(prog, host_client->playermodel);
 
 		// NEXUIZ_PLAYERSKIN
@@ -2529,8 +2595,8 @@ static void SV_UpdateToReliableMessages (void)
 
 		// frags
 		host_client->frags = (int)PRVM_serveredictfloat(host_client->edict, frags);
-		if(gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS || gamemode == GAME_XONOTIC)
-			if(!host_client->spawned && host_client->netconnection)
+		if(IS_OLDNEXUIZ_DERIVED(gamemode))
+			if(!host_client->begun && host_client->netconnection)
 				host_client->frags = -666;
 		if (host_client->old_frags != host_client->frags)
 		{
@@ -2543,7 +2609,7 @@ static void SV_UpdateToReliableMessages (void)
 	}
 
 	for (j = 0, client = svs.clients;j < svs.maxclients;j++, client++)
-		if (client->netconnection && (client->spawned || client->clientconnectcalled)) // also send MSG_ALL to people who are past ClientConnect, but not spawned yet
+		if (client->netconnection && (client->begun || client->clientconnectcalled)) // also send MSG_ALL to people who are past ClientConnect, but not spawned yet
 			SZ_Write (&client->netconnection->message, sv.reliable_datagram.data, sv.reliable_datagram.cursize);
 
 	SZ_Clear (&sv.reliable_datagram);
@@ -2646,7 +2712,7 @@ static void Download_CheckExtensions(void)
 static void SV_Download_f(void)
 {
 	const char *whichpack, *whichpack2, *extension;
-	qboolean is_csqc; // so we need to check only once
+	qboolean is_csqc, is_alt_csqc; // so we need to check only once
 
 	if (Cmd_Argc() < 2)
 	{
@@ -2675,8 +2741,9 @@ static void SV_Download_f(void)
 		host_client->download_started = false;
 	}
 
-	is_csqc = (sv.csqc_progname[0] && strcmp(Cmd_Argv(1), sv.csqc_progname) == 0);
-	
+    is_alt_csqc = (sv.csqc_progname_alt[0] && strcmp(Cmd_Argv(1), sv.csqc_progname_alt) == 0);
+	is_csqc = (is_alt_csqc || (sv.csqc_progname[0] && strcmp(Cmd_Argv(1), sv.csqc_progname) == 0));
+
 	if (!sv_allowdownloads.integer && !is_csqc)
 	{
 		SV_ClientPrintf("Downloads are disabled on this server\n");
@@ -2703,10 +2770,17 @@ static void SV_Download_f(void)
 		
 		Con_DPrintf("Downloading %s to %s\n", host_client->download_name, host_client->name);
 
-		if(host_client->download_deflate && svs.csqc_progdata_deflated)
-			host_client->download_file = FS_FileFromData(svs.csqc_progdata_deflated, svs.csqc_progsize_deflated, true);
-		else
-			host_client->download_file = FS_FileFromData(svs.csqc_progdata, sv.csqc_progsize, true);
+        if(is_alt_csqc) {
+            if(host_client->download_deflate && svs.csqc_progdata_alt_deflated)
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_alt_deflated, svs.csqc_progsize_alt_deflated, true);
+            else
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_alt, sv.csqc_progsize_alt, true);
+        } else {
+            if(host_client->download_deflate && svs.csqc_progdata_deflated)
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_deflated, svs.csqc_progsize_deflated, true);
+            else
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata, sv.csqc_progsize, true);
+        }
 		
 		// no, no space is needed between %s and %s :P
 		Host_ClientCommands("\ncl_downloadbegin %i %s%s\n", (int)FS_FileSize(host_client->download_file), host_client->download_name, extensions);
@@ -3008,7 +3082,7 @@ int SV_ParticleEffectIndex(const char *name)
 				{
 					if (argc == 2)
 					{
-						for (effectnameindex = 1;effectnameindex < SV_MAX_PARTICLEEFFECTNAME;effectnameindex++)
+						for (effectnameindex = 1;effectnameindex < MAX_PARTICLEEFFECTNAME;effectnameindex++)
 						{
 							if (sv.particleeffectname[effectnameindex][0])
 							{
@@ -3022,7 +3096,7 @@ int SV_ParticleEffectIndex(const char *name)
 							}
 						}
 						// if we run out of names, abort
-						if (effectnameindex == SV_MAX_PARTICLEEFFECTNAME)
+						if (effectnameindex == MAX_PARTICLEEFFECTNAME)
 						{
 							Con_Printf("%s:%i: too many effects!\n", filename, linenumber);
 							break;
@@ -3034,7 +3108,7 @@ int SV_ParticleEffectIndex(const char *name)
 		}
 	}
 	// search for the name
-	for (effectnameindex = 1;effectnameindex < SV_MAX_PARTICLEEFFECTNAME && sv.particleeffectname[effectnameindex][0];effectnameindex++)
+	for (effectnameindex = 1;effectnameindex < MAX_PARTICLEEFFECTNAME && sv.particleeffectname[effectnameindex][0];effectnameindex++)
 		if (!strcmp(sv.particleeffectname[effectnameindex], name))
 			return effectnameindex;
 	// return 0 if we couldn't find it
@@ -3068,7 +3142,7 @@ static void SV_CreateBaseline (void)
 	int i, entnum, large;
 	prvm_edict_t *svent;
 
-	// LordHavoc: clear *all* states (note just active ones)
+	// LordHavoc: clear *all* baselines (not just active ones)
 	for (entnum = 0;entnum < prog->max_edicts;entnum++)
 	{
 		// get the current server version
@@ -3146,45 +3220,53 @@ Load csprogs.dat and comperss it so it doesn't need to be
 reloaded on request.
 ================
 */
-static void SV_Prepare_CSQC(void)
+
+static void SV_Prepare_CSQC_Internal(const char *csqc_prognamecvar, char *csqc_progname, unsigned char **csqc_progdata, int *csqc_progsize, int *csqc_progcrc, unsigned char **csqc_progdata_deflated, size_t *csqc_progsize_deflated)
 {
 	fs_offset_t progsize;
 
-	if(svs.csqc_progdata)
-	{
+    Con_DPrintf("Preparing csqc omg\n");
+	if(*csqc_progdata) {
 		Con_DPrintf("Unloading old CSQC data.\n");
-		Mem_Free(svs.csqc_progdata);
-		if(svs.csqc_progdata_deflated)
-			Mem_Free(svs.csqc_progdata_deflated);
+		Mem_Free(*csqc_progdata);
+		if(*csqc_progdata_deflated)
+			Mem_Free(*csqc_progdata_deflated);
 	}
 
-	svs.csqc_progdata = NULL;
-	svs.csqc_progdata_deflated = NULL;
-	
-	sv.csqc_progname[0] = 0;
-	svs.csqc_progdata = FS_LoadFile(csqc_progname.string, sv_mempool, false, &progsize);
+	*csqc_progdata = NULL;
+	*csqc_progdata_deflated = NULL;
+
+	csqc_progname[0] = 0;
+	*csqc_progdata = FS_LoadFile(csqc_prognamecvar, sv_mempool, false, &progsize);
 
 	if(progsize > 0)
 	{
 		size_t deflated_size;
 
-		sv.csqc_progsize = (int)progsize;
-		sv.csqc_progcrc = CRC_Block(svs.csqc_progdata, progsize);
-		strlcpy(sv.csqc_progname, csqc_progname.string, sizeof(sv.csqc_progname));
-		Con_DPrintf("server detected csqc progs file \"%s\" with size %i and crc %i\n", sv.csqc_progname, sv.csqc_progsize, sv.csqc_progcrc);
+		*csqc_progsize = (int)progsize;
+		*csqc_progcrc = CRC_Block(*csqc_progdata, progsize);
+		strlcpy(csqc_progname, csqc_prognamecvar, MAX_QPATH);
+		Con_DPrintf("server detected csqc progs file \"%s\" with size %i and crc %i\n", csqc_progname, *csqc_progsize, *csqc_progcrc);
 
-		Con_DPrint("Compressing csprogs.dat\n");
+		Con_DPrintf("Compressing %s\n", csqc_progname);
 		//unsigned char *FS_Deflate(const unsigned char *data, size_t size, size_t *deflated_size, int level, mempool_t *mempool);
-		svs.csqc_progdata_deflated = FS_Deflate(svs.csqc_progdata, progsize, &deflated_size, -1, sv_mempool);
-		svs.csqc_progsize_deflated = (int)deflated_size;
-		if(svs.csqc_progdata_deflated)
+		*csqc_progdata_deflated = FS_Deflate(*csqc_progdata, progsize, &deflated_size, -1, sv_mempool);
+		*csqc_progsize_deflated = (int)deflated_size;
+		if(*csqc_progdata_deflated)
 		{
 			Con_DPrintf("Deflated: %g%%\n", 100.0 - 100.0 * (deflated_size / (float)progsize));
-			Con_DPrintf("Uncompressed: %u\nCompressed:   %u\n", (unsigned)sv.csqc_progsize, (unsigned)svs.csqc_progsize_deflated);
+			Con_DPrintf("Uncompressed: %u\nCompressed:   %u\n", (unsigned)*csqc_progsize, (unsigned)*csqc_progsize_deflated);
 		}
 		else
 			Con_DPrintf("Cannot compress - need zlib for this. Using uncompressed progs only.\n");
 	}
+}
+
+static void SV_Prepare_CSQC(void) {
+    Con_DPrintf("Preparing csqc\n");
+    SV_Prepare_CSQC_Internal(csqc_progname.string, sv.csqc_progname, &svs.csqc_progdata, &sv.csqc_progsize, &sv.csqc_progcrc, &svs.csqc_progdata_deflated, &svs.csqc_progsize_deflated);
+    Con_DPrintf("Preparing alt csqc\n");
+    SV_Prepare_CSQC_Internal(csqc_progname_alt.string, sv.csqc_progname_alt, &svs.csqc_progdata_alt, &sv.csqc_progsize_alt, &sv.csqc_progcrc_alt, &svs.csqc_progdata_alt_deflated, &svs.csqc_progsize_alt_deflated);
 }
 
 /*
@@ -3340,6 +3422,8 @@ void SV_SpawnServer (const char *server)
 	cls.signon = 0;
 
 	Cvar_SetValue("halflifebsp", worldmodel->brush.ishlbsp);
+	Cvar_SetValue("sv_mapformat_is_quake2", worldmodel->brush.isq2bsp);
+	Cvar_SetValue("sv_mapformat_is_quake3", worldmodel->brush.isq3bsp);
 
 	if(*sv_random_seed.string)
 	{
@@ -3450,7 +3534,7 @@ void SV_SpawnServer (const char *server)
 	// and we need to set the ->edict pointers to point into the progs edicts
 	for (i = 0, host_client = svs.clients;i < svs.maxclients;i++, host_client++)
 	{
-		host_client->spawned = false;
+		host_client->begun = false;
 		host_client->edict = PRVM_EDICT_NUM(i + 1);
 		PRVM_ED_ClearEdict(prog, host_client->edict);
 	}
@@ -3475,11 +3559,14 @@ void SV_SpawnServer (const char *server)
 
 // run two frames to allow everything to settle
 	sv.time = 1.0001;
-	for (i = 0;i < 2;i++)
+	for (i = 0;i < sv_init_frame_count.integer;i++)
 	{
 		sv.frametime = 0.1;
 		SV_Physics ();
 	}
+
+	// Once all init frames have been run, we consider svqc code fully initialized.
+	prog->inittime = realtime;
 
 	if (cls.state == ca_dedicated)
 		Mod_PurgeUnused();
@@ -3514,7 +3601,7 @@ void SV_SpawnServer (const char *server)
 			PRVM_serverglobaledict(self) = PRVM_EDICT_TO_PROG(host_client->edict);
 			prog->ExecuteProgram(prog, PRVM_serverfunction(ClientConnect), "QC function ClientConnect is missing");
 			prog->ExecuteProgram(prog, PRVM_serverfunction(PutClientInServer), "QC function PutClientInServer is missing");
-			host_client->spawned = true;
+			host_client->begun = true;
 		}
 	}
 
@@ -3584,6 +3671,7 @@ static void SVVM_init_edict(prvm_prog_t *prog, prvm_edict_t *e)
 			PRVM_serveredictstring(e, crypto_idfp) = PRVM_SetEngineString(prog, svs.clients[num].netconnection->crypto.client_idfp);
 		else
 			PRVM_serveredictstring(e, crypto_idfp) = 0;
+		PRVM_serveredictfloat(e, crypto_idfp_signed) = (svs.clients[num].netconnection != NULL && svs.clients[num].netconnection->crypto.authenticated && svs.clients[num].netconnection->crypto.client_issigned);
 		if(svs.clients[num].netconnection != NULL && svs.clients[num].netconnection->crypto.authenticated && svs.clients[num].netconnection->crypto.client_keyfp[0])
 			PRVM_serveredictstring(e, crypto_keyfp) = PRVM_SetEngineString(prog, svs.clients[num].netconnection->crypto.client_keyfp);
 		else
@@ -3629,11 +3717,7 @@ static void SVVM_free_edict(prvm_prog_t *prog, prvm_edict_t *ed)
 	e = PRVM_NUM_FOR_EDICT(ed);
 	sv.csqcentityversion[e] = 0;
 	for (i = 0;i < svs.maxclients;i++)
-	{
-		if (svs.clients[i].csqcentityscope[e])
-			svs.clients[i].csqcentityscope[e] = 1; // removed, awaiting send
 		svs.clients[i].csqcentitysendflags[e] = 0xFFFFFF;
-	}
 }
 
 static void SVVM_count_edicts(prvm_prog_t *prog)
@@ -3725,7 +3809,7 @@ static void SV_VM_Setup(void)
 	prog->error_cmd             = Host_Error;
 	prog->ExecuteProgram        = SVVM_ExecuteProgram;
 
-	PRVM_Prog_Load(prog, sv_progs.string, SV_REQFUNCS, sv_reqfuncs, SV_REQFIELDS, sv_reqfields, SV_REQGLOBALS, sv_reqglobals);
+	PRVM_Prog_Load(prog, sv_progs.string, NULL, 0, SV_REQFUNCS, sv_reqfuncs, SV_REQFIELDS, sv_reqfields, SV_REQGLOBALS, sv_reqglobals);
 
 	// some mods compiled with scrambling compilers lack certain critical
 	// global names and field names such as "self" and "time" and "nextthink"
@@ -3910,7 +3994,7 @@ static int SV_ThreadFunc(void *voiddata)
 		playing = false;
 		if (sv.active)
 			for (i = 0, host_client = svs.clients;i < svs.maxclients;i++, host_client++)
-				if(host_client->spawned)
+				if(host_client->begun)
 					if(host_client->netconnection)
 						playing = true;
 		if(sv.time < 10)

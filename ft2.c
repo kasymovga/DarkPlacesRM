@@ -42,6 +42,8 @@ cvar_t r_font_compress = {CVAR_SAVE, "r_font_compress", "0", "use texture compre
 cvar_t r_font_nonpoweroftwo = {CVAR_SAVE, "r_font_nonpoweroftwo", "1", "use nonpoweroftwo textures for font (saves memory, potentially slower)"};
 cvar_t developer_font = {CVAR_SAVE, "developer_font", "0", "prints debug messages about fonts"};
 
+#ifndef DP_FREETYPE_STATIC
+
 /*
 ================================================================================
 Function definitions. Taken from the freetype2 headers.
@@ -135,6 +137,85 @@ static dllfunction_t ft2funcs[] =
 
 /// Handle for FreeType2 DLL
 static dllhandle_t ft2_dll = NULL;
+
+#else
+
+FT_EXPORT( FT_Error )
+(FT_Init_FreeType)( FT_Library  *alibrary );
+FT_EXPORT( FT_Error )
+(FT_Done_FreeType)( FT_Library  library );
+/*
+FT_EXPORT( FT_Error )
+(FT_New_Face)( FT_Library   library,
+		 const char*  filepathname,
+		 FT_Long      face_index,
+		 FT_Face     *aface );
+*/
+FT_EXPORT( FT_Error )
+(FT_New_Memory_Face)( FT_Library      library,
+			const FT_Byte*  file_base,
+			FT_Long         file_size,
+			FT_Long         face_index,
+			FT_Face        *aface );
+FT_EXPORT( FT_Error )
+(FT_Done_Face)( FT_Face  face );
+FT_EXPORT( FT_Error )
+(FT_Select_Size)( FT_Face  face,
+		    FT_Int   strike_index );
+FT_EXPORT( FT_Error )
+(FT_Request_Size)( FT_Face          face,
+		     FT_Size_Request  req );
+FT_EXPORT( FT_Error )
+(FT_Set_Char_Size)( FT_Face     face,
+		      FT_F26Dot6  char_width,
+		      FT_F26Dot6  char_height,
+		      FT_UInt     horz_resolution,
+		      FT_UInt     vert_resolution );
+FT_EXPORT( FT_Error )
+(FT_Set_Pixel_Sizes)( FT_Face  face,
+			FT_UInt  pixel_width,
+			FT_UInt  pixel_height );
+FT_EXPORT( FT_Error )
+(FT_Load_Glyph)( FT_Face   face,
+		   FT_UInt   glyph_index,
+		   FT_Int32  load_flags );
+FT_EXPORT( FT_Error )
+(FT_Load_Char)( FT_Face   face,
+		  FT_ULong  char_code,
+		  FT_Int32  load_flags );
+FT_EXPORT( FT_UInt )
+(FT_Get_Char_Index)( FT_Face   face,
+		       FT_ULong  charcode );
+FT_EXPORT( FT_Error )
+(FT_Render_Glyph)( FT_GlyphSlot    slot,
+		     FT_Render_Mode  render_mode );
+FT_EXPORT( FT_Error )
+(FT_Get_Kerning)( FT_Face     face,
+		    FT_UInt     left_glyph,
+		    FT_UInt     right_glyph,
+		    FT_UInt     kern_mode,
+		    FT_Vector  *akerning );
+FT_EXPORT( FT_Error )
+(FT_Attach_Stream)( FT_Face        face,
+		      FT_Open_Args*  parameters );
+
+#define qFT_Init_FreeType		FT_Init_FreeType
+#define qFT_Done_FreeType		FT_Done_FreeType
+//#define qFT_New_Face			FT_New_Face
+#define qFT_New_Memory_Face		FT_New_Memory_Face
+#define qFT_Done_Face			FT_Done_Face
+#define qFT_Select_Size			FT_Select_Size
+#define qFT_Request_Size		FT_Request_Size
+#define qFT_Set_Char_Size		FT_Set_Char_Size
+#define qFT_Set_Pixel_Sizes		FT_Set_Pixel_Sizes
+#define qFT_Load_Glyph			FT_Load_Glyph
+#define qFT_Load_Char			FT_Load_Char
+#define qFT_Get_Char_Index		FT_Get_Char_Index
+#define qFT_Render_Glyph		FT_Render_Glyph
+#define qFT_Get_Kerning			FT_Get_Kerning
+#define qFT_Attach_Stream		FT_Attach_Stream
+
+#endif
 
 /// Memory pool for fonts
 static mempool_t *font_mempool= NULL;
@@ -245,7 +326,9 @@ void Font_CloseLibrary (void)
 		qFT_Done_FreeType(font_ft2lib);
 		font_ft2lib = NULL;
 	}
+#ifndef DP_FREETYPE_STATIC
 	Sys_UnloadLibrary (&ft2_dll);
+#endif
 	pp.buf = NULL;
 }
 
@@ -258,6 +341,7 @@ Try to load the FreeType2 DLL
 */
 qboolean Font_OpenLibrary (void)
 {
+#ifndef DP_FREETYPE_STATIC
 	const char* dllnames [] =
 	{
 #if defined(WIN32)
@@ -272,10 +356,12 @@ qboolean Font_OpenLibrary (void)
 #endif
 		NULL
 	};
+#endif
 
 	if (r_font_disable_freetype.integer)
 		return false;
 
+#ifndef DP_FREETYPE_STATIC
 	// Already loaded?
 	if (ft2_dll)
 		return true;
@@ -283,6 +369,7 @@ qboolean Font_OpenLibrary (void)
 	// Load the DLL
 	if (!Sys_LoadLibrary (dllnames, &ft2_dll, ft2funcs))
 		return false;
+#endif
 	return true;
 }
 
@@ -358,7 +445,11 @@ Implementation of a more or less lazy font loading and rendering code.
 
 ft2_font_t *Font_Alloc(void)
 {
+#ifndef DP_FREETYPE_STATIC
 	if (!ft2_dll)
+#else
+	if (r_font_disable_freetype.integer)
+#endif
 		return NULL;
 	return (ft2_font_t *)Mem_Alloc(font_mempool, sizeof(ft2_font_t));
 }
@@ -538,6 +629,11 @@ static qboolean Font_LoadFile(const char *name, int _face, ft2_settings_t *setti
 	font->settings = settings;
 
 	namelen = strlen(name);
+	if (namelen + 5 > sizeof(filename))
+	{
+		Con_Printf("WARNING: too long font name. Cannot load this.\n");
+		return false;
+	}
 
 	// try load direct file
 	memcpy(filename, name, namelen+1);
@@ -607,7 +703,7 @@ static qboolean Font_LoadFile(const char *name, int _face, ft2_settings_t *setti
 			Con_Printf("Failed to add attachment %u to %s\n", (unsigned)i, font->name);
 	}
 
-	memcpy(font->name, name, namelen+1);
+	strlcpy(font->name, name, sizeof(font->name));
 	font->image_font = false;
 	font->has_kerning = !!(((FT_Face)(font->face))->face_flags & FT_FACE_FLAG_KERNING);
 	return true;
@@ -1065,7 +1161,11 @@ void Font_UnloadFont(ft2_font_t *font)
 			font->font_maps[i] = NULL;
 		}
 	}
+#ifndef DP_FREETYPE_STATIC
 	if (ft2_dll)
+#else
+	if (!r_font_disable_freetype.integer)
+#endif
 	{
 		if (font->face)
 		{
@@ -1248,15 +1348,17 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 	map->sfy = mapstart->sfy;
 
 	pitch = map->glyphSize * FONT_CHARS_PER_LINE * bytesPerPixel;
+	
+	data = (unsigned char *)Mem_Alloc(font_mempool, (FONT_CHAR_LINES * map->glyphSize) * pitch);
+	if (!data)
+	{
+		Con_Printf("ERROR: Failed to allocate memory for font %s size %g\n", font->name, map->size);
+		Mem_Free(map);
+		return false;
+	}
+
 	if (map->pic->tex == r_texture_notexture)
 	{
-		data = (unsigned char *)Mem_Alloc(font_mempool, (FONT_CHAR_LINES * map->glyphSize) * pitch);
-		if (!data)
-		{
-			Con_Printf("ERROR: Failed to allocate memory for font %s size %g\n", font->name, map->size);
-			Mem_Free(map);
-			return false;
-		}
 		// initialize as white texture with zero alpha
 		tp = 0;
 		while (tp < (FONT_CHAR_LINES * map->glyphSize) * pitch)
@@ -1296,6 +1398,7 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 		FT_Face face;
 		int pad_l, pad_r, pad_t, pad_b;
 
+		usefont = NULL;
 		mapch = ch - map->start;
 
 		if (developer_font.integer)
@@ -1316,7 +1419,6 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 		//status = qFT_Load_Char(face, ch, FT_LOAD_RENDER);
 		// we need the glyphIndex
 		face = (FT_Face)font->face;
-		usefont = NULL;
 		if (font->image_font && mapch == ch && img_fontmap[mapch])
 		{
 			map->glyphs[mapch].image = true;
@@ -1352,7 +1454,7 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 
 		if (!usefont)
 		{
-			usefont = font;
+// 			usefont = font;
 			face = (FT_Face)font->face;
 			status = qFT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER | load_flags);
 			if (status)
@@ -1434,7 +1536,7 @@ static qboolean Font_LoadMap(ft2_font_t *font, ft2_font_map_t *mapstart, Uchar _
 						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); ch <<= 2; dst += bytesPerPixel;
 						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); ch <<= 2; dst += bytesPerPixel;
 						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); ch <<= 2; dst += bytesPerPixel;
-						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); ch <<= 2; dst += bytesPerPixel;
+						*dst = ( ((ch & 0xA0) >> 6) * 0x55 ); dst += bytesPerPixel;
 					}
 					break;
 				case FT_PIXEL_MODE_GRAY4:

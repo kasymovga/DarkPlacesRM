@@ -23,7 +23,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <time.h>
 #include "libcurl.h"
+#ifdef CONFIG_CD
 #include "cdaudio.h"
+#endif
 #include "cl_video.h"
 #include "progsvm.h"
 #include "csprogs.h"
@@ -79,6 +81,7 @@ cvar_t cl_maxfps = {CVAR_SAVE, "cl_maxfps", "0", "maximum fps cap, 0 = unlimited
 cvar_t cl_maxfps_alwayssleep = {CVAR_SAVE, "cl_maxfps_alwayssleep","1", "gives up some processing time to other applications each frame, value in milliseconds, disabled if cl_maxfps is 0"};
 cvar_t cl_maxidlefps = {CVAR_SAVE, "cl_maxidlefps", "20", "maximum fps cap when the game is not the active window (makes cpu time available to other programs"};
 
+cvar_t sys_first_run = {CVAR_SAVE, "sys_first_run", "1", "active when the game is run for the first time"};
 cvar_t developer = {CVAR_SAVE, "developer","0", "shows debugging messages and information (recommended for all developers and level designers); the value -1 also suppresses buffering and logging these messages"};
 cvar_t developer_extra = {0, "developer_extra", "0", "prints additional debugging messages, often very verbose!"};
 cvar_t developer_insane = {0, "developer_insane", "0", "prints huge streams of information about internal workings, entire contents of files being read/written, etc.  Not recommended!"};
@@ -152,7 +155,9 @@ void Host_Error (const char *error, ...)
 	// print out where the crash happened, if it was caused by QC (and do a cleanup)
 	PRVM_Crash(SVVM_prog);
 	PRVM_Crash(CLVM_prog);
+#ifdef CONFIG_MENU
 	PRVM_Crash(MVM_prog);
+#endif
 
 	cl.csqc_loaded = false;
 	Cvar_SetValueQuick(&csqc_progcrc, -1);
@@ -210,7 +215,7 @@ static void Host_ServerOptions (void)
 		else
 		{
 			// default players in some games, singleplayer in most
-			if (gamemode != GAME_GOODVSBAD2 && gamemode != GAME_NEXUIZ && gamemode != GAME_VECXIS && gamemode != GAME_XONOTIC && gamemode != GAME_BATTLEMECH)
+			if (gamemode != GAME_GOODVSBAD2 && !IS_NEXUIZ_DERIVED(gamemode) && gamemode != GAME_BATTLEMECH)
 				svs.maxclients = 1;
 		}
 	}
@@ -253,6 +258,8 @@ static void Host_InitLocal (void)
 	Cvar_RegisterVariable (&cl_maxfps_alwayssleep);
 	Cvar_RegisterVariable (&cl_maxidlefps);
 
+	Cvar_RegisterVariable (&sys_first_run);
+
 	Cvar_RegisterVariable (&developer);
 	Cvar_RegisterVariable (&developer_extra);
 	Cvar_RegisterVariable (&developer_insane);
@@ -278,6 +285,8 @@ Writes key bindings and archived cvars to config.cfg
 static void Host_SaveConfig_to(const char *file)
 {
 	qfile_t *f;
+
+	Cvar_SetQuick(&sys_first_run, "0");
 
 // dedicated servers initialize the host but don't parse and set the
 // config.cfg cvars
@@ -338,8 +347,10 @@ void Host_LoadConfig_f(void)
 {
 	// reset all cvars, commands and aliases to init values
 	Cmd_RestoreInitState();
+#ifdef CONFIG_MENU
 	// prepend a menu restart command to execute after the config
 	Cbuf_InsertText("\nmenu_restart\n");
+#endif
 	// reset cvars to their defaults, and then exec startup scripts again
 	Host_AddConfigText();
 }
@@ -479,9 +490,9 @@ void SV_DropClient(qboolean crash)
 			buf.data = bufdata;
 			buf.maxsize = sizeof(bufdata);
 			MSG_WriteByte(&buf, svc_disconnect);
-			NetConn_SendUnreliableMessage(host_client->netconnection, &buf, sv.protocol, 10000, false);
-			NetConn_SendUnreliableMessage(host_client->netconnection, &buf, sv.protocol, 10000, false);
-			NetConn_SendUnreliableMessage(host_client->netconnection, &buf, sv.protocol, 10000, false);
+			NetConn_SendUnreliableMessage(host_client->netconnection, &buf, sv.protocol, 10000, 0, false);
+			NetConn_SendUnreliableMessage(host_client->netconnection, &buf, sv.protocol, 10000, 0, false);
+			NetConn_SendUnreliableMessage(host_client->netconnection, &buf, sv.protocol, 10000, 0, false);
 		}
 	}
 
@@ -677,6 +688,7 @@ void Host_Main(void)
 	Host_Init();
 
 	realtime = 0;
+	host_dirtytime = Sys_DirtyTime();
 	for (;;)
 	{
 		if (setjmp(host_abortframe))
@@ -713,7 +725,7 @@ void Host_Main(void)
 			// Look for clients who have spawned
 			playing = false;
 			for (i = 0, host_client = svs.clients;i < svs.maxclients;i++, host_client++)
-				if(host_client->spawned)
+				if(host_client->begun)
 					if(host_client->netconnection)
 						playing = true;
 			if(sv.time < 10)
@@ -803,8 +815,12 @@ void Host_Main(void)
 				wait = 1; // because we cast to int
 
 			time0 = Sys_DirtyTime();
-			if (sv_checkforpacketsduringsleep.integer && !sys_usenoclockbutbenchmark.integer && !svs.threaded)
+			if (sv_checkforpacketsduringsleep.integer && !sys_usenoclockbutbenchmark.integer && !svs.threaded) {
 				NetConn_SleepMicroseconds((int)wait);
+				if (cls.state != ca_dedicated)
+					NetConn_ClientFrame(); // helps server browser get good ping values
+				// TODO can we do the same for ServerFrame? Probably not.
+			}
 			else
 				Sys_Sleep((int)wait);
 			delta = Sys_DirtyTime() - time0;
@@ -934,7 +950,7 @@ void Host_Main(void)
             }
 			R_TimeReport("---");
 			Collision_Cache_NewFrame();
-			R_TimeReport("collisioncache");
+			R_TimeReport("photoncache");
 			// decide the simulation time
 			if (cls.capturevideo.active)
 			{
@@ -970,13 +986,15 @@ void Host_Main(void)
 				if (cls.demopaused)
 					clframetime = 0;
 			}
+			else
+			{
+				// host_framerate overrides all else
+				if (host_framerate.value)
+					clframetime = host_framerate.value;
 
-			// host_framerate overrides all else
-			if (host_framerate.value)
-				clframetime = host_framerate.value;
-
-			if (cl.paused || (cl.islocalgame && (key_dest != key_game || key_consoleactive || cl.csqc_paused)))
-				clframetime = 0;
+				if (cl.paused || (cl.islocalgame && (key_dest != key_game || key_consoleactive || cl.csqc_paused)))
+					clframetime = 0;
+			}
 
 			if (cls.timedemo)
 				clframetime = cl.realframetime = cl_timer;
@@ -1031,8 +1049,10 @@ void Host_Main(void)
 			else
 				S_Update(&r_refdef.view.matrix);
 
+#ifdef CONFIG_CD
 			CDAudio_Update();
 			R_TimeReport("audio");
+#endif
 
 			// reset gathering of mouse input
 			in_mouse_x = in_mouse_y = 0;
@@ -1085,7 +1105,9 @@ void Host_StartVideo(void)
 		// make sure we open sockets before opening video because the Windows Firewall "unblock?" dialog can screw up the graphics context on some graphics drivers
 		NetConn_UpdateSockets();
 		VID_Start();
+#ifdef CONFIG_CD
 		CDAudio_Startup();
+#endif
 	}
 }
 
@@ -1118,7 +1140,7 @@ void Host_LockSession(void)
 	if(locksession_run)
 		return;
 	locksession_run = true;
-	if(locksession.integer != 0)
+	if(locksession.integer != 0 && !COM_CheckParm("-readonly"))
 	{
 		char vabuf[1024];
 		char *p = va(vabuf, sizeof(vabuf), "%slock%s", *fs_userdir ? fs_userdir : fs_basedir, sessionid.string);
@@ -1283,7 +1305,7 @@ static void Host_Init (void)
 	Host_InitLocal();
 	Host_ServerOptions();
 
-    IRC_Init();
+	IRC_Init();
 	Thread_Init();
 
 	if (cls.state == ca_dedicated)
@@ -1294,12 +1316,16 @@ static void Host_Init (void)
 
 		R_Modules_Init();
 		Palette_Init();
+#ifdef CONFIG_MENU
 		MR_Init_Commands();
+#endif
 		VID_Shared_Init();
 		VID_Init();
 		Render_Init();
 		S_Init();
+#ifdef CONFIG_CD
 		CDAudio_Init();
+#endif
 		Key_Init();
 		CL_Init();
 	}
@@ -1329,10 +1355,12 @@ static void Host_Init (void)
 	// put up the loading image so the user doesn't stare at a black screen...
 	SCR_BeginLoadingPlaque(true);
 
+#ifdef CONFIG_MENU
 	if (cls.state != ca_dedicated)
 	{
 		MR_Init();
 	}
+#endif
 
 	// check for special benchmark mode
 // COMMANDLINEOPTION: Client: -benchmark <demoname> runs a timedemo and quits, results of any timedemo can be found in gamedir/benchmark.log (for example id1/benchmark.log)
@@ -1372,7 +1400,9 @@ static void Host_Init (void)
 
 	if (!sv.active && !cls.demoplayback && !cls.connect_trying)
 	{
+#ifdef CONFIG_MENU
 		Cbuf_AddText("togglemenu 1\n");
+#endif
 		Cbuf_Execute();
 	}
 
@@ -1424,9 +1454,11 @@ void Host_Shutdown(void)
 	Host_ShutdownServer ();
 	SV_UnlockThreadMutex();
 
+#ifdef CONFIG_MENU
 	// Shutdown menu
 	if(MR_Shutdown)
 		MR_Shutdown();
+#endif
 
 	// AK shutdown PRVM
 	// AK hmm, no PRVM_Shutdown(); yet
@@ -1436,7 +1468,9 @@ void Host_Shutdown(void)
     IRC_Shutdown();
 	Host_SaveConfig();
 
+#ifdef CONFIG_CD
 	CDAudio_Shutdown ();
+#endif
 	S_Terminate ();
 	Curl_Shutdown ();
 	NetConn_Shutdown ();

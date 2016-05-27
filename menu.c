@@ -18,7 +18,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 #include "quakedef.h"
+#ifdef CONFIG_CD
 #include "cdaudio.h"
+#endif
 #include "image.h"
 #include "progsvm.h"
 #include "random.h"
@@ -30,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define TYPE_BOTH 3
 
 static cvar_t forceqmenu = { 0, "forceqmenu", "0", "enables the quake menu instead of the quakec menu.dat (if present)" };
+static cvar_t menu_progs = { 0, "menu_progs", "menu.dat", "name of quakec menu.dat file" };
 
 static int NehGameType;
 
@@ -445,7 +448,7 @@ static void M_Main_Draw (void)
 		y+=8;
 		s = "You may consider adding";M_Print ((640-strlen(s)*8)*0.5, y, s);y+=8;
 		s = "-basedir /path/to/game";M_Print ((640-strlen(s)*8)*0.5, y, s);y+=8;
-		s = "to your launch commandline";M_Print ((640-strlen(s)*8)*0.5, y, s);y+=8;
+		s = "to your launch commandline";M_Print ((640-strlen(s)*8)*0.5, y, s);//y+=8;
 		M_Print (640/2 - 48, 480/2, "Open Console"); //The console usually better shows errors (failures)
 		M_Print (640/2 - 48, 480/2 + 8, "Quit");
 		M_DrawCharacter(640/2 - 56, 480/2 + (8 * m_main_cursor), 12+((int)(realtime*4)&1));
@@ -1622,7 +1625,9 @@ static void M_Menu_Options_AdjustSliders (int dir)
 	else if (options_cursor == optnum++) Cvar_SetValueQuick(&v_contrast, bound(1, v_contrast.value + dir * 0.0625, 4));
 	else if (options_cursor == optnum++) Cvar_SetValueQuick(&v_gamma, bound(0.5, v_gamma.value + dir * 0.0625, 3));
 	else if (options_cursor == optnum++) Cvar_SetValueQuick(&volume, bound(0, volume.value + dir * 0.0625, 1));
+#ifdef CONFIG_CD
 	else if (options_cursor == optnum++) Cvar_SetValueQuick(&bgmvolume, bound(0, bgmvolume.value + dir * 0.0625, 1));
+#endif
 }
 
 static int optnum;
@@ -1699,7 +1704,9 @@ static void M_Options_Draw (void)
 	M_Options_PrintSlider(  "            Brightness", true, v_contrast.value, 1, 2);
 	M_Options_PrintSlider(  "                 Gamma", true, v_gamma.value, 0.5, 3);
 	M_Options_PrintSlider(  "          Sound Volume", snd_initialized.integer, volume.value, 0, 1);
+#ifdef CONFIG_CD
 	M_Options_PrintSlider(  "          Music Volume", cdaudioinitialized.integer, bgmvolume.value, 0, 1);
+#endif
 	M_Options_PrintCommand( "     Customize Effects", true);
 	M_Options_PrintCommand( "       Effects:  Quake", true);
 	M_Options_PrintCommand( "       Effects: Normal", true);
@@ -1758,16 +1765,16 @@ static void M_Options_Key (int k, int ascii)
 			M_Menu_Options_Graphics_f ();
 			break;
 		case 22: // Lighting: Flares
-			Cbuf_AddText("r_coronas 1;gl_flashblend 1;r_shadow_gloss 0;r_shadow_realtime_dlight 0;r_shadow_realtime_dlight_shadows 0;r_shadow_realtime_world 0;r_shadow_realtime_world_lightmaps 0;r_shadow_realtime_world_shadows 1;r_bloom 0;r_hdr 0");
+			Cbuf_AddText("r_coronas 1;gl_flashblend 1;r_shadow_gloss 0;r_shadow_realtime_dlight 0;r_shadow_realtime_dlight_shadows 0;r_shadow_realtime_world 0;r_shadow_realtime_world_lightmaps 0;r_shadow_realtime_world_shadows 1;r_bloom 0");
 			break;
 		case 23: // Lighting: Normal
-			Cbuf_AddText("r_coronas 1;gl_flashblend 0;r_shadow_gloss 1;r_shadow_realtime_dlight 1;r_shadow_realtime_dlight_shadows 0;r_shadow_realtime_world 0;r_shadow_realtime_world_lightmaps 0;r_shadow_realtime_world_shadows 1;r_bloom 0;r_hdr 0");
+			Cbuf_AddText("r_coronas 1;gl_flashblend 0;r_shadow_gloss 1;r_shadow_realtime_dlight 1;r_shadow_realtime_dlight_shadows 0;r_shadow_realtime_world 0;r_shadow_realtime_world_lightmaps 0;r_shadow_realtime_world_shadows 1;r_bloom 0");
 			break;
 		case 24: // Lighting: High
-			Cbuf_AddText("r_coronas 1;gl_flashblend 0;r_shadow_gloss 1;r_shadow_realtime_dlight 1;r_shadow_realtime_dlight_shadows 1;r_shadow_realtime_world 0;r_shadow_realtime_world_lightmaps 0;r_shadow_realtime_world_shadows 1;r_bloom 1;r_hdr 0");
+			Cbuf_AddText("r_coronas 1;gl_flashblend 0;r_shadow_gloss 1;r_shadow_realtime_dlight 1;r_shadow_realtime_dlight_shadows 1;r_shadow_realtime_world 0;r_shadow_realtime_world_lightmaps 0;r_shadow_realtime_world_shadows 1;r_bloom 1");
 			break;
 		case 25: // Lighting: Full
-			Cbuf_AddText("r_coronas 1;gl_flashblend 0;r_shadow_gloss 1;r_shadow_realtime_dlight 1;r_shadow_realtime_dlight_shadows 1;r_shadow_realtime_world 1;r_shadow_realtime_world_lightmaps 0;r_shadow_realtime_world_shadows 1;r_bloom 1;r_hdr 0");
+			Cbuf_AddText("r_coronas 1;gl_flashblend 0;r_shadow_gloss 1;r_shadow_realtime_dlight 1;r_shadow_realtime_dlight_shadows 1;r_shadow_realtime_world 1;r_shadow_realtime_world_lightmaps 0;r_shadow_realtime_world_shadows 1;r_bloom 1");
 			break;
 		case 26:
 			M_Menu_ModList_f ();
@@ -3202,6 +3209,7 @@ static int M_ChooseQuitMessage(int request)
 	case GAME_NORMAL:
 	case GAME_HIPNOTIC:
 	case GAME_ROGUE:
+	case GAME_QUOTH:
 	case GAME_NEHAHRA:
 	case GAME_DEFEATINDETAIL2:
 		if (request-- == 0) return M_QuitMessage("Are you gonna quit","this game just like","everything else?",NULL,NULL,NULL,NULL,NULL);
@@ -3937,6 +3945,7 @@ static gameinfo_t gamelist[] =
 	{GAME_NORMAL, &sharewarequakegame, &registeredquakegame},
 	{GAME_HIPNOTIC, &hipnoticgame, &hipnoticgame},
 	{GAME_ROGUE, &roguegame, &roguegame},
+	{GAME_QUOTH, &sharewarequakegame, &registeredquakegame},
 	{GAME_NEHAHRA, &nehahragame, &nehahragame},
 	{GAME_TRANSFUSION, &transfusiongame, &transfusiongame},
 	{GAME_GOODVSBAD2, &goodvsbad2game, &goodvsbad2game},
@@ -5012,6 +5021,11 @@ static void M_NewMap(void)
 {
 }
 
+static int M_GetServerListEntryCategory(const serverlist_entry_t *entry)
+{
+	return 0;
+}
+
 void M_Shutdown(void)
 {
 	// reset key_dest
@@ -5301,6 +5315,8 @@ static void MP_Draw (void)
 
 	// FIXME: this really shouldnt error out lest we have a very broken refdef state...?
 	// or does it kill the server too?
+	PRVM_G_FLOAT(OFS_PARM0) = vid.width;
+	PRVM_G_FLOAT(OFS_PARM1) = vid.height;
 	prog->ExecuteProgram(prog, PRVM_menufunction(m_draw),"m_draw() required");
 
 	// TODO: imo this should be moved into scene, too [1/27/2008 Andreas]
@@ -5324,11 +5340,29 @@ static void MP_NewMap(void)
 		prog->ExecuteProgram(prog, PRVM_menufunction(m_newmap),"m_newmap() required");
 }
 
+const serverlist_entry_t *serverlist_callbackentry = NULL;
+static int MP_GetServerListEntryCategory(const serverlist_entry_t *entry)
+{
+	prvm_prog_t *prog = MVM_prog;
+	serverlist_callbackentry = entry;
+	if (PRVM_menufunction(m_gethostcachecategory))
+	{
+		prog->globals.fp[OFS_PARM0] = (prvm_vec_t) -1;
+		prog->ExecuteProgram(prog, PRVM_menufunction(m_gethostcachecategory),"m_gethostcachecategory(float entry) required");
+		serverlist_callbackentry = NULL;
+		return prog->globals.fp[OFS_RETURN];
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 static void MP_Shutdown (void)
 {
 	prvm_prog_t *prog = MVM_prog;
-
-	prog->ExecuteProgram(prog, PRVM_menufunction(m_shutdown),"m_shutdown() required");
+	if (prog->loaded)
+		prog->ExecuteProgram(prog, PRVM_menufunction(m_shutdown),"m_shutdown() required");
 
 	// reset key_dest
 	key_dest = key_game;
@@ -5363,9 +5397,9 @@ static void MP_Init (void)
 	prog->ExecuteProgram        = MVM_ExecuteProgram;
 
 	// allocate the mempools
-	prog->progs_mempool = Mem_AllocPool(M_PROG_FILENAME, 0, NULL);
+	prog->progs_mempool = Mem_AllocPool(menu_progs.string, 0, NULL);
 
-	PRVM_Prog_Load(prog, M_PROG_FILENAME, m_numrequiredfunc, m_required_func, m_numrequiredfields, m_required_fields, m_numrequiredglobals, m_required_globals);
+	PRVM_Prog_Load(prog, menu_progs.string, NULL, 0, m_numrequiredfunc, m_required_func, m_numrequiredfields, m_required_fields, m_numrequiredglobals, m_required_globals);
 
 	// note: OP_STATE is not supported by menu qc, we don't even try to detect
 	// it here
@@ -5374,6 +5408,9 @@ static void MP_Init (void)
 
 	// call the prog init
 	prog->ExecuteProgram(prog, PRVM_menufunction(m_init),"m_init() required");
+
+	// Once m_init was called, we consider menuqc code fully initialized.
+	prog->inittime = realtime;
 }
 
 //============================================================================
@@ -5384,11 +5421,12 @@ void (*MR_Draw) (void);
 void (*MR_ToggleMenu) (int mode);
 void (*MR_Shutdown) (void);
 void (*MR_NewMap) (void);
+int (*MR_GetServerListEntryCategory) (const serverlist_entry_t *entry);
 
 void MR_SetRouting(qboolean forceold)
 {
 	// if the menu prog isnt available or forceqmenu ist set, use the old menu
-	if(!FS_FileExists(M_PROG_FILENAME) || forceqmenu.integer || forceold)
+	if(!FS_FileExists(menu_progs.string) || forceqmenu.integer || forceold)
 	{
 		// set menu router function pointers
 		MR_KeyEvent = M_KeyEvent;
@@ -5396,6 +5434,7 @@ void MR_SetRouting(qboolean forceold)
 		MR_ToggleMenu = M_ToggleMenu;
 		MR_Shutdown = M_Shutdown;
 		MR_NewMap = M_NewMap;
+		MR_GetServerListEntryCategory = M_GetServerListEntryCategory;
 		M_Init();
 	}
 	else
@@ -5406,6 +5445,7 @@ void MR_SetRouting(qboolean forceold)
 		MR_ToggleMenu = MP_ToggleMenu;
 		MR_Shutdown = MP_Shutdown;
 		MR_NewMap = MP_NewMap;
+		MR_GetServerListEntryCategory = MP_GetServerListEntryCategory;
 		MP_Init();
 	}
 }
@@ -5431,6 +5471,7 @@ void MR_Init_Commands(void)
 	// set router console commands
 	Cvar_RegisterVariable (&forceqmenu);
 	Cvar_RegisterVariable (&menu_options_colorcontrol_correctionvalue);
+	Cvar_RegisterVariable (&menu_progs);
 	Cmd_AddCommand ("menu_restart",MR_Restart, "restart menu system (reloads menu.dat)");
 	Cmd_AddCommand ("togglemenu", Call_MR_ToggleMenu_f, "opens or closes menu");
 }
@@ -5444,7 +5485,7 @@ void MR_Init(void)
 	res_count = VID_SortModes(res, res_count, false, false, true);
 	if(res_count)
 	{
-		video_resolutions_count = res_count;
+		video_resolutions_count = (int)res_count;
 		video_resolutions = (video_resolution_t *) Mem_Alloc(cls.permanentmempool, sizeof(*video_resolutions) * (video_resolutions_count + 1));
 		memset(&video_resolutions[video_resolutions_count], 0, sizeof(video_resolutions[video_resolutions_count]));
 		for(i = 0; i < res_count; ++i)
@@ -5536,8 +5577,8 @@ void MR_Init(void)
 			if(video_resolutions[i].conwidth > video_resolutions[i].width || video_resolutions[i].conheight > video_resolutions[i].height)
 			{
 				int f1, f2;
-				f1 = video_resolutions[i].conwidth > video_resolutions[i].width;
-				f2 = video_resolutions[i].conheight > video_resolutions[i].height;
+				f1 = min(video_resolutions[i].conwidth, video_resolutions[i].width);
+				f2 = max(video_resolutions[i].conheight, video_resolutions[i].height);
 				if(f1 > f2)
 				{
 					video_resolutions[i].conwidth = video_resolutions[i].width;

@@ -1,6 +1,8 @@
 
 #include "quakedef.h"
+#ifdef CONFIG_CD
 #include "cdaudio.h"
+#endif
 #include "image.h"
 #include "random.h"
 
@@ -517,6 +519,19 @@ void (GLAPIENTRY *qglGetQueryObjectivARB)(GLuint qid, GLenum pname, GLint *param
 void (GLAPIENTRY *qglGetQueryObjectuivARB)(GLuint qid, GLenum pname, GLuint *params);
 
 void (GLAPIENTRY *qglSampleCoverageARB)(GLclampf value, GLboolean invert);
+
+void (GLAPIENTRY *qglGetUniformIndices)(GLuint program, GLsizei uniformCount, const GLchar** uniformNames, GLuint* uniformIndices);
+void (GLAPIENTRY *qglGetActiveUniformsiv)(GLuint program, GLsizei uniformCount, const GLuint* uniformIndices, GLenum pname, GLint* params);
+void (GLAPIENTRY *qglGetActiveUniformName)(GLuint program, GLuint uniformIndex, GLsizei bufSize, GLsizei* length, GLchar* uniformName);
+GLuint (GLAPIENTRY *qglGetUniformBlockIndex)(GLuint program, const GLchar* uniformBlockName);
+void (GLAPIENTRY *qglGetActiveUniformBlockiv)(GLuint program, GLuint uniformBlockIndex, GLenum pname,  GLint* params);
+void (GLAPIENTRY *qglGetActiveUniformBlockName)(GLuint program, GLuint uniformBlockIndex, GLsizei bufSize, GLsizei* length, GLchar* uniformBlockName);
+void (GLAPIENTRY *qglBindBufferRange)(GLenum target, GLuint index, GLuint buffer, GLintptrARB offset, GLsizeiptrARB size);
+void (GLAPIENTRY *qglBindBufferBase)(GLenum target, GLuint index, GLuint buffer);
+void (GLAPIENTRY *qglGetIntegeri_v)(GLenum target, GLuint index, GLint* data);
+void (GLAPIENTRY *qglUniformBlockBinding)(GLuint program, GLuint uniformBlockIndex, GLuint uniformBlockBinding);
+
+void (GLAPIENTRY *qglBlendFuncSeparate)(GLenum sfactorRGB, GLenum dfactorRGB, GLenum sfactorAlpha, GLenum dfactorAlpha);
 #endif
 
 #if _MSC_VER >= 1400
@@ -875,6 +890,21 @@ static dllfunction_t vbofuncs[] =
 	{NULL, NULL}
 };
 
+static dllfunction_t ubofuncs[] =
+{
+	{"glGetUniformIndices"        , (void **) &qglGetUniformIndices},
+	{"glGetActiveUniformsiv"      , (void **) &qglGetActiveUniformsiv},
+	{"glGetActiveUniformName"     , (void **) &qglGetActiveUniformName},
+	{"glGetUniformBlockIndex"     , (void **) &qglGetUniformBlockIndex},
+	{"glGetActiveUniformBlockiv"  , (void **) &qglGetActiveUniformBlockiv},
+	{"glGetActiveUniformBlockName", (void **) &qglGetActiveUniformBlockName},
+	{"glBindBufferRange"          , (void **) &qglBindBufferRange},
+	{"glBindBufferBase"           , (void **) &qglBindBufferBase},
+	{"glGetIntegeri_v"            , (void **) &qglGetIntegeri_v},
+	{"glUniformBlockBinding"      , (void **) &qglUniformBlockBinding},
+	{NULL, NULL}
+};
+
 static dllfunction_t arbfbofuncs[] =
 {
 	{"glIsRenderbuffer"                      , (void **) &qglIsRenderbuffer},
@@ -958,6 +988,13 @@ static dllfunction_t multisamplefuncs[] =
 	{"glSampleCoverageARB",          (void **) &qglSampleCoverageARB},
 	{NULL, NULL}
 };
+
+static dllfunction_t blendfuncseparatefuncs[] =
+{
+	{"glBlendFuncSeparateEXT", (void **) &qglBlendFuncSeparate},
+	{NULL, NULL}
+};
+
 #endif
 
 void VID_ClearExtensions(void)
@@ -1007,18 +1044,18 @@ void VID_CheckExtensions(void)
 
 	if (vid.support.gl20shaders)
 	{
-		// this one is purely optional, needed for GLSL 1.3 support (#version 130), so we don't even check the return value of GL_CheckExtension
-		vid.support.gl20shaders130 = GL_CheckExtension("glshaders130", glsl130funcs, "-noglsl130", true);
-		if(vid.support.gl20shaders130)
-		{
-			char *s = (char *) qglGetString(GL_SHADING_LANGUAGE_VERSION);
-			if(!s || atof(s) < 1.30 - 0.00001)
-				vid.support.gl20shaders130 = 0;
-		}
-		if(vid.support.gl20shaders130)
-			Con_DPrintf("Using GLSL 1.30\n");
-		else
-			Con_DPrintf("Using GLSL 1.00\n");
+		char *s;
+		// detect what GLSL version is available, to enable features like r_glsl_skeletal and higher quality reliefmapping
+		vid.support.glshaderversion = 100;
+		s = (char *) qglGetString(GL_SHADING_LANGUAGE_VERSION);
+		if (s)
+			vid.support.glshaderversion = (int)(atof(s) * 100.0f + 0.5f);
+		if (vid.support.glshaderversion < 100)
+			vid.support.glshaderversion = 100;
+		Con_DPrintf("Detected GLSL #version %i\n", vid.support.glshaderversion);
+		// get the glBindFragDataLocation function
+		if (vid.support.glshaderversion >= 130)
+			vid.support.gl20shaders130 = GL_CheckExtension("glshaders130", glsl130funcs, "-noglsl130", true);
 	}
 
 	// GL drivers generally prefer GL_BGRA
@@ -1029,6 +1066,7 @@ void VID_CheckExtensions(void)
 	vid.support.arb_draw_buffers = GL_CheckExtension("GL_ARB_draw_buffers", drawbuffersfuncs, "-nodrawbuffers", false);
 	vid.support.arb_multitexture = GL_CheckExtension("GL_ARB_multitexture", multitexturefuncs, "-nomtex", false);
 	vid.support.arb_occlusion_query = GL_CheckExtension("GL_ARB_occlusion_query", occlusionqueryfuncs, "-noocclusionquery", false);
+	vid.support.arb_query_buffer_object = GL_CheckExtension("GL_ARB_query_buffer_object", NULL, "-noquerybuffer", true);
 	vid.support.arb_shadow = GL_CheckExtension("GL_ARB_shadow", NULL, "-noshadow", false);
 	vid.support.arb_texture_compression = GL_CheckExtension("GL_ARB_texture_compression", texturecompressionfuncs, "-notexturecompression", false);
 	vid.support.arb_texture_cube_map = GL_CheckExtension("GL_ARB_texture_cube_map", NULL, "-nocubemap", false);
@@ -1039,22 +1077,17 @@ void VID_CheckExtensions(void)
 	vid.support.arb_texture_non_power_of_two = GL_CheckExtension("GL_ARB_texture_non_power_of_two", NULL, "-notexturenonpoweroftwo", false);
 #endif
 	vid.support.arb_vertex_buffer_object = GL_CheckExtension("GL_ARB_vertex_buffer_object", vbofuncs, "-novbo", false);
+	vid.support.arb_uniform_buffer_object = GL_CheckExtension("GL_ARB_uniform_buffer_object", ubofuncs, "-noubo", false);
 	vid.support.ati_separate_stencil = GL_CheckExtension("separatestencil", gl2separatestencilfuncs, "-noseparatestencil", true) || GL_CheckExtension("GL_ATI_separate_stencil", atiseparatestencilfuncs, "-noseparatestencil", false);
 	vid.support.ext_blend_minmax = GL_CheckExtension("GL_EXT_blend_minmax", blendequationfuncs, "-noblendminmax", false);
 	vid.support.ext_blend_subtract = GL_CheckExtension("GL_EXT_blend_subtract", blendequationfuncs, "-noblendsubtract", false);
+	vid.support.ext_blend_func_separate = GL_CheckExtension("GL_EXT_blend_func_separate", blendfuncseparatefuncs, "-noblendfuncseparate", false);
 	vid.support.ext_draw_range_elements = GL_CheckExtension("drawrangeelements", drawrangeelementsfuncs, "-nodrawrangeelements", true) || GL_CheckExtension("GL_EXT_draw_range_elements", drawrangeelementsextfuncs, "-nodrawrangeelements", false);
 	vid.support.arb_framebuffer_object = GL_CheckExtension("GL_ARB_framebuffer_object", arbfbofuncs, "-nofbo", false);
 	if (vid.support.arb_framebuffer_object)
 		vid.support.ext_framebuffer_object = true;
 	else
 		vid.support.ext_framebuffer_object = GL_CheckExtension("GL_EXT_framebuffer_object", extfbofuncs, "-nofbo", false);
-
-	// FIXME remove this workaround once FBO + npot texture mapping is fixed
-	if(!vid.support.arb_texture_non_power_of_two)
-	{
-		vid.support.arb_framebuffer_object = false;
-		vid.support.ext_framebuffer_object = false;
-	}
 
 	vid.support.ext_packed_depth_stencil = GL_CheckExtension("GL_EXT_packed_depth_stencil", NULL, "-nopackeddepthstencil", false);
 	vid.support.ext_stencil_two_side = GL_CheckExtension("GL_EXT_stencil_two_side", stenciltwosidefuncs, "-nostenciltwoside", false);
@@ -1079,6 +1112,7 @@ void VID_CheckExtensions(void)
 // COMMANDLINEOPTION: GL: -nofbo disables GL_EXT_framebuffer_object (which accelerates rendering), only used if GL_ARB_fragment_shader is also available
 // COMMANDLINEOPTION: GL: -nomtex disables GL_ARB_multitexture (required for faster map rendering)
 // COMMANDLINEOPTION: GL: -noocclusionquery disables GL_ARB_occlusion_query (which allows coronas to fade according to visibility, and potentially used for rendering optimizations)
+// COMMANDLINEOPTION: GL: -noquerybuffer disables GL_ARB_query_buffer_object (which allows corona fading without synchronous rendering)
 // COMMANDLINEOPTION: GL: -nos3tc disables GL_EXT_texture_compression_s3tc (which allows use of .dds texture caching)
 // COMMANDLINEOPTION: GL: -noseparatestencil disables use of OpenGL2.0 glStencilOpSeparate and GL_ATI_separate_stencil extensions (which accelerate shadow rendering)
 // COMMANDLINEOPTION: GL: -noshadow disables use of GL_ARB_shadow (required for hardware shadowmap filtering)
@@ -1836,11 +1870,29 @@ static int VID_Mode(int fullscreen, int width, int height, int bpp, float refres
 		vid.sRGB2D         = vid_sRGB.integer >= 1 && vid.sRGBcapable2D;
 		vid.sRGB3D         = vid_sRGB.integer >= 1 && vid.sRGBcapable3D;
 
+		switch(vid.renderpath)
+		{
+		case RENDERPATH_GL11:
+		case RENDERPATH_GL13:
+		case RENDERPATH_GL20:
+#ifdef GL_STEREO
+			{
+				GLboolean stereo;
+				qglGetBooleanv(GL_STEREO, &stereo);
+				vid.stereobuffer = stereo != 0;
+			}
+#endif
+			break;
+		default:
+			vid.stereobuffer = false;
+			break;
+		}
+
 		if(
 			(vid_sRGB_fallback.integer >= 3) // force fallback
 			||
 			(vid_sRGB_fallback.integer >= 2 && // fallback if framebuffer is 8bit
-				!(r_viewfbo.integer >= 2 && vid.support.ext_framebuffer_object && vid.samples < 2))
+				!(r_viewfbo.integer >= 2 && vid.support.ext_framebuffer_object && vid.support.arb_texture_non_power_of_two && vid.samples < 2))
 		)
 			vid.sRGB2D = vid.sRGB3D = false;
 
@@ -1856,7 +1908,13 @@ static int VID_Mode(int fullscreen, int width, int height, int bpp, float refres
 		Cvar_SetValueQuick(&vid_samples, vid.mode.samples);
 		if(vid_userefreshrate.integer)
 			Cvar_SetValueQuick(&vid_refreshrate, vid.mode.refreshrate);
-		Cvar_SetValueQuick(&vid_stereobuffer, vid.mode.stereobuffer);
+		Cvar_SetValueQuick(&vid_stereobuffer, vid.stereobuffer ? 1 : 0);
+
+		if (vid_touchscreen.integer)
+		{
+			in_windowmouse_x = vid_width.value / 2.f;
+			in_windowmouse_y = vid_height.value / 2.f;
+		}
 
 		return true;
 	}
@@ -2067,6 +2125,7 @@ void VID_Soft_SharedSetup(void)
 	vid.support.arb_depth_texture = true;
 	vid.support.arb_draw_buffers = true;
 	vid.support.arb_occlusion_query = true;
+	vid.support.arb_query_buffer_object = false;
 	vid.support.arb_shadow = true;
 	//vid.support.arb_texture_compression = true;
 	vid.support.arb_texture_cube_map = true;
@@ -2075,13 +2134,6 @@ void VID_Soft_SharedSetup(void)
 	vid.support.ext_blend_subtract = true;
 	vid.support.ext_draw_range_elements = true;
 	vid.support.ext_framebuffer_object = true;
-
-	// FIXME remove this workaround once FBO + npot texture mapping is fixed
-	if(!vid.support.arb_texture_non_power_of_two)
-	{
-		vid.support.arb_framebuffer_object = false;
-		vid.support.ext_framebuffer_object = false;
-	}
 
 	vid.support.ext_texture_3d = true;
 	//vid.support.ext_texture_compression_s3tc = true;
@@ -2114,7 +2166,11 @@ void VID_Soft_SharedSetup(void)
 	Cvar_SetQuick(&gl_info_driver, gl_driver);
 
 	// LordHavoc: report supported extensions
+#ifdef CONFIG_MENU
 	Con_DPrintf("\nQuakeC extensions for server and client: %s\nQuakeC extensions for menu: %s\n", vm_sv_extensions, vm_m_extensions );
+#else
+	Con_DPrintf("\nQuakeC extensions for server and client: %s\n", vm_sv_extensions );
+#endif
 
 	// clear to black (loading plaque will be seen over this)
 	GL_Clear(GL_COLOR_BUFFER_BIT, NULL, 1.0f, 128);

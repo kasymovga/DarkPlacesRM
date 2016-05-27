@@ -61,6 +61,8 @@ io_connect_t IN_GetIOHandle(void)
 #define SDL_R_RESTART
 #endif
 
+#define SDL_MOUSE_RELATIVE_DOES_NOT_SUCK
+
 // Tell startup code that we have a client
 int cl_available = true;
 
@@ -91,7 +93,7 @@ static int video_bpp;
 static SDL_Surface *screen;
 static int video_flags;
 #else
-static SDL_GLContext *context;
+static SDL_GLContext context;
 static SDL_Window *window;
 static int window_flags;
 #endif
@@ -426,6 +428,7 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 #else
 #ifdef SDL_MOUSE_RELATIVE_DOES_NOT_SUCK
 		vid_usingmouse_relativeworks = SDL_SetRelativeMouseMode(relative ? SDL_TRUE : SDL_FALSE) == 0;
+        Con_DPrintf("VID_SetMouse(%i, %i, %i) relativeworks = %i\n", (int)fullscreengrab, (int)relative, (int)hidecursor, (int)vid_usingmouse_relativeworks);
 #else
 		vid_usingmouse_relativeworks = SDL_FALSE;
 #endif
@@ -1006,7 +1009,7 @@ void IN_Move( void )
 	}
 	else
 	{
-		if (vid_usingmouse)
+		if (vid_usingmouse && vid_activewindow)
 		{
 			if (vid_stick_mouse.integer || !vid_usingmouse_relativeworks)
 			{
@@ -1076,18 +1079,18 @@ static keynum_t buttonremap[] =
 	K_MOUSE1,
 	K_MOUSE3,
 	K_MOUSE2,
+
 /*
  * Mouse wheels are BUTTONS in SDL 1, they are NOT buttons in SDL2!
- * Mapping them in sdl2 may or may not cause problems at some future date.
- * Currently, mapping them is required to preserve button indices between SDL1 and SDL2 in Nexuiz and Vecxis.
+ * Mapping them here will cause MOUSE4 and MOUSE5 to register as MWHEELUP and MWHEELDOWN respectively,
+ * making them effectively useless.
  */
+
 #if SDL_MAJOR_VERSION == 1
 	K_MWHEELUP,
 	K_MWHEELDOWN,
-#else
-	K_MWHEELUP,
-	K_MWHEELDOWN,
 #endif
+
 	K_MOUSE4,
 	K_MOUSE5,
 	K_MOUSE6,
@@ -2430,6 +2433,55 @@ static void VID_OutputVersion(void)
 					version.major, version.minor, version.patch );
 }
 
+#ifdef WIN32
+#if SDL_MAJOR_VERSION == 1
+#else
+static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
+{
+    int workHeight, workWidth, titleBarPixels, screenHeight;
+    RECT workArea;
+
+	LONG width = mode->width; // vid_width
+	LONG height = mode->height; // vid_height
+
+	// adjust width and height for the space occupied by window decorators (title bar, borders)
+	rect->top = 0;
+	rect->left = 0;
+	rect->right = width;
+	rect->bottom = height;
+	AdjustWindowRectEx(rect, WS_CAPTION|WS_THICKFRAME, false, 0);
+
+	SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
+	workWidth = workArea.right - workArea.left;
+	workHeight = workArea.bottom - workArea.top;
+
+	// SDL forces the window height to be <= screen height - 27px (on Win8.1 - probably intended for the title bar) 
+	// If the task bar is docked to the the left screen border and we move the window to negative y,
+	// there would be some part of the regular desktop visible on the bottom of the screen.
+	titleBarPixels = 2;
+	screenHeight = GetSystemMetrics(SM_CYSCREEN);
+	if (screenHeight == workHeight)
+		titleBarPixels = -rect->top;
+
+	//Con_Printf("window mode: %dx%d, workArea: %d/%d-%d/%d (%dx%d), title: %d\n", width, height, workArea.left, workArea.top, workArea.right, workArea.bottom, workArea.right - workArea.left, workArea.bottom - workArea.top, titleBarPixels);
+
+	// if height and width matches the physical or previously adjusted screen height and width, adjust it to available desktop area
+	if ((width == GetSystemMetrics(SM_CXSCREEN) || width == workWidth) && (height == screenHeight || height == workHeight - titleBarPixels))
+	{
+		rect->left = workArea.left;
+		mode->width = workWidth;
+		rect->top = workArea.top + titleBarPixels;
+		mode->height = workHeight - titleBarPixels;
+	}
+	else 
+	{
+		rect->left = workArea.left + max(0, (workWidth - width) / 2);
+		rect->top = workArea.top + max(0, (workHeight - height) / 2);
+	}
+}
+#endif
+#endif
+
 static qboolean VID_InitModeGL(viddef_mode_t *mode)
 {
 #if SDL_MAJOR_VERSION == 1
@@ -2437,6 +2489,8 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 	int flags = SDL_OPENGL;
 #else
 	int windowflags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
+	int xPos = SDL_WINDOWPOS_UNDEFINED;
+	int yPos = SDL_WINDOWPOS_UNDEFINED;
 #endif
 #ifndef USE_GLES2
 	int i;
@@ -2451,6 +2505,8 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 		flags |= SDL_RESIZABLE;
 #else
 		windowflags |= SDL_WINDOW_RESIZABLE;
+
+    SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, vid_desktopfullscreen.integer? "0" : "1");
 #endif
 
 	VID_OutputVersion();
@@ -2508,7 +2564,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 		desktop_mode.pixelheight_num = 1;
 		desktop_mode.pixelheight_denom = 1; // SDL does not provide this
 		if (mode->fullscreen) {
-			if (vid_desktopfullscreen.integer)
+			if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			{
 				mode->width = vi->current_w;
 				mode->height = vi->current_h;
@@ -2521,7 +2577,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 #else
 	{
 		if (mode->fullscreen) {
-			if (vid_desktopfullscreen.integer)
+			if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			{
 				vid_mode_t *m = VID_GetDesktopMode();
 				mode->width = m->width;
@@ -2531,6 +2587,14 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 			else
 				windowflags |= SDL_WINDOW_FULLSCREEN;
 			vid_isfullscreen = true;
+		}
+		else {
+#ifdef WIN32
+			RECT rect;
+			AdjustWindowBounds(mode, &rect);
+			xPos = rect.left;
+			yPos = rect.top;
+#endif
 		}
 	}
 #endif
@@ -2588,7 +2652,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 	mode->height = screen->h;
 #else
 	window_flags = windowflags;
-	window = SDL_CreateWindow(gamename, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, mode->width, mode->height, windowflags);
+	window = SDL_CreateWindow(gamename, xPos, yPos, mode->width, mode->height, windowflags);
 	if (window == NULL)
 	{
 		Con_Printf("Failed to set video mode to %ix%i: %s\n", mode->width, mode->height, SDL_GetError());
@@ -2678,7 +2742,7 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 		mode->bitsperpixel = vi->vfmt->BitsPerPixel;
 		flags |= SDL_FULLSCREEN;
 #else
-		if (vid_desktopfullscreen.integer)
+		if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			windowflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		else
 			windowflags |= SDL_WINDOW_FULLSCREEN;

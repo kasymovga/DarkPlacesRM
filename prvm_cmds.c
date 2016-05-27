@@ -16,9 +16,12 @@
 #include "ft2.h"
 #include "mdfour.h"
 #include "irc.h"
+#include "slre.h"
 
 extern cvar_t prvm_backtraceforwarnings;
+#ifdef USEODE
 extern dllhandle_t ode_dll;
+#endif
 
 // LordHavoc: changed this to NOT use a return statement, so that it can be used in functions that must return a value
 void VM_Warning(prvm_prog_t *prog, const char *fmt, ...)
@@ -37,7 +40,7 @@ void VM_Warning(prvm_prog_t *prog, const char *fmt, ...)
 	if(prvm_backtraceforwarnings.integer && recursive != realtime) // NOTE: this compares to the time, just in case if PRVM_PrintState causes a Host_Error and keeps recursive set
 	{
 		recursive = realtime;
-		PRVM_PrintState(prog);
+		PRVM_PrintState(prog, 0);
 		recursive = -1;
 	}
 }
@@ -98,7 +101,10 @@ void VM_FrameBlendFromFrameGroupBlend(frameblend_t *frameblend, const framegroup
 
 	memset(blend, 0, MAX_FRAMEBLENDS * sizeof(*blend));
 
-	if (!model || !model->surfmesh.isanimated)
+	// rpolzer: Not testing isanimated here - a model might have
+	// "animations" that move no vertices (but only bones), thus rendering
+	// may assume it's not animated while processing can't.
+	if (!model)
 	{
 		blend[0].lerp = 1;
 		return;
@@ -276,19 +282,21 @@ static qboolean checkextension(prvm_prog_t *prog, const char *name)
 			e++;
 		if ((e - start) == len && !strncasecmp(start, name, len))
 		{
+#ifdef USEODE
 			// special sheck for ODE
 			if (!strncasecmp("DP_PHYSICS_ODE", name, 14))
 			{
-#ifdef ODE_DYNAMIC
+#ifndef LINK_TO_LIBODE
 				return ode_dll ? true : false;
 #else
-#ifdef ODE_STATIC
+#ifdef LINK_TO_LIBODE
 				return true;
 #else
 				return false;
 #endif
 #endif
 			}
+#endif
 
 			// special sheck for d0_blind_id
 			if (!strcasecmp("DP_CRYPTO", name))
@@ -639,49 +647,141 @@ void VM_cvar(prvm_prog_t *prog)
 
 /*
 =================
-VM_cvar
+VM_cvar_type
 
-float cvar_type (string)
+float cvar_type(string);
 float CVAR_TYPEFLAG_EXISTS = 1;
 float CVAR_TYPEFLAG_SAVED = 2;
 float CVAR_TYPEFLAG_PRIVATE = 4;
 float CVAR_TYPEFLAG_ENGINE = 8;
 float CVAR_TYPEFLAG_HASDESCRIPTION = 16;
 float CVAR_TYPEFLAG_READONLY = 32;
+float CVAR_TYPEFLAG_MODIFIED = 64;
+float CVAR_TYPEFLAG_WATCHED = 128;
 =================
 */
+
+#define CVAR_TYPEFLAG_EXISTS            1
+#define CVAR_TYPEFLAG_SAVED             2
+#define CVAR_TYPEFLAG_PRIVATE           4
+#define CVAR_TYPEFLAG_ENGINE            8
+#define CVAR_TYPEFLAG_HASDESCRIPTION    16
+#define CVAR_TYPEFLAG_READONLY          32
+#define CVAR_TYPEFLAG_MODIFIED          64
+#define CVAR_TYPEFLAG_WATCHED           128
+
+#define CVAR_TYPEFLAGS_ALTERFORBIDDEN (CVAR_TYPEFLAG_EXISTS | CVAR_TYPEFLAG_PRIVATE | CVAR_TYPEFLAG_ENGINE | CVAR_TYPEFLAG_HASDESCRIPTION | CVAR_TYPEFLAG_MODIFIED)
+
 void VM_cvar_type(prvm_prog_t *prog)
 {
 	char string[VM_STRINGTEMP_LENGTH];
 	cvar_t *cvar;
 	int ret;
 
-	VM_SAFEPARMCOUNTRANGE(1,8,VM_cvar);
+	VM_SAFEPARMCOUNTRANGE(1,8,VM_cvar_type);
 	VM_VarString(prog, 0, string, sizeof(string));
 	VM_CheckEmptyString(prog, string);
 	cvar = Cvar_FindVar(string);
 
 
-	if(!cvar)
-	{
+	if(!cvar) {
 		PRVM_G_FLOAT(OFS_RETURN) = 0;
-		return; // CVAR_TYPE_NONE
+		return;
 	}
 
-	ret = 1; // CVAR_EXISTS
+	ret = CVAR_TYPEFLAG_EXISTS;
 	if(cvar->flags & CVAR_SAVE)
-		ret |= 2; // CVAR_TYPE_SAVED
+		ret |= CVAR_TYPEFLAG_SAVED;
 	if(cvar->flags & CVAR_PRIVATE)
-		ret |= 4; // CVAR_TYPE_PRIVATE
+		ret |= CVAR_TYPEFLAG_PRIVATE;
 	if(!(cvar->flags & CVAR_ALLOCATED))
-		ret |= 8; // CVAR_TYPE_ENGINE
+		ret |= CVAR_TYPEFLAG_ENGINE;
 	if(cvar->description != cvar_dummy_description)
-		ret |= 16; // CVAR_TYPE_HASDESCRIPTION
+		ret |= CVAR_TYPEFLAG_HASDESCRIPTION;
 	if(cvar->flags & CVAR_READONLY)
-		ret |= 32; // CVAR_TYPE_READONLY
+		ret |= CVAR_TYPEFLAG_READONLY;
+	if(!cvar->initstate)
+		ret |= CVAR_TYPEFLAG_MODIFIED;
+    if(cvar->flags & CVAR_WATCHED)
+        ret |= CVAR_TYPEFLAG_WATCHED;
 	
 	PRVM_G_FLOAT(OFS_RETURN) = ret;
 }
+
+static int typeflags_to_cvarflags(int flags) {
+    int ret = 0;
+
+    if(flags & CVAR_TYPEFLAG_SAVED)
+        ret |= CVAR_SAVE;
+
+    if(flags & CVAR_TYPEFLAG_READONLY)
+        ret |= CVAR_READONLY;
+
+    if(flags & CVAR_TYPEFLAG_WATCHED)
+        ret |= CVAR_WATCHED;
+
+    return ret;
+}
+
+/*
+=================
+VM_cvar_altertype
+
+float cvar_altertype(string varname, float setflags, float unsetflags);
+=================
+*/
+
+void VM_cvar_altertype(prvm_prog_t *prog) {
+    int setflags, unsetflags;
+    const char *cvarname;
+    cvar_t *cvar;
+
+    VM_SAFEPARMCOUNT(3, VM_cvar_altertype);
+    PRVM_G_FLOAT(OFS_RETURN) = 0;
+
+    cvarname = PRVM_G_STRING(OFS_PARM0);
+    VM_CheckEmptyString(prog, cvarname);
+    cvar = Cvar_FindVar(cvarname);
+
+    if(!cvar) {
+        Con_Printf("VM_cvar_altertype: cvar \"%s\" not found\n", cvarname);
+        return;
+    }
+
+    if(!(cvar->flags & CVAR_ALLOCATED)) {
+        Con_Printf("VM_cvar_altertype: attempted to modify an engine cvar \"%s\"\n", cvarname);
+        return;
+    }
+
+    setflags = (int)PRVM_G_FLOAT(OFS_PARM1);
+    unsetflags = (int)PRVM_G_FLOAT(OFS_PARM2);
+
+    if(setflags & CVAR_TYPEFLAGS_ALTERFORBIDDEN) {
+        Con_Printf("VM_cvar_altertype: bad flags: %i\n", setflags);
+        return;
+    }
+
+    if(unsetflags & CVAR_TYPEFLAGS_ALTERFORBIDDEN) {
+        Con_Printf("VM_cvar_altertype: bad flags: %i\n", unsetflags);
+        return;
+    }
+
+    cvar->flags |= typeflags_to_cvarflags(setflags);
+    cvar->flags &= ~typeflags_to_cvarflags(unsetflags);
+
+    PRVM_G_FLOAT(OFS_RETURN) = 1;
+}
+
+#undef CVAR_TYPEFLAG_EXISTS
+#undef CVAR_TYPEFLAG_SAVED
+#undef CVAR_TYPEFLAG_PRIVATE
+#undef CVAR_TYPEFLAG_ENGINE
+#undef CVAR_TYPEFLAG_HASDESCRIPTION
+#undef CVAR_TYPEFLAG_READONLY
+#undef CVAR_TYPEFLAG_MODIFIED
+#undef CVAR_TYPEFLAG_WATCHED
+
+#undef CVAR_TYPEFLAGS_ALTERFORBIDDEN
 
 /*
 =================
@@ -2209,8 +2309,8 @@ void VM_strlennocol(prvm_prog_t *prog)
 
 	szString = PRVM_G_STRING(OFS_PARM0);
 
-	//nCnt = COM_StringLengthNoColors(szString, 0, NULL);
-	nCnt = u8_COM_StringLengthNoColors(szString, 0, NULL);
+	//nCnt = (int)COM_StringLengthNoColors(szString, 0, NULL);
+	nCnt = (int)u8_COM_StringLengthNoColors(szString, 0, NULL);
 
 	PRVM_G_FLOAT(OFS_RETURN) = nCnt;
 }
@@ -2324,7 +2424,7 @@ void VM_substring(prvm_prog_t *prog)
 
 	if (start < 0) // FTE_STRINGS feature
 	{
-		u_slength = u8_strlen(s);
+		u_slength = (int)u8_strlen(s);
 		start += u_slength;
 		start = bound(0, start, u_slength);
 	}
@@ -2332,7 +2432,7 @@ void VM_substring(prvm_prog_t *prog)
 	if (length < 0) // FTE_STRINGS feature
 	{
 		if (!u_slength) // it's not calculated when it's not needed above
-			u_slength = u8_strlen(s);
+			u_slength = (int)u8_strlen(s);
 		length += u_slength - start + 1;
 	}
 		
@@ -2683,7 +2783,7 @@ void VM_tokenizebyseparator (prvm_prog_t *prog)
 		if (!s[0])
 			continue;
 		separators[numseparators] = s;
-		separatorlen[numseparators] = strlen(s);
+		separatorlen[numseparators] = (int)strlen(s);
 		numseparators++;
 	}
 
@@ -2790,7 +2890,7 @@ void VM_isserver(prvm_prog_t *prog)
 {
 	VM_SAFEPARMCOUNT(0,VM_serverstate);
 
-	PRVM_G_FLOAT(OFS_RETURN) = sv.active && (svs.maxclients > 1 || cls.state == ca_dedicated);
+	PRVM_G_FLOAT(OFS_RETURN) = sv.active;
 }
 
 /*
@@ -2869,7 +2969,9 @@ VM_gettime
 float	gettime(prvm_prog_t *prog)
 =========
 */
+#ifdef CONFIG_CD
 float CDAudio_GetPosition(void);
+#endif
 void VM_gettime(prvm_prog_t *prog)
 {
 	int timer_index;
@@ -2897,9 +2999,11 @@ void VM_gettime(prvm_prog_t *prog)
 			case 3: // GETTIME_UPTIME
 				PRVM_G_FLOAT(OFS_RETURN) = realtime;
 				break;
+#ifdef CONFIG_CD
 			case 4: // GETTIME_CDTRACK
 				PRVM_G_FLOAT(OFS_RETURN) = CDAudio_GetPosition();
 				break;
+#endif
 			default:
 				VM_Warning(prog, "VM_gettime: %s: unsupported timer specified, returning realtime\n", prog->name);
 				PRVM_G_FLOAT(OFS_RETURN) = realtime;
@@ -4419,23 +4523,25 @@ string altstr_prepare(string)
 */
 void VM_altstr_prepare(prvm_prog_t *prog)
 {
-	char *out;
 	const char *instr, *in;
-	int size;
 	char outstr[VM_STRINGTEMP_LENGTH];
+	size_t outpos;
 
 	VM_SAFEPARMCOUNT( 1, VM_altstr_prepare );
 
 	instr = PRVM_G_STRING( OFS_PARM0 );
 
-	for( out = outstr, in = instr, size = sizeof(outstr) - 1 ; size && *in ; size--, in++, out++ )
-		if( *in == '\'' ) {
-			*out++ = '\\';
-			*out = '\'';
-			size--;
-		} else
-			*out = *in;
-	*out = 0;
+	for (in = instr, outpos = 0; *in && outpos < sizeof(outstr) - 1; ++in)
+	{
+		if (*in == '\'' && outpos < sizeof(outstr) - 2)
+		{
+			outstr[outpos++] = '\\';
+			outstr[outpos++] = '\'';
+		}
+		else
+			outstr[outpos++] = *in;
+	}
+	outstr[outpos] = 0;
 
 	PRVM_G_INT( OFS_RETURN ) = PRVM_SetTempString(prog,  outstr );
 }
@@ -4631,6 +4737,98 @@ static int BufStr_SortStringsDOWN (const void *in1, const void *in2)
 	return strncmp(b, a, stringbuffers_sortlength);
 }
 
+prvm_stringbuffer_t *BufStr_FindCreateReplace (prvm_prog_t *prog, int bufindex, int flags, const char *format)
+{
+	prvm_stringbuffer_t *stringbuffer;
+	int i;
+
+	if (bufindex < 0)
+		return NULL;
+
+	// find buffer with wanted index
+	if (bufindex < (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray))
+	{
+		if ( (stringbuffer = (prvm_stringbuffer_t*) Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, bufindex)) )
+		{
+			if (stringbuffer->flags & STRINGBUFFER_TEMP)
+				stringbuffer->flags = flags; // created but has not been used yet
+			return stringbuffer;
+		}
+		return NULL;
+	}
+
+	// allocate new buffer with wanted index
+	while(1)
+	{
+		stringbuffer = (prvm_stringbuffer_t *) Mem_ExpandableArray_AllocRecord(&prog->stringbuffersarray);
+		stringbuffer->flags = STRINGBUFFER_TEMP;
+		for (i = 0;stringbuffer != Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i);i++);
+		if (i == bufindex)
+		{
+			stringbuffer->flags = flags; // mark as used
+			break;
+		}
+	}
+	return stringbuffer;
+}
+
+void BufStr_Set(prvm_prog_t *prog, prvm_stringbuffer_t *stringbuffer, int strindex, const char *str)
+{
+	size_t  alloclen;
+
+	if (!stringbuffer || strindex < 0)
+		return;
+
+	BufStr_Expand(prog, stringbuffer, strindex);
+	stringbuffer->num_strings = max(stringbuffer->num_strings, strindex + 1);
+	if (stringbuffer->strings[strindex])
+		Mem_Free(stringbuffer->strings[strindex]);
+	stringbuffer->strings[strindex] = NULL;
+
+	if (str)
+	{
+		// not the NULL string!
+		alloclen = strlen(str) + 1;
+		stringbuffer->strings[strindex] = (char *)Mem_Alloc(prog->progs_mempool, alloclen);
+		memcpy(stringbuffer->strings[strindex], str, alloclen);
+	}
+
+	BufStr_Shrink(prog, stringbuffer);
+}
+
+void BufStr_Del(prvm_prog_t *prog, prvm_stringbuffer_t *stringbuffer)
+{
+	int i;
+	
+	if (!stringbuffer)
+		return;
+
+	for (i = 0;i < stringbuffer->num_strings;i++)
+		if (stringbuffer->strings[i])
+			Mem_Free(stringbuffer->strings[i]);
+	if (stringbuffer->strings)
+		Mem_Free(stringbuffer->strings);
+	if(stringbuffer->origin)
+		PRVM_Free((char *)stringbuffer->origin);
+	Mem_ExpandableArray_FreeRecord(&prog->stringbuffersarray, stringbuffer);
+}
+
+void BufStr_Flush(prvm_prog_t *prog)
+{
+	prvm_stringbuffer_t *stringbuffer;
+	int i, numbuffers;
+
+	numbuffers = (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
+	for (i = 0; i < numbuffers; i++)
+		if ( (stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i)) )
+			BufStr_Del(prog, stringbuffer);
+	Mem_ExpandableArray_NewArray(&prog->stringbuffersarray, prog->progs_mempool, sizeof(prvm_stringbuffer_t), 64);
+}
+
+static prvm_stringbuffer_t* BufStr_Get(prvm_prog_t *prog, int handle) {
+    return (prvm_stringbuffer_t*)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, handle);
+}
+
 /*
 ========================
 VM_buf_create
@@ -4658,7 +4856,7 @@ void VM_buf_create (prvm_prog_t *prog)
 	stringbuffer->origin = PRVM_AllocationOrigin(prog);
 	// optional flags parm
 	if (prog->argc >= 2)
-		stringbuffer->flags = (int)PRVM_G_FLOAT(OFS_PARM1) & 0xFF;
+		stringbuffer->flags = (int)PRVM_G_FLOAT(OFS_PARM1) & STRINGBUFFER_QCFLAGS;
 	PRVM_G_FLOAT(OFS_RETURN) = i;
 }
 
@@ -4675,19 +4873,9 @@ void VM_buf_del (prvm_prog_t *prog)
 {
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(1, VM_buf_del);
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+	stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if (stringbuffer)
-	{
-		int i;
-		for (i = 0;i < stringbuffer->num_strings;i++)
-			if (stringbuffer->strings[i])
-				Mem_Free(stringbuffer->strings[i]);
-		if (stringbuffer->strings)
-			Mem_Free(stringbuffer->strings);
-		if(stringbuffer->origin)
-			PRVM_Free((char *)stringbuffer->origin);
-		Mem_ExpandableArray_FreeRecord(&prog->stringbuffersarray, stringbuffer);
-	}
+		BufStr_Del(prog, stringbuffer);
 	else
 	{
 		VM_Warning(prog, "VM_buf_del: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4707,7 +4895,7 @@ void VM_buf_getsize (prvm_prog_t *prog)
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(1, VM_buf_getsize);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		PRVM_G_FLOAT(OFS_RETURN) = -1;
@@ -4731,7 +4919,7 @@ void VM_buf_copy (prvm_prog_t *prog)
 	int i;
 	VM_SAFEPARMCOUNT(2, VM_buf_copy);
 
-	srcstringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    srcstringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!srcstringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_copy: invalid source buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4743,7 +4931,7 @@ void VM_buf_copy (prvm_prog_t *prog)
 		VM_Warning(prog, "VM_buf_copy: source == destination (%i) in %s\n", i, prog->name);
 		return;
 	}
-	dststringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    dststringbuffer = BufStr_Get(prog, i);
 	if(!dststringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_copy: invalid destination buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -4784,7 +4972,7 @@ void VM_buf_sort (prvm_prog_t *prog)
 	prvm_stringbuffer_t *stringbuffer;
 	VM_SAFEPARMCOUNT(3, VM_buf_sort);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_sort: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4823,7 +5011,7 @@ void VM_buf_implode (prvm_prog_t *prog)
 	size_t			l;
 	VM_SAFEPARMCOUNT(2, VM_buf_implode);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	PRVM_G_INT(OFS_RETURN) = OFS_NULL;
 	if(!stringbuffer)
 	{
@@ -4862,7 +5050,7 @@ void VM_bufstr_get (prvm_prog_t *prog)
 	VM_SAFEPARMCOUNT(2, VM_bufstr_get);
 
 	PRVM_G_INT(OFS_RETURN) = OFS_NULL;
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_get: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4887,14 +5075,13 @@ void bufstr_set(float bufhandle, float string_index, string str) = #466;
 */
 void VM_bufstr_set (prvm_prog_t *prog)
 {
-	size_t alloclen;
 	int				strindex;
 	prvm_stringbuffer_t *stringbuffer;
 	const char		*news;
 
 	VM_SAFEPARMCOUNT(3, VM_bufstr_set);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_set: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -4907,23 +5094,8 @@ void VM_bufstr_set (prvm_prog_t *prog)
 		return;
 	}
 
-	BufStr_Expand(prog, stringbuffer, strindex);
-	stringbuffer->num_strings = max(stringbuffer->num_strings, strindex + 1);
-
-	if(stringbuffer->strings[strindex])
-		Mem_Free(stringbuffer->strings[strindex]);
-	stringbuffer->strings[strindex] = NULL;
-
-	if(PRVM_G_INT(OFS_PARM2))
-	{
-		// not the NULL string!
-		news = PRVM_G_STRING(OFS_PARM2);
-		alloclen = strlen(news) + 1;
-		stringbuffer->strings[strindex] = (char *)Mem_Alloc(prog->progs_mempool, alloclen);
-		memcpy(stringbuffer->strings[strindex], news, alloclen);
-	}
-
-	BufStr_Shrink(prog, stringbuffer);
+	news = PRVM_G_STRING(OFS_PARM2);
+	BufStr_Set(prog, stringbuffer, strindex, news);
 }
 
 /*
@@ -4943,7 +5115,7 @@ void VM_bufstr_add (prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNT(3, VM_bufstr_add);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	PRVM_G_FLOAT(OFS_RETURN) = -1;
 	if(!stringbuffer)
 	{
@@ -4987,7 +5159,7 @@ void VM_bufstr_free (prvm_prog_t *prog)
 	prvm_stringbuffer_t	*stringbuffer;
 	VM_SAFEPARMCOUNT(2, VM_bufstr_free);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_free: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5022,21 +5194,19 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	size_t alloclen;
 	prvm_stringbuffer_t *stringbuffer;
 	char string[VM_STRINGTEMP_LENGTH];
-	int filenum, strindex, c, end;
+	int strindex, c, end;
 	const char *filename;
 	char vabuf[1024];
+	qfile_t *file;
 
 	VM_SAFEPARMCOUNT(2, VM_buf_loadfile);
 
 	// get file
 	filename = PRVM_G_STRING(OFS_PARM0);
-	for (filenum = 0;filenum < PRVM_MAX_OPENFILES;filenum++)
-		if (prog->openfiles[filenum] == NULL)
-			break;
-	prog->openfiles[filenum] = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "data/%s", filename), false);
-	if (prog->openfiles[filenum] == NULL)
-		prog->openfiles[filenum] = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "%s", filename), false);
-	if (prog->openfiles[filenum] == NULL)
+	file = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "data/%s", filename), false);
+	if (file == NULL)
+		file = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "%s", filename), false);
+	if (file == NULL)
 	{
 		if (developer_extra.integer)
 			VM_Warning(prog, "VM_buf_loadfile: failed to open file %s in %s\n", filename, prog->name);
@@ -5045,7 +5215,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	}
 
 	// get string buffer
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM1));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_loadfile: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -5061,7 +5231,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 		end = 0;
 		for (;;)
 		{
-			c = FS_Getc(prog->openfiles[filenum]);
+			c = FS_Getc(file);
 			if (c == '\r' || c == '\n' || c < 0)
 				break;
 			if (end < VM_STRINGTEMP_LENGTH - 1)
@@ -5071,9 +5241,9 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 		// remove \n following \r
 		if (c == '\r')
 		{
-			c = FS_Getc(prog->openfiles[filenum]);
+			c = FS_Getc(file);
 			if (c != '\n')
-				FS_UnGetc(prog->openfiles[filenum], (unsigned char)c);
+				FS_UnGetc(file, (unsigned char)c);
 		}
 		// add and continue
 		if (c >= 0 || end)
@@ -5090,10 +5260,7 @@ void VM_buf_loadfile(prvm_prog_t *prog)
 	}
 
 	// close file
-	FS_Close(prog->openfiles[filenum]);
-	prog->openfiles[filenum] = NULL;
-	if (prog->openfiles_origin[filenum])
-		PRVM_Free((char *)prog->openfiles_origin[filenum]);
+	FS_Close(file);
 	PRVM_G_FLOAT(OFS_RETURN) = 1;
 }
 
@@ -5126,7 +5293,7 @@ void VM_buf_writefile(prvm_prog_t *prog)
 	}
 	
 	// get string buffer
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM1));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_buf_writefile: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM1), prog->name);
@@ -5168,7 +5335,7 @@ void VM_buf_writefile(prvm_prog_t *prog)
 	{
 		if (stringbuffer->strings[strindex])
 		{
-			if ((strlength = strlen(stringbuffer->strings[strindex])))
+			if ((strlength = (int)strlen(stringbuffer->strings[strindex])))
 				FS_Write(prog->openfiles[filenum], stringbuffer->strings[strindex], strlength);
 			FS_Write(prog->openfiles[filenum], "\n", 1);
 		}
@@ -5191,7 +5358,7 @@ static const char *detect_match_rule(char *pattern, int *matchrule)
 	char *ppos, *qpos;
 	int patternlength;
 
-	patternlength = strlen(pattern);
+	patternlength = (int)strlen(pattern);
 	ppos = strchr(pattern, '*');
 	qpos = strchr(pattern, '?');
 	// has ? - pattern
@@ -5280,7 +5447,7 @@ void VM_bufstr_find(prvm_prog_t *prog)
 	PRVM_G_FLOAT(OFS_RETURN) = -1;
 
 	// get string buffer
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+    stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
 		VM_Warning(prog, "VM_bufstr_find: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
@@ -5301,7 +5468,7 @@ void VM_bufstr_find(prvm_prog_t *prog)
 		strlcpy(string, PRVM_G_STRING(OFS_PARM1), sizeof(string));
 		match = detect_match_rule(string, &matchrule);
 	}
-	matchlen = strlen(match);
+	matchlen = (int)strlen(match);
 
 	// find
 	i = (prog->argc > 3) ? (int)PRVM_G_FLOAT(OFS_PARM3) : 0;
@@ -5349,7 +5516,7 @@ void VM_matchpattern(prvm_prog_t *prog)
 	}
 
 	// offset
-	l = strlen(match);
+	l = (int)strlen(match);
 	if (prog->argc > 3)
 		s += max(0, min((unsigned int)PRVM_G_FLOAT(OFS_PARM3), strlen(s)-1));
 
@@ -5374,10 +5541,10 @@ void VM_buf_cvarlist(prvm_prog_t *prog)
 	prvm_stringbuffer_t	*stringbuffer;
 	VM_SAFEPARMCOUNTRANGE(2, 3, VM_buf_cvarlist);
 
-	stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, (int)PRVM_G_FLOAT(OFS_PARM0));
+	stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM0));
 	if(!stringbuffer)
 	{
-		VM_Warning(prog, "VM_bufstr_free: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
+		VM_Warning(prog, "VM_buf_cvarlist: invalid buffer %i used in %s\n", (int)PRVM_G_FLOAT(OFS_PARM0), prog->name);
 		return;
 	}
 
@@ -5421,6 +5588,11 @@ void VM_buf_cvarlist(prvm_prog_t *prog)
 	stringbuffer->max_strings = stringbuffer->num_strings = n;
 	if (stringbuffer->max_strings)
 		stringbuffer->strings = (char **)Mem_Alloc(prog->progs_mempool, sizeof(stringbuffer->strings[0]) * stringbuffer->max_strings);
+	
+	if (stringbuffer->strings == NULL) {
+		VM_Warning(prog, "VM_buf_cvarlist: can't allocate space for buffer in %s\n", prog->name);
+		return;
+	}
 	
 	n = 0;
 	for(cvar = cvar_vars; cvar; cvar = cvar->next)
@@ -5584,7 +5756,7 @@ void VM_strstrofs (prvm_prog_t *prog)
 	instr = PRVM_G_STRING(OFS_PARM0);
 	match = PRVM_G_STRING(OFS_PARM1);
 	firstofs = (prog->argc > 2)?(int)PRVM_G_FLOAT(OFS_PARM2):0;
-	firstofs = u8_bytelen(instr, firstofs);
+	firstofs = (int)u8_bytelen(instr, firstofs);
 
 	if (firstofs && (firstofs < 0 || firstofs > (int)strlen(instr)))
 	{
@@ -5607,7 +5779,7 @@ void VM_str2chr (prvm_prog_t *prog)
 	int index;
 	VM_SAFEPARMCOUNT(2, VM_str2chr);
 	s = PRVM_G_STRING(OFS_PARM0);
-	index = u8_bytelen(s, (int)PRVM_G_FLOAT(OFS_PARM1));
+	index = (int)u8_bytelen(s, (int)PRVM_G_FLOAT(OFS_PARM1));
 
 	if((unsigned)index < strlen(s))
 	{
@@ -5737,7 +5909,7 @@ void VM_strconv (prvm_prog_t *prog)
 	redalpha = (int) PRVM_G_FLOAT(OFS_PARM1);	//0 same, 1 white, 2 red,  5 alternate, 6 alternate-alternate
 	rednum = (int) PRVM_G_FLOAT(OFS_PARM2);	//0 same, 1 white, 2 red, 3 redspecial, 4 whitespecial, 5 alternate, 6 alternate-alternate
 	VM_VarString(prog, 3, (char *) resbuf, sizeof(resbuf));
-	len = strlen((char *) resbuf);
+	len = (int)strlen((char *) resbuf);
 
 	for (i = 0; i < len; i++, result++)	//should this be done backwards?
 	{
@@ -5889,7 +6061,7 @@ void VM_digest_hex(prvm_prog_t *prog)
 	if(!digest)
 		digest = "";
 	VM_VarString(prog, 1, s, sizeof(s));
-	len = strlen(s);
+	len = (int)strlen(s);
 
 	outlen = 0;
 
@@ -5971,11 +6143,14 @@ void VM_Cmd_Init(prvm_prog_t *prog)
 	VM_Search_Init(prog);
 }
 
+static void animatemodel_reset(prvm_prog_t *prog);
+
 void VM_Cmd_Reset(prvm_prog_t *prog)
 {
 	CL_PurgeOwner( MENUOWNER );
 	VM_Search_Reset(prog);
 	VM_Files_CloseAll(prog);
+	animatemodel_reset(prog);
 }
 
 // #510 string(string input, ...) uri_escape (DP_QC_URI_ESCAPE)
@@ -6068,7 +6243,7 @@ void VM_whichpack (prvm_prog_t *prog)
 	fn = PRVM_G_STRING(OFS_PARM0);
 	pack = FS_WhichPack(fn);
 
-	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, pack ? pack : "");
+	PRVM_G_INT(OFS_RETURN) = pack ? PRVM_SetTempString(prog, pack) : 0;
 }
 
 typedef struct
@@ -6077,6 +6252,7 @@ typedef struct
 	double starttime;
 	float id;
 	char buffer[MAX_INPUTLINE];
+	char posttype[128];
 	unsigned char *postdata; // free when uri_to_prog_t is freed
 	size_t postlen;
 	char *sigdata; // free when uri_to_prog_t is freed
@@ -6236,7 +6412,8 @@ void VM_uri_get (prvm_prog_t *prog)
 			handle->sigdata[handle->siglen] = 0;
 		}
 out1:
-		ret = Curl_Begin_ToMemory_POST(url, handle->sigdata, 0, posttype, handle->postdata, handle->postlen, (unsigned char *) handle->buffer, sizeof(handle->buffer), uri_to_string_callback, handle);
+		strlcpy(handle->posttype, posttype, sizeof(handle->posttype));
+		ret = Curl_Begin_ToMemory_POST(url, handle->sigdata, 0, handle->posttype, handle->postdata, handle->postlen, (unsigned char *) handle->buffer, sizeof(handle->buffer), uri_to_string_callback, handle);
 	}
 	else
 	{
@@ -6743,7 +6920,8 @@ nolength:
 			default:
 verbatim:
 				if(o < end - 1)
-					*o++ = *s++;
+					*o++ = *s;
+				++s;
 				break;
 		}
 	}
@@ -6765,9 +6943,8 @@ static dp_model_t *getmodel(prvm_prog_t *prog, prvm_edict_t *ed)
 		return NULL;
 }
 
-typedef struct
+struct animatemodel_cache
 {
-	unsigned int progid;
 	dp_model_t *model;
 	frameblend_t frameblend[MAX_FRAMEBLENDS];
 	skeleton_t *skeleton_p;
@@ -6781,61 +6958,74 @@ typedef struct
 	float *buf_svector3f;
 	float *buf_tvector3f;
 	float *buf_normal3f;
+};
+
+static void animatemodel_reset(prvm_prog_t *prog)
+{
+	if (!prog->animatemodel_cache)
+		return;
+	if(prog->animatemodel_cache->buf_vertex3f) Mem_Free(prog->animatemodel_cache->buf_vertex3f);
+	if(prog->animatemodel_cache->buf_svector3f) Mem_Free(prog->animatemodel_cache->buf_svector3f);
+	if(prog->animatemodel_cache->buf_tvector3f) Mem_Free(prog->animatemodel_cache->buf_tvector3f);
+	if(prog->animatemodel_cache->buf_normal3f) Mem_Free(prog->animatemodel_cache->buf_normal3f);
+	Mem_Free(prog->animatemodel_cache);
 }
-animatemodel_cache_t;
-static animatemodel_cache_t animatemodel_cache;
 
 static void animatemodel(prvm_prog_t *prog, dp_model_t *model, prvm_edict_t *ed)
 {
 	skeleton_t *skeleton;
 	int skeletonindex = -1;
 	qboolean need = false;
+	struct animatemodel_cache *animatemodel_cache;
+	if (!prog->animatemodel_cache)
+	{
+		prog->animatemodel_cache = (struct animatemodel_cache *)Mem_Alloc(prog->progs_mempool, sizeof(struct animatemodel_cache));
+		memset(prog->animatemodel_cache, 0, sizeof(struct animatemodel_cache));
+	}
+	animatemodel_cache = prog->animatemodel_cache;
 	if(!(model->surfmesh.isanimated && model->AnimateVertices))
 	{
-		animatemodel_cache.data_vertex3f = model->surfmesh.data_vertex3f;
-		animatemodel_cache.data_svector3f = model->surfmesh.data_svector3f;
-		animatemodel_cache.data_tvector3f = model->surfmesh.data_tvector3f;
-		animatemodel_cache.data_normal3f = model->surfmesh.data_normal3f;
+		animatemodel_cache->data_vertex3f = model->surfmesh.data_vertex3f;
+		animatemodel_cache->data_svector3f = model->surfmesh.data_svector3f;
+		animatemodel_cache->data_tvector3f = model->surfmesh.data_tvector3f;
+		animatemodel_cache->data_normal3f = model->surfmesh.data_normal3f;
 		return;
 	}
-	if(animatemodel_cache.progid != prog->id)
-		memset(&animatemodel_cache, 0, sizeof(animatemodel_cache));
-	need |= (animatemodel_cache.model != model);
+	need |= (animatemodel_cache->model != model);
 	VM_GenerateFrameGroupBlend(prog, ed->priv.server->framegroupblend, ed);
 	VM_FrameBlendFromFrameGroupBlend(ed->priv.server->frameblend, ed->priv.server->framegroupblend, model, PRVM_serverglobalfloat(time));
-	need |= (memcmp(&animatemodel_cache.frameblend, &ed->priv.server->frameblend, sizeof(ed->priv.server->frameblend))) != 0;
+	need |= (memcmp(&animatemodel_cache->frameblend, &ed->priv.server->frameblend, sizeof(ed->priv.server->frameblend))) != 0;
 	skeletonindex = (int)PRVM_gameedictfloat(ed, skeletonindex) - 1;
 	if (!(skeletonindex >= 0 && skeletonindex < MAX_EDICTS && (skeleton = prog->skeletons[skeletonindex]) && skeleton->model->num_bones == ed->priv.server->skeleton.model->num_bones))
 		skeleton = NULL;
-	need |= (animatemodel_cache.skeleton_p != skeleton);
+	need |= (animatemodel_cache->skeleton_p != skeleton);
 	if(skeleton)
-		need |= (memcmp(&animatemodel_cache.skeleton, skeleton, sizeof(ed->priv.server->skeleton))) != 0;
+		need |= (memcmp(&animatemodel_cache->skeleton, skeleton, sizeof(ed->priv.server->skeleton))) != 0;
 	if(!need)
 		return;
-	if(model->surfmesh.num_vertices > animatemodel_cache.max_vertices)
+	if(model->surfmesh.num_vertices > animatemodel_cache->max_vertices)
 	{
-		animatemodel_cache.max_vertices = model->surfmesh.num_vertices * 2;
-		if(animatemodel_cache.buf_vertex3f) Mem_Free(animatemodel_cache.buf_vertex3f);
-		if(animatemodel_cache.buf_svector3f) Mem_Free(animatemodel_cache.buf_svector3f);
-		if(animatemodel_cache.buf_tvector3f) Mem_Free(animatemodel_cache.buf_tvector3f);
-		if(animatemodel_cache.buf_normal3f) Mem_Free(animatemodel_cache.buf_normal3f);
-		animatemodel_cache.buf_vertex3f = (float *)Mem_Alloc(prog->progs_mempool, sizeof(float[3]) * animatemodel_cache.max_vertices);
-		animatemodel_cache.buf_svector3f = (float *)Mem_Alloc(prog->progs_mempool, sizeof(float[3]) * animatemodel_cache.max_vertices);
-		animatemodel_cache.buf_tvector3f = (float *)Mem_Alloc(prog->progs_mempool, sizeof(float[3]) * animatemodel_cache.max_vertices);
-		animatemodel_cache.buf_normal3f = (float *)Mem_Alloc(prog->progs_mempool, sizeof(float[3]) * animatemodel_cache.max_vertices);
+		animatemodel_cache->max_vertices = model->surfmesh.num_vertices * 2;
+		if(animatemodel_cache->buf_vertex3f) Mem_Free(animatemodel_cache->buf_vertex3f);
+		if(animatemodel_cache->buf_svector3f) Mem_Free(animatemodel_cache->buf_svector3f);
+		if(animatemodel_cache->buf_tvector3f) Mem_Free(animatemodel_cache->buf_tvector3f);
+		if(animatemodel_cache->buf_normal3f) Mem_Free(animatemodel_cache->buf_normal3f);
+		animatemodel_cache->buf_vertex3f = (float *)Mem_Alloc(prog->progs_mempool, sizeof(float[3]) * animatemodel_cache->max_vertices);
+		animatemodel_cache->buf_svector3f = (float *)Mem_Alloc(prog->progs_mempool, sizeof(float[3]) * animatemodel_cache->max_vertices);
+		animatemodel_cache->buf_tvector3f = (float *)Mem_Alloc(prog->progs_mempool, sizeof(float[3]) * animatemodel_cache->max_vertices);
+		animatemodel_cache->buf_normal3f = (float *)Mem_Alloc(prog->progs_mempool, sizeof(float[3]) * animatemodel_cache->max_vertices);
 	}
-	animatemodel_cache.data_vertex3f = animatemodel_cache.buf_vertex3f;
-	animatemodel_cache.data_svector3f = animatemodel_cache.buf_svector3f;
-	animatemodel_cache.data_tvector3f = animatemodel_cache.buf_tvector3f;
-	animatemodel_cache.data_normal3f = animatemodel_cache.buf_normal3f;
+	animatemodel_cache->data_vertex3f = animatemodel_cache->buf_vertex3f;
+	animatemodel_cache->data_svector3f = animatemodel_cache->buf_svector3f;
+	animatemodel_cache->data_tvector3f = animatemodel_cache->buf_tvector3f;
+	animatemodel_cache->data_normal3f = animatemodel_cache->buf_normal3f;
 	VM_UpdateEdictSkeleton(prog, ed, model, ed->priv.server->frameblend);
-	model->AnimateVertices(model, ed->priv.server->frameblend, &ed->priv.server->skeleton, animatemodel_cache.data_vertex3f, animatemodel_cache.data_normal3f, animatemodel_cache.data_svector3f, animatemodel_cache.data_tvector3f);
-	animatemodel_cache.progid = prog->id;
-	animatemodel_cache.model = model;
-	memcpy(&animatemodel_cache.frameblend, &ed->priv.server->frameblend, sizeof(ed->priv.server->frameblend));
-	animatemodel_cache.skeleton_p = skeleton;
+	model->AnimateVertices(model, ed->priv.server->frameblend, &ed->priv.server->skeleton, animatemodel_cache->data_vertex3f, animatemodel_cache->data_normal3f, animatemodel_cache->data_svector3f, animatemodel_cache->data_tvector3f);
+	animatemodel_cache->model = model;
+	memcpy(&animatemodel_cache->frameblend, &ed->priv.server->frameblend, sizeof(ed->priv.server->frameblend));
+	animatemodel_cache->skeleton_p = skeleton;
 	if(skeleton)
-		memcpy(&animatemodel_cache.skeleton, skeleton, sizeof(ed->priv.server->skeleton));
+		memcpy(&animatemodel_cache->skeleton, skeleton, sizeof(ed->priv.server->skeleton));
 }
 
 static void getmatrix(prvm_prog_t *prog, prvm_edict_t *ed, matrix4x4_t *out)
@@ -6891,9 +7081,9 @@ static void clippointtosurface(prvm_prog_t *prog, prvm_edict_t *ed, dp_model_t *
 	{
 		// clip original point to each triangle of the surface and find the
 		// triangle that is closest
-		v[0] = animatemodel_cache.data_vertex3f + e[0] * 3;
-		v[1] = animatemodel_cache.data_vertex3f + e[1] * 3;
-		v[2] = animatemodel_cache.data_vertex3f + e[2] * 3;
+		v[0] = prog->animatemodel_cache->data_vertex3f + e[0] * 3;
+		v[1] = prog->animatemodel_cache->data_vertex3f + e[1] * 3;
+		v[2] = prog->animatemodel_cache->data_vertex3f + e[2] * 3;
 		TriangleNormal(v[0], v[1], v[2], facenormal);
 		VectorNormalize(facenormal);
 		offsetdist = DotProduct(v[0], facenormal) - DotProduct(p, facenormal);
@@ -6958,7 +7148,7 @@ void VM_getsurfacepoint(prvm_prog_t *prog)
 	if (pointnum < 0 || pointnum >= surface->num_vertices)
 		return;
 	animatemodel(prog, model, ed);
-	applytransform_forward(prog, &(animatemodel_cache.data_vertex3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
+	applytransform_forward(prog, &(prog->animatemodel_cache->data_vertex3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
 	VectorCopy(result, PRVM_G_VECTOR(OFS_RETURN));
 }
 //PF_getsurfacepointattribute,     // #486 vector(entity e, float s, float n, float a) getsurfacepointattribute = #486;
@@ -6993,22 +7183,22 @@ void VM_getsurfacepointattribute(prvm_prog_t *prog)
 	switch( attributetype ) {
 		// float SPA_POSITION = 0;
 		case 0:
-			applytransform_forward(prog, &(animatemodel_cache.data_vertex3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
+			applytransform_forward(prog, &(prog->animatemodel_cache->data_vertex3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
 			VectorCopy(result, PRVM_G_VECTOR(OFS_RETURN));
 			break;
 		// float SPA_S_AXIS = 1;
 		case 1:
-			applytransform_forward_direction(prog, &(animatemodel_cache.data_svector3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
+			applytransform_forward_direction(prog, &(prog->animatemodel_cache->data_svector3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
 			VectorCopy(result, PRVM_G_VECTOR(OFS_RETURN));
 			break;
 		// float SPA_T_AXIS = 2;
 		case 2:
-			applytransform_forward_direction(prog, &(animatemodel_cache.data_tvector3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
+			applytransform_forward_direction(prog, &(prog->animatemodel_cache->data_tvector3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
 			VectorCopy(result, PRVM_G_VECTOR(OFS_RETURN));
 			break;
 		// float SPA_R_AXIS = 3; // same as SPA_NORMAL
 		case 3:
-			applytransform_forward_direction(prog, &(animatemodel_cache.data_normal3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
+			applytransform_forward_direction(prog, &(prog->animatemodel_cache->data_normal3f + 3 * surface->num_firstvertex)[pointnum * 3], ed, result);
 			VectorCopy(result, PRVM_G_VECTOR(OFS_RETURN));
 			break;
 		// float SPA_TEXCOORDS0 = 4;
@@ -7053,7 +7243,7 @@ void VM_getsurfacenormal(prvm_prog_t *prog)
 	// note: this only returns the first triangle, so it doesn't work very
 	// well for curved surfaces or arbitrary meshes
 	animatemodel(prog, model, PRVM_G_EDICT(OFS_PARM0));
-	TriangleNormal((animatemodel_cache.data_vertex3f + 3 * surface->num_firstvertex), (animatemodel_cache.data_vertex3f + 3 * surface->num_firstvertex) + 3, (animatemodel_cache.data_vertex3f + 3 * surface->num_firstvertex) + 6, normal);
+	TriangleNormal((prog->animatemodel_cache->data_vertex3f + 3 * surface->num_firstvertex), (prog->animatemodel_cache->data_vertex3f + 3 * surface->num_firstvertex) + 3, (prog->animatemodel_cache->data_vertex3f + 3 * surface->num_firstvertex) + 6, normal);
 	applytransform_forward_normal(prog, normal, PRVM_G_EDICT(OFS_PARM0), result);
 	VectorNormalize(result);
 	VectorCopy(result, PRVM_G_VECTOR(OFS_RETURN));
@@ -7271,6 +7461,14 @@ void VM_physics_addtorque(prvm_prog_t *prog)
 	VM_physics_ApplyCmd(ed, &f);
 }
 
+extern cvar_t prvm_coverage;
+void VM_coverage(prvm_prog_t *prog)
+{
+	VM_SAFEPARMCOUNT(0, VM_coverage);
+	if (prog->explicit_profile[prog->xstatement]++ == 0 && (prvm_coverage.integer & 2))
+		PRVM_ExplicitCoverageEvent(prog, prog->xfunction, prog->xstatement);
+}
+
 #define CFEX_SETARGC if(prog->funcargbuffer_argc < (int)PRVM_G_FLOAT(OFS_PARM0) + 1) prog->funcargbuffer_argc = (int)PRVM_G_FLOAT(OFS_PARM0) + 1;
 
 void VM_CallFunctionEx_SetArgFloat(prvm_prog_t *prog) {
@@ -7434,6 +7632,53 @@ void VM_GlobalSet(prvm_prog_t *prog) {
     }
 
     PRVM_G_FLOAT(OFS_RETURN) = (float)PRVM_ED_ParseEpair(prog, NULL, key, PRVM_G_STRING(OFS_PARM1), true);
+}
+
+#define REGEX_MAX_CAPS 64
+
+void VM_regex_match(prvm_prog_t *prog) {
+    const char *regex;
+    const char *input;
+    int flags;
+    size_t offset, size, inlen;
+    struct slre_cap caps[REGEX_MAX_CAPS];
+
+    VM_SAFEPARMCOUNT(5, regex_match);
+    memset(caps, 0, sizeof(struct slre_cap) * REGEX_MAX_CAPS);
+
+    regex = PRVM_G_STRING(OFS_PARM0);
+    input = PRVM_G_STRING(OFS_PARM1);
+    offset = (size_t)PRVM_G_FLOAT(OFS_PARM2);
+    size = (size_t)PRVM_G_FLOAT(OFS_PARM3);
+    flags = (int)PRVM_G_FLOAT(OFS_PARM4);
+
+    inlen = strlen(input);
+    offset = max(0, min(inlen - 1, offset));
+    inlen = strlen(input + offset);
+
+    if(size <= 0 || size > inlen)
+        size = inlen;
+
+    num_tokens = 0;
+    PRVM_G_FLOAT(OFS_RETURN) = (float)slre_match(regex, input + offset, size, caps, REGEX_MAX_CAPS, flags);
+
+    if(PRVM_G_FLOAT(OFS_RETURN) < 0)
+        return;
+
+    for(; num_tokens < REGEX_MAX_CAPS; ++num_tokens) {
+        const char *m = caps[num_tokens].ptr;
+        char match[MAX_INPUTLINE];
+
+        if(!m)
+            break;
+
+        memset(match, 0, MAX_INPUTLINE);
+        memcpy(match, m, caps[num_tokens].len);
+
+        tokens_startpos[num_tokens] = m - input;
+        tokens_endpos[num_tokens] = m - input + caps[num_tokens].len;
+        tokens[num_tokens] = PRVM_SetTempString(prog, match);
+    }
 }
 
 /*

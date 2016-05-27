@@ -20,12 +20,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // cl_parse.c  -- parse a message received from the server
 
 #include "quakedef.h"
+#ifdef CONFIG_CD
 #include "cdaudio.h"
+#endif
 #include "cl_collision.h"
 #include "csprogs.h"
 #include "libcurl.h"
 #include "utf8lib.h"
+#ifdef CONFIG_MENU
 #include "menu.h"
+#endif
 #include "cl_video.h"
 #include "random.h"
 
@@ -273,7 +277,7 @@ static void CL_ParseStartSoundPacket(int largesoundindex)
 
 	MSG_ReadVector(&cl_message, pos, cls.protocol);
 
-	if (sound_num >= MAX_SOUNDS)
+	if (sound_num < 0 || sound_num >= MAX_SOUNDS)
 	{
 		Con_Printf("CL_ParseStartSoundPacket: sound_num (%i) >= MAX_SOUNDS (%i)\n", sound_num, MAX_SOUNDS);
 		return;
@@ -369,7 +373,7 @@ void CL_KeepaliveMessage (qboolean readmessages)
 		msg.data = buf;
 		msg.maxsize = sizeof(buf);
 		MSG_WriteChar(&msg, clc_nop);
-		NetConn_SendUnreliableMessage(cls.netcon, &msg, cls.protocol, 10000, false);
+		NetConn_SendUnreliableMessage(cls.netcon, &msg, cls.protocol, 10000, 0, false);
 	}
 
 	recursive = thisrecursive;
@@ -377,6 +381,7 @@ void CL_KeepaliveMessage (qboolean readmessages)
 
 void CL_ParseEntityLump(char *entdata)
 {
+	qboolean loadedsky = false;
 	const char *data;
 	char key[128], value[MAX_INPUTLINE];
 	FOG_clear(); // LordHavoc: no fog until set
@@ -405,11 +410,20 @@ void CL_ParseEntityLump(char *entdata)
 			return; // error
 		strlcpy (value, com_token, sizeof (value));
 		if (!strcmp("sky", key))
+		{
+			loadedsky = true;
 			R_SetSkyBox(value);
+		}
 		else if (!strcmp("skyname", key)) // non-standard, introduced by QuakeForge... sigh.
+		{
+			loadedsky = true;
 			R_SetSkyBox(value);
+		}
 		else if (!strcmp("qlsky", key)) // non-standard, introduced by QuakeLives (EEK)
+		{
+			loadedsky = true;
 			R_SetSkyBox(value);
+		}
 		else if (!strcmp("fog", key))
 		{
 			FOG_clear(); // so missing values get good defaults
@@ -452,6 +466,9 @@ void CL_ParseEntityLump(char *entdata)
 			r_refdef.fog_height_texturename[63] = 0;
 		}
 	}
+
+	if (!loadedsky && cl.worldmodel->brush.isq2bsp)
+		R_SetSkyBox("unit1_");
 }
 
 static const vec3_t defaultmins = {-4096, -4096, -4096};
@@ -503,8 +520,10 @@ static void CL_SetupWorldModel(void)
 	// check memory integrity
 	Mem_CheckSentinelsGlobal();
 
+#ifdef CONFIG_MENU
 	// make menu know
 	MR_NewMap();
+#endif
 
 	// load the csqc now
 	if (cl.loadcsqc)
@@ -567,6 +586,12 @@ static void QW_CL_RequestNextDownload(void)
 
 	// clear name of file that just finished
 	cls.qw_downloadname[0] = 0;
+
+	// skip the download fragment if playing a demo
+	if (!cls.netcon)
+	{
+		return;
+	}
 
 	switch (cls.qw_downloadtype)
 	{
@@ -1021,7 +1046,7 @@ static void QW_CL_ParseNails(void)
 	{
 		for (j = 0;j < 6;j++)
 			bits[j] = MSG_ReadByte(&cl_message);
-		if (cl.qw_num_nails > 255)
+		if (cl.qw_num_nails >= 255)
 			continue;
 		v = cl.qw_nails[cl.qw_num_nails++];
 		v[0] = ( ( bits[0] + ((bits[1]&15)<<8) ) <<1) - 4096;
@@ -1084,22 +1109,34 @@ static void CL_BeginDownloads(qboolean aborteddownload)
 	{
 		size_t progsize;
 		cl.downloadcsqc = false;
-		if (cls.netcon
-		 && !sv.active
-		 && csqc_progname.string
-		 && csqc_progname.string[0]
-		 && csqc_progcrc.integer >= 0
-		 && cl_serverextension_download.integer
-		 && (FS_CRCFile(csqc_progname.string, &progsize) != csqc_progcrc.integer || ((int)progsize != csqc_progsize.integer && csqc_progsize.integer != -1))
-		 && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer)))
-		{
-			Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer);
-			if(cl_serverextension_download.integer == 2 && FS_HasZlib())
-				Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname.string));
-			else
-				Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname.string));
-			return;
-		}
+
+        if(cls.netcon && !sv.active && cl_serverextension_download.integer) {
+            if(csqc_progcrc_alt.integer >= 0) {
+                if(csqc_progname_alt.string && csqc_progname_alt.string[0]
+                    && (FS_CRCFile(csqc_progname_alt.string, &progsize) != csqc_progcrc_alt.integer || ((int)progsize != csqc_progsize_alt.integer && csqc_progsize_alt.integer != -1))
+                    && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname_alt.string, csqc_progsize_alt.integer, csqc_progcrc_alt.integer)))
+                {
+                    Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname_alt.string, csqc_progsize_alt.integer, csqc_progcrc_alt.integer);
+                    if(cl_serverextension_download.integer == 2 && FS_HasZlib())
+                        Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname_alt.string));
+                    else
+                        Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname_alt.string));
+                    return;
+                }
+            } else if(csqc_progname.string
+             && csqc_progname.string[0]
+             && csqc_progcrc.integer >= 0
+             && (FS_CRCFile(csqc_progname.string, &progsize) != csqc_progcrc.integer || ((int)progsize != csqc_progsize.integer && csqc_progsize.integer != -1))
+             && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer)))
+            {
+                Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer);
+                if(cl_serverextension_download.integer == 2 && FS_HasZlib())
+                    Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname.string));
+                else
+                    Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname.string));
+                return;
+            }
+        }
 	}
 
 	if (cl.loadmodel_current < cl.loadmodel_total)
@@ -1215,7 +1252,7 @@ static void CL_BeginDownloads(qboolean aborteddownload)
 		// finished loading sounds
 	}
 
-	if(gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS || gamemode == GAME_XONOTIC)
+	if(IS_NEXUIZ_DERIVED(gamemode))
 		Cvar_SetValueQuick(&cl_serverextension_download, false);
 		// in Nexuiz/Xonotic, the built in download protocol is kinda broken (misses lots
 		// of dependencies) anyway, and can mess around with the game directory;
@@ -1372,7 +1409,7 @@ static void CL_StopDownload(int size, int crc)
 			{
 				Con_Printf("Inflated download: new size: %u (%g%%)\n", (unsigned)inflated_size, 100.0 - 100.0*(cls.qw_downloadmemorycursize / (float)inflated_size));
 				cls.qw_downloadmemory = out;
-				cls.qw_downloadmemorycursize = inflated_size;
+				cls.qw_downloadmemorycursize = (int)inflated_size;
 			}
 			else
 			{
@@ -1394,7 +1431,7 @@ static void CL_StopDownload(int size, int crc)
 			// save to disk only if we don't already have it
 			// (this is mainly for playing back demos)
 			existingcrc = FS_CRCFile(cls.qw_downloadname, &existingsize);
-			if (existingsize || gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS || gamemode == GAME_XONOTIC || !strcmp(cls.qw_downloadname, csqc_progname.string))
+			if (existingsize || IS_NEXUIZ_DERIVED(gamemode) || !strcmp(cls.qw_downloadname, csqc_progname.string) || !strcmp(cls.qw_downloadname, csqc_progname_alt.string))
 				// let csprogs ALWAYS go to dlcache, to prevent "viral csprogs"; also, never put files outside dlcache for Nexuiz/Xonotic
 			{
 				if ((int)existingsize != size || existingcrc != crc)
@@ -1406,6 +1443,15 @@ static void CL_StopDownload(int size, int crc)
 					{
 						Con_Printf("Downloaded \"%s\" (%i bytes, %i CRC)\n", name, size, crc);
 						FS_WriteFile(name, cls.qw_downloadmemory, cls.qw_downloadmemorycursize);
+						if(!strcmp(cls.qw_downloadname, csqc_progname.string))
+						{
+							if(cls.caughtcsprogsdata)
+								Mem_Free(cls.caughtcsprogsdata);
+							cls.caughtcsprogsdata = (unsigned char *) Mem_Alloc(cls.permanentmempool, cls.qw_downloadmemorycursize);
+							memcpy(cls.caughtcsprogsdata, cls.qw_downloadmemory, cls.qw_downloadmemorycursize);
+							cls.caughtcsprogsdatasize = cls.qw_downloadmemorycursize;
+							Con_DPrintf("Buffered \"%s\"\n", name);
+						}
 					}
 				}
 			}
@@ -1544,6 +1590,9 @@ static void CL_SendPlayerInfo(void)
 
 	MSG_WriteByte (&cls.netcon->message, clc_stringcmd);
 	MSG_WriteString (&cls.netcon->message, va(vabuf, sizeof(vabuf), "rate %i", cl_rate.integer));
+
+	MSG_WriteByte (&cls.netcon->message, clc_stringcmd);
+	MSG_WriteString (&cls.netcon->message, va(vabuf, sizeof(vabuf), "rate_burstsize %i", cl_rate_burstsize.integer));
 
 	if (cl_pmodel.integer)
 	{
@@ -2107,6 +2156,7 @@ Server information pertaining to this client only
 static void CL_ParseClientdata (void)
 {
 	int i, bits;
+	unsigned int message;
 
 	VectorCopy (cl.mpunchangle[0], cl.mpunchangle[1]);
 	VectorCopy (cl.mpunchvector[0], cl.mpunchvector[1]);
@@ -2202,8 +2252,14 @@ static void CL_ParseClientdata (void)
 		cl.stats[STAT_NAILS] = MSG_ReadByte(&cl_message);
 		cl.stats[STAT_ROCKETS] = MSG_ReadByte(&cl_message);
 		cl.stats[STAT_CELLS] = MSG_ReadByte(&cl_message);
-		if (gamemode == GAME_HIPNOTIC || gamemode == GAME_ROGUE || gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS)
-			cl.stats[STAT_ACTIVEWEAPON] = (1<<MSG_ReadByte(&cl_message));
+		if (gamemode == GAME_HIPNOTIC || gamemode == GAME_ROGUE || gamemode == GAME_QUOTH || IS_OLDNEXUIZ_DERIVED(gamemode)) {
+			message = MSG_ReadByte(&cl_message);
+			if (message <= (sizeof(int) * CHAR_BIT)) {
+				cl.stats[STAT_ACTIVEWEAPON] = (1 << message);
+			} else {
+				cl.stats[STAT_ACTIVEWEAPON] = 0;
+			}
+		}
 		else
 			cl.stats[STAT_ACTIVEWEAPON] = MSG_ReadByte(&cl_message);
 	}
@@ -2275,6 +2331,13 @@ static void CL_ParseStaticSound (int large)
 		sound_num = (unsigned short) MSG_ReadShort(&cl_message);
 	else
 		sound_num = MSG_ReadByte(&cl_message);
+
+	if (sound_num < 0 || sound_num >= MAX_SOUNDS)
+	{
+		Con_Printf("CL_ParseStaticSound: sound_num(%i) >= MAX_SOUNDS (%i)\n", sound_num, MAX_SOUNDS);
+		return;
+	}
+
 	vol = MSG_ReadByte(&cl_message);
 	atten = MSG_ReadByte(&cl_message);
 
@@ -2850,6 +2913,8 @@ static void CL_ParseTempEntity(void)
 			CL_FindNonSolidLocation(pos, pos, 10);
 			colorStart = MSG_ReadByte(&cl_message);
 			colorLength = MSG_ReadByte(&cl_message);
+			if (colorLength == 0)
+				colorLength = 1;
 			CL_ParticleExplosion2(pos, colorStart, colorLength);
 			tempcolor = palette_rgb[(xrand()%colorLength) + colorStart];
 			color[0] = tempcolor[0] * (2.0f / 255.0f);
@@ -2864,7 +2929,7 @@ static void CL_ParseTempEntity(void)
 			MSG_ReadVector(&cl_message, pos, cls.protocol);
 			MSG_ReadVector(&cl_message, pos2, cls.protocol);
 			MSG_ReadVector(&cl_message, dir, cls.protocol);
-			CL_ParticleEffect(EFFECT_TE_TEI_G3, 1, pos, pos2, dir, dir, NULL, 0);
+			CL_ParticleTrail(EFFECT_TE_TEI_G3, 1, pos, pos2, dir, dir, NULL, 0, true, true, NULL, NULL, 1);
 			break;
 
 		case TE_TEI_SMOKE:
@@ -2909,7 +2974,7 @@ static void CL_ParseTrailParticles(void)
 	effectindex = (unsigned short)MSG_ReadShort(&cl_message);
 	MSG_ReadVector(&cl_message, start, cls.protocol);
 	MSG_ReadVector(&cl_message, end, cls.protocol);
-	CL_ParticleEffect(effectindex, 1, start, end, vec3_origin, vec3_origin, entityindex > 0 ? cl.entities + entityindex : NULL, 0);
+	CL_ParticleTrail(effectindex, 1, start, end, vec3_origin, vec3_origin, entityindex > 0 ? cl.entities + entityindex : NULL, 0, true, true, NULL, NULL, 1);
 }
 
 static void CL_ParsePointParticles(void)
@@ -2995,9 +3060,12 @@ static void CL_IPLog_Add(const char *address, const char *name, qboolean checkex
 		// add it to the iplog.txt file
 		// TODO: this ought to open the one in the userpath version of the base
 		// gamedir, not the current gamedir
+// not necessary for mobile
+#ifndef DP_MOBILETOUCH
 		Log_Printf(cl_iplog_name.string, "%s %s\n", address, name);
 		if (developer_extra.integer)
 			Con_DPrintf("CL_IPLog_Add: appending this line to %s: %s %s\n", cl_iplog_name.string, address, name);
+#endif
 	}
 }
 
@@ -3012,7 +3080,12 @@ static void CL_IPLog_Load(void)
 	cl_iplog_loaded = true;
 	// TODO: this ought to open the one in the userpath version of the base
 	// gamedir, not the current gamedir
+// not necessary for mobile
+#ifndef DP_MOBILETOUCH
 	filedata = FS_LoadFile(cl_iplog_name.string, tempmempool, true, &filesize);
+#else
+	filedata = NULL;
+#endif
 	if (!filedata)
 		return;
 	text = (char *)filedata;
@@ -3589,10 +3662,12 @@ void CL_ParseServerMessage(void)
 
 			case qw_svc_cdtrack:
 				cl.cdtrack = cl.looptrack = MSG_ReadByte(&cl_message);
+#ifdef CONFIG_CD
 				if ( (cls.demoplayback || cls.demorecording) && (cls.forcetrack != -1) )
 					CDAudio_Play ((unsigned char)cls.forcetrack, true);
 				else
 					CDAudio_Play ((unsigned char)cl.cdtrack, true);
+#endif
 				break;
 
 			case qw_svc_intermission:
@@ -3711,10 +3786,12 @@ void CL_ParseServerMessage(void)
 
 			case qw_svc_setpause:
 				cl.paused = MSG_ReadByte(&cl_message) != 0;
+#ifdef CONFIG_CD
 				if (cl.paused)
 					CDAudio_Pause ();
 				else
 					CDAudio_Resume ();
+#endif
 				S_PauseGameSounds (cl.paused);
 				break;
 			}
@@ -4038,10 +4115,12 @@ void CL_ParseServerMessage(void)
 
 			case svc_setpause:
 				cl.paused = MSG_ReadByte(&cl_message) != 0;
+#ifdef CONFIG_CD
 				if (cl.paused)
 					CDAudio_Pause ();
 				else
 					CDAudio_Resume ();
+#endif
 				S_PauseGameSounds (cl.paused);
 				break;
 
@@ -4088,10 +4167,12 @@ void CL_ParseServerMessage(void)
 			case svc_cdtrack:
 				cl.cdtrack = MSG_ReadByte(&cl_message);
 				cl.looptrack = MSG_ReadByte(&cl_message);
+#ifdef CONFIG_CD
 				if ( (cls.demoplayback || cls.demorecording) && (cls.forcetrack != -1) )
 					CDAudio_Play ((unsigned char)cls.forcetrack, true);
 				else
 					CDAudio_Play ((unsigned char)cl.cdtrack, true);
+#endif
 				break;
 
 			case svc_intermission:

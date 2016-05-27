@@ -559,9 +559,11 @@ void _Mem_FreePool(mempool_t **poolpointer, const char *filename, int fileline)
 			_Mem_FreeBlock(pool->chain, filename, fileline);
 
 		// free child pools, too
-		for(iter = poolchain; iter; temp = iter = iter->next)
+		for(iter = poolchain; iter; iter = temp) {
+			temp = iter->next;
 			if(iter->parent == pool)
 				_Mem_FreePool(&temp, filename, fileline);
+		}
 
 		// free the pool itself
 		Clump_FreeBlock(pool, sizeof(*pool));
@@ -698,44 +700,6 @@ void Mem_ExpandableArray_FreeArray(memexpandablearray_t *l)
 	memset(l, 0, sizeof(*l));
 }
 
-// VorteX: hacked Mem_ExpandableArray_AllocRecord, it does allocate record at certain index
-void *Mem_ExpandableArray_AllocRecordAtIndex(memexpandablearray_t *l, size_t index)
-{
-	size_t j;
-	if (index >= l->numarrays)
-	{
-		if (l->numarrays == l->maxarrays)
-		{
-			memexpandablearray_array_t *oldarrays = l->arrays;
-			l->maxarrays = max(l->maxarrays * 2, 128);
-			l->arrays = (memexpandablearray_array_t*) Mem_Alloc(l->mempool, l->maxarrays * sizeof(*l->arrays));
-			if (oldarrays)
-			{
-				memcpy(l->arrays, oldarrays, l->numarrays * sizeof(*l->arrays));
-				Mem_Free(oldarrays);
-			}
-		}
-		l->arrays[index].numflaggedrecords = 0;
-		l->arrays[index].data = (unsigned char *) Mem_Alloc(l->mempool, (l->recordsize + 1) * l->numrecordsperarray);
-		l->arrays[index].allocflags = l->arrays[index].data + l->recordsize * l->numrecordsperarray;
-		l->numarrays++;
-	}
-	if (l->arrays[index].numflaggedrecords < l->numrecordsperarray)
-	{
-		for (j = 0;j < l->numrecordsperarray;j++)
-		{
-			if (!l->arrays[index].allocflags[j])
-			{
-				l->arrays[index].allocflags[j] = true;
-				l->arrays[index].numflaggedrecords++;
-				memset(l->arrays[index].data + l->recordsize * j, 0, l->recordsize);
-				return (void *)(l->arrays[index].data + l->recordsize * j);
-			}
-		}
-	}
-	return NULL;
-}
-
 void *Mem_ExpandableArray_AllocRecord(memexpandablearray_t *l)
 {
 	size_t i, j;
@@ -767,6 +731,8 @@ void *Mem_ExpandableArray_AllocRecord(memexpandablearray_t *l)
 				{
 					l->arrays[i].allocflags[j] = true;
 					l->arrays[i].numflaggedrecords++;
+					if (l->arrays[i].data == NULL)
+						Sys_Error("Mem_ExpandableArray_AllocRecord: Setting dead memory?");
 					memset(l->arrays[i].data + l->recordsize * j, 0, l->recordsize);
 					return (void *)(l->arrays[i].data + l->recordsize * j);
 				}

@@ -31,6 +31,14 @@ void R_MeshQueue_BeginScene(void)
 	mqt_viewmaxdist = 0;
 }
 
+static void bad_meshqueue_t_callback (const entity_render_t *ent, const rtlight_t *rtlight, int numsurfaces, int *surfacelist) {
+	if (developer.integer) {
+		Con_DPrintf("^1bad_meshqueue_t_callback: Would be call back to NULL!\n");
+	} else {
+		Sys_Error("^1bad_meshqueue_t_callback:  Would be call back to NULL!\n");
+	}
+}
+
 void R_MeshQueue_AddTransparent(dptransparentsortcategory_t category, const vec3_t center, void (*callback)(const entity_render_t *ent, const rtlight_t *rtlight, int numsurfaces, int *surfacelist), const entity_render_t *ent, int surfacenumber, const rtlight_t *rtlight)
 {
 	meshqueue_t *mq;
@@ -87,14 +95,14 @@ void R_MeshQueue_RenderTransparent(void)
 		trans_sortarraysize = r_transparent_sortarraysize.integer;
 		if (trans_hash)
 			Mem_Free(trans_hash);
-		trans_hash = (meshqueue_t **)Mem_Alloc(cls.permanentmempool, sizeof(trans_hash) * trans_sortarraysize); 
+		trans_hash = (meshqueue_t **)Mem_Alloc(cls.permanentmempool, sizeof(meshqueue_t *) * trans_sortarraysize); 
 		if (trans_hashpointer)
 			Mem_Free(trans_hashpointer);
-		trans_hashpointer = (meshqueue_t ***)Mem_Alloc(cls.permanentmempool, sizeof(trans_hashpointer) * trans_sortarraysize); 
+		trans_hashpointer = (meshqueue_t ***)Mem_Alloc(cls.permanentmempool, sizeof(meshqueue_t **) * trans_sortarraysize); 
 	}
 
 	// build index
-	memset(trans_hash, 0, sizeof(trans_hash) * trans_sortarraysize);
+	memset(trans_hash, 0, sizeof(meshqueue_t *) * trans_sortarraysize);
 	for (i = 0; i < trans_sortarraysize; i++)
 		trans_hashpointer[i] = &trans_hash[i];
 	distscale = (trans_sortarraysize - 1) / min(mqt_viewmaxdist, r_transparent_sortmaxdist.integer);
@@ -120,7 +128,7 @@ void R_MeshQueue_RenderTransparent(void)
 		*trans_hashpointer[hashindex] = mqt;
 		trans_hashpointer[hashindex] = &mqt->next;
 	}
-	callback = NULL;
+	callback = bad_meshqueue_t_callback;
 	ent = NULL;
 	rtlight = NULL;
 	batchnumsurfaces = 0;
@@ -148,4 +156,6 @@ void R_MeshQueue_RenderTransparent(void)
 	if (batchnumsurfaces)
 		callback(ent, rtlight, batchnumsurfaces, batchsurfaceindex);
 	mqt_count = 0;
+
+	return;
 }

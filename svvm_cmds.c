@@ -19,6 +19,7 @@ const char *vm_sv_extensions =
 "DP_CON_SET "
 "DP_CON_SETA "
 "DP_CON_STARTMAP "
+"DP_COVERAGE "
 "DP_CRYPTO "
 "DP_CSQC_BINDMAPS "
 "DP_CSQC_ENTITYWORLDOBJECT "
@@ -167,6 +168,7 @@ const char *vm_sv_extensions =
 "DP_SV_CLIENTNAME "
 "DP_SV_CMD "
 "DP_SV_CUSTOMIZEENTITYFORCLIENT "
+"DP_SV_DISABLECLIENTPREDICTION "
 "DP_SV_DISCARDABLEDEMO "
 "DP_SV_DRAWONLYTOCLIENT "
 "DP_SV_DROPCLIENT "
@@ -227,6 +229,12 @@ const char *vm_sv_extensions =
 "DP_RM_IRC "
 "DP_RM_CALLFUNCTIONEX "
 "DP_RM_GLOBALACCESS "
+"DP_RM_ALTCSPROGS "
+"DP_RM_CVAR_ALTERTYPE "
+"DP_RM_CVAR_WATCHED "
+"DP_RM_REGEX2 "
+"DP_RM_CLIENTDATAENT "
+"DP_RM_CLIPGROUP "
 //"EXT_CSQC " // not ready yet
 ;
 
@@ -552,12 +560,15 @@ static void VM_SV_sound(prvm_prog_t *prog)
 		flags = 0;
 		if(channel >= 8 && channel <= 15) // weird QW feature
 		{
-			flags |= CHANFLAG_RELIABLE;
+			flags |= CHANNELFLAG_RELIABLE;
 			channel -= 8;
 		}
 	}
 	else
-		flags = PRVM_G_FLOAT(OFS_PARM6);
+	{
+		// LordHavoc: we only let the qc set certain flags, others are off-limits
+		flags = (int)PRVM_G_FLOAT(OFS_PARM6) & (CHANNELFLAG_RELIABLE | CHANNELFLAG_FORCELOOP | CHANNELFLAG_PAUSED);
+	}
 
 	if (volume < 0 || volume > 255)
 	{
@@ -579,7 +590,7 @@ static void VM_SV_sound(prvm_prog_t *prog)
 		return;
 	}
 
-	SV_StartSound (entity, channel, sample, volume, attenuation, flags & CHANFLAG_RELIABLE, pitchchange);
+	SV_StartSound (entity, channel, sample, volume, attenuation, flags & CHANNELFLAG_RELIABLE, pitchchange);
 }
 
 /*
@@ -653,7 +664,7 @@ static void VM_SV_traceline(prvm_prog_t *prog)
 	if (VEC_IS_NAN(v1[0]) || VEC_IS_NAN(v1[1]) || VEC_IS_NAN(v1[2]) || VEC_IS_NAN(v2[0]) || VEC_IS_NAN(v2[1]) || VEC_IS_NAN(v2[2]))
 		prog->error_cmd("%s: NAN errors detected in traceline('%f %f %f', '%f %f %f', %i, entity %i)\n", prog->name, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], move, PRVM_EDICT_TO_PROG(ent));
 
-	trace = SV_TraceLine(v1, v2, move, ent, SV_GenericHitSuperContentsMask(ent));
+	trace = SV_TraceLine(v1, v2, move, ent, SV_GenericHitSuperContentsMask(ent), collision_extendtracelinelength.value);
 
 	VM_SetTraceGlobals(prog, &trace);
 }
@@ -692,7 +703,7 @@ static void VM_SV_tracebox(prvm_prog_t *prog)
 	if (VEC_IS_NAN(v1[0]) || VEC_IS_NAN(v1[1]) || VEC_IS_NAN(v1[2]) || VEC_IS_NAN(v2[0]) || VEC_IS_NAN(v2[1]) || VEC_IS_NAN(v2[2]))
 		prog->error_cmd("%s: NAN errors detected in tracebox('%f %f %f', '%f %f %f', '%f %f %f', '%f %f %f', %i, entity %i)\n", prog->name, v1[0], v1[1], v1[2], m1[0], m1[1], m1[2], m2[0], m2[1], m2[2], v2[0], v2[1], v2[2], move, PRVM_EDICT_TO_PROG(ent));
 
-	trace = SV_TraceBox(v1, m1, m2, v2, move, ent, SV_GenericHitSuperContentsMask(ent));
+	trace = SV_TraceBox(v1, m1, m2, v2, move, ent, SV_GenericHitSuperContentsMask(ent), collision_extendtraceboxlength.value);
 
 	VM_SetTraceGlobals(prog, &trace);
 }
@@ -728,7 +739,7 @@ static trace_t SV_Trace_Toss(prvm_prog_t *prog, prvm_edict_t *tossent, prvm_edic
 		VectorCopy(PRVM_serveredictvector(tossent, origin), tossentorigin);
 		VectorCopy(PRVM_serveredictvector(tossent, mins), tossentmins);
 		VectorCopy(PRVM_serveredictvector(tossent, maxs), tossentmaxs);
-		trace = SV_TraceBox(tossentorigin, tossentmins, tossentmaxs, end, MOVE_NORMAL, tossent, SV_GenericHitSuperContentsMask(tossent));
+		trace = SV_TraceBox(tossentorigin, tossentmins, tossentmaxs, end, MOVE_NORMAL, tossent, SV_GenericHitSuperContentsMask(tossent), collision_extendmovelength.value);
 		VectorCopy (trace.endpos, PRVM_serveredictvector(tossent, origin));
 		PRVM_serveredictvector(tossent, velocity)[2] -= gravity;
 
@@ -1151,25 +1162,22 @@ static void VM_SV_droptofloor(prvm_prog_t *prog)
 	end[2] -= 256;
 
 	if (sv_gameplayfix_droptofloorstartsolid_nudgetocorrect.integer)
-		if (sv_gameplayfix_unstickentities.integer)
-			SV_UnstickEntity(ent);
+		SV_NudgeOutOfSolid(ent);
 
 	VectorCopy(PRVM_serveredictvector(ent, origin), entorigin);
 	VectorCopy(PRVM_serveredictvector(ent, mins), entmins);
 	VectorCopy(PRVM_serveredictvector(ent, maxs), entmaxs);
-	trace = SV_TraceBox(entorigin, entmins, entmaxs, end, MOVE_NORMAL, ent, SV_GenericHitSuperContentsMask(ent));
+	trace = SV_TraceBox(entorigin, entmins, entmaxs, end, MOVE_NORMAL, ent, SV_GenericHitSuperContentsMask(ent), collision_extendmovelength.value);
 	if (trace.startsolid && sv_gameplayfix_droptofloorstartsolid.integer)
 	{
 		vec3_t offset, org;
 		VectorSet(offset, 0.5f * (PRVM_serveredictvector(ent, mins)[0] + PRVM_serveredictvector(ent, maxs)[0]), 0.5f * (PRVM_serveredictvector(ent, mins)[1] + PRVM_serveredictvector(ent, maxs)[1]), PRVM_serveredictvector(ent, mins)[2]);
 		VectorAdd(PRVM_serveredictvector(ent, origin), offset, org);
-		trace = SV_TraceLine(org, end, MOVE_NORMAL, ent, SV_GenericHitSuperContentsMask(ent));
+		trace = SV_TraceLine(org, end, MOVE_NORMAL, ent, SV_GenericHitSuperContentsMask(ent), collision_extendmovelength.value);
 		VectorSubtract(trace.endpos, offset, trace.endpos);
 		if (trace.startsolid)
 		{
 			Con_DPrintf("droptofloor at %f %f %f - COULD NOT FIX BADLY PLACED ENTITY\n", PRVM_serveredictvector(ent, origin)[0], PRVM_serveredictvector(ent, origin)[1], PRVM_serveredictvector(ent, origin)[2]);
-			if (sv_gameplayfix_unstickentities.integer)
-				SV_UnstickEntity(ent);
 			SV_LinkEdict(ent);
 			PRVM_serveredictfloat(ent, flags) = (int)PRVM_serveredictfloat(ent, flags) | FL_ONGROUND;
 			PRVM_serveredictedict(ent, groundentity) = 0;
@@ -1179,8 +1187,8 @@ static void VM_SV_droptofloor(prvm_prog_t *prog)
 		{
 			Con_DPrintf("droptofloor at %f %f %f - FIXED BADLY PLACED ENTITY\n", PRVM_serveredictvector(ent, origin)[0], PRVM_serveredictvector(ent, origin)[1], PRVM_serveredictvector(ent, origin)[2]);
 			VectorCopy (trace.endpos, PRVM_serveredictvector(ent, origin));
-			if (sv_gameplayfix_unstickentities.integer)
-				SV_UnstickEntity(ent);
+			if (sv_gameplayfix_droptofloorstartsolid_nudgetocorrect.integer)
+				SV_NudgeOutOfSolid(ent);
 			SV_LinkEdict(ent);
 			PRVM_serveredictfloat(ent, flags) = (int)PRVM_serveredictfloat(ent, flags) | FL_ONGROUND;
 			PRVM_serveredictedict(ent, groundentity) = PRVM_EDICT_TO_PROG(trace.ent);
@@ -1191,10 +1199,9 @@ static void VM_SV_droptofloor(prvm_prog_t *prog)
 	}
 	else
 	{
-		if (trace.fraction != 1)
+		if (!trace.allsolid && trace.fraction < 1)
 		{
-			if (trace.fraction < 1)
-				VectorCopy (trace.endpos, PRVM_serveredictvector(ent, origin));
+			VectorCopy (trace.endpos, PRVM_serveredictvector(ent, origin));
 			SV_LinkEdict(ent);
 			PRVM_serveredictfloat(ent, flags) = (int)PRVM_serveredictfloat(ent, flags) | FL_ONGROUND;
 			PRVM_serveredictedict(ent, groundentity) = PRVM_EDICT_TO_PROG(trace.ent);
@@ -1314,7 +1321,7 @@ static void VM_SV_aim(prvm_prog_t *prog)
 // try sending a trace straight
 	VectorCopy (PRVM_serverglobalvector(v_forward), dir);
 	VectorMA (start, 2048, dir, end);
-	tr = SV_TraceLine(start, end, MOVE_NORMAL, ent, SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY);
+	tr = SV_TraceLine(start, end, MOVE_NORMAL, ent, SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY, collision_extendmovelength.value);
 	if (tr.ent && PRVM_serveredictfloat(((prvm_edict_t *)tr.ent), takedamage) == DAMAGE_AIM
 	&& (!teamplay.integer || PRVM_serveredictfloat(ent, team) <=0 || PRVM_serveredictfloat(ent, team) != PRVM_serveredictfloat(((prvm_edict_t *)tr.ent), team)) )
 	{
@@ -1346,7 +1353,7 @@ static void VM_SV_aim(prvm_prog_t *prog)
 		dist = DotProduct (dir, PRVM_serverglobalvector(v_forward));
 		if (dist < bestdist)
 			continue;	// to far to turn
-		tr = SV_TraceLine(start, end, MOVE_NORMAL, ent, SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY);
+		tr = SV_TraceLine(start, end, MOVE_NORMAL, ent, SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY, collision_extendmovelength.value);
 		if (tr.ent == check)
 		{	// can shoot at this one
 			bestdist = dist;
@@ -1499,8 +1506,8 @@ static void VM_SV_WritePicture(prvm_prog_t *prog)
 	if(Image_Compress(imgname, size, &buf, &size))
 	{
 		// actual picture
-		MSG_WriteShort(WriteDest(prog), size);
-		SZ_Write(WriteDest(prog), (unsigned char *) buf, size);
+		MSG_WriteShort(WriteDest(prog), (int)size);
+		SZ_Write(WriteDest(prog), (unsigned char *) buf, (int)size);
 	}
 	else
 	{
@@ -2909,13 +2916,12 @@ static void VM_SV_skel_build(prvm_prog_t *prog)
 	int firstbone = PRVM_G_FLOAT(OFS_PARM4) - 1;
 	int lastbone = PRVM_G_FLOAT(OFS_PARM5) - 1;
 	dp_model_t *model = SV_GetModelByIndex(modelindex);
-	float blendfrac;
 	int numblends;
 	int bonenum;
 	int blendindex;
 	framegroupblend_t framegroupblend[MAX_FRAMEGROUPBLENDS];
 	frameblend_t frameblend[MAX_FRAMEBLENDS];
-	matrix4x4_t blendedmatrix;
+	matrix4x4_t bonematrix;
 	matrix4x4_t matrix;
 	PRVM_G_FLOAT(OFS_RETURN) = 0;
 	if (skeletonindex < 0 || skeletonindex >= MAX_EDICTS || !(skeleton = prog->skeletons[skeletonindex]))
@@ -2925,19 +2931,18 @@ static void VM_SV_skel_build(prvm_prog_t *prog)
 	lastbone = min(lastbone, skeleton->model->num_bones - 1);
 	VM_GenerateFrameGroupBlend(prog, framegroupblend, ed);
 	VM_FrameBlendFromFrameGroupBlend(frameblend, framegroupblend, model, sv.time);
-	blendfrac = 1.0f - retainfrac;
 	for (numblends = 0;numblends < MAX_FRAMEBLENDS && frameblend[numblends].lerp;numblends++)
-		frameblend[numblends].lerp *= blendfrac;
+		;
 	for (bonenum = firstbone;bonenum <= lastbone;bonenum++)
 	{
-		memset(&blendedmatrix, 0, sizeof(blendedmatrix));
-		Matrix4x4_Accumulate(&blendedmatrix, &skeleton->relativetransforms[bonenum], retainfrac);
+		memset(&bonematrix, 0, sizeof(bonematrix));
 		for (blendindex = 0;blendindex < numblends;blendindex++)
 		{
 			Matrix4x4_FromBonePose7s(&matrix, model->num_posescale, model->data_poses7s + 7 * (frameblend[blendindex].subframe * model->num_bones + bonenum));
-			Matrix4x4_Accumulate(&blendedmatrix, &matrix, frameblend[blendindex].lerp);
+			Matrix4x4_Accumulate(&bonematrix, &matrix, frameblend[blendindex].lerp);
 		}
-		skeleton->relativetransforms[bonenum] = blendedmatrix;
+		Matrix4x4_Normalize3(&bonematrix, &bonematrix);
+		Matrix4x4_Interpolate(&skeleton->relativetransforms[bonenum], &bonematrix, &skeleton->relativetransforms[bonenum], retainfrac);
 	}
 	PRVM_G_FLOAT(OFS_RETURN) = skeletonindex + 1;
 }
@@ -3693,7 +3698,7 @@ VM_SV_WritePicture,				// #501
 NULL,							// #502
 VM_whichpack,					// #503 string(string) whichpack = #503;
 NULL,							// #504
-NULL,							// #505
+VM_cvar_altertype,				// #505 float(string varname, float setflags, float unsetflags) cvar_altertype = #505;
 NULL,							// #506
 NULL,							// #507
 NULL,							// #508
@@ -3829,6 +3834,167 @@ NULL,							// #637
 NULL,							// #638
 VM_digest_hex,						// #639
 NULL,							// #640
+NULL,							// #641
+VM_coverage,                        // #642
+NULL,                            // #643
+NULL,                            // #644
+NULL,                            // #645
+NULL,                            // #646
+NULL,                            // #647
+NULL,                            // #648
+NULL,                            // #649
+NULL,                            // #650
+NULL,                            // #651
+NULL,                            // #652
+NULL,                            // #653
+NULL,                            // #654
+NULL,                            // #655
+NULL,                            // #656
+NULL,                            // #657
+NULL,                            // #658
+NULL,                            // #659
+NULL,                            // #660
+NULL,                            // #661
+NULL,                            // #662
+NULL,                            // #663
+NULL,                            // #664
+NULL,                            // #665
+NULL,                            // #666
+NULL,                            // #667
+NULL,                            // #668
+NULL,                            // #669
+NULL,                            // #670
+NULL,                            // #671
+NULL,                            // #672
+NULL,                            // #673
+NULL,                            // #674
+NULL,                            // #675
+NULL,                            // #676
+NULL,                            // #677
+NULL,                            // #678
+NULL,                            // #679
+NULL,                            // #680
+NULL,                            // #681
+NULL,                            // #682
+NULL,                            // #683
+NULL,                            // #684
+NULL,                            // #685
+NULL,                            // #686
+NULL,                            // #687
+NULL,                            // #688
+NULL,                            // #689
+NULL,                            // #690
+NULL,                            // #691
+NULL,                            // #692
+NULL,                            // #693
+NULL,                            // #694
+NULL,                            // #695
+NULL,                            // #696
+NULL,                            // #697
+NULL,                            // #698
+NULL,                            // #699
+NULL,                            // #700
+NULL,                            // #701
+NULL,                            // #702
+NULL,                            // #703
+NULL,                            // #704
+NULL,                            // #705
+NULL,                            // #706
+NULL,                            // #707
+NULL,                            // #708
+NULL,                            // #709
+NULL,                            // #710
+NULL,                            // #711
+NULL,                            // #712
+NULL,                            // #713
+NULL,                            // #714
+NULL,                            // #715
+NULL,                            // #716
+NULL,                            // #717
+NULL,                            // #718
+NULL,                            // #719
+NULL,                            // #720
+NULL,                            // #721
+NULL,                            // #722
+NULL,                            // #723
+NULL,                            // #724
+NULL,                            // #725
+NULL,                            // #726
+NULL,                            // #727
+NULL,                            // #728
+NULL,                            // #729
+NULL,                            // #730
+NULL,                            // #731
+NULL,                            // #732
+NULL,                            // #733
+NULL,                            // #734
+NULL,                            // #735
+NULL,                            // #736
+NULL,                            // #737
+NULL,                            // #738
+NULL,                            // #739
+NULL,                            // #740
+NULL,                            // #741
+NULL,                            // #742
+NULL,                            // #743
+NULL,                            // #744
+NULL,                            // #745
+NULL,                            // #746
+NULL,                            // #747
+NULL,                            // #748
+NULL,                            // #749
+NULL,                            // #750
+NULL,                            // #751
+NULL,                            // #752
+NULL,                            // #753
+NULL,                            // #754
+NULL,                            // #755
+NULL,                            // #756
+NULL,                            // #757
+NULL,                            // #758
+NULL,                            // #759
+NULL,                            // #760
+NULL,                            // #761
+NULL,                            // #762
+NULL,                            // #763
+NULL,                            // #764
+NULL,                            // #765
+NULL,                            // #766
+NULL,                            // #767
+NULL,                            // #768
+NULL,                            // #769
+NULL,                            // #770
+NULL,                            // #771
+NULL,                            // #772
+NULL,                            // #773
+NULL,                            // #774
+NULL,                            // #775
+NULL,                            // #776
+NULL,                            // #777
+NULL,                            // #778
+NULL,                            // #779
+NULL,                            // #780
+NULL,                            // #781
+NULL,                            // #782
+NULL,                            // #783
+NULL,                            // #784
+NULL,                            // #785
+NULL,                            // #786
+NULL,                            // #787
+NULL,                            // #788
+NULL,                            // #789
+NULL,                            // #790
+NULL,                            // #791
+NULL,                            // #792
+NULL,                            // #793
+NULL,                            // #794
+NULL,                            // #795
+NULL,                            // #796
+NULL,                            // #797
+NULL,                            // #798
+NULL,                            // #799
+VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800;
+NULL
 };
 
 const int vm_sv_numbuiltins = sizeof(vm_sv_builtins) / sizeof(prvm_builtin_t);
@@ -3841,7 +4007,8 @@ void SVVM_init_cmd(prvm_prog_t *prog)
 void SVVM_reset_cmd(prvm_prog_t *prog)
 {
 	World_End(&sv.world);
-	if(PRVM_serverfunction(SV_Shutdown))
+
+	if(prog->loaded && PRVM_serverfunction(SV_Shutdown))
 	{
 		func_t s = PRVM_serverfunction(SV_Shutdown);
 		PRVM_serverglobalfloat(time) = sv.time;

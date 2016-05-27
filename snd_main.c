@@ -23,10 +23,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "snd_main.h"
 #include "snd_ogg.h"
-#include "snd_modplug.h"
 #include "csprogs.h"
 #include "cl_collision.h"
+#ifdef CONFIG_CD
 #include "cdaudio.h"
+#endif
 
 
 #define SND_MIN_SPEED 8000
@@ -326,7 +327,7 @@ static void S_SoundList_f (void)
 		{
 			unsigned int size;
 
-			size = sfx->memsize;
+			size = (unsigned int)sfx->memsize;
 			Con_Printf ("%c%c%c(%5iHz %2db %6s) %8i : %s\n",
 						(sfx->loopstart < sfx->total_length) ? 'L' : ' ',
 						(sfx->flags & SFXFLAG_STREAMED) ? 'S' : ' ',
@@ -679,8 +680,7 @@ void S_Startup (void)
 		snd_format_t suggest_fmt;
 		qboolean accepted;
 
-		accepted = false;
-		do
+		do //accepted?
 		{
 			Con_Printf("S_Startup: initializing sound output format: %dHz, %d bit, %d channels...\n",
 						chosen_fmt.speed, chosen_fmt.width * 8,
@@ -915,7 +915,6 @@ void S_Init(void)
 	memset(channels, 0, MAX_CHANNELS * sizeof(channel_t));
 
 	OGG_OpenLibrary ();
-	ModPlug_OpenLibrary ();
 }
 
 
@@ -929,7 +928,6 @@ Shutdown and free all resources
 void S_Terminate (void)
 {
 	S_Shutdown ();
-	ModPlug_CloseLibrary ();
 	OGG_CloseLibrary ();
 
 	// Free all SFXs
@@ -1494,7 +1492,7 @@ static void SND_Spatialize_WithSfx(channel_t *ch, qboolean isstatic, sfx_t *sfx)
 			if (snd_spatialization_occlusion.integer)
 			{
 				if(snd_spatialization_occlusion.integer & 1)
-					if(listener_pvs)
+					if(listener_pvs && cl.worldmodel)
 					{
 						int cluster = cl.worldmodel->brush.PointInLeaf(cl.worldmodel, ch->origin)->clusterindex;
 						if(cluster >= 0 && cluster < 8 * listener_pvsbytes && !CHECKPVSBIT(listener_pvs, cluster))
@@ -1677,7 +1675,7 @@ static void S_PlaySfxOnChannel (sfx_t *sfx, channel_t *target_chan, unsigned int
 int S_StartSound_StartPosition_Flags (int entnum, int entchannel, sfx_t *sfx, vec3_t origin, float fvol, float attenuation, float startposition, int flags, float fspeed)
 {
 	channel_t *target_chan, *check, *ch;
-	int		ch_idx, startpos;
+	int		ch_idx, startpos, i;
 
 	if (snd_renderbuffer == NULL || sfx == NULL || nosound.integer)
 		return -1;
@@ -1693,6 +1691,9 @@ int S_StartSound_StartPosition_Flags (int entnum, int entchannel, sfx_t *sfx, ve
 			{
 				S_SetChannelVolume(ch_idx, fvol);
 				S_SetChannelSpeed(ch_idx, fspeed);
+				for(i = 1; i > 0 && (i <= flags || i <= (int) channels[ch_idx].flags); i <<= 1)
+					if((flags ^ channels[ch_idx].flags) & i)
+						S_SetChannelFlag(ch_idx, i, (flags & i) != 0);
 				ch->distfade = attenuation / snd_soundradius.value;
 				SND_Spatialize(ch, false);
 				return ch_idx;
@@ -1818,8 +1819,10 @@ void S_StopAllSounds (void)
 	if (snd_renderbuffer == NULL)
 		return;
 
+#ifdef CONFIG_CD
 	// stop CD audio because it may be using a faketrack
 	CDAudio_Stop();
+#endif
 
 	if (simsound || SndSys_LockRenderBuffer ())
 	{
@@ -1999,7 +2002,6 @@ static void S_PaintAndSubmit (void)
 
 	// Update sound time
 	snd_usethreadedmixing = false;
-	usesoundtimehack = true;
 	if (cls.timedemo) // SUPER NASTY HACK to mix non-realtime sound for more reliable benchmarking
 	{
 		usesoundtimehack = 1;
@@ -2174,7 +2176,6 @@ void S_Update(const matrix4x4_t *listenermatrix)
 			if(mindist_trans - maxdist_trans == 0)
 			{
 				spatialmethod = SPATIAL_THRESH;
-				mindist_trans = snd_spatialization_min_radius.value;
 			}
 			else
 			{

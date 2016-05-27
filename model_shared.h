@@ -68,7 +68,7 @@ typedef struct skinframe_s
 	// mark and sweep garbage collection, this value is updated to a new value
 	// on each level change for the used skinframes, if some are not used they
 	// are freed
-	int loadsequence;
+	unsigned int loadsequence;
 	// indicates whether this texture has transparent pixels
 	qboolean hasalpha;
 	// average texture color, if applicable
@@ -112,7 +112,7 @@ r_vertexgeneric_t;
 
 typedef struct r_vertexmesh_s
 {
-	// 80 bytes
+	// 88 bytes
 	float vertex3f[3];
 	float color4f[4];
 	float texcoordtexture2f[2];
@@ -120,6 +120,8 @@ typedef struct r_vertexmesh_s
 	float svector3f[3];
 	float tvector3f[3];
 	float normal3f[3];
+	unsigned char skeletalindex4ub[4];
+	unsigned char skeletalweight4ub[4];
 }
 r_vertexmesh_t;
 
@@ -129,6 +131,7 @@ typedef struct r_meshbuffer_s
 	void *devicebuffer; // Direct3D
 	size_t size;
 	qboolean isindexbuffer;
+	qboolean isuniformbuffer;
 	qboolean isdynamic;
 	qboolean isindex16;
 	char name[MAX_QPATH];
@@ -143,10 +146,10 @@ typedef struct surfmesh_s
 	int num_triangles; // number of triangles in the mesh
 	int *data_element3i; // int[tris*3] triangles of the mesh, 3 indices into vertex arrays for each
 	r_meshbuffer_t *data_element3i_indexbuffer;
-	size_t data_element3i_bufferoffset;
+	int data_element3i_bufferoffset;
 	unsigned short *data_element3s; // unsigned short[tris*3] triangles of the mesh in unsigned short format (NULL if num_vertices > 65536)
 	r_meshbuffer_t *data_element3s_indexbuffer;
-	size_t data_element3s_bufferoffset;
+	int data_element3s_bufferoffset;
 	int *data_neighbor3i; // int[tris*3] neighboring triangle on each edge (-1 if none)
 	// vertex data in system memory
 	int num_vertices; // number of vertices in the mesh
@@ -157,16 +160,22 @@ typedef struct surfmesh_s
 	float *data_texcoordtexture2f; // float[verts*2] texcoords for surface texture
 	float *data_texcoordlightmap2f; // float[verts*2] texcoords for lightmap texture
 	float *data_lightmapcolor4f;
+	unsigned char *data_skeletalindex4ub;
+	unsigned char *data_skeletalweight4ub;
 	int *data_lightmapoffsets; // index into surface's lightmap samples for vertex lighting
+	r_vertexmesh_t *data_vertexmesh; // interleaved arrays for D3D
 	// vertex buffer object (stores geometry in video memory)
 	r_meshbuffer_t *vbo_vertexbuffer;
-	size_t vbooffset_vertex3f;
-	size_t vbooffset_svector3f;
-	size_t vbooffset_tvector3f;
-	size_t vbooffset_normal3f;
-	size_t vbooffset_texcoordtexture2f;
-	size_t vbooffset_texcoordlightmap2f;
-	size_t vbooffset_lightmapcolor4f;
+	int vbooffset_vertex3f;
+	int vbooffset_svector3f;
+	int vbooffset_tvector3f;
+	int vbooffset_normal3f;
+	int vbooffset_texcoordtexture2f;
+	int vbooffset_texcoordlightmap2f;
+	int vbooffset_lightmapcolor4f;
+	int vbooffset_skeletalindex4ub;
+	int vbooffset_skeletalweight4ub;
+	int vbooffset_vertexmesh;
 	// morph blending, these are zero if model is skeletal or static
 	int num_morphframes;
 	struct md3vertex_s *data_morphmd3vertex;
@@ -183,9 +192,7 @@ typedef struct surfmesh_s
 	qboolean isanimated;
 
 	// vertex and index buffers for rendering
-	r_vertexmesh_t *vertexmesh;
-	r_meshbuffer_t *vertex3fbuffer;
-	r_meshbuffer_t *vertexmeshbuffer;
+	r_meshbuffer_t *vertexmesh_vertexbuffer;
 }
 surfmesh_t;
 
@@ -217,10 +224,13 @@ typedef struct shadowmesh_s
 	// used always
 	int *element3i;
 	r_meshbuffer_t *element3i_indexbuffer;
-	size_t element3i_bufferoffset;
+	int element3i_bufferoffset;
 	unsigned short *element3s;
 	r_meshbuffer_t *element3s_indexbuffer;
-	size_t element3s_bufferoffset;
+	int element3s_bufferoffset;
+	// vertex/index buffers for rendering
+	// (created by Mod_ShadowMesh_Finish if possible)
+	r_vertexmesh_t *vertexmesh; // usually NULL
 	// used for shadow mapping cubemap side partitioning
 	int sideoffsets[6], sidetotals[6];
 	// used for shadow mesh (NULL on light mesh)
@@ -229,16 +239,12 @@ typedef struct shadowmesh_s
 	// while building meshes
 	shadowmeshvertexhash_t **vertexhashtable, *vertexhashentries;
 	r_meshbuffer_t *vbo_vertexbuffer;
-	size_t vbooffset_vertex3f;
-	size_t vbooffset_svector3f;
-	size_t vbooffset_tvector3f;
-	size_t vbooffset_normal3f;
-	size_t vbooffset_texcoord2f;
-	// vertex/index buffers for rendering
-	// (created by Mod_ShadowMesh_Finish if possible)
-	r_vertexmesh_t *vertexmesh; // usually NULL
-	r_meshbuffer_t *vertex3fbuffer;
-	r_meshbuffer_t *vertexmeshbuffer; // usually NULL
+	int vbooffset_vertex3f;
+	int vbooffset_svector3f;
+	int vbooffset_tvector3f;
+	int vbooffset_normal3f;
+	int vbooffset_texcoord2f;
+	int vbooffset_vertexmesh;
 }
 shadowmesh_t;
 
@@ -491,7 +497,7 @@ typedef struct q3shaderinfo_s
 	float specularscalemod;
 	float specularpowermod;
 
-	// rtlightning ambient addition
+	// rtlighting ambient addition
 	float rtlightambient;
 #define Q3SHADERINFO_COMPARE_END rtlightambient
 }
@@ -532,6 +538,8 @@ typedef struct texture_s
 	int basematerialflags;
 	// current material flags (updated each bmodel render)
 	int currentmaterialflags;
+	// base material alpha (used for Q2 materials)
+	float basealpha;
 
 	// PolygonOffset values for rendering this material
 	// (these are added to the r_refdef values and submodel values)
@@ -554,14 +562,14 @@ typedef struct texture_s
 	// direct pointers to each of the frames in the sequences
 	// (indexed as [alternate][frame])
 	struct texture_s *anim_frames[2][10];
-	// set if animated or there is an alternate frame set
-	// (this is an optimization in the renderer)
+	// 1 = q1bsp animation with anim_total[0] >= 2 (animated) or anim_total[1] >= 1 (alternate frame set)
+	// 2 = q2bsp animation with anim_total[0] >= 2 (uses self.frame)
 	int animated;
 
 	// renderer checks if this texture needs updating...
 	int update_lastrenderframe;
 	void *update_lastrenderentity;
-	// the current alpha of this texture (may be affected by r_wateralpha)
+	// the current alpha of this texture (may be affected by r_wateralpha, also basealpha, and ent->alpha)
 	float currentalpha;
 	// the current texture frame in animation
 	struct texture_s *currentframe;
@@ -612,6 +620,13 @@ typedef struct texture_s
 	int supercontents;
 	int textureflags;
 
+	// q2bsp
+	// we have to load the texture multiple times when Q2SURF_ flags differ,
+	// though it still shares the skinframe
+	int q2flags;
+	int q2value;
+	int q2contents;
+
 	// reflection
 	float reflectmin; // when refraction is used, minimum amount of reflection (when looking straight down)
 	float reflectmax; // when refraction is used, maximum amount of reflection (when looking parallel to water)
@@ -642,9 +657,13 @@ typedef struct texture_s
 
 typedef struct mtexinfo_s
 {
-	float vecs[2][4];
-	texture_t *texture;
-	int flags;
+	float		vecs[2][4];		// [s/t][xyz offset]
+	int			textureindex;
+	int			q1flags;
+	int			q2flags;			// miptex flags + overrides
+	int			q2value;			// light emission, etc
+	char		q2texture[32];	// texture name (textures/*.wal)
+	int			q2nexttexinfo;	// for animations, -1 = end of chain
 }
 mtexinfo_t;
 
@@ -737,8 +756,16 @@ typedef struct model_brush_s
 {
 	// true if this model is a HalfLife .bsp file
 	qboolean ishlbsp;
-	// true if this model is a BSP2 .bsp file (expanded 32bit bsp format for DarkPlaces, RMQ, others?)
+	// true if this model is a BSP2rmqe .bsp file (expanded 32bit bsp format for rmqe)
+	qboolean isbsp2rmqe;
+	// true if this model is a BSP2 .bsp file (expanded 32bit bsp format for DarkPlaces, others?)
 	qboolean isbsp2;
+	// true if this model is a Quake2 .bsp file (IBSP38)
+	qboolean isq2bsp;
+	// true if this model is a Quake3 .bsp file (IBSP46)
+	qboolean isq3bsp;
+	// true if this model is a Quake1/Quake2 .bsp file where skymasking capability exists
+	qboolean skymasking;
 	// string of entity definitions (.map format)
 	char *entities;
 
@@ -872,12 +899,11 @@ typedef struct model_brushq1_s
 }
 model_brushq1_t;
 
-/* MSVC can't compile empty structs, so this is commented out for now
 typedef struct model_brushq2_s
 {
+	int dummy; // MSVC can't handle an empty struct
 }
 model_brushq2_t;
-*/
 
 typedef struct model_brushq3_s
 {
@@ -1055,9 +1081,7 @@ typedef struct model_s
 	model_sprite_t	sprite;
 	model_brush_t	brush;
 	model_brushq1_t	brushq1;
-	/* MSVC can't handle an empty struct, so this is commented out for now
 	model_brushq2_t	brushq2;
-	*/
 	model_brushq3_t	brushq3;
 	// flags this model for offseting sounds to the model center (used by brush models)
 	int soundfromcenter;
@@ -1078,6 +1102,10 @@ extern unsigned char *mod_base;
 // texture fullbrights
 extern cvar_t r_fullbrights;
 extern cvar_t r_enableshadowvolumes;
+
+extern cvar_t cl_force_player_model;
+extern cvar_t cl_force_player_model_weapontag;
+extern int cl_force_player_model_weapontag_index;
 
 void Mod_Init (void);
 void Mod_Reload (void);
@@ -1176,6 +1204,9 @@ void Mod_BrushInit(void);
 // used for talking to the QuakeC mainly
 int Mod_Q1BSP_NativeContentsFromSuperContents(struct model_s *model, int supercontents);
 int Mod_Q1BSP_SuperContentsFromNativeContents(struct model_s *model, int nativecontents);
+// used for loading wal files in Mod_LoadTextureFromQ3Shader
+int Mod_Q2BSP_SuperContentsFromNativeContents(dp_model_t *model, int nativecontents);
+int Mod_Q2BSP_NativeContentsFromSuperContents(dp_model_t *model, int supercontents);
 
 // a lot of model formats use the Q1BSP code, so here are the prototypes...
 struct entity_render_s;
@@ -1198,6 +1229,8 @@ void Mod_CollisionBIH_TraceLine(dp_model_t *model, const struct frameblend_s *fr
 void Mod_CollisionBIH_TraceBox(dp_model_t *model, const struct frameblend_s *frameblend, const skeleton_t *skeleton, struct trace_s *trace, const vec3_t start, const vec3_t boxmins, const vec3_t boxmaxs, const vec3_t end, int hitsupercontentsmask);
 void Mod_CollisionBIH_TraceBrush(dp_model_t *model, const struct frameblend_s *frameblend, const skeleton_t *skeleton, struct trace_s *trace, struct colbrushf_s *start, struct colbrushf_s *end, int hitsupercontentsmask);
 void Mod_CollisionBIH_TracePoint_Mesh(dp_model_t *model, const struct frameblend_s *frameblend, const skeleton_t *skeleton, struct trace_s *trace, const vec3_t start, int hitsupercontentsmask);
+qboolean Mod_CollisionBIH_TraceLineOfSight(struct model_s *model, const vec3_t start, const vec3_t end);
+int Mod_CollisionBIH_PointSuperContents(struct model_s *model, int frame, const vec3_t point);
 int Mod_CollisionBIH_PointSuperContents_Mesh(struct model_s *model, int frame, const vec3_t point);
 bih_t *Mod_MakeCollisionBIH(dp_model_t *model, qboolean userendersurfaces, bih_t *out);
 

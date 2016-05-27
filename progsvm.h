@@ -70,7 +70,7 @@ typedef struct prvm_required_field_s
 typedef struct prvm_edict_private_s
 {
 	qboolean free;
-	float freetime;
+	float freetime; // realtime of last change to "free" (i.e. also set on allocation)
 	int mark; // used during leaktest (0 = unref, >0 = referenced); special values during server physics:
 #define PRVM_EDICT_MARK_WAIT_FOR_SETORIGIN -1
 #define PRVM_EDICT_MARK_SETORIGIN_CAUGHT -2
@@ -228,13 +228,13 @@ extern prvm_eval_t prvm_badvalue;
 #define PRVM_menufunction(funcname)           (prog->funcoffsets.funcname)
 
 #if 1
-#define PRVM_EDICTFIELDVALUE(ed, fieldoffset)    (fieldoffset < 0 ? Con_Printf("Invalid fieldoffset at %s:%i\n", __FILE__, __LINE__), &prvm_badvalue : (prvm_eval_t *)(ed->fields.fp + fieldoffset))
+#define PRVM_EDICTFIELDVALUE(ed, fieldoffset)    ((fieldoffset) < 0 ? Con_Printf("Invalid fieldoffset at %s:%i\n", __FILE__, __LINE__), &prvm_badvalue : (prvm_eval_t *)((ed)->fields.fp + (fieldoffset)))
 #define PRVM_EDICTFIELDFLOAT(ed, fieldoffset)    (PRVM_EDICTFIELDVALUE(ed, fieldoffset)->_float)
 #define PRVM_EDICTFIELDVECTOR(ed, fieldoffset)   (PRVM_EDICTFIELDVALUE(ed, fieldoffset)->vector)
 #define PRVM_EDICTFIELDSTRING(ed, fieldoffset)   (PRVM_EDICTFIELDVALUE(ed, fieldoffset)->string)
 #define PRVM_EDICTFIELDEDICT(ed, fieldoffset)    (PRVM_EDICTFIELDVALUE(ed, fieldoffset)->edict)
 #define PRVM_EDICTFIELDFUNCTION(ed, fieldoffset) (PRVM_EDICTFIELDVALUE(ed, fieldoffset)->function)
-#define PRVM_GLOBALFIELDVALUE(fieldoffset)       (fieldoffset < 0 ? Con_Printf("Invalid fieldoffset at %s:%i\n", __FILE__, __LINE__), &prvm_badvalue : (prvm_eval_t *)(prog->globals.fp + fieldoffset))
+#define PRVM_GLOBALFIELDVALUE(fieldoffset)       ((fieldoffset) < 0 ? Con_Printf("Invalid fieldoffset at %s:%i\n", __FILE__, __LINE__), &prvm_badvalue : (prvm_eval_t *)(prog->globals.fp + (fieldoffset)))
 #define PRVM_GLOBALFIELDFLOAT(fieldoffset)       (PRVM_GLOBALFIELDVALUE(fieldoffset)->_float)
 #define PRVM_GLOBALFIELDVECTOR(fieldoffset)      (PRVM_GLOBALFIELDVALUE(fieldoffset)->vector)
 #define PRVM_GLOBALFIELDSTRING(fieldoffset)      (PRVM_GLOBALFIELDVALUE(fieldoffset)->string)
@@ -513,7 +513,9 @@ typedef struct prvm_prog_funcoffsets_s
 prvm_prog_funcoffsets_t;
 
 // stringbuffer flags
-#define STRINGBUFFER_SAVED	1 // saved in savegames
+#define STRINGBUFFER_SAVED     1   // saved in savegames
+#define STRINGBUFFER_QCFLAGS   1   // allowed to be set by QC
+#define STRINGBUFFER_TEMP      128 // internal use ONLY 
 typedef struct prvm_stringbuffer_s
 {
 	int max_strings;
@@ -529,9 +531,10 @@ prvm_stringbuffer_t;
 typedef struct prvm_prog_s
 {
 	double				starttime; // system time when PRVM_Prog_Load was called
+	double				inittime; // system time when QC initialization code finished (any entity created before is not a leak)
 	double				profiletime; // system time when last PRVM_CallProfile was called (or PRVM_Prog_Load initially)
-	unsigned int		id; // increasing unique id of progs instance
 	mfunction_t			*functions;
+	int				functions_covered;
 	char				*strings;
 	int					stringssize;
 	ddef_t				*fielddefs;
@@ -560,8 +563,13 @@ typedef struct prvm_prog_s
 	int					numglobals;
 
 	int					*statement_linenums; // NULL if not available
+	int					*statement_columnnums; // NULL if not available
 
 	double				*statement_profile; // only incremented if prvm_statementprofiling is on
+	int				statements_covered;
+	double				*explicit_profile; // only incremented if prvm_statementprofiling is on
+	int				explicit_covered;
+	int				numexplicitcoveragestatements;
 
 	union {
 		prvm_vec_t *fp;
@@ -600,6 +608,16 @@ typedef struct prvm_prog_s
 	int					argc;
 
 	int					trace;
+	int					break_statement;
+	int					break_stack_index;
+	int					watch_global;
+	etype_t					watch_global_type;
+	prvm_eval_t				watch_global_value;
+	int					watch_edict;
+	int					watch_field;
+	etype_t					watch_field_type;
+	prvm_eval_t				watch_edictfield_value;
+
 	mfunction_t			*xfunction;
 	int					xstatement;
 
@@ -674,6 +692,8 @@ typedef struct prvm_prog_s
 	// printed together with backtraces
 	const char *statestring;
 
+	struct animatemodel_cache *animatemodel_cache;
+
 //	prvm_builtin_mem_t  *mem_list;
 
 // now passed as parameter of PRVM_LoadProgs
@@ -721,7 +741,9 @@ prvm_prog_t *PRVM_FriendlyProgFromString(const char *str); // for console comman
 #define PRVM_ProgLoaded(n) (PRVM_GetProg(n)->loaded)
 #define SVVM_prog (&prvm_prog_list[PRVM_PROG_SERVER])
 #define CLVM_prog (&prvm_prog_list[PRVM_PROG_CLIENT])
+#ifdef CONFIG_MENU
 #define MVM_prog (&prvm_prog_list[PRVM_PROG_MENU])
+#endif
 
 //============================================================================
 // prvm_cmds part
@@ -743,8 +765,10 @@ void SVVM_reset_cmd(prvm_prog_t *prog);
 void CLVM_init_cmd(prvm_prog_t *prog);
 void CLVM_reset_cmd(prvm_prog_t *prog);
 
+#ifdef CONFIG_MENU
 void MVM_init_cmd(prvm_prog_t *prog);
 void MVM_reset_cmd(prvm_prog_t *prog);
+#endif
 
 void VM_Cmd_Init(prvm_prog_t *prog);
 void VM_Cmd_Reset(prvm_prog_t *prog);
@@ -755,11 +779,15 @@ void PRVM_Init (void);
 #ifdef PROFILING
 void SVVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessage);
 void CLVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessage);
+#ifdef CONFIG_MENU
 void MVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessage);
+#endif
 #else
 #define SVVM_ExecuteProgram PRVM_ExecuteProgram
 #define CLVM_ExecuteProgram PRVM_ExecuteProgram
+#ifdef CONFIG_MENU
 #define MVM_ExecuteProgram PRVM_ExecuteProgram
+#endif
 void PRVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessage);
 #endif
 
@@ -772,7 +800,7 @@ void PRVM_ChildProfile_f (void);
 void PRVM_CallProfile_f (void);
 void PRVM_PrintFunction_f (void);
 
-void PRVM_PrintState(prvm_prog_t *prog);
+void PRVM_PrintState(prvm_prog_t *prog, int stack_index);
 void PRVM_Crash(prvm_prog_t *prog);
 void PRVM_ShortStackTrace(prvm_prog_t *prog, char *buf, size_t bufsize);
 const char *PRVM_AllocationOrigin(prvm_prog_t *prog);
@@ -864,12 +892,14 @@ Call InitProg with the num
 Set up the fields marked with [INIT] in the prog struct
 Load a program with LoadProgs
 */
-// Load expects to be called right after Init
+// Load expects to be called right after Reset
 void PRVM_Prog_Init(prvm_prog_t *prog);
-void PRVM_Prog_Load(prvm_prog_t *prog, const char *filename, int numrequiredfunc, const char **required_func, int numrequiredfields, prvm_required_field_t *required_field, int numrequiredglobals, prvm_required_field_t *required_global);
+void PRVM_Prog_Load(prvm_prog_t *prog, const char *filename, unsigned char *data, fs_offset_t size, int numrequiredfunc, const char **required_func, int numrequiredfields, prvm_required_field_t *required_field, int numrequiredglobals, prvm_required_field_t *required_global);
 void PRVM_Prog_Reset(prvm_prog_t *prog);
 
 void PRVM_StackTrace(prvm_prog_t *prog);
+void PRVM_Breakpoint(prvm_prog_t *prog, int stack_index, const char *text);
+void PRVM_Watchpoint(prvm_prog_t *prog, int stack_index, const char *text, etype_t type, prvm_eval_t *o, prvm_eval_t *n);
 
 void VM_Warning(prvm_prog_t *prog, const char *fmt, ...) DP_FUNC_PRINTF(2);
 
@@ -877,5 +907,7 @@ void VM_GenerateFrameGroupBlend(prvm_prog_t *prog, framegroupblend_t *framegroup
 void VM_FrameBlendFromFrameGroupBlend(frameblend_t *frameblend, const framegroupblend_t *framegroupblend, const dp_model_t *model, double curtime);
 void VM_UpdateEdictSkeleton(prvm_prog_t *prog, prvm_edict_t *ed, const dp_model_t *edmodel, const frameblend_t *frameblend);
 void VM_RemoveEdictSkeleton(prvm_prog_t *prog, prvm_edict_t *ed);
+
+void PRVM_ExplicitCoverageEvent(prvm_prog_t *prog, mfunction_t *func, int statement);
 
 #endif

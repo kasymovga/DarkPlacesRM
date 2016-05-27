@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sv_demo.h"
 #include "image.h"
 
+#include "prvm_cmds.h"
 #include "utf8lib.h"
 
 // for secure rcon authentication
@@ -110,7 +111,7 @@ static void Host_Status_f (void)
 		if (svs.clients[i].active)
 			players++;
 	print ("host:     %s\n", Cvar_VariableString ("hostname"));
-	print ("version:  DarkPlacesRM " DP_OS_NAME " build %s (Running %s)\n", buildstring, gamename);
+	print ("version:  DarkPlacesRM " DP_OS_NAME " build %s (Running %s)\n", buildstring, gamenetworkfiltername);
 	print ("protocol: %i (%s)\n", Protocol_NumberForEnum(sv.protocol), Protocol_NameForEnum(sv.protocol));
 	print ("map:      %s\n", sv.name);
 	print ("timing:   %s\n", Host_TimingReport(vabuf, sizeof(vabuf)));
@@ -382,9 +383,11 @@ static void Host_Map_f (void)
 		svs.clients = (client_t *)Mem_Alloc(sv_mempool, sizeof(client_t) * svs.maxclients);
 	}
 
+#ifdef CONFIG_MENU
 	// remove menu
 	if (key_dest == key_menu || key_dest == key_menu_grabbed)
 		MR_ToggleMenu(0);
+#endif
 	key_dest = key_game;
 
 	svs.serverflags = 0;			// haven't completed an episode yet
@@ -417,9 +420,11 @@ static void Host_Changelevel_f (void)
 		return;
 	}
 
+#ifdef CONFIG_MENU
 	// remove menu
 	if (key_dest == key_menu || key_dest == key_menu_grabbed)
 		MR_ToggleMenu(0);
+#endif
 	key_dest = key_game;
 
 	SV_SaveSpawnparms ();
@@ -452,9 +457,11 @@ static void Host_Restart_f (void)
 		return;
 	}
 
+#ifdef CONFIG_MENU
 	// remove menu
 	if (key_dest == key_menu || key_dest == key_menu_grabbed)
 		MR_ToggleMenu(0);
+#endif
 	key_dest = key_game;
 
 	allowcheats = sv_cheats.integer != 0;
@@ -554,7 +561,7 @@ LOAD / SAVE GAME
 void Host_Savegame_to(prvm_prog_t *prog, const char *name)
 {
 	qfile_t	*f;
-	int		i, k, l, lightstyles = 64;
+	int		i, k, l, numbuffers, lightstyles = 64;
 	char	comment[SAVEGAME_COMMENT_LENGTH+1];
 	char	line[MAX_INPUTLINE];
 	qboolean isserver;
@@ -644,11 +651,13 @@ void Host_Savegame_to(prvm_prog_t *prog, const char *name)
 			FS_Printf(f,"sv.sound_precache %i %s\n", i, sv.sound_precache[i]);
 
 	// darkplaces extension - save buffers
-	for (i = 0; i < (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray); i++)
+	numbuffers = (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
+	for (i = 0; i < numbuffers; i++)
 	{
 		prvm_stringbuffer_t *stringbuffer = (prvm_stringbuffer_t*) Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i);
 		if(stringbuffer && (stringbuffer->flags & STRINGBUFFER_SAVED))
 		{
+			FS_Printf(f,"sv.buffer %i %i \"string\"\n", i, stringbuffer->flags & STRINGBUFFER_QCFLAGS);
 			for(k = 0; k < stringbuffer->num_strings; k++)
 			{
 				if (!stringbuffer->strings[k])
@@ -767,12 +776,11 @@ static void Host_Loadgame_f (void)
 	const char *t;
 	char *text;
 	prvm_edict_t *ent;
-	int i, k;
+	int i, k, numbuffers;
 	int entnum;
 	int version;
 	float spawn_parms[NUM_SPAWN_PARMS];
 	prvm_stringbuffer_t *stringbuffer;
-	size_t alloclen;
 
 	if (Cmd_Argc() != 2)
 	{
@@ -789,9 +797,11 @@ static void Host_Loadgame_f (void)
 	if (cls.demoplayback)
 		CL_Disconnect ();
 
+#ifdef CONFIG_MENU
 	// remove menu
 	if (key_dest == key_menu || key_dest == key_menu_grabbed)
 		MR_ToggleMenu(0);
+#endif
 	key_dest = key_game;
 
 	cls.demonum = -1;		// stop demo loop in case this fails
@@ -991,6 +1001,8 @@ static void Host_Loadgame_f (void)
 			memset(sv.lightstyles[0], 0, sizeof(sv.lightstyles));
 			memset(sv.model_precache[0], 0, sizeof(sv.model_precache));
 			memset(sv.sound_precache[0], 0, sizeof(sv.sound_precache));
+			BufStr_Flush(prog);
+
 			while (COM_ParseToken_Simple(&t, false, false, true))
 			{
 				if (!strcmp(com_token, "sv.lightstyles"))
@@ -1026,44 +1038,48 @@ static void Host_Loadgame_f (void)
 					else
 						Con_Printf("unsupported sound %i \"%s\"\n", i, com_token);
 				}
+				else if (!strcmp(com_token, "sv.buffer"))
+				{
+					if (COM_ParseToken_Simple(&t, false, false, true))
+					{
+						i = atoi(com_token);
+						if (i >= 0)
+						{
+							k = STRINGBUFFER_SAVED;
+							if (COM_ParseToken_Simple(&t, false, false, true))
+								k |= atoi(com_token);
+							if (!BufStr_FindCreateReplace(prog, i, k, "string"))
+								Con_Printf("failed to create stringbuffer %i\n", i);
+						}
+						else
+							Con_Printf("unsupported stringbuffer index %i \"%s\"\n", i, com_token);
+					}
+					else
+						Con_Printf("unexpected end of line when parsing sv.buffer (expected buffer index)\n");
+				}
 				else if (!strcmp(com_token, "sv.bufstr"))
 				{
-					COM_ParseToken_Simple(&t, false, false, true);
-					i = atoi(com_token);
-					COM_ParseToken_Simple(&t, false, false, true);
-					k = atoi(com_token);
-					COM_ParseToken_Simple(&t, false, false, true);
-					stringbuffer = (prvm_stringbuffer_t*) Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i);
-					// VorteX: nasty code, cleanup required
-					// create buffer at this index
-					if(!stringbuffer)
-						stringbuffer = (prvm_stringbuffer_t *) Mem_ExpandableArray_AllocRecordAtIndex(&prog->stringbuffersarray, i);
-					if (!stringbuffer)
-						Con_Printf("cant write string %i into buffer %i\n", k, i);
+					if (!COM_ParseToken_Simple(&t, false, false, true))
+						Con_Printf("unexpected end of line when parsing sv.bufstr\n");
 					else
 					{
-						// code copied from VM_bufstr_set
-						// expand buffer
-						if (stringbuffer->max_strings <= i)
+						i = atoi(com_token);
+						stringbuffer = BufStr_FindCreateReplace(prog, i, STRINGBUFFER_SAVED, "string");
+						if (stringbuffer)
 						{
-							char **oldstrings = stringbuffer->strings;
-							stringbuffer->max_strings = max(stringbuffer->max_strings * 2, 128);
-							while (stringbuffer->max_strings <= i)
-								stringbuffer->max_strings *= 2;
-							stringbuffer->strings = (char **) Mem_Alloc(prog->progs_mempool, stringbuffer->max_strings * sizeof(stringbuffer->strings[0]));
-							if (stringbuffer->num_strings > 0)
-								memcpy(stringbuffer->strings, oldstrings, stringbuffer->num_strings * sizeof(stringbuffer->strings[0]));
-							if (oldstrings)
-								Mem_Free(oldstrings);
+							if (COM_ParseToken_Simple(&t, false, false, true))
+							{
+								k = atoi(com_token);
+								if (COM_ParseToken_Simple(&t, false, false, true))
+									BufStr_Set(prog, stringbuffer, k, com_token);
+								else
+									Con_Printf("unexpected end of line when parsing sv.bufstr (expected string)\n");
+							}
+							else
+								Con_Printf("unexpected end of line when parsing sv.bufstr (expected strindex)\n");
 						}
-						// allocate string
-						stringbuffer->num_strings = max(stringbuffer->num_strings, k + 1);
-						if(stringbuffer->strings[k])
-							Mem_Free(stringbuffer->strings[k]);
-						stringbuffer->strings[k] = NULL;
-						alloclen = strlen(com_token) + 1;
-						stringbuffer->strings[k] = (char *)Mem_Alloc(prog->progs_mempool, alloclen);
-						memcpy(stringbuffer->strings[k], com_token, alloclen);
+						else
+							Con_Printf("failed to create stringbuffer %i \"%s\"\n", i, com_token);
 					}
 				}
 				// skip any trailing text or unrecognized commands
@@ -1073,6 +1089,15 @@ static void Host_Loadgame_f (void)
 		}
 	}
 	Mem_Free(text);
+
+	// remove all temporary flagged string buffers (ones created with BufStr_FindCreateReplace)
+	numbuffers = (int)Mem_ExpandableArray_IndexRange(&prog->stringbuffersarray);
+	for (i = 0; i < numbuffers; i++)
+	{
+		if ( (stringbuffer = (prvm_stringbuffer_t *)Mem_ExpandableArray_RecordAtIndex(&prog->stringbuffersarray, i)) )
+			if (stringbuffer->flags & STRINGBUFFER_TEMP)
+				BufStr_Del(prog, stringbuffer);
+	}
 
 	if(developer_entityparsing.integer)
 		Con_Printf("Host_Loadgame_f: finished\n");
@@ -1100,7 +1125,10 @@ static void Host_Name_f (void)
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf("name: %s\n", cl_name.string);
+		if (cmd_source == src_command)
+		{
+			Con_Printf("name: %s\n", cl_name.string);
+		}
 		return;
 	}
 
@@ -1201,7 +1229,7 @@ static void Host_Name_f (void)
 	PRVM_serveredictstring(host_client->edict, netname) = PRVM_SetEngineString(prog, host_client->name);
 	if (strcmp(host_client->old_name, host_client->name))
 	{
-		if (host_client->spawned)
+		if (host_client->begun)
 			SV_BroadcastPrintf("%s ^7changed name to %s\n", host_client->old_name, host_client->name);
 		strlcpy(host_client->old_name, host_client->name, sizeof(host_client->old_name));
 		// send notification to all clients
@@ -1227,7 +1255,10 @@ static void Host_Playermodel_f (void)
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf("\"playermodel\" is \"%s\"\n", cl_playermodel.string);
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"playermodel\" is \"%s\"\n", cl_playermodel.string);
+		}
 		return;
 	}
 
@@ -1284,7 +1315,10 @@ static void Host_Playerskin_f (void)
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf("\"playerskin\" is \"%s\"\n", cl_playerskin.string);
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"playerskin\" is \"%s\"\n", cl_playerskin.string);
+		}
 		return;
 	}
 
@@ -1319,7 +1353,7 @@ static void Host_Playerskin_f (void)
 	PRVM_serveredictstring(host_client->edict, playerskin) = PRVM_SetEngineString(prog, host_client->playerskin);
 	if (strcmp(host_client->old_skin, host_client->playerskin))
 	{
-		//if (host_client->spawned)
+		//if (host_client->begun)
 		//	SV_BroadcastPrintf("%s changed skin to %s\n", host_client->name, host_client->playerskin);
 		strlcpy(host_client->old_skin, host_client->playerskin, sizeof(host_client->old_skin));
 		/*// send notification to all clients
@@ -1612,8 +1646,11 @@ static void Host_Color_f(void)
 
 	if (Cmd_Argc() == 1)
 	{
-		Con_Printf("\"color\" is \"%i %i\"\n", cl_color.integer >> 4, cl_color.integer & 15);
-		Con_Print("color <0-15> [0-15]\n");
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"color\" is \"%i %i\"\n", cl_color.integer >> 4, cl_color.integer & 15);
+			Con_Print("color <0-15> [0-15]\n");
+		}
 		return;
 	}
 
@@ -1631,8 +1668,11 @@ static void Host_TopColor_f(void)
 {
 	if (Cmd_Argc() == 1)
 	{
-		Con_Printf("\"topcolor\" is \"%i\"\n", (cl_color.integer >> 4) & 15);
-		Con_Print("topcolor <0-15>\n");
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"topcolor\" is \"%i\"\n", (cl_color.integer >> 4) & 15);
+			Con_Print("topcolor <0-15>\n");
+		}
 		return;
 	}
 
@@ -1643,8 +1683,11 @@ static void Host_BottomColor_f(void)
 {
 	if (Cmd_Argc() == 1)
 	{
-		Con_Printf("\"bottomcolor\" is \"%i\"\n", cl_color.integer & 15);
-		Con_Print("bottomcolor <0-15>\n");
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"bottomcolor\" is \"%i\"\n", cl_color.integer & 15);
+			Con_Print("bottomcolor <0-15>\n");
+		}
 		return;
 	}
 
@@ -1652,14 +1695,19 @@ static void Host_BottomColor_f(void)
 }
 
 cvar_t cl_rate = {CVAR_SAVE | CVAR_NQUSERINFOHACK, "_cl_rate", "40000", "internal storage cvar for current rate (changed by rate command)"};
+cvar_t cl_rate_burstsize = {CVAR_SAVE | CVAR_NQUSERINFOHACK, "_cl_rate_burstsize", "1024", "internal storage cvar for current rate control burst size (changed by rate_burstsize command)"};
+
 static void Host_Rate_f(void)
 {
 	int rate;
 
 	if (Cmd_Argc() != 2)
 	{
-		Con_Printf("\"rate\" is \"%i\"\n", cl_rate.integer);
-		Con_Print("rate <bytespersecond>\n");
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"rate\" is \"%i\"\n", cl_rate.integer);
+			Con_Print("rate <bytespersecond>\n");
+		}
 		return;
 	}
 
@@ -1672,6 +1720,27 @@ static void Host_Rate_f(void)
 	}
 
 	host_client->rate = rate;
+}
+static void Host_Rate_BurstSize_f(void)
+{
+	int rate_burstsize;
+
+	if (Cmd_Argc() != 2)
+	{
+		Con_Printf("\"rate_burstsize\" is \"%i\"\n", cl_rate_burstsize.integer);
+		Con_Print("rate_burstsize <bytes>\n");
+		return;
+	}
+
+	rate_burstsize = atoi(Cmd_Argv(1));
+
+	if (cmd_source == src_command)
+	{
+		Cvar_SetValue ("_cl_rate_burstsize", rate_burstsize);
+		return;
+	}
+
+	host_client->rate_burstsize = rate_burstsize;
 }
 
 /*
@@ -1728,7 +1797,12 @@ static void Host_Pause_f (void)
 	}
 
 	sv.paused ^= 1;
-	SV_BroadcastPrintf("%s %spaused the game\n", host_client->name, sv.paused ? "" : "un");
+	if (cmd_source != src_command)
+		SV_BroadcastPrintf("%s %spaused the game\n", host_client->name, sv.paused ? "" : "un");
+	else if(*(sv_adminnick.string))
+		SV_BroadcastPrintf("%s %spaused the game\n", sv_adminnick.string, sv.paused ? "" : "un");
+	else
+		SV_BroadcastPrintf("%s %spaused the game\n", hostname.string, sv.paused ? "" : "un");
 	// send notification to all clients
 	MSG_WriteByte(&sv.reliable_datagram, svc_setpause);
 	MSG_WriteByte(&sv.reliable_datagram, sv.paused);
@@ -1749,7 +1823,10 @@ static void Host_PModel_f (void)
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf("\"pmodel\" is \"%s\"\n", cl_pmodel.string);
+		if (cmd_source == src_command)
+		{
+			Con_Printf("\"pmodel\" is \"%s\"\n", cl_pmodel.string);
+		}
 		return;
 	}
 	i = atoi(Cmd_Argv(1));
@@ -1777,11 +1854,12 @@ Host_PreSpawn_f
 */
 static void Host_PreSpawn_f (void)
 {
-	if (host_client->spawned)
+	if (host_client->prespawned)
 	{
-		Con_Print("prespawn not valid -- already spawned\n");
+		Con_Print("prespawn not valid -- already prespawned\n");
 		return;
 	}
+	host_client->prespawned = true;
 
 	if (host_client->netconnection)
 	{
@@ -1807,11 +1885,17 @@ static void Host_Spawn_f (void)
 	client_t *client;
 	int stats[MAX_CL_STATS];
 
+	if (!host_client->prespawned)
+	{
+		Con_Print("Spawn not valid -- not yet prespawned\n");
+		return;
+	}
 	if (host_client->spawned)
 	{
 		Con_Print("Spawn not valid -- already spawned\n");
 		return;
 	}
+	host_client->spawned = true;
 
 	// reset name change timer again because they might want to change name
 	// again in the first 5 seconds after connecting
@@ -1939,7 +2023,17 @@ Host_Begin_f
 */
 static void Host_Begin_f (void)
 {
-	host_client->spawned = true;
+	if (!host_client->spawned)
+	{
+		Con_Print("Begin not valid -- not yet spawned\n");
+		return;
+	}
+	if (host_client->begun)
+	{
+		Con_Print("Begin not valid -- already begun\n");
+		return;
+	}
+	host_client->begun = true;
 
 	// LordHavoc: note: this code also exists in SV_DropClient
 	if (sv.loadgame)
@@ -2078,7 +2172,7 @@ static void Host_Give_f (void)
 	case '8':
 	case '9':
 		// MED 01/04/97 added hipnotic give stuff
-		if (gamemode == GAME_HIPNOTIC)
+		if (gamemode == GAME_HIPNOTIC || gamemode == GAME_QUOTH)
 		{
 			if (t[0] == '6')
 			{
@@ -2466,6 +2560,12 @@ static void Host_PQRcon_f (void)
 	lhnetsocket_t *mysocket;
 	char peer_address[64];
 
+	if (Cmd_Argc() == 1)
+	{
+		Con_Printf("%s: Usage: %s command\n", Cmd_Argv(0), Cmd_Argv(0));
+		return;
+	}
+
 	if (!rcon_password.string || !rcon_password.string[0] || rcon_secure.integer > 0)
 	{
 		Con_Printf ("You must set rcon_password before issuing an pqrcon command, and rcon_secure must be 0.\n");
@@ -2527,6 +2627,12 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 	lhnetsocket_t *mysocket;
 	char vabuf[1024];
 
+	if (Cmd_Argc() == 1)
+	{
+		Con_Printf("%s: Usage: %s command\n", Cmd_Argv(0), Cmd_Argv(0));
+		return;
+	}
+
 	if (!rcon_password.string || !rcon_password.string[0])
 	{
 		Con_Printf ("You must set rcon_password before issuing an rcon command.\n");
@@ -2585,11 +2691,11 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 			char argbuf[1500];
 			dpsnprintf(argbuf, sizeof(argbuf), "%ld.%06d %s", (long) time(NULL), (int) (xrand() % 1000000), Cmd_Args());
 			memcpy(buf, "\377\377\377\377srcon HMAC-MD4 TIME ", 24);
-			if(HMAC_MDFOUR_16BYTES((unsigned char *) (buf + 24), (unsigned char *) argbuf, strlen(argbuf), (unsigned char *) rcon_password.string, n))
+			if(HMAC_MDFOUR_16BYTES((unsigned char *) (buf + 24), (unsigned char *) argbuf, (int)strlen(argbuf), (unsigned char *) rcon_password.string, n))
 			{
 				buf[40] = ' ';
 				strlcpy(buf + 41, argbuf, sizeof(buf) - 41);
-				NetConn_Write(mysocket, buf, 41 + strlen(buf + 41), &to);
+				NetConn_Write(mysocket, buf, 41 + (int)strlen(buf + 41), &to);
 			}
 		}
 		else
@@ -2695,7 +2801,6 @@ static void Host_FullInfo_f (void) // credit: taken from QuakeWorld
 {
 	char key[512];
 	char value[512];
-	char *o;
 	const char *s;
 
 	if (Cmd_Argc() != 2)
@@ -2709,27 +2814,33 @@ static void Host_FullInfo_f (void) // credit: taken from QuakeWorld
 		s++;
 	while (*s)
 	{
-		o = key;
-		while (*s && *s != '\\')
-			*o++ = *s++;
-		*o = 0;
-
+		size_t len = strcspn(s, "\\");
+		if (len >= sizeof(key)) {
+			len = sizeof(key) - 1;
+		}
+		strlcpy(key, s, len + 1);
+		s += len;
 		if (!*s)
 		{
 			Con_Printf ("MISSING VALUE\n");
 			return;
 		}
+		++s; // Skip over backslash.
 
-		o = value;
-		s++;
-		while (*s && *s != '\\')
-			*o++ = *s++;
-		*o = 0;
-
-		if (*s)
-			s++;
+		len = strcspn(s, "\\");
+		if (len >= sizeof(value)) {
+			len = sizeof(value) - 1;
+		}
+		strlcpy(value, s, len + 1);
 
 		CL_SetInfo(key, value, false, false, false, false);
+
+		s += len;
+		if (!*s)
+		{
+			break;
+		}
+		++s; // Skip over backslash.
 	}
 }
 
@@ -2956,6 +3067,8 @@ void Host_InitCommands (void)
 	Cmd_AddCommand_WithClientCommand ("color", Host_Color_f, Host_Color_f, "change your player shirt and pants colors");
 	Cvar_RegisterVariable (&cl_rate);
 	Cmd_AddCommand_WithClientCommand ("rate", Host_Rate_f, Host_Rate_f, "change your network connection speed");
+	Cvar_RegisterVariable (&cl_rate_burstsize);
+	Cmd_AddCommand_WithClientCommand ("rate_burstsize", Host_Rate_BurstSize_f, Host_Rate_BurstSize_f, "change your network connection speed");
 	Cvar_RegisterVariable (&cl_pmodel);
 	Cmd_AddCommand_WithClientCommand ("pmodel", Host_PModel_f, Host_PModel_f, "(Nehahra-only) change your player model choice");
 
