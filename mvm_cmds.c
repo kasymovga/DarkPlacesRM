@@ -56,6 +56,7 @@ const char *vm_m_extensions =
 "DP_RM_CVAR_ALTERTYPE "
 "DP_RM_CVAR_WATCHED "
 "DP_RM_REGEX2 "
+"DP_RM_QCSENDPACKET "
 ;
 
 /*
@@ -1766,6 +1767,7 @@ NULL,                            // #797
 NULL,                            // #798
 NULL,                            // #799
 VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800;
+VM_net_sendpacket,               // #801 float(string addr, string data) net_sendpacket = #801; (DP_RM_QCSENDPACKET)
 NULL
 };
 

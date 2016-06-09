@@ -235,6 +235,7 @@ const char *vm_sv_extensions =
 "DP_RM_REGEX2 "
 "DP_RM_CLIENTDATAENT "
 "DP_RM_CLIPGROUP "
+"DP_RM_QCSENDPACKET "
 //"EXT_CSQC " // not ready yet
 ;
 
@@ -3994,6 +3995,7 @@ NULL,                            // #797
 NULL,                            // #798
 NULL,                            // #799
 VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800;
+VM_net_sendpacket,               // #801 float(string addr, string data) net_sendpacket = #801; (DP_RM_QCSENDPACKET)
 NULL
 };
 
