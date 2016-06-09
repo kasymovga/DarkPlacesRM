@@ -3259,7 +3259,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			if(sv_net_extresponse_count > NET_EXTRESPONSE_MAX)
 				sv_net_extresponse_count = NET_EXTRESPONSE_MAX;
 			sv_net_extresponse_last = (sv_net_extresponse_last + 1) % NET_EXTRESPONSE_MAX;
-			dpsnprintf(sv_net_extresponse[sv_net_extresponse_last], sizeof(sv_net_extresponse[sv_net_extresponse_last]), "'%s' %s", addressstring2, string + 12);
+			dpsnprintf(sv_net_extresponse[sv_net_extresponse_last], sizeof(sv_net_extresponse[sv_net_extresponse_last]), "\"%s\" %s", addressstring2, string + 12);
 			return true;
 		}
 		if (!strncmp(string, "ping", 4))
