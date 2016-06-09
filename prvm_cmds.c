@@ -7684,7 +7684,6 @@ void VM_regex_match(prvm_prog_t *prog) {
 void VM_net_sendpacket(prvm_prog_t *prog) {
     char send[2048] = { 0 };
     const char *addr;
-    char *out;
     lhnetaddress_t address;
     lhnetsocket_t *mysocket;
 
@@ -7698,7 +7697,6 @@ void VM_net_sendpacket(prvm_prog_t *prog) {
         return;
     }
 
-    out = send+4;
     strlcpy(send, "\xff\xff\xff\xff", sizeof(send));
     strlcat(send, PRVM_G_STRING(OFS_PARM1), sizeof(send));
 
@@ -7706,7 +7704,7 @@ void VM_net_sendpacket(prvm_prog_t *prog) {
     if(!mysocket)
         mysocket = NetConn_ChooseServerSocketForAddress(&address);
     if(mysocket) {
-        NetConn_Write(mysocket, send, out - send, &address);
+        NetConn_Write(mysocket, send, strlen(send), &address);
         PRVM_G_FLOAT(OFS_RETURN) = 1;
     }
 }
