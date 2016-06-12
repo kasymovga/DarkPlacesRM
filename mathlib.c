@@ -549,6 +549,103 @@ void AngleVectorsFLU (const vec3_t angles, vec3_t forward, vec3_t left, vec3_t u
 	}
 }
 
+void AngleVectorsDuke3DFLU (const vec3_t angles, vec3_t forward, vec3_t left, vec3_t up, double maxShearAngle)
+{
+	double angle, sr, sy, cr, cy;
+	double sxx, sxz, szx, szz;
+	double cosMaxShearAngle = cos(maxShearAngle * (M_PI*2 / 360));
+	double tanMaxShearAngle = tan(maxShearAngle * (M_PI*2 / 360));
+
+	angle = angles[YAW] * (M_PI*2 / 360);
+	sy = sin(angle);
+	cy = cos(angle);
+	angle = angles[PITCH] * (M_PI*2 / 360);
+
+	// We will calculate a shear matrix pitch = [[sxx sxz][szx szz]].
+
+	if (fabs(cos(angle)) > cosMaxShearAngle)
+	{
+		// Pure shear. Keep the original sign of the coefficients.
+		sxx = 1;
+		sxz = 0;
+		szx = -tan(angle);
+		szz = 1;
+		// Covering angle per screen coordinate:
+		// d/dt arctan((sxz + t*szz) / (sxx + t*szx)) @ t=0
+		// d_angle = det(S) / (sxx*sxx + szx*szx)
+		//         = 1 / (1 + tan^2 angle)
+		//         = cos^2 angle.
+	}
+	else
+	{
+		// A mix of shear and rotation. Implementation-wise, we're
+		// looking at a capsule, and making the screen surface
+		// tangential to it... and if we get here, we're looking at the
+		// two half-spheres of the capsule (and the cylinder part is
+		// handled above).
+		double x, y, h, t, d, f;
+		h = tanMaxShearAngle;
+		x = cos(angle);
+		y = sin(angle);
+		t = h * fabs(y) + sqrt(1 - (h * x) * (h * x));
+		sxx =  x * t;
+		sxz =  y * t - h * (y > 0 ? 1.0 : -1.0);
+		szx = -y * t;
+		szz =  x * t;
+		// BUT: keep the amount of a sphere we see in pitch direction
+		// invariant.
+		// Covering angle per screen coordinate:
+		// d_angle = det(S) / (sxx*sxx + szx*szx)
+		d = (sxx * szz - sxz * szx) / (sxx * sxx + szx * szx);
+		f = cosMaxShearAngle * cosMaxShearAngle / d;
+		sxz *= f;
+		szz *= f;
+	}
+
+	if (forward)
+	{
+		forward[0] = sxx*cy;
+		forward[1] = sxx*sy;
+		forward[2] = szx;
+	}
+	if (left || up)
+	{
+		if (angles[ROLL])
+		{
+			angle = angles[ROLL] * (M_PI*2 / 360);
+			sr = sin(angle);
+			cr = cos(angle);
+			if (left)
+			{
+				left[0] = sr*sxz*cy+cr*-sy;
+				left[1] = sr*sxz*sy+cr*cy;
+				left[2] = sr*szz;
+			}
+			if (up)
+			{
+				up[0] = cr*sxz*cy+-sr*-sy;
+				up[1] = cr*sxz*sy+-sr*cy;
+				up[2] = cr*szz;
+			}
+		}
+		else
+		{
+			if (left)
+			{
+				left[0] = -sy;
+				left[1] = cy;
+				left[2] = 0;
+			}
+			if (up)
+			{
+				up[0] = sxz*cy;
+				up[1] = sxz*sy;
+				up[2] = szz;
+			}
+		}
+	}
+}
+
 // LordHavoc: calculates pitch/yaw/roll angles from forward and up vectors
 void AnglesFromVectors (vec3_t angles, const vec3_t forward, const vec3_t up, qboolean flippitch)
 {
