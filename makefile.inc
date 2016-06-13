@@ -170,7 +170,7 @@ OBJ_COMMON= \
 	view.o \
 	wad.o \
 	zone.o \
-    slre.o
+	slre.o
 
 OBJ_MENU= \
 	menu.o \
@@ -311,6 +311,7 @@ VPATH := ../../../
 
 INSTALL=/usr/bin/install
 INSTALLICON=$(INSTALL) -TDm644
+INSTALL_UPDATEICONCACHE?=1
 
 ifndef PREFIX
 	PREFIX=/usr
@@ -681,7 +682,9 @@ install:
 		$(INSTALLICON) nexuiz32x32.png "$(PREFIX)/share/icons/hicolor/32x32/apps/nexuiz-dprm.png"; \
 		$(INSTALLICON) nexuiz48x48.png "$(PREFIX)/share/icons/hicolor/48x48/apps/nexuiz-dprm.png"; \
 		$(INSTALLICON) nexuiz256x256.png "$(PREFIX)/share/icons/hicolor/256x256/apps/nexuiz-dprm.png"; \
-		gtk-update-icon-cache -f -t "$(PREFIX)/share/icons/hicolor" || true; \
-		gtk-update-icon-cache-3.0 -f -t "$(PREFIX)/share/icons/hicolor" || true; \
+		if test $(INSTALL_UPDATEICONCACHE) -ne 0; then \
+			gtk-update-icon-cache -f -t "$(PREFIX)/share/icons/hicolor" || true; \
+			gtk-update-icon-cache-3.0 -f -t "$(PREFIX)/share/icons/hicolor" || true; \
+		fi \
 	fi
 
