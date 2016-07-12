@@ -21,8 +21,8 @@
 
 */
 
-#ifndef PNG_H
-#define PNG_H
+#ifndef IMAGE_PNG_H
+#define IMAGE_PNG_H
 
 qboolean PNG_OpenLibrary (void);
 void PNG_CloseLibrary (void);
