@@ -350,6 +350,16 @@ ifeq ($(DP_LINK_JPEG), dlopen)
 	LIB_JPEG=
 endif
 
+# png
+ifeq ($(DP_LINK_PNG), shared)
+	CFLAGS_LIBPNG=`pkg-config --cfalgs libpng` -DLINK_TO_LIBPNG
+	LIB_PNG=`pkg-config --libs libpng`
+endif
+ifeq ($(DP_LINK_PNG), dlopen)
+	CFLAGS_LIBPNG=
+	LIB_PNG=
+endif
+
 # ode
 ifeq ($(DP_LINK_ODE), shared)
 	ODE_CONFIG?=ode-config
