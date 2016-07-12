@@ -116,6 +116,7 @@ ifeq ($(DP_MAKE_TARGET), linux)
 
 	DP_LINK_ZLIB?=dlopen
 	DP_LINK_JPEG?=dlopen
+	DP_LINK_PNG?=dlopen
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
@@ -165,6 +166,7 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 
 	DP_LINK_ZLIB?=dlopen
 	DP_LINK_JPEG?=dlopen
+	DP_LINK_PNG?=dlopen
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
@@ -208,6 +210,7 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 
 	DP_LINK_ZLIB?=dlopen
 	DP_LINK_JPEG?=dlopen
+	DP_LINK_PNG?=dlopen
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
@@ -254,6 +257,7 @@ endif
 
 	DP_LINK_ZLIB?=dlopen
 	DP_LINK_JPEG?=dlopen
+	DP_LINK_PNG?=dlopen
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
@@ -324,6 +328,7 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	
 	DP_LINK_ZLIB?=dlopen
 	DP_LINK_JPEG?=dlopen
+	DP_LINK_PNG?=dlopen
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
