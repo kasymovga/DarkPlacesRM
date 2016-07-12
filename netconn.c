@@ -118,6 +118,9 @@ static cvar_t gameversion_max = {0, "gameversion_max", "-1", "maximum version of
 static cvar_t rcon_restricted_password = {CVAR_PRIVATE, "rcon_restricted_password", "", "password to authenticate rcon commands in restricted mode; may be set to a string of the form user1:pass1 user2:pass2 user3:pass3 to allow multiple user accounts - the client then has to specify ONE of these combinations"};
 static cvar_t rcon_restricted_commands = {0, "rcon_restricted_commands", "", "allowed commands for rcon when the restricted mode password was used"};
 static cvar_t rcon_secure_maxdiff = {0, "rcon_secure_maxdiff", "5", "maximum time difference between rcon request and server system clock (to protect against replay attack)"};
+static cvar_t sv_gameinjection_port = {0, "sv_gameinjection_port", "0", ""};
+static cvar_t sv_gameinjection_filtername = {0, "sv_gameinjection_filtername", "Xonotic", ""};
+static cvar_t sv_gameinjection_version = {0, "sv_gameinjection_version", "801", ""};
 extern cvar_t rcon_secure;
 extern cvar_t rcon_secure_challengetimeout;
 
@@ -150,6 +153,7 @@ void *netconn_mutex = NULL;
 
 cvar_t cl_netport = {0, "cl_port", "0", "forces client to use chosen port number if not 0"};
 cvar_t sv_netport = {0, "port", "26000", "server port for players to connect to"};
+cvar_t sv_netport2 = {0, "port2", "26000", "server second port for players to connect to"};
 cvar_t net_address = {0, "net_address", "", "network address to open ipv4 ports on (if empty, use default interfaces)"};
 cvar_t net_address_ipv6 = {0, "net_address_ipv6", "", "network address to open ipv6 ports on (if empty, use default interfaces)"};
 
@@ -1066,7 +1070,7 @@ static qboolean NetConn_OpenServerPort(const char *addressstring, lhnetaddressty
 
 void NetConn_OpenServerPorts(int opennetports)
 {
-	int port;
+	int port, port2;
 	NetConn_CloseServerPorts();
 
 	SV_LockThreadMutex(); // FIXME recursive?
@@ -1075,6 +1079,7 @@ void NetConn_OpenServerPorts(int opennetports)
 
 	NetConn_UpdateSockets();
 	port = bound(0, sv_netport.integer, 65535);
+	port2 = bound(0, sv_netport2.integer, 65535);
 	if (port == 0)
 		port = 26000;
 	Con_Printf("Server using port %i\n", port);
@@ -1087,8 +1092,17 @@ void NetConn_OpenServerPorts(int opennetports)
 #ifndef NOSUPPORTIPV6
 		qboolean ip4success = NetConn_OpenServerPort(net_address.string, LHNETADDRESSTYPE_INET4, port, 100);
 		NetConn_OpenServerPort(net_address_ipv6.string, LHNETADDRESSTYPE_INET6, port, ip4success ? 1 : 100);
+		if (port2)
+		{
+			ip4success = NetConn_OpenServerPort(net_address.string, LHNETADDRESSTYPE_INET4, port2, 100);
+			NetConn_OpenServerPort(net_address_ipv6.string, LHNETADDRESSTYPE_INET6, port2, ip4success ? 1 : 100);
+		}
 #else
 		NetConn_OpenServerPort(net_address.string, LHNETADDRESSTYPE_INET4, port, 100);
+		if (port2)
+		{
+			NetConn_OpenServerPort(net_address.string, LHNETADDRESSTYPE_INET4, port2, 100);
+		}
 #endif
 	}
 	if (sv_numsockets == 0)
@@ -1108,6 +1122,19 @@ lhnetsocket_t *NetConn_ChooseServerSocketForAddress(lhnetaddress_t *address)
 {
 	int i, a = LHNETADDRESS_GetAddressType(address);
 	for (i = 0;i < sv_numsockets;i++)
+		if (sv_sockets[i] && LHNETADDRESS_GetAddressType(LHNET_AddressFromSocket(sv_sockets[i])) == a)
+			return sv_sockets[i];
+	return NULL;
+}
+
+lhnetsocket_t *NetConn_ChooseServerSocketForAddress2(lhnetaddress_t *address);
+lhnetsocket_t *NetConn_ChooseServerSocketForAddress2(lhnetaddress_t *address)
+{
+	int i, a = LHNETADDRESS_GetAddressType(address);
+	for (i = 0;i < sv_numsockets;i++)
+		if (sv_sockets[i] && LHNETADDRESS_GetAddressType(LHNET_AddressFromSocket(sv_sockets[i])) == a)
+			break;
+	for (i = i + 1; i < sv_numsockets; i++)
 		if (sv_sockets[i] && LHNETADDRESS_GetAddressType(LHNET_AddressFromSocket(sv_sockets[i])) == a)
 			return sv_sockets[i];
 	return NULL;
@@ -2484,7 +2511,7 @@ static void NetConn_BuildChallengeString(char *buffer, int bufferlength)
 }
 
 /// (div0) build the full response only if possible; better a getinfo response than no response at all if getstatus won't fit
-static qboolean NetConn_BuildStatusResponse(const char* challenge, char* out_msg, size_t out_size, qboolean fullstatus)
+static qboolean NetConn_BuildStatusResponse(const char* challenge, char* out_msg, size_t out_size, qboolean fullstatus, const char *filtername, int version)
 {
 	prvm_prog_t *prog = SVVM_prog;
 	char qcstatus[256];
@@ -2520,6 +2547,8 @@ static qboolean NetConn_BuildStatusResponse(const char* challenge, char* out_msg
 
 	/// \TODO: we should add more information for the full status string
 	crypto_idstring = Crypto_GetInfoResponseDataString();
+	if (!filtername || !*filtername)
+		filtername = gamenetworkfiltername;
 	length = dpsnprintf(out_msg, out_size,
 						"\377\377\377\377%s\x0A"
 						"\\gamename\\%s\\modname\\%s\\gameversion\\%d\\sv_maxclients\\%d"
@@ -2529,7 +2558,7 @@ static qboolean NetConn_BuildStatusResponse(const char* challenge, char* out_msg
 						"%s%s"
 						"%s",
 						fullstatus ? "statusResponse" : "infoResponse",
-						gamenetworkfiltername, com_modname, gameversion.integer, svs.maxclients,
+						filtername, com_modname, (version ? version : gameversion.integer), svs.maxclients,
 						nb_clients, nb_bots, sv.worldbasename, hostname.string, NET_PROTOCOL_VERSION,
 						*qcstatus ? "\\qcstatus\\" : "", qcstatus,
 						challenge ? "\\challenge\\" : "", challenge ? challenge : "",
@@ -3161,15 +3190,23 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		if (length >= 7 && !memcmp(string, "getinfo", 7) && (islocal || sv_public.integer > -1))
 		{
 			const char *challenge = NULL;
+			const char *filtername = NULL;
+			int version = 0;
 
-			if (NetConn_PreventFlood(peeraddress, sv.getstatusfloodaddresses, sizeof(sv.getstatusfloodaddresses) / sizeof(sv.getstatusfloodaddresses[0]), net_getstatusfloodblockingtimeout.value, false))
-				return true;
+			//if (NetConn_PreventFlood(peeraddress, sv.getstatusfloodaddresses, sizeof(sv.getstatusfloodaddresses) / sizeof(sv.getstatusfloodaddresses[0]), net_getstatusfloodblockingtimeout.value, false))
+			//	return true;
 
 			// If there was a challenge in the getinfo message
 			if (length > 8 && string[7] == ' ')
 				challenge = string + 8;
 
-			if (NetConn_BuildStatusResponse(challenge, response, sizeof(response), false))
+			if (sv_gameinjection_port.integer && mysocket->address.port == sv_gameinjection_port.integer)
+			{
+				filtername = sv_gameinjection_filtername.string;
+				version = sv_gameinjection_version.integer;
+			}
+
+			if (NetConn_BuildStatusResponse(challenge, response, sizeof(response), false, filtername, version))
 			{
 				if (developer_extra.integer)
 					Con_DPrintf("Sending reply to master %s - %s\n", addressstring2, response);
@@ -3180,6 +3217,8 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		if (length >= 9 && !memcmp(string, "getstatus", 9) && (islocal || sv_public.integer > -1))
 		{
 			const char *challenge = NULL;
+			const char *filtername = NULL;
+			int version = 0;
 
 			if (NetConn_PreventFlood(peeraddress, sv.getstatusfloodaddresses, sizeof(sv.getstatusfloodaddresses) / sizeof(sv.getstatusfloodaddresses[0]), net_getstatusfloodblockingtimeout.value, false))
 				return true;
@@ -3188,7 +3227,13 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			if (length > 10 && string[9] == ' ')
 				challenge = string + 10;
 
-			if (NetConn_BuildStatusResponse(challenge, response, sizeof(response), true))
+			if (sv_gameinjection_port.integer && mysocket->address.port == sv_gameinjection_port.integer)
+			{
+				filtername = sv_gameinjection_filtername.string;
+				version = sv_gameinjection_version.integer;
+			}
+
+			if (NetConn_BuildStatusResponse(challenge, response, sizeof(response), true, filtername, version))
 			{
 				if (developer_extra.integer)
 					Con_DPrintf("Sending reply to client %s - %s\n", addressstring2, response);
@@ -3748,8 +3793,15 @@ void NetConn_Heartbeat(int priority)
 	{
 		nextheartbeattime = realtime + sv_heartbeatperiod.value;
 		for (masternum = 0;sv_masters[masternum].name;masternum++)
-			if (sv_masters[masternum].string && sv_masters[masternum].string[0] && LHNETADDRESS_FromString(&masteraddress, sv_masters[masternum].string, DPMASTER_PORT) && (mysocket = NetConn_ChooseServerSocketForAddress(&masteraddress)))
-				NetConn_WriteString(mysocket, "\377\377\377\377heartbeat DarkPlaces\x0A", &masteraddress);
+		{
+			if (sv_masters[masternum].string && sv_masters[masternum].string[0])
+			{
+				if (LHNETADDRESS_FromString(&masteraddress, sv_masters[masternum].string, DPMASTER_PORT) && (mysocket = NetConn_ChooseServerSocketForAddress(&masteraddress)))
+					NetConn_WriteString(mysocket, "\377\377\377\377heartbeat DarkPlaces\x0A", &masteraddress);
+				if (sv_netport2.integer > 0 && LHNETADDRESS_FromString(&masteraddress, sv_masters[masternum].string, DPMASTER_PORT) && (mysocket = NetConn_ChooseServerSocketForAddress2(&masteraddress)))
+					NetConn_WriteString(mysocket, "\377\377\377\377heartbeat DarkPlaces\x0A", &masteraddress);
+			}
+		}
 	}
 }
 
@@ -3863,6 +3915,7 @@ void NetConn_Init(void)
 	Cvar_RegisterVariable(&developer_networking);
 	Cvar_RegisterVariable(&cl_netport);
 	Cvar_RegisterVariable(&sv_netport);
+	Cvar_RegisterVariable(&sv_netport2);
 	Cvar_RegisterVariable(&net_address);
 	Cvar_RegisterVariable(&net_address_ipv6);
 	Cvar_RegisterVariable(&sv_public);
@@ -3873,6 +3926,9 @@ void NetConn_Init(void)
 	Cvar_RegisterVariable(&gameversion);
 	Cvar_RegisterVariable(&gameversion_min);
 	Cvar_RegisterVariable(&gameversion_max);
+	Cvar_RegisterVariable(&sv_gameinjection_port);
+	Cvar_RegisterVariable(&sv_gameinjection_filtername);
+	Cvar_RegisterVariable(&sv_gameinjection_version);
 // COMMANDLINEOPTION: Server: -ip <ipaddress> sets the ip address of this machine for purposes of networking (default 0.0.0.0 also known as INADDR_ANY), use only if you have multiple network adapters and need to choose one specifically.
 	if ((i = COM_CheckParm("-ip")) && i + 1 < com_argc)
 	{
