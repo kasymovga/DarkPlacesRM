@@ -352,7 +352,7 @@ endif
 
 # png
 ifeq ($(DP_LINK_PNG), shared)
-	CFLAGS_LIBPNG=`pkg-config --cfalgs libpng` -DLINK_TO_LIBPNG
+	CFLAGS_LIBPNG=`pkg-config --cflags libpng` -DLINK_TO_LIBPNG
 	LIB_PNG=`pkg-config --libs libpng`
 endif
 ifeq ($(DP_LINK_PNG), dlopen)
