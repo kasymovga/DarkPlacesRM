@@ -2217,6 +2217,8 @@ float(float modlindex, float framenum) frameduration = #277; // returns the inte
 //belongs to - for example "torso", "leftarm", would return 1 ("torso") for
 //all children of the bone named "torso", unless they are children of
 //"leftarm" (which is a child of "torso") which would return 2 instead...
+
+/*
 float(float skel, float bonenum, string g1, string g2, string g3, string g4, string g5, string g6) example_skel_findbonegroup =
 {
 	local string bonename;
@@ -2339,6 +2341,8 @@ void() example_skel_player_delete =
 	skel_delete(self.skeletonindex);
 	self.skeletonindex = 0;
 };
+*/
+
 //
 // END OF EXAMPLES FOR FTE_CSQC_SKELETONOBJECTS
 //
