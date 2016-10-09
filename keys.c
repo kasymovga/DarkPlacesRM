@@ -2128,10 +2128,10 @@ Key_Event (int key, int ascii, qboolean down)
 	// handle toggleconsole in menu too
 	if (keydest == key_menu)
 	{
-		if (down && con_closeontoggleconsole.integer && bind && !strncmp(bind, "toggleconsole", strlen("toggleconsole")) && ascii != STRING_COLOR_TAG)
+		if (con_closeontoggleconsole.integer && bind && !strncmp(bind, "toggleconsole", strlen("toggleconsole")) && ascii != STRING_COLOR_TAG)
 		{
-			Con_ToggleConsole_f ();
-			tbl_keydest[key] = key_void; // key release should go nowhere (especially not to key_menu or key_game)
+			if (!down)
+				Con_ToggleConsole_f ();
 			return;
 		}
 	}
