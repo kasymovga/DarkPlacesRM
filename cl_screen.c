@@ -47,6 +47,7 @@ cvar_t scr_loadingscreen_picture = {CVAR_SAVE, "scr_loadingscreen_picture", "gfx
 cvar_t scr_loadingscreen_count = {0, "scr_loadingscreen_count","1", "number of loading screen files to use randomly (named loading.tga, loading2.tga, loading3.tga, ...)"};
 cvar_t scr_loadingscreen_firstforstartup = {0, "scr_loadingscreen_firstforstartup","0", "remove loading.tga from random scr_loadingscreen_count selection and only display it on client startup, 0 = normal, 1 = firstforstartup"};
 cvar_t scr_loadingscreen_barcolor = {0, "scr_loadingscreen_barcolor", "0 0 1", "rgb color of loadingscreen progress bar"};
+cvar_t scr_loadingscreen_bargradientcolor = {0, "scr_loadingscreen_bargradientcolor", "0 0 0", "rgb gradient color of loadingscreen progress bar"};
 cvar_t scr_loadingscreen_barheight = {0, "scr_loadingscreen_barheight", "8", "the height of the loadingscreen progress bar"};
 cvar_t scr_loadingscreen_maxfps = {0, "scr_loadingscreen_maxfps", "10", "restrict maximal FPS for loading screen so it will not update very often (this will make lesser loading times on a maps loading large number of models)"};
 cvar_t scr_infobar_height = {0, "scr_infobar_height", "8", "the height of the infobar items"};
@@ -1345,6 +1346,7 @@ void CL_Screen_Init(void)
 	Cvar_RegisterVariable (&scr_loadingscreen_count);
 	Cvar_RegisterVariable (&scr_loadingscreen_firstforstartup);
 	Cvar_RegisterVariable (&scr_loadingscreen_barcolor);
+	Cvar_RegisterVariable (&scr_loadingscreen_bargradientcolor);
 	Cvar_RegisterVariable (&scr_loadingscreen_barheight);
 	Cvar_RegisterVariable (&scr_loadingscreen_maxfps);
 	Cvar_RegisterVariable (&scr_infobar_height);
@@ -2463,11 +2465,8 @@ static void SCR_DrawLoadingStack(void)
 #if _MSC_VER >= 1400
 #define sscanf sscanf_s
 #endif
-		//                                        ^^^^^^^^^^ blue component
-		//                              ^^^^^^ bottom row
-		//          ^^^^^^^^^^^^ alpha is always on
-		colors[0] = 0; colors[1] = 0; colors[2] = 0; colors[3] = 1;
-		colors[4] = 0; colors[5] = 0; colors[6] = 0; colors[7] = 1;
+		sscanf(scr_loadingscreen_bargradientcolor.string, "%f %f %f", &colors[0], &colors[1], &colors[2]); colors[3] = 1;
+		sscanf(scr_loadingscreen_bargradientcolor.string, "%f %f %f", &colors[4], &colors[5], &colors[6]); colors[7] = 1;
 		sscanf(scr_loadingscreen_barcolor.string, "%f %f %f", &colors[8], &colors[9], &colors[10]); colors[11] = 1;
 		sscanf(scr_loadingscreen_barcolor.string, "%f %f %f", &colors[12], &colors[13], &colors[14]);  colors[15] = 1;
 
