@@ -1187,12 +1187,6 @@ void Sys_SendKeyEvents( void )
 #endif
 				}
 				break;
-#if SDL_MAJOR_VERSION != 1
-			case SDL_TEXTEDITING:
-				break;
-			case SDL_TEXTINPUT:
-				break;
-#endif
 			case SDL_MOUSEMOTION:
 				break;
 			default:
