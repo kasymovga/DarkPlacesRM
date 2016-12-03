@@ -120,6 +120,7 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+	DP_LINK_OGGVORBIS?=dlopen
 
 	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
 	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
@@ -214,6 +215,7 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+	DP_LINK_OGGVORBIS?=dlopen
 
 	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
 	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
@@ -261,6 +263,7 @@ endif
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+	DP_LINK_OGGVORBIS?=dlopen
 
 	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
 	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
@@ -332,6 +335,7 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	DP_LINK_ODE?=dlopen
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+	DP_LINK_OGGVORBIS?=dlopen
 endif
 
 # set these to "" if you want to use dynamic loading instead
@@ -374,6 +378,16 @@ endif
 ifeq ($(DP_LINK_ODE), dlopen)
 	LIB_ODE=
 	CFLAGS_ODE=-DUSEODE
+endif
+
+# ogg and vorbis
+ifeq ($(DP_LINK_OGGVORBIS), shared)
+	LIB_OGGVORBIS=`pkg-config --libs vorbis vorbisfile`
+	CFLAGS_OGGVORBIS=`pkg-config --cflags vorbis vorbisfile` -DLINK_TO_LIBVORBIS
+endif
+ifeq ($(DP_LINK_OGGVORBIS), dlopen)
+	LIB_OGGVORBIS=
+	CFLAGS_OGGVORBIS=
 endif
 
 # d0_blind_id
