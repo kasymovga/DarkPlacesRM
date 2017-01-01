@@ -72,7 +72,8 @@ typedef void *j_common_ptr;
 typedef struct jpeg_compress_struct *j_compress_ptr;
 typedef struct jpeg_decompress_struct *j_decompress_ptr;
 
-#define JPEG_LIB_VERSION  62  // Version 6b
+// defined by makefile
+// #define JPEG_LIB_VERSION  80  // Version 8d
 
 typedef enum
 {
@@ -184,7 +185,12 @@ typedef struct {
    * Values of 1,2,4,8 are likely to be supported.  Note that different
    * components may receive different IDCT scalings.
    */
+#if JPEG_LIB_VERSION >= 70
+  int DCT_h_scaled_size;
+  int DCT_v_scaled_size;
+#else
   int DCT_scaled_size;
+#endif
   /* The downsampled dimensions are the component's actual, unpadded number
    * of samples at the main buffer (preprocessing/compression interface), thus
    * downsampled_width = ceil(image_width * Hi/Hmax)
@@ -273,6 +279,11 @@ struct jpeg_decompress_struct
 	void *ac_huff_tbl_ptrs[NUM_HUFF_TBLS];
 	int data_precision;
 	jpeg_component_info *comp_info;
+
+#if JPEG_LIB_VERSION >= 80
+    jboolean is_baseline;
+#endif
+
 	jboolean progressive_mode;
 	jboolean arith_code;
 	unsigned char arith_dc_L[NUM_ARITH_TBLS];
@@ -291,7 +302,14 @@ struct jpeg_decompress_struct
 	void *marker_list;
 	int max_h_samp_factor;
 	int max_v_samp_factor;
-	int min_DCT_scaled_size;
+
+#if JPEG_LIB_VERSION >= 70
+    int min_DCT_h_scaled_size;
+    int min_DCT_v_scaled_size;
+#else
+    int min_DCT_scaled_size;
+#endif
+
 	JDIMENSION total_iMCU_rows;
 	void *sample_range_limit;
 	int comps_in_scan;
@@ -301,6 +319,13 @@ struct jpeg_decompress_struct
 	int blocks_in_MCU;
 	int MCU_membership[D_MAX_BLOCKS_IN_MCU];
 	int Ss, Se, Ah, Al;
+
+#if JPEG_LIB_VERSION >= 80
+    int block_size;
+    const int * natural_order;
+    int lim_Se;
+#endif
+
 	int unread_marker;
 	void *master;
 	void *main;
@@ -331,12 +356,24 @@ struct jpeg_compress_struct
 	int input_components;
 	J_COLOR_SPACE in_color_space;
 	double input_gamma;
+
+#if JPEG_LIB_VERSION >= 70
+    unsigned int scale_num, scale_denom;
+    JDIMENSION jpeg_width;
+    JDIMENSION jpeg_height;
+#endif
+
 	int data_precision;
 
 	int num_components;
 	J_COLOR_SPACE jpeg_color_space;
 	jpeg_component_info *comp_info;
 	void *quant_tbl_ptrs[NUM_QUANT_TBLS];
+
+#if JPEG_LIB_VERSION >= 70
+    int q_scale_factor[NUM_QUANT_TBLS];
+#endif
+
 	void *dc_huff_tbl_ptrs[NUM_HUFF_TBLS];
 	void *ac_huff_tbl_ptrs[NUM_HUFF_TBLS];
 	unsigned char arith_dc_L[NUM_ARITH_TBLS];
@@ -348,6 +385,11 @@ struct jpeg_compress_struct
 	jboolean raw_data_in;
 	jboolean arith_code;
 	jboolean optimize_coding;
+    
+#if JPEG_LIB_VERSION >= 70
+    jboolean do_fancy_downsampling;
+#endif
+    
 	jboolean CCIR601_sampling;
 	int smoothing_factor;
 	J_DCT_METHOD dct_method;
@@ -367,6 +409,12 @@ struct jpeg_compress_struct
 	jboolean progressive_mode;
 	int max_h_samp_factor;
 	int max_v_samp_factor;
+    
+#if JPEG_LIB_VERSION >= 70
+    int min_DCT_h_scaled_size;
+    int min_DCT_v_scaled_size;
+#endif
+    
 	JDIMENSION total_iMCU_rows;
 	int comps_in_scan;
 	jpeg_component_info *cur_comp_info[MAX_COMPS_IN_SCAN];
@@ -375,6 +423,12 @@ struct jpeg_compress_struct
 	int blocks_in_MCU;
 	int MCU_membership[C_MAX_BLOCKS_IN_MCU];
 	int Ss, Se, Ah, Al;
+
+#if JPEG_LIB_VERSION >= 80
+    int block_size;
+    const int * natural_order;
+    int lim_Se;
+#endif
 
 	void *master;
 	void *main;
@@ -491,20 +545,39 @@ Try to load the JPEG DLL
 qboolean JPEG_OpenLibrary (void)
 {
 #ifdef LINK_TO_LIBJPEG
-	return true;
+    return true;
 #else
-	const char* dllnames [] =
-	{
+    const char* dllnames [] =
+    {
 #if defined(WIN32)
-		"libjpeg.dll",
+    #if JPEG_LIB_VERSION >= 80
+        "libjpeg8.dll",
+    #elif JPEG_LIB_VERSION >= 70
+        "libjpeg7.dll",
+    #else
+        "libjpeg62.dll",
+    #endif
+        "libjpeg.dll",
 #elif defined(MACOSX)
-		"libjpeg.62.dylib",
+    #if JPEG_LIB_VERSION >= 80
+        "libjpeg.8.dylib",
+    #elif JPEG_LIB_VERSION >= 70
+        "libjpeg.7.dylib",
+    #else
+        "libjpeg.62.dylib",
+    #endif
 #else
-		"libjpeg.so.62",
-		"libjpeg.so",
+    #if JPEG_LIB_VERSION >= 80
+        "libjpeg.so.8",
+    #elif JPEG_LIB_VERSION >= 70
+        "libjpeg.so.7",
+    #else
+        "libjpeg.so.62",
+    #endif
+        "libjpeg.so",
 #endif
-		NULL
-	};
+        NULL
+    };
 
 	// Already loaded?
 	if (jpeg_dll)

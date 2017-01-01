@@ -113,7 +113,7 @@ void Mod_BrushInit(void)
 
 	// these games were made for older DP engines and are no longer
 	// maintained; use this hack to show their textures properly
-	if(gamemode == GAME_NEXUIZ)
+	if(gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS)
 		Cvar_SetQuick(&mod_q3shader_force_addalpha, "1");
 
 	memset(&mod_q1bsp_texture_solid, 0, sizeof(mod_q1bsp_texture_solid));
@@ -2628,8 +2628,6 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			surface->lightmapinfo->extents[i] = (int) ceil(texmaxs[i] / 16.0) * 16 - surface->lightmapinfo->texturemins[i];
 		}
 
-		smax = surface->lightmapinfo->extents[0] >> 4;
-		tmax = surface->lightmapinfo->extents[1] >> 4;
 		ssize = (surface->lightmapinfo->extents[0] >> 4) + 1;
 		tsize = (surface->lightmapinfo->extents[1] >> 4) + 1;
 
@@ -2706,8 +2704,8 @@ static void Mod_Q1BSP_LoadFaces(sizebuf_t *sb)
 			if (!loadmodel->brushq1.lightmapupdateflags[surfacenum])
 				continue;
 
-			smax = surface->lightmapinfo->extents[0] >> 4;
-			tmax = surface->lightmapinfo->extents[1] >> 4;
+			smax = surface->lightmapinfo->extents[0] >> 4; // this gets used in an upcoming for loop. silly scan-build
+			tmax = surface->lightmapinfo->extents[1] >> 4; // this gets used in an upcoming for loop. silly scan-build
 			ssize = (surface->lightmapinfo->extents[0] >> 4) + 1;
 			tsize = (surface->lightmapinfo->extents[1] >> 4) + 1;
 			stainmapsize += ssize * tsize * 3;
@@ -5927,20 +5925,19 @@ static void Mod_Q3BSP_LoadFaces(lump_t *l)
 			out->lightmaptexture = NULL;
 			out->deluxemaptexture = r_texture_blanknormalmap;
 			n = LittleLong(in->lightmapindex);
-			if (n < 0)
-				n = -1;
-			else if (n >= loadmodel->brushq3.num_originallightmaps)
-			{
-				if(loadmodel->brushq3.num_originallightmaps != 0)
-					Con_Printf("Mod_Q3BSP_LoadFaces: face #%i (texture \"%s\"): invalid lightmapindex %i (%i lightmaps)\n", i, out->texture->name, n, loadmodel->brushq3.num_originallightmaps);
-				n = -1;
-			}
-			else
-			{
-				out->lightmaptexture = loadmodel->brushq3.data_lightmaps[n >> loadmodel->brushq3.num_lightmapmergedwidthheightdeluxepower];
-				if (loadmodel->brushq3.deluxemapping)
-					out->deluxemaptexture = loadmodel->brushq3.data_deluxemaps[n >> loadmodel->brushq3.num_lightmapmergedwidthheightdeluxepower];
-				loadmodel->lit = true;
+			if (n >= 0) {
+				if (n >= loadmodel->brushq3.num_originallightmaps)
+				{
+					if(loadmodel->brushq3.num_originallightmaps != 0)
+						Con_Printf("Mod_Q3BSP_LoadFaces: face #%i (texture \"%s\"): invalid lightmapindex %i (%i lightmaps)\n", i, out->texture->name, n, loadmodel->brushq3.num_originallightmaps);
+				}
+				else
+				{
+					out->lightmaptexture = loadmodel->brushq3.data_lightmaps[n >> loadmodel->brushq3.num_lightmapmergedwidthheightdeluxepower];
+					if (loadmodel->brushq3.deluxemapping)
+						out->deluxemaptexture = loadmodel->brushq3.data_deluxemaps[n >> loadmodel->brushq3.num_lightmapmergedwidthheightdeluxepower];
+					loadmodel->lit = true;
+				}
 			}
 		}
 
@@ -6150,7 +6147,6 @@ static void Mod_Q3BSP_LoadFaces(lump_t *l)
 
 			finalwidth = Q3PatchDimForTess(patchsize[0],xtess); //((patchsize[0] - 1) * xtess) + 1;
 			finalheight = Q3PatchDimForTess(patchsize[1],ytess); //((patchsize[1] - 1) * ytess) + 1;
-			finalvertices = finalwidth * finalheight;
 			oldnumtriangles = finaltriangles = (finalwidth - 1) * (finalheight - 1) * 2;
 			type = Q3FACETYPE_MESH;
 			// generate geometry
@@ -8195,7 +8191,6 @@ void Mod_OBJ_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (!*text)
 			break;
 		linenumber++;
-		linelen = 0;
 		for (linelen = 0;text[linelen] && text[linelen] != '\r' && text[linelen] != '\n';linelen++)
 			line[linelen] = text[linelen];
 		line[linelen] = 0;
@@ -8515,7 +8510,7 @@ void Mod_OBJ_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->surfmesh.data_normal3f = (float *)data;data += numvertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_texcoordtexture2f = (float *)data;data += numvertices * sizeof(float[2]);
 	if (loadmodel->surfmesh.num_vertices <= 65536)
-		loadmodel->surfmesh.data_element3s = (unsigned short *)data;data += loadmodel->surfmesh.num_triangles * sizeof(unsigned short[3]);
+		loadmodel->surfmesh.data_element3s = (unsigned short *)data;//data += loadmodel->surfmesh.num_triangles * sizeof(unsigned short[3]);
 
 	for (j = 0;j < loadmodel->surfmesh.num_vertices;j++)
 	{

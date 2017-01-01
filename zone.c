@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "thread.h"
+#include "random.h"
 
 #ifdef WIN32
 #include <windows.h>
@@ -731,6 +732,8 @@ void *Mem_ExpandableArray_AllocRecord(memexpandablearray_t *l)
 				{
 					l->arrays[i].allocflags[j] = true;
 					l->arrays[i].numflaggedrecords++;
+					if (l->arrays[i].data == NULL)
+						Sys_Error("Mem_ExpandableArray_AllocRecord: Setting dead memory?");
 					memset(l->arrays[i].data + l->recordsize * j, 0, l->recordsize);
 					return (void *)(l->arrays[i].data + l->recordsize * j);
 				}
@@ -895,7 +898,7 @@ void Memory_Init (void)
 	u.s = 0x100;
 	mem_bigendian = u.b[0] != 0;
 
-	sentinel_seed = rand();
+	sentinel_seed = xrand();
 	poolchain = NULL;
 	tempmempool = Mem_AllocPool("Temporary Memory", POOLFLAG_TEMP, NULL);
 	zonemempool = Mem_AllocPool("Zone", 0, NULL);

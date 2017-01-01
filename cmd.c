@@ -275,11 +275,10 @@ Cbuf_Execute
 static qboolean Cmd_PreprocessString( const char *intext, char *outtext, unsigned maxoutlen, cmdalias_t *alias );
 void Cbuf_Execute (void)
 {
-	int i;
+	int i, line_cur, line_len;
 	char *text;
 	char line[MAX_INPUTLINE];
 	char preprocessed[MAX_INPUTLINE];
-	char *firstchar;
 	qboolean quotes;
 	char *comment;
 
@@ -346,15 +345,16 @@ void Cbuf_Execute (void)
 		}
 
 // execute the command line
-		firstchar = line;
-		while(*firstchar && ISWHITESPACE(*firstchar))
-			++firstchar;
+		line_cur = 0;
+		line_len = strlen(line);
+		while(line_cur < line_len && line[line_cur] && ISWHITESPACE(line[line_cur]))
+			line_cur++;
 		if(
-			(strncmp(firstchar, "alias", 5) || !ISWHITESPACE(firstchar[5]))
+			(line_cur + 4 < line_len && line[line_cur] && (strncmp(&line[line_cur], "bind", 4) || !ISWHITESPACE(line[line_cur + 4])))
 			&&
-			(strncmp(firstchar, "bind", 4) || !ISWHITESPACE(firstchar[4]))
+			(line_cur + 5 < line_len && line[line_cur] && (strncmp(&line[line_cur], "alias", 5) || !ISWHITESPACE(line[line_cur + 5])))
 			&&
-			(strncmp(firstchar, "in_bind", 7) || !ISWHITESPACE(firstchar[7]))
+			(line_cur + 7 < line_len && line[line_cur] && (strncmp(&line[line_cur], "in_bind", 7) || !ISWHITESPACE(line[line_cur + 7])))
 		)
 		{
 			if(Cmd_PreprocessString( line, preprocessed, sizeof(preprocessed), NULL ))
@@ -465,7 +465,7 @@ static void Cmd_Exec(const char *filename)
 		!strcmp(filename, "default.cfg") ||
 		(filenameLen >= 12 && !strcmp(filename + filenameLen - 12, "/default.cfg"));
 
-	if (!strcmp(filename, "config.cfg"))
+	if (!strcmp(filename, CONFIGFILENAME))
 	{
 		filename = CONFIGFILENAME;
 		if (COM_CheckParm("-noconfig"))
@@ -648,6 +648,29 @@ static void Cmd_Exec(const char *filename)
 "sv_gameplayfix_stepmultipletimes 1\n"
 				);
 			break;
+        case GAME_VECXIS:
+            Cbuf_InsertText("\n"
+"sv_gameplayfix_blowupfallenzombies 1\n"
+"sv_gameplayfix_findradiusdistancetobox 1\n"
+"sv_gameplayfix_grenadebouncedownslopes 1\n"
+"sv_gameplayfix_slidemoveprojectiles 1\n"
+"sv_gameplayfix_upwardvelocityclearsongroundflag 1\n"
+"sv_gameplayfix_setmodelrealbox 1\n"
+"sv_gameplayfix_droptofloorstartsolid 1\n"
+"sv_gameplayfix_droptofloorstartsolid_nudgetocorrect 1\n"
+"sv_gameplayfix_noairborncorpse 1\n"
+"sv_gameplayfix_noairborncorpse_allowsuspendeditems 1\n"
+"sv_gameplayfix_easierwaterjump 1\n"
+"sv_gameplayfix_delayprojectiles 1\n"
+"sv_gameplayfix_multiplethinksperframe 1\n"
+"sv_gameplayfix_fixedcheckwatertransition 1\n"
+"sv_gameplayfix_q1bsptracelinereportstexture 1\n"
+"sv_gameplayfix_swiminbmodels 1\n"
+"sv_gameplayfix_downtracesupportsongroundflag 1\n"
+"sv_gameplayfix_q2airaccelerate 1\n"
+"sv_gameplayfix_stepmultipletimes 1\n"
+                );
+            break;
 		// Steel Storm: Burning Retribution csqc misinterprets CSQC_InputEvent if type is a value other than 0 or 1
 		case GAME_STEELSTORM:
 			Cbuf_InsertText("\n"
@@ -765,9 +788,14 @@ static void Cmd_Toggle_f(void)
 	{ // Correct Arguments Specified
 		// Acquire Potential CVar
 		cvar_t* cvCVar = Cvar_FindVar( Cmd_Argv(1) );
-
+		
 		if(cvCVar != NULL)
 		{ // Valid CVar
+			if(cvCVar->flags & CVAR_READONLY) {
+				Con_Printf("%s is read-only\n", cvCVar->name);
+				return;
+			}
+			
 			if(nNumArgs == 2)
 			{ // Default Usage
 				if(cvCVar->integer)

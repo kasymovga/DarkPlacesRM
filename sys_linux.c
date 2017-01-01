@@ -113,8 +113,8 @@ char *Sys_ConsoleInput(void)
 			}
 		}
 #else
-		fd_set fdset;
 		struct timeval timeout;
+		fd_set fdset = {}; //TODO: Remove the " = {}" when scan-build no longer wrongly detects this as an error.
 		FD_ZERO(&fdset);
 		FD_SET(0, &fdset); // stdin
 		timeout.tv_sec = 0;

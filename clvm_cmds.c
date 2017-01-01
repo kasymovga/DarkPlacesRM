@@ -6,6 +6,7 @@
 #include "r_shadow.h"
 #include "jpeg.h"
 #include "image.h"
+#include "random.h"
 
 //============================================================================
 // Client
@@ -2001,10 +2002,10 @@ static void VM_CL_te_gunshotquad (prvm_prog_t *prog)
 	CL_ParticleEffect(EFFECT_TE_GUNSHOTQUAD, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
 	if(cl_sound_ric_gunshot.integer >= 2)
 	{
-		if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+		if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 		else
 		{
-			rnd = rand() & 3;
+			rnd = xrand() & 3;
 			if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 			else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 			else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2022,10 +2023,10 @@ static void VM_CL_te_spikequad (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), pos);
 	CL_FindNonSolidLocation(pos, pos2, 4);
 	CL_ParticleEffect(EFFECT_TE_SPIKEQUAD, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
-	if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+	if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 	else
 	{
-		rnd = rand() & 3;
+		rnd = xrand() & 3;
 		if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 		else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 		else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2042,10 +2043,10 @@ static void VM_CL_te_superspikequad (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), pos);
 	CL_FindNonSolidLocation(pos, pos2, 4);
 	CL_ParticleEffect(EFFECT_TE_SUPERSPIKEQUAD, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
-	if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
+	if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos, 1, 1);
 	else
 	{
-		rnd = rand() & 3;
+		rnd = xrand() & 3;
 		if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 		else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 		else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2100,10 +2101,10 @@ static void VM_CL_te_gunshot (prvm_prog_t *prog)
 	CL_ParticleEffect(EFFECT_TE_GUNSHOT, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
 	if(cl_sound_ric_gunshot.integer == 1 || cl_sound_ric_gunshot.integer == 3)
 	{
-		if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+		if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 		else
 		{
-			rnd = rand() & 3;
+			rnd = xrand() & 3;
 			if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 			else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 			else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2121,10 +2122,10 @@ static void VM_CL_te_spike (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), pos);
 	CL_FindNonSolidLocation(pos, pos2, 4);
 	CL_ParticleEffect(EFFECT_TE_SPIKE, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
-	if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+	if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 	else
 	{
-		rnd = rand() & 3;
+		rnd = xrand() & 3;
 		if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 		else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 		else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2141,10 +2142,10 @@ static void VM_CL_te_superspike (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), pos);
 	CL_FindNonSolidLocation(pos, pos2, 4);
 	CL_ParticleEffect(EFFECT_TE_SUPERSPIKE, 1, pos2, pos2, vec3_origin, vec3_origin, NULL, 0);
-	if (rand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
+	if (xrand() % 5)			S_StartSound(-1, 0, cl.sfx_tink1, pos2, 1, 1);
 	else
 	{
-		rnd = rand() & 3;
+		rnd = xrand() & 3;
 		if (rnd == 1)		S_StartSound(-1, 0, cl.sfx_ric1, pos2, 1, 1);
 		else if (rnd == 2)	S_StartSound(-1, 0, cl.sfx_ric2, pos2, 1, 1);
 		else				S_StartSound(-1, 0, cl.sfx_ric3, pos2, 1, 1);
@@ -2231,7 +2232,7 @@ static void VM_CL_te_explosion2 (prvm_prog_t *prog)
 	colorLength = (int)PRVM_G_FLOAT(OFS_PARM2);
 	CL_FindNonSolidLocation(pos, pos2, 10);
 	CL_ParticleExplosion2(pos2, colorStart, colorLength);
-	tempcolor = palette_rgb[(rand()%colorLength) + colorStart];
+	tempcolor = palette_rgb[(xrand()%colorLength) + colorStart];
 	color[0] = tempcolor[0] * (2.0f / 255.0f);
 	color[1] = tempcolor[1] * (2.0f / 255.0f);
 	color[2] = tempcolor[2] * (2.0f / 255.0f);
@@ -4487,11 +4488,11 @@ NULL,							// #146
 NULL,							// #147
 NULL,							// #148
 NULL,							// #149
-NULL,							// #150
-NULL,							// #151
-NULL,							// #152
-NULL,							// #153
-NULL,							// #154
+VM_CallFunctionEx_SetArgFloat,  // #150 void(float idx, float val) CallFunctionEx_SetArgFloat = #150; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgIntFromFloat, // #151 void(float idx, float val) CallFunctionEx_SetArgInt = #151; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgVector, // #152 void(float idx, vector val) CallFunctionEx_SetArgVector = #152; (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx_SetArgInt,    // #153 use this for strings/ents/fields/etc. (DP_RM_CALLFUNCTIONEX)
+VM_CallFunctionEx,              // #154 void(string fname, float castretval) CallFunctionEx = #154; (DP_RM_CALLFUNCTIONEX)
 NULL,							// #155
 NULL,							// #156
 NULL,							// #157
@@ -4507,14 +4508,14 @@ NULL,							// #166
 NULL,							// #167
 NULL,							// #168
 NULL,							// #169
-NULL,							// #170
-NULL,							// #171
-NULL,							// #172
-NULL,							// #173
-NULL,							// #174
-NULL,							// #175
-NULL,							// #176
-NULL,							// #177
+VM_GlobalOfs,                   // #170 float(string) GlobalOfs = #170; (DP_RM_GLOBALACCESS)
+VM_GlobalType,                  // #171 float(string) GlobalType = #171; (DP_RM_GLOBALACCESS)
+VM_GlobalInt,                   // #172 float(float) GlobalInt = #172; (DP_RM_GLOBALACCESS)
+VM_GlobalFloat,                 // #173 float(float) GlobalFloat = #173; (DP_RM_GLOBALACCESS)
+VM_GlobalSetInt,                // #174 void(float, float) GlobalSetInt = #174; (DP_RM_GLOBALACCESS)
+VM_GlobalSetFloat,              // #175 void(float, float) GlobalSetFloat = #175; (DP_RM_GLOBALACCESS)
+VM_GlobalGet,                   // #176 string(string) GlobalGet = #176; (DP_RM_GLOBALACCESS)
+VM_GlobalSet,                   // #177 float(string, string) GlobalSet = #177; (DP_RM_GLOBALACCESS)
 NULL,							// #178
 NULL,							// #179
 NULL,							// #180
@@ -4845,7 +4846,7 @@ VM_CL_ReadPicture,				// #501 string() ReadPicture = #501;
 VM_CL_boxparticles,				// #502 void(float effectnum, entity own, vector origin_from, vector origin_to, vector dir_from, vector dir_to, float count) boxparticles (DP_CSQC_BOXPARTICLES)
 VM_whichpack,					// #503 string(string) whichpack = #503;
 VM_CL_GetEntity,				// #504 float(float entitynum, float fldnum) getentity = #504; vector(float entitynum, float fldnum) getentityvec = #504;
-NULL,							// #505
+VM_cvar_altertype,              // #505 float(string varname, float setflags, float unsetflags) cvar_altertype = #505;
 NULL,							// #506
 NULL,							// #507
 NULL,							// #508
@@ -4983,6 +4984,165 @@ VM_digest_hex,						// #639
 VM_CL_V_CalcRefdef,					// #640 void(entity e) V_CalcRefdef (DP_CSQC_V_CALCREFDEF)
 NULL,							// #641
 VM_coverage,						// #642
+NULL,                            // #643
+NULL,                            // #644
+NULL,                            // #645
+NULL,                            // #646
+NULL,                            // #647
+NULL,                            // #648
+NULL,                            // #649
+NULL,                            // #650
+NULL,                            // #651
+NULL,                            // #652
+NULL,                            // #653
+NULL,                            // #654
+NULL,                            // #655
+NULL,                            // #656
+NULL,                            // #657
+NULL,                            // #658
+NULL,                            // #659
+NULL,                            // #660
+NULL,                            // #661
+NULL,                            // #662
+NULL,                            // #663
+NULL,                            // #664
+NULL,                            // #665
+NULL,                            // #666
+NULL,                            // #667
+NULL,                            // #668
+NULL,                            // #669
+NULL,                            // #670
+NULL,                            // #671
+NULL,                            // #672
+NULL,                            // #673
+NULL,                            // #674
+NULL,                            // #675
+NULL,                            // #676
+NULL,                            // #677
+NULL,                            // #678
+NULL,                            // #679
+NULL,                            // #680
+NULL,                            // #681
+NULL,                            // #682
+NULL,                            // #683
+NULL,                            // #684
+NULL,                            // #685
+NULL,                            // #686
+NULL,                            // #687
+NULL,                            // #688
+NULL,                            // #689
+NULL,                            // #690
+NULL,                            // #691
+NULL,                            // #692
+NULL,                            // #693
+NULL,                            // #694
+NULL,                            // #695
+NULL,                            // #696
+NULL,                            // #697
+NULL,                            // #698
+NULL,                            // #699
+NULL,                            // #700
+NULL,                            // #701
+NULL,                            // #702
+NULL,                            // #703
+NULL,                            // #704
+NULL,                            // #705
+NULL,                            // #706
+NULL,                            // #707
+NULL,                            // #708
+NULL,                            // #709
+NULL,                            // #710
+NULL,                            // #711
+NULL,                            // #712
+NULL,                            // #713
+NULL,                            // #714
+NULL,                            // #715
+NULL,                            // #716
+NULL,                            // #717
+NULL,                            // #718
+NULL,                            // #719
+NULL,                            // #720
+NULL,                            // #721
+NULL,                            // #722
+NULL,                            // #723
+NULL,                            // #724
+NULL,                            // #725
+NULL,                            // #726
+NULL,                            // #727
+NULL,                            // #728
+NULL,                            // #729
+NULL,                            // #730
+NULL,                            // #731
+NULL,                            // #732
+NULL,                            // #733
+NULL,                            // #734
+NULL,                            // #735
+NULL,                            // #736
+NULL,                            // #737
+NULL,                            // #738
+NULL,                            // #739
+NULL,                            // #740
+NULL,                            // #741
+NULL,                            // #742
+NULL,                            // #743
+NULL,                            // #744
+NULL,                            // #745
+NULL,                            // #746
+NULL,                            // #747
+NULL,                            // #748
+NULL,                            // #749
+NULL,                            // #750
+NULL,                            // #751
+NULL,                            // #752
+NULL,                            // #753
+NULL,                            // #754
+NULL,                            // #755
+NULL,                            // #756
+NULL,                            // #757
+NULL,                            // #758
+NULL,                            // #759
+NULL,                            // #760
+NULL,                            // #761
+NULL,                            // #762
+NULL,                            // #763
+NULL,                            // #764
+NULL,                            // #765
+NULL,                            // #766
+NULL,                            // #767
+NULL,                            // #768
+NULL,                            // #769
+NULL,                            // #770
+NULL,                            // #771
+NULL,                            // #772
+NULL,                            // #773
+NULL,                            // #774
+NULL,                            // #775
+NULL,                            // #776
+NULL,                            // #777
+NULL,                            // #778
+NULL,                            // #779
+NULL,                            // #780
+NULL,                            // #781
+NULL,                            // #782
+NULL,                            // #783
+NULL,                            // #784
+NULL,                            // #785
+NULL,                            // #786
+NULL,                            // #787
+NULL,                            // #788
+NULL,                            // #789
+NULL,                            // #790
+NULL,                            // #791
+NULL,                            // #792
+NULL,                            // #793
+NULL,                            // #794
+NULL,                            // #795
+NULL,                            // #796
+NULL,                            // #797
+NULL,                            // #798
+NULL,                            // #799
+VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800;
+VM_net_sendpacket,               // #801 float(string addr, string data) net_sendpacket = #801; (DP_RM_QCSENDPACKET)
 NULL
 };
 

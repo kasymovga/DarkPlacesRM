@@ -126,6 +126,7 @@ trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 	// list of entities to test for collisions
 	int numtouchedicts;
 	static prvm_edict_t *touchedicts[MAX_EDICTS];
+    int clipgroup;
 
 	//return SV_TraceBox(start, vec3_origin, vec3_origin, end, type, passedict, hitsupercontentsmask, skipsupercontentsmask);
 
@@ -142,7 +143,7 @@ trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 	if (cliptrace.startsolid || cliptrace.fraction < 1)
 		cliptrace.ent = prog->edicts;
 	if (type == MOVE_WORLDONLY)
-		goto finished;
+		return cliptrace;
 
 	if (type == MOVE_MISSILE)
 	{
@@ -176,6 +177,8 @@ trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 	// precalculate passedict's owner edict pointer for comparisons
 	traceowner = passedict ? PRVM_PROG_TO_EDICT(PRVM_serveredictedict(passedict, owner)) : 0;
 
+    clipgroup = passedict ? (int)PRVM_serveredictfloat(passedict, clipgroup) : 0;
+
 	// clip to entities
 	// because this uses World_EntitiestoBox, we know all entity boxes overlap
 	// the clip region, so we can skip culling checks in the loop below
@@ -206,6 +209,9 @@ trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 			// don't clip owner against owned entities
 			if (passedictprog == PRVM_serveredictedict(touch, owner))
 				continue;
+            // don't clip against any entities in the same clipgroup (DP_RM_CLIPGROUP)
+            if (clipgroup && clipgroup == (int)PRVM_serveredictfloat(touch, clipgroup))
+                continue;
 			// don't clip points against points (they can't collide)
 			if (VectorCompare(PRVM_serveredictvector(touch, mins), PRVM_serveredictvector(touch, maxs)) && (type != MOVE_MISSILE || !((int)PRVM_serveredictfloat(touch, flags) & FL_MONSTER)))
 				continue;
@@ -238,7 +244,6 @@ trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 		Collision_CombineTraces(&cliptrace, &trace, (void *)touch, PRVM_serveredictfloat(touch, solid) == SOLID_BSP);
 	}
 
-finished:
 	return cliptrace;
 }
 
@@ -272,6 +277,8 @@ trace_t SV_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_
 	// list of entities to test for collisions
 	int numtouchedicts;
 	static prvm_edict_t *touchedicts[MAX_EDICTS];
+    int clipgroup;
+
 	if (VectorCompare(start, end))
 		return SV_TracePoint(start, type, passedict, hitsupercontentsmask, skipsupercontentsmask);
 
@@ -325,6 +332,8 @@ trace_t SV_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_
 	// precalculate passedict's owner edict pointer for comparisons
 	traceowner = passedict ? PRVM_PROG_TO_EDICT(PRVM_serveredictedict(passedict, owner)) : 0;
 
+    clipgroup = passedict ? (int)PRVM_serveredictfloat(passedict, clipgroup) : 0;
+
 	// clip to entities
 	// because this uses World_EntitiestoBox, we know all entity boxes overlap
 	// the clip region, so we can skip culling checks in the loop below
@@ -355,6 +364,9 @@ trace_t SV_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_
 			// don't clip owner against owned entities
 			if (passedictprog == PRVM_serveredictedict(touch, owner))
 				continue;
+            // don't clip against any entities in the same clipgroup (DP_RM_CLIPGROUP)
+            if (clipgroup && clipgroup == (int)PRVM_serveredictfloat(touch, clipgroup))
+                continue;
 			// don't clip points against points (they can't collide)
 			if (VectorCompare(PRVM_serveredictvector(touch, mins), PRVM_serveredictvector(touch, maxs)) && (type != MOVE_MISSILE || !((int)PRVM_serveredictfloat(touch, flags) & FL_MONSTER)))
 				continue;
@@ -429,6 +441,8 @@ trace_t SV_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, co
 	// list of entities to test for collisions
 	int numtouchedicts;
 	static prvm_edict_t *touchedicts[MAX_EDICTS];
+    int clipgroup;
+
 	if (VectorCompare(mins, maxs))
 	{
 		vec3_t shiftstart, shiftend;
@@ -503,6 +517,8 @@ trace_t SV_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, co
 	// precalculate passedict's owner edict pointer for comparisons
 	traceowner = passedict ? PRVM_PROG_TO_EDICT(PRVM_serveredictedict(passedict, owner)) : 0;
 
+    clipgroup = passedict ? (int)PRVM_serveredictfloat(passedict, clipgroup) : 0;
+
 	// clip to entities
 	// because this uses World_EntitiestoBox, we know all entity boxes overlap
 	// the clip region, so we can skip culling checks in the loop below
@@ -533,6 +549,9 @@ trace_t SV_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, co
 			// don't clip owner against owned entities
 			if (passedictprog == PRVM_serveredictedict(touch, owner))
 				continue;
+            // don't clip against any entities in the same clipgroup (DP_RM_CLIPGROUP)
+            if (clipgroup && clipgroup == (int)PRVM_serveredictfloat(touch, clipgroup))
+                continue;
 			// don't clip points against points (they can't collide)
 			if (pointtrace && VectorCompare(PRVM_serveredictvector(touch, mins), PRVM_serveredictvector(touch, maxs)) && (type != MOVE_MISSILE || !((int)PRVM_serveredictfloat(touch, flags) & FL_MONSTER)))
 				continue;
@@ -2716,6 +2735,7 @@ void SV_Physics_Toss (prvm_edict_t *ent)
 			else
 			{
 				PRVM_serveredictfloat(ent, flags) = (int)PRVM_serveredictfloat(ent, flags) & ~FL_ONGROUND;
+
 				if (!sv_gameplayfix_slidemoveprojectiles.integer)
 					movetime = 0;
 			}

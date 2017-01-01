@@ -64,10 +64,10 @@ cvar_t sv_aircontrol = {0, "sv_aircontrol", "0", "CPMA-style air control"};
 cvar_t sv_aircontrol_power = {0, "sv_aircontrol_power", "2", "CPMA-style air control exponent"};
 cvar_t sv_aircontrol_penalty = {0, "sv_aircontrol_penalty", "0", "deceleration while using CPMA-style air control"};
 cvar_t sv_allowdownloads = {0, "sv_allowdownloads", "1", "whether to allow clients to download files from the server (does not affect http downloads)"};
-cvar_t sv_allowdownloads_archive = {0, "sv_allowdownloads_archive", "0", "whether to allow downloads of archives (pak/pk3)"};
+cvar_t sv_allowdownloads_archive = {0, "sv_allowdownloads_archive", "0", "whether to allow downloads of archives (pak/pk3/cgf)"};
 cvar_t sv_allowdownloads_config = {0, "sv_allowdownloads_config", "0", "whether to allow downloads of config files (cfg)"};
 cvar_t sv_allowdownloads_dlcache = {0, "sv_allowdownloads_dlcache", "0", "whether to allow downloads of dlcache files (dlcache/)"};
-cvar_t sv_allowdownloads_inarchive = {0, "sv_allowdownloads_inarchive", "0", "whether to allow downloads from archives (pak/pk3)"};
+cvar_t sv_allowdownloads_inarchive = {0, "sv_allowdownloads_inarchive", "0", "whether to allow downloads from archives (pak/pk3/cgf)"};
 cvar_t sv_areagrid_mingridsize = {CVAR_NOTIFY, "sv_areagrid_mingridsize", "128", "minimum areagrid cell size, smaller values work better for lots of small objects, higher values for large objects"};
 cvar_t sv_checkforpacketsduringsleep = {0, "sv_checkforpacketsduringsleep", "0", "uses select() function to wait between frames which can be interrupted by packets being received, instead of Sleep()/usleep()/SDL_Sleep() functions which do not check for packets"};
 cvar_t sv_clmovement_enable = {0, "sv_clmovement_enable", "1", "whether to allow clients to use cl_movement prediction, which can cause choppy movement on the server which may annoy other players"};
@@ -196,6 +196,8 @@ cvar_t sv_autodemo_perclient_discardable = {CVAR_SAVE, "sv_autodemo_perclient_di
 cvar_t halflifebsp = {0, "halflifebsp", "0", "indicates the current map is hlbsp format (useful to know because of different bounding box sizes)"};
 cvar_t sv_mapformat_is_quake2 = {0, "sv_mapformat_is_quake2", "0", "indicates the current map is q2bsp format (useful to know because of different entity behaviors, .frame on submodels and other things)"};
 cvar_t sv_mapformat_is_quake3 = {0, "sv_mapformat_is_quake3", "0", "indicates the current map is q2bsp format (useful to know because of different entity behaviors)"};
+
+cvar_t dprm_version = {CVAR_READONLY, "dprm_version", "2", "The DarkPlacesRM version"};
 
 server_t sv;
 server_static_t svs;
@@ -434,6 +436,10 @@ void SV_Init (void)
 	extern cvar_t csqc_progsize;
 	extern cvar_t csqc_usedemoprogs;
 
+    extern cvar_t csqc_progname_alt;
+    extern cvar_t csqc_progcrc_alt;
+    extern cvar_t csqc_progsize_alt;
+
 	Cvar_RegisterVariable(&sv_worldmessage);
 	Cvar_RegisterVariable(&sv_worldname);
 	Cvar_RegisterVariable(&sv_worldnamenoextension);
@@ -443,6 +449,10 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&csqc_progcrc);
 	Cvar_RegisterVariable (&csqc_progsize);
 	Cvar_RegisterVariable (&csqc_usedemoprogs);
+
+    Cvar_RegisterVariable (&csqc_progname_alt);
+    Cvar_RegisterVariable (&csqc_progcrc_alt);
+    Cvar_RegisterVariable (&csqc_progsize_alt);
 
 	Cmd_AddCommand("sv_saveentfile", SV_SaveEntFile_f, "save map entities to .ent file (to allow external editing)");
 	Cmd_AddCommand("sv_areastats", SV_AreaStats_f, "prints statistics on entity culling during collision traces");
@@ -607,6 +617,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_autodemo_perclient_discardable);
 
 	Cvar_RegisterVariable (&halflifebsp);
+	Cvar_RegisterVariable (&dprm_version);
 	Cvar_RegisterVariable (&sv_mapformat_is_quake2);
 	Cvar_RegisterVariable (&sv_mapformat_is_quake3);
 
@@ -931,7 +942,11 @@ void SV_SendServerinfo (client_t *client)
 
 	SZ_Clear (&client->netconnection->message);
 	MSG_WriteByte (&client->netconnection->message, svc_print);
-	dpsnprintf (message, sizeof (message), "\nServer: %s build %s (progs %i crc)\n", gamename, buildstring, prog->filecrc);
+#ifdef VECXIS_RELEASE
+	dpsnprintf (message, sizeof (message), "\nServer: vdprm " DP_OS_NAME " build %s, running %s (progs %i crc)\n", buildstring, gamename, prog->filecrc);
+#else
+	dpsnprintf (message, sizeof (message), "\nServer: DarkPlacesRM " DP_OS_NAME " build %s, running %s (progs %i crc)\n", buildstring, gamename, prog->filecrc);
+#endif
 	MSG_WriteString (&client->netconnection->message,message);
 
 	SV_StopDemoRecording(client); // to split up demos into different files
@@ -939,16 +954,16 @@ void SV_SendServerinfo (client_t *client)
 	{
 		char demofile[MAX_OSPATH];
 		char ipaddress[MAX_QPATH];
-		size_t j;
 
 		// start a new demo file
 		LHNETADDRESS_ToString(&(client->netconnection->peeraddress), ipaddress, sizeof(ipaddress), true);
-		for(j = 0; ipaddress[j]; ++j)
-			if(!isalnum(ipaddress[j]))
-				ipaddress[j] = '-';
+		for(i = 0; ipaddress[i]; ++i)
+			if(!isalnum(ipaddress[i]))
+				ipaddress[i] = '-';
 		dpsnprintf (demofile, sizeof(demofile), "%s_%s_%d_%s.dem", Sys_TimeString (sv_autodemo_perclient_nameformat.string), sv.worldbasename, PRVM_NUM_FOR_EDICT(client->edict), ipaddress);
 
 		SV_StartDemoRecording(client, demofile, -1);
+		SV_WriteNetnameIntoDemo(client);
 	}
 
 	//[515]: init csprogs according to version of svprogs, check the crc, etc.
@@ -962,17 +977,30 @@ void SV_SendServerinfo (client_t *client)
 		MSG_WriteByte (&client->netconnection->message, svc_stufftext);
 		MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progcrc %i\n", sv.csqc_progcrc));
 
+        if(sv.csqc_progname_alt[0]) {
+            Con_DPrintf("sending alternative csqc info to client (\"%s\" with size %i and crc %i)\n", sv.csqc_progname_alt, sv.csqc_progsize_alt, sv.csqc_progcrc_alt);
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progname_alt %s\n", sv.csqc_progname_alt));
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progsize_alt %i\n", sv.csqc_progsize_alt));
+            MSG_WriteByte (&client->netconnection->message, svc_stufftext);
+            MSG_WriteString (&client->netconnection->message, va(vabuf, sizeof(vabuf), "csqc_progcrc_alt %i\n", sv.csqc_progcrc_alt));
+        }
+
 		if(client->sv_demo_file != NULL)
 		{
-			int k;
 			static char buf[NET_MAXMESSAGE];
 			sizebuf_t sb;
 
 			sb.data = (unsigned char *) buf;
 			sb.maxsize = sizeof(buf);
-			k = 0;
-			while(MakeDownloadPacket(sv.csqc_progname, svs.csqc_progdata, sv.csqc_progsize, sv.csqc_progcrc, k++, &sb, sv.protocol))
+			i = 0;
+			while(MakeDownloadPacket(sv.csqc_progname, svs.csqc_progdata, sv.csqc_progsize, sv.csqc_progcrc, i++, &sb, sv.protocol))
 				SV_WriteDemoMessage(client, &sb, false);
+
+            if(sv.csqc_progname_alt[0])
+                while(MakeDownloadPacket(sv.csqc_progname_alt, svs.csqc_progdata_alt, sv.csqc_progsize_alt, sv.csqc_progcrc_alt, i++, &sb, sv.protocol))
+                    SV_WriteDemoMessage(client, &sb, false);
 		}
 
 		//[515]: init stufftext string (it is sent before svc_serverinfo)
@@ -1994,25 +2022,32 @@ void SV_WriteClientdataToMessage (client_t *client, prvm_edict_t *ent, sizebuf_t
 //
 	SV_SetIdealPitch ();		// how much to look up / down ideally
 
-// a fixangle might get lost in a dropped packet.  Oh well.
-	if(PRVM_serveredictfloat(ent, fixangle))
-	{
-		// angle fixing was requested by global thinking code...
-		// so store the current angles for later use
-		VectorCopy(PRVM_serveredictvector(ent, angles), host_client->fixangle_angles);
-		host_client->fixangle_angles_set = TRUE;
+    if(client->edict != ent) {
+        // DP_RM_CLIENTDATAENT
+        MSG_WriteByte(msg, svc_setangle);
+        for (i=0 ; i < 3 ; i++)
+            MSG_WriteAngle(msg, PRVM_serveredictvector(ent, v_angle)[i], sv.protocol);
+    } else {
+        // a fixangle might get lost in a dropped packet.  Oh well.
+        if(PRVM_serveredictfloat(ent, fixangle))
+        {
+            // angle fixing was requested by global thinking code...
+            // so store the current angles for later use
+            VectorCopy(PRVM_serveredictvector(ent, angles), host_client->fixangle_angles);
+            host_client->fixangle_angles_set = TRUE;
 
-		// and clear fixangle for the next frame
-		PRVM_serveredictfloat(ent, fixangle) = 0;
-	}
+            // and clear fixangle for the next frame
+            PRVM_serveredictfloat(ent, fixangle) = 0;
+        }
 
-	if (host_client->fixangle_angles_set)
-	{
-		MSG_WriteByte (msg, svc_setangle);
-		for (i=0 ; i < 3 ; i++)
-			MSG_WriteAngle (msg, host_client->fixangle_angles[i], sv.protocol);
-		host_client->fixangle_angles_set = FALSE;
-	}
+        if (host_client->fixangle_angles_set)
+        {
+            MSG_WriteByte (msg, svc_setangle);
+            for (i=0 ; i < 3 ; i++)
+                MSG_WriteAngle (msg, host_client->fixangle_angles[i], sv.protocol);
+            host_client->fixangle_angles_set = FALSE;
+        }
+    }
 
 	// the runes are in serverflags, pack them into the items value, also pack
 	// in the items2 value for mission pack huds
@@ -2216,6 +2251,7 @@ void SV_WriteClientdataToMessage (client_t *client, prvm_edict_t *ent, sizebuf_t
 		MSG_WriteByte (msg, stats[STAT_NAILS]);
 		MSG_WriteByte (msg, stats[STAT_ROCKETS]);
 		MSG_WriteByte (msg, stats[STAT_CELLS]);
+
 		if (gamemode == GAME_HIPNOTIC || gamemode == GAME_ROGUE || gamemode == GAME_QUOTH || IS_OLDNEXUIZ_DERIVED(gamemode))
 		{
 			for (i = 0;i < 32;i++)
@@ -2392,16 +2428,23 @@ static void SV_SendClientDatagram (client_t *client)
 
 	if (host_client->begun)
 	{
+        prvm_prog_t *prog = SVVM_prog;
+        prvm_edict_t *srcent = client->edict;
+
+        // DP_RM_CLIENTDATAENT
+        if(PRVM_serveredictedict(client->edict, clientdataent))
+            srcent = PRVM_EDICT_NUM(PRVM_serveredictedict(client->edict, clientdataent));
+
 		// the player is in the game
 		MSG_WriteByte (&msg, svc_time);
 		MSG_WriteFloat (&msg, sv.time);
 
 		// add the client specific data to the datagram
-		SV_WriteClientdataToMessage (client, client->edict, &msg, stats);
+		SV_WriteClientdataToMessage(client, srcent, &msg, stats);
 		// now update the stats[] array using any registered custom fields
-		VM_SV_UpdateCustomStats(client, client->edict, &msg, stats);
+		VM_SV_UpdateCustomStats(client, srcent, &msg, stats);
 		// set host_client->statsdeltabits
-		Protocol_UpdateClientStats (stats);
+		Protocol_UpdateClientStats(stats);
 
 		// add as many queued unreliable messages (effects) as we can fit
 		// limit effects to half of the remaining space
@@ -2482,8 +2525,10 @@ static void SV_UpdateToReliableMessages (void)
 			name = "";
 		// always point the string back at host_client->name to keep it safe
 		//strlcpy (host_client->name, name, sizeof (host_client->name));
+
 		if (name != host_client->name) // prevent buffer overlap SIGABRT on Mac OSX
 			strlcpy (host_client->name, name, sizeof (host_client->name));
+
 		PRVM_serveredictstring(host_client->edict, netname) = PRVM_SetEngineString(prog, host_client->name);
 		if (strcmp(host_client->old_name, host_client->name))
 		{
@@ -2516,6 +2561,7 @@ static void SV_UpdateToReliableMessages (void)
 		//strlcpy (host_client->playermodel, model, sizeof (host_client->playermodel));
 		if (model != host_client->playermodel) // prevent buffer overlap SIGABRT on Mac OSX
 			strlcpy (host_client->playermodel, model, sizeof (host_client->playermodel));
+
 		PRVM_serveredictstring(host_client->edict, playermodel) = PRVM_SetEngineString(prog, host_client->playermodel);
 
 		// NEXUIZ_PLAYERSKIN
@@ -2663,7 +2709,7 @@ static void Download_CheckExtensions(void)
 static void SV_Download_f(void)
 {
 	const char *whichpack, *whichpack2, *extension;
-	qboolean is_csqc; // so we need to check only once
+	qboolean is_csqc, is_alt_csqc; // so we need to check only once
 
 	if (Cmd_Argc() < 2)
 	{
@@ -2692,8 +2738,9 @@ static void SV_Download_f(void)
 		host_client->download_started = false;
 	}
 
-	is_csqc = (sv.csqc_progname[0] && strcmp(Cmd_Argv(1), sv.csqc_progname) == 0);
-	
+    is_alt_csqc = (sv.csqc_progname_alt[0] && strcmp(Cmd_Argv(1), sv.csqc_progname_alt) == 0);
+	is_csqc = (is_alt_csqc || (sv.csqc_progname[0] && strcmp(Cmd_Argv(1), sv.csqc_progname) == 0));
+
 	if (!sv_allowdownloads.integer && !is_csqc)
 	{
 		SV_ClientPrintf("Downloads are disabled on this server\n");
@@ -2720,10 +2767,17 @@ static void SV_Download_f(void)
 		
 		Con_DPrintf("Downloading %s to %s\n", host_client->download_name, host_client->name);
 
-		if(host_client->download_deflate && svs.csqc_progdata_deflated)
-			host_client->download_file = FS_FileFromData(svs.csqc_progdata_deflated, svs.csqc_progsize_deflated, true);
-		else
-			host_client->download_file = FS_FileFromData(svs.csqc_progdata, sv.csqc_progsize, true);
+        if(is_alt_csqc) {
+            if(host_client->download_deflate && svs.csqc_progdata_alt_deflated)
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_alt_deflated, svs.csqc_progsize_alt_deflated, true);
+            else
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_alt, sv.csqc_progsize_alt, true);
+        } else {
+            if(host_client->download_deflate && svs.csqc_progdata_deflated)
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata_deflated, svs.csqc_progsize_deflated, true);
+            else
+                host_client->download_file = FS_FileFromData(svs.csqc_progdata, sv.csqc_progsize, true);
+        }
 		
 		// no, no space is needed between %s and %s :P
 		Host_ClientCommands("\ncl_downloadbegin %i %s%s\n", (int)FS_FileSize(host_client->download_file), host_client->download_name, extensions);
@@ -2785,7 +2839,7 @@ static void SV_Download_f(void)
 
 	if (!sv_allowdownloads_archive.integer)
 	{
-		if (!strcasecmp(extension, "pak") || !strcasecmp(extension, "pk3"))
+		if (!strcasecmp(extension, "pak") || !strcasecmp(extension, "pk3") || !strcasecmp(extension, "cgf"))
 		{
 			SV_ClientPrintf("Download rejected: file \"%s\" is an archive\nYou must separately download or purchase the data archives for this game/mod to get this file\n", host_client->download_name);
 			Host_ClientCommands("\nstopdownload\n");
@@ -3163,45 +3217,53 @@ Load csprogs.dat and comperss it so it doesn't need to be
 reloaded on request.
 ================
 */
-static void SV_Prepare_CSQC(void)
+
+static void SV_Prepare_CSQC_Internal(const char *csqc_prognamecvar, char *csqc_progname, unsigned char **csqc_progdata, int *csqc_progsize, int *csqc_progcrc, unsigned char **csqc_progdata_deflated, size_t *csqc_progsize_deflated)
 {
 	fs_offset_t progsize;
 
-	if(svs.csqc_progdata)
-	{
+    Con_DPrintf("Preparing csqc omg\n");
+	if(*csqc_progdata) {
 		Con_DPrintf("Unloading old CSQC data.\n");
-		Mem_Free(svs.csqc_progdata);
-		if(svs.csqc_progdata_deflated)
-			Mem_Free(svs.csqc_progdata_deflated);
+		Mem_Free(*csqc_progdata);
+		if(*csqc_progdata_deflated)
+			Mem_Free(*csqc_progdata_deflated);
 	}
 
-	svs.csqc_progdata = NULL;
-	svs.csqc_progdata_deflated = NULL;
-	
-	sv.csqc_progname[0] = 0;
-	svs.csqc_progdata = FS_LoadFile(csqc_progname.string, sv_mempool, false, &progsize);
+	*csqc_progdata = NULL;
+	*csqc_progdata_deflated = NULL;
+
+	csqc_progname[0] = 0;
+	*csqc_progdata = FS_LoadFile(csqc_prognamecvar, sv_mempool, false, &progsize);
 
 	if(progsize > 0)
 	{
 		size_t deflated_size;
 
-		sv.csqc_progsize = (int)progsize;
-		sv.csqc_progcrc = CRC_Block(svs.csqc_progdata, progsize);
-		strlcpy(sv.csqc_progname, csqc_progname.string, sizeof(sv.csqc_progname));
-		Con_DPrintf("server detected csqc progs file \"%s\" with size %i and crc %i\n", sv.csqc_progname, sv.csqc_progsize, sv.csqc_progcrc);
+		*csqc_progsize = (int)progsize;
+		*csqc_progcrc = CRC_Block(*csqc_progdata, progsize);
+		strlcpy(csqc_progname, csqc_prognamecvar, MAX_QPATH);
+		Con_DPrintf("server detected csqc progs file \"%s\" with size %i and crc %i\n", csqc_progname, *csqc_progsize, *csqc_progcrc);
 
-		Con_DPrint("Compressing csprogs.dat\n");
+		Con_DPrintf("Compressing %s\n", csqc_progname);
 		//unsigned char *FS_Deflate(const unsigned char *data, size_t size, size_t *deflated_size, int level, mempool_t *mempool);
-		svs.csqc_progdata_deflated = FS_Deflate(svs.csqc_progdata, progsize, &deflated_size, -1, sv_mempool);
-		svs.csqc_progsize_deflated = (int)deflated_size;
-		if(svs.csqc_progdata_deflated)
+		*csqc_progdata_deflated = FS_Deflate(*csqc_progdata, progsize, &deflated_size, -1, sv_mempool);
+		*csqc_progsize_deflated = (int)deflated_size;
+		if(*csqc_progdata_deflated)
 		{
 			Con_DPrintf("Deflated: %g%%\n", 100.0 - 100.0 * (deflated_size / (float)progsize));
-			Con_DPrintf("Uncompressed: %u\nCompressed:   %u\n", (unsigned)sv.csqc_progsize, (unsigned)svs.csqc_progsize_deflated);
+			Con_DPrintf("Uncompressed: %u\nCompressed:   %u\n", (unsigned)*csqc_progsize, (unsigned)*csqc_progsize_deflated);
 		}
 		else
 			Con_DPrintf("Cannot compress - need zlib for this. Using uncompressed progs only.\n");
 	}
+}
+
+static void SV_Prepare_CSQC(void) {
+    Con_DPrintf("Preparing csqc\n");
+    SV_Prepare_CSQC_Internal(csqc_progname.string, sv.csqc_progname, &svs.csqc_progdata, &sv.csqc_progsize, &sv.csqc_progcrc, &svs.csqc_progdata_deflated, &svs.csqc_progsize_deflated);
+    Con_DPrintf("Preparing alt csqc\n");
+    SV_Prepare_CSQC_Internal(csqc_progname_alt.string, sv.csqc_progname_alt, &svs.csqc_progdata_alt, &sv.csqc_progsize_alt, &sv.csqc_progcrc_alt, &svs.csqc_progdata_alt_deflated, &svs.csqc_progsize_alt_deflated);
 }
 
 /*

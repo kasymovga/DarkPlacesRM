@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "hmac.h"
 #include "mdfour.h"
 #include <time.h>
+#include "random.h"
 
 #define QWMASTER_PORT 27000
 #define DPMASTER_PORT 27950
@@ -38,17 +39,33 @@ cvar_t sv_public_rejectreason = {0, "sv_public_rejectreason", "The server is clo
 static cvar_t sv_heartbeatperiod = {CVAR_SAVE, "sv_heartbeatperiod", "120", "how often to send heartbeat in seconds (only used if sv_public is 1)"};
 extern cvar_t sv_status_privacy;
 
+#ifdef VECXIS_RELEASE
 static cvar_t sv_masters [] =
 {
 	{CVAR_SAVE, "sv_master1", "", "user-chosen master server 1"},
 	{CVAR_SAVE, "sv_master2", "", "user-chosen master server 2"},
 	{CVAR_SAVE, "sv_master3", "", "user-chosen master server 3"},
 	{CVAR_SAVE, "sv_master4", "", "user-chosen master server 4"},
-	{0, "sv_masterextra1", "ghdigital.com", "ghdigital.com - default master server 1 (admin: LordHavoc)"}, // admin: LordHavoc
-	{0, "sv_masterextra2", "dpmaster.deathmask.net", "dpmaster.deathmask.net - default master server 2 (admin: Willis)"}, // admin: Willis
-	{0, "sv_masterextra3", "dpmaster.tchr.no", "dpmaster.tchr.no - default master server 3 (admin: tChr)"}, // admin: tChr
+	{0, "sv_masterextra1", "dpmaster1.vecxis.com", "Vecxis's master server 1 (admin: Player_2)"}, // admin: Player_2
+	{0, "sv_masterextra2", "dpmaster2.vecxis.com", "Vecxis's master server 2 (admin: Player_2)"}, // admin: Player_2
+	{0, "sv_masterextra3", "dpmaster3.vecxis.com", "Vecxis's master server 3 (admin: Player_2)"}, // admin: Player_2
 	{0, NULL, NULL, NULL}
 };
+#else
+static cvar_t sv_masters [] =
+{
+	{CVAR_SAVE, "sv_master1", "", "user-chosen master server 1"},
+	{CVAR_SAVE, "sv_master2", "", "user-chosen master server 2"},
+	{CVAR_SAVE, "sv_master3", "", "user-chosen master server 3"},
+	{CVAR_SAVE, "sv_master4", "", "user-chosen master server 4"},
+    {0, "sv_masterextra1", "ghdigital.com", "ghdigital.com - default master server 1 (admin: LordHavoc)"}, // admin: LordHavoc
+    {0, "sv_masterextra2", "dpmaster.deathmask.net", "dpmaster.deathmask.net - default master server 2 (admin: Willis)"}, // admin: Willis
+    {0, "sv_masterextra3", "dpmaster.tchr.no", "dpmaster.tchr.no - default master server 3 (admin: tChr)"}, // admin: tChr
+	{0, "sv_masterextra4", "dpmaster.vecxis.com", "Vecxis's master server (admin: Player_2)"}, // admin: Player_2
+    {0, "sv_masterextra5", "91.121.161.160", "Nude Dudes master server (admins: Akari, J0k3r)"}, // admins: Akari, J0k3r
+	{0, NULL, NULL, NULL}
+};
+#endif
 
 #ifdef CONFIG_MENU
 static cvar_t sv_qwmasters [] =
@@ -75,7 +92,7 @@ char cl_readstring[MAX_INPUTLINE];
 char sv_readstring[MAX_INPUTLINE];
 
 cvar_t net_test = {0, "net_test", "0", "internal development use only, leave it alone (usually does nothing anyway)"};
-cvar_t net_usesizelimit = {0, "net_usesizelimit", "2", "use packet size limiting (0: never, 1: in non-CSQC mode, 2: always)"};
+cvar_t net_usesizelimit = {0, "net_usesizelimit", "1", "use packet size limiting (0: never, 1: in non-CSQC mode, 2: always)"};
 cvar_t net_burstreserve = {0, "net_burstreserve", "0.3", "how much of the burst time to reserve for packet size spikes"};
 cvar_t net_messagetimeout = {0, "net_messagetimeout","300", "drops players who have not sent any packets for this many seconds"};
 cvar_t net_connecttimeout = {0, "net_connecttimeout","15", "after requesting a connection, the client must reply within this many seconds or be dropped (cuts down on connect floods). Must be above 10 seconds."};
@@ -621,7 +638,7 @@ int NetConn_Read(lhnetsocket_t *mysocket, void *data, int maxlength, lhnetaddres
 		return 0;
 	if (cl_netpacketloss_receive.integer)
 		for (i = 0;i < cl_numsockets;i++)
-			if (cl_sockets[i] == mysocket && (rand() % 100) < cl_netpacketloss_receive.integer)
+			if (cl_sockets[i] == mysocket && (xrand() % 100) < cl_netpacketloss_receive.integer)
 				return 0;
 	if (developer_networking.integer)
 	{
@@ -645,7 +662,7 @@ int NetConn_Write(lhnetsocket_t *mysocket, const void *data, int length, const l
 	int i;
 	if (cl_netpacketloss_send.integer)
 		for (i = 0;i < cl_numsockets;i++)
-			if (cl_sockets[i] == mysocket && (rand() % 100) < cl_netpacketloss_send.integer)
+			if (cl_sockets[i] == mysocket && (xrand() % 100) < cl_netpacketloss_send.integer)
 				return length;
 	if (mysocket->address.addresstype == LHNETADDRESSTYPE_LOOP && netconn_mutex)
 		Thread_LockMutex(netconn_mutex);
@@ -1615,16 +1632,20 @@ static int NetConn_ClientParsePacket_ServerList_ProcessReply(const char *address
 		++serverlist_cachecount;
 	}
 	// if this is the first reply from this server, count it as having replied
-	pingtime = (int)((realtime - entry->querytime) * 1000.0 + 0.5);
-	pingtime = bound(0, pingtime, 9999);
-	if (entry->query == SQS_REFRESHING) {
-		entry->info.ping = pingtime;
-		entry->query = SQS_QUERIED;
+	if (entry) {
+		pingtime = (int)((realtime - entry->querytime) * 1000.0 + 0.5);
+		pingtime = bound(0, pingtime, 9999);
+		if (entry->query == SQS_REFRESHING) {
+			entry->info.ping = pingtime;
+			entry->query = SQS_QUERIED;
+		} else {
+			// convert to unsigned to catch the -1
+			// I still dont like this but its better than the old 10000 magic ping number - as in easier to type and read :( [11/8/2007 Black]
+			entry->info.ping = min((unsigned) entry->info.ping, (unsigned) pingtime);
+			serverreplycount++;
+		}
 	} else {
-		// convert to unsigned to catch the -1
-		// I still dont like this but its better than the old 10000 magic ping number - as in easier to type and read :( [11/8/2007 Black]
-		entry->info.ping = min((unsigned) entry->info.ping, (unsigned) pingtime);
-		serverreplycount++;
+			Con_DPrintf("NetConn_ClientParsePacket_ServerList_ProcessReply: bogus serverlist_cachecount?");
 	}
 	
 	// other server info is updated by the caller
@@ -2495,7 +2516,7 @@ static void NetConn_BuildChallengeString(char *buffer, int bufferlength)
 	{
 		do
 		{
-			c = rand () % (127 - 33) + 33;
+			c = xrand () % (127 - 33) + 33;
 		} while (c == '\\' || c == ';' || c == '"' || c == '%' || c == '/');
 		buffer[i] = c;
 	}
@@ -3030,7 +3051,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			client_t *client;
 			crypto_t *crypto = Crypto_ServerGetInstance(peeraddress);
 			string += 7;
-			length -= 7;
+// 			length -= 7; // we always return from this if-block
 
 			if(crypto && crypto->authenticated)
 			{
@@ -3281,7 +3302,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			if(sv_net_extresponse_count > NET_EXTRESPONSE_MAX)
 				sv_net_extresponse_count = NET_EXTRESPONSE_MAX;
 			sv_net_extresponse_last = (sv_net_extresponse_last + 1) % NET_EXTRESPONSE_MAX;
-			dpsnprintf(sv_net_extresponse[sv_net_extresponse_last], sizeof(sv_net_extresponse[sv_net_extresponse_last]), "'%s' %s", addressstring2, string + 12);
+			dpsnprintf(sv_net_extresponse[sv_net_extresponse_last], sizeof(sv_net_extresponse[sv_net_extresponse_last]), "\"%s\" %s", addressstring2, string + 12);
 			return true;
 		}
 		if (!strncmp(string, "ping", 4))

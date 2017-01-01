@@ -33,6 +33,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "snd_main.h"
 #include "thread.h"
 #include "utf8lib.h"
+#include "irc.h"
+#include "random.h"
 
 /*
 
@@ -76,9 +78,10 @@ cvar_t cl_minfps_qualityhysteresis = {CVAR_SAVE, "cl_minfps_qualityhysteresis", 
 cvar_t cl_minfps_qualitystepmax = {CVAR_SAVE, "cl_minfps_qualitystepmax", "0.1", "maximum quality change in a single frame"};
 cvar_t cl_minfps_force = {0, "cl_minfps_force", "0", "also apply quality reductions in timedemo/capturevideo"};
 cvar_t cl_maxfps = {CVAR_SAVE, "cl_maxfps", "0", "maximum fps cap, 0 = unlimited, if game is running faster than this it will wait before running another frame (useful to make cpu time available to other programs)"};
-cvar_t cl_maxfps_alwayssleep = {0, "cl_maxfps_alwayssleep","1", "gives up some processing time to other applications each frame, value in milliseconds, disabled if cl_maxfps is 0"};
+cvar_t cl_maxfps_alwayssleep = {CVAR_SAVE, "cl_maxfps_alwayssleep","1", "gives up some processing time to other applications each frame, value in milliseconds, disabled if cl_maxfps is 0"};
 cvar_t cl_maxidlefps = {CVAR_SAVE, "cl_maxidlefps", "20", "maximum fps cap when the game is not the active window (makes cpu time available to other programs"};
 
+cvar_t sys_first_run = {CVAR_SAVE, "sys_first_run", "1", "active when the game is run for the first time"};
 cvar_t developer = {CVAR_SAVE, "developer","0", "shows debugging messages and information (recommended for all developers and level designers); the value -1 also suppresses buffering and logging these messages"};
 cvar_t developer_extra = {0, "developer_extra", "0", "prints additional debugging messages, often very verbose!"};
 cvar_t developer_insane = {0, "developer_insane", "0", "prints huge streams of information about internal workings, entire contents of files being read/written, etc.  Not recommended!"};
@@ -255,6 +258,8 @@ static void Host_InitLocal (void)
 	Cvar_RegisterVariable (&cl_maxfps_alwayssleep);
 	Cvar_RegisterVariable (&cl_maxidlefps);
 
+	Cvar_RegisterVariable (&sys_first_run);
+
 	Cvar_RegisterVariable (&developer);
 	Cvar_RegisterVariable (&developer_extra);
 	Cvar_RegisterVariable (&developer_insane);
@@ -280,6 +285,8 @@ Writes key bindings and archived cvars to config.cfg
 static void Host_SaveConfig_to(const char *file)
 {
 	qfile_t *f;
+
+	Cvar_SetQuick(&sys_first_run, "0");
 
 // dedicated servers initialize the host but don't parse and set the
 // config.cfg cvars
@@ -656,6 +663,8 @@ const char *Host_TimingReport(char *buf, size_t buflen)
 	return va(buf, buflen, "%.1f%% CPU, %.2f%% lost, offset avg %.1fms, max %.1fms, sdev %.1fms", svs.perf_cpuload * 100, svs.perf_lost * 100, svs.perf_offset_avg * 1000, svs.perf_offset_max * 1000, svs.perf_offset_sdev * 1000);
 }
 
+#include "timedemo.h"
+
 /*
 ==================
 Host_Frame
@@ -748,8 +757,10 @@ void Host_Main(void)
 			Cvar_SetValue("host_framerate", 0);
 
 		// keep the random time dependent, but not when playing demos/benchmarking
-		if(!*sv_random_seed.string && !cls.demoplayback)
-			rand();
+		if(!*sv_random_seed.string && !cls.demoplayback) {
+			xrand();
+            rand();
+        }
 
 		// get new key events
 		Key_EventQueue_Unblock();
@@ -934,6 +945,9 @@ void Host_Main(void)
 
 		if (cls.state != ca_dedicated && (cl_timer > 0 || cls.timedemo || ((vid_activewindow ? cl_maxfps : cl_maxidlefps).value < 1)))
 		{
+            if(cls.td_frames < -2 || cls.td_frames > 0) {
+                TimeDemo_BeginFrame(&tdstats);
+            }
 			R_TimeReport("---");
 			Collision_Cache_NewFrame();
 			R_TimeReport("photoncache");
@@ -1043,6 +1057,9 @@ void Host_Main(void)
 			// reset gathering of mouse input
 			in_mouse_x = in_mouse_y = 0;
 
+            if(cls.td_frames < -2 || cls.td_frames > 0) {
+                TimeDemo_EndFrame(&tdstats);
+            }
 			if (host_speeds.integer)
 			{
 				pass1 = (int)((time1 - time3)*1000000);
@@ -1070,6 +1087,8 @@ void Host_Main(void)
 				svs.perf_acc_lost += sv_timer;
 			sv_timer = 0;
 		}
+
+        IRC_Frame();
 
 		host_framecount++;
 	}
@@ -1157,6 +1176,8 @@ void Host_UnlockSession(void)
 	}
 }
 
+#include "timedemo.h"
+
 /*
 ====================
 Host_Init
@@ -1172,10 +1193,16 @@ static void Host_Init (void)
 		Sys_AllowProfiling(false);
 
 	// LordHavoc: quake never seeded the random number generator before... heh
-	if (COM_CheckParm("-benchmark"))
+	if (COM_CheckParm("-benchmark")) {
+        Xrand_Init(1);
 		srand(0); // predictable random sequence for -benchmark
-	else
+    }
+	else {
+        Xrand_Init(0);
 		srand((unsigned int)time(NULL));
+    }
+
+    Cvar_InitTable();
 
 	// FIXME: this is evil, but possibly temporary
 	// LordHavoc: doesn't seem very temporary...
@@ -1242,7 +1269,11 @@ static void Host_Init (void)
 
 	// construct a version string for the corner of the console
 	os = DP_OS_NAME;
-	dpsnprintf (engineversion, sizeof (engineversion), "%s %s %s", gamename, os, buildstring);
+#ifdef VECXIS_RELEASE
+	dpsnprintf (engineversion, sizeof (engineversion), "vdprm %s (Running %s) %s", os, gamename, buildstring);
+#else
+	dpsnprintf (engineversion, sizeof (engineversion), "DarkPlacesRM %s (Running %s) %s", os, gamename, buildstring);
+#endif
 	Con_Printf("%s\n", engineversion);
 
 	// initialize process nice level
@@ -1274,6 +1305,7 @@ static void Host_Init (void)
 	Host_InitLocal();
 	Host_ServerOptions();
 
+	IRC_Init();
 	Thread_Init();
 
 	if (cls.state == ca_dedicated)
@@ -1433,6 +1465,7 @@ void Host_Shutdown(void)
 
 	CL_Video_Shutdown();
 
+    IRC_Shutdown();
 	Host_SaveConfig();
 
 #ifdef CONFIG_CD

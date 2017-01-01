@@ -118,7 +118,29 @@ typedef enum opcode_e
 	OP_OR,
 
 	OP_BITAND,
-	OP_BITOR
+	OP_BITOR,          // 65
+
+    // extensions for fastarrays begin here
+
+    OP_FETCH_GBL_F = 80,
+    OP_FETCH_GBL_V,
+    OP_FETCH_GBL_S,
+    OP_FETCH_GBL_E,
+    OP_FETCH_GBL_FNC,
+
+    OP_CONV_FTOI = 123,
+    OP_MUL_I = 132,
+    OP_GLOBALADDRESS = 143,
+
+    OP_GSTOREP_I = 197,
+    OP_GSTOREP_F,
+    OP_GSTOREP_ENT,
+    OP_GSTOREP_FLD,
+    OP_GSTOREP_S,
+    OP_GSTOREP_FNC,
+    OP_GSTOREP_V,
+
+    OP_BOUNDCHECK = 211
 }
 opcode_t;
 

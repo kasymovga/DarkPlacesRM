@@ -2948,13 +2948,18 @@ static void nearCallback (void *data, dGeomID o1, dGeomID o2)
 			bouncestop2 = 60.0f / 800.0f;
 	}
 
+	if(ed1 == NULL || ed2 == NULL) {
+		Con_DPrintf("nearCallback: lost an entity?\n");
+		return;
+	}
+
 	if(prog == SVVM_prog)
 	{
-		if(ed1 && PRVM_serveredictfunction(ed1, touch))
+		if(PRVM_serveredictfunction(ed1, touch))
 		{
 			SV_LinkEdict_TouchAreaGrid_Call(ed1, ed2 ? ed2 : prog->edicts);
 		}
-		if(ed2 && PRVM_serveredictfunction(ed2, touch))
+		if(PRVM_serveredictfunction(ed2, touch))
 		{
 			SV_LinkEdict_TouchAreaGrid_Call(ed2, ed1 ? ed1 : prog->edicts);
 		}

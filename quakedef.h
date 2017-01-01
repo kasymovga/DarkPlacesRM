@@ -147,7 +147,7 @@ extern char engineversion[128];
 #define	MAX_SERVERINFO_STRING	1280 ///< max length of server infostring for PROTOCOL_QUAKEWORLD (512 in QuakeWorld)
 #define	MAX_LOCALINFO_STRING	32768 ///< max length of server-local infostring for PROTOCOL_QUAKEWORLD (32768 in QuakeWorld)
 #define	CL_MAX_USERCMDS			128 ///< max number of predicted input packets in queue
-#define	CVAR_HASHSIZE			65536 ///< number of hash buckets for accelerating cvar name lookups
+#define	CVAR_HASHSIZE			32768 ///< number of hash buckets for accelerating cvar name lookups
 #define	M_MAX_EDICTS			32768 ///< max objects in menu vm
 #define	MAX_DEMOS				8 ///< max demos provided to demos command
 #define	MAX_DEMONAME			16 ///< max demo name length for demos command
@@ -406,6 +406,8 @@ extern char engineversion[128];
 #include "csprogs.h"
 
 extern qboolean noclip_anglehack;
+
+extern cvar_t sys_first_run;
 
 extern cvar_t developer;
 extern cvar_t developer_extra;

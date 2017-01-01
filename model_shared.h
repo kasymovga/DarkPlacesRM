@@ -1112,6 +1112,10 @@ extern unsigned char *mod_base;
 extern cvar_t r_fullbrights;
 extern cvar_t r_enableshadowvolumes;
 
+extern cvar_t cl_force_player_model;
+extern cvar_t cl_force_player_model_weapontag;
+extern int cl_force_player_model_weapontag_index;
+
 void Mod_Init (void);
 void Mod_Reload (void);
 dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk);

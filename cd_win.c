@@ -191,6 +191,9 @@ int CDAudio_SysResume (void)
 	return 0;
 }
 
+// TODO: a better way to shut up the "no previous prototype" warning.
+LONG CDAudio_MessageHandler (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
 LONG CDAudio_MessageHandler (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (lParam != (LPARAM)wDeviceID)

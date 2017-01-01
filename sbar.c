@@ -1033,6 +1033,8 @@ static void get_showspeed_unit(int unitnumber, double *conversion_factor, const 
 {
 	if(unitnumber < 0)
 		unitnumber = showspeed.integer;
+	
+	*conversion_factor = max(*conversion_factor, 1);
 	switch(unitnumber)
 	{
 		default:
@@ -1048,7 +1050,7 @@ static void get_showspeed_unit(int unitnumber, double *conversion_factor, const 
 			*conversion_factor = 0.0254;
 			if(!IS_NEXUIZ_DERIVED(gamemode))
 				*conversion_factor *= 1.5;
-			// 1qu=1.5in is for non-Nexuiz/Xonotic only - Nexuiz/Xonotic players are overly large, but 1qu=1in fixes that
+			// 1qu=1.5in is for non-Nexuiz/Vecxis/Xonotic only - Nexuiz/Vecxis/Xonotic players are overly large, but 1qu=1in fixes that
 			break;
 		case 3:
 			*unit = "km/h";
@@ -1064,7 +1066,6 @@ static void get_showspeed_unit(int unitnumber, double *conversion_factor, const 
 			break;
 		case 5:
 			*unit = "knots";
-			*conversion_factor = 0.0254 * 1.943844492; // 1 m/s = 1.943844492 knots, because 1 knot = 1.852 km/h
 			if(!IS_NEXUIZ_DERIVED(gamemode))
 				*conversion_factor *= 1.5;
 			break;
@@ -1156,7 +1157,8 @@ void Sbar_ShowFPS(void)
 	}
 	if (showspeed.integer || showtopspeed.integer)
 	{
-		double speed, speedxy, f;
+		double speed, speedxy;
+		double f = 1;
 		const char *unit;
 		speed = VectorLength(cl.movement_velocity);
 		speedxy = sqrt(cl.movement_velocity[0] * cl.movement_velocity[0] + cl.movement_velocity[1] * cl.movement_velocity[1]);
@@ -1292,7 +1294,7 @@ void Sbar_ShowFPS(void)
 			fps_x = vid_conwidth.integer - DrawQ_TextWidth(texstring, 0, fps_scalex, fps_scaley, true, FONT_INFOBAR);
 			DrawQ_Fill(fps_x, fps_y, vid_conwidth.integer - fps_x, fps_scaley, 0, 0, 0, 0.5, 0);
 			DrawQ_String(fps_x, fps_y, texstring, 0, fps_scalex, fps_scaley, 1, 1, 1, 1, 0, NULL, true, FONT_INFOBAR);
-			fps_y += fps_scaley;
+// 			fps_y += fps_scaley;
 		}
 	}
 }

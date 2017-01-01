@@ -26,6 +26,7 @@ CPUOPTIMIZATIONS?=-fno-math-errno -ffinite-math-only -fno-rounding-math -fno-sig
 # NOTE: *never* *ever* use the -ffast-math or -funsafe-math-optimizations flag
 
 SDL_CONFIG?=sdl2-config
+SDLCONFIG_LINUXCFLAGS?=-DSDL_INPUT_LINUXEV
 SDLCONFIG_UNIXCFLAGS?=`$(SDL_CONFIG) --cflags`
 SDLCONFIG_UNIXCFLAGS_X11?=
 SDLCONFIG_UNIXLIBS?=`$(SDL_CONFIG) --libs`
@@ -79,13 +80,31 @@ OBJ_NOCD=cd_null.o
 
 # Common objects
 OBJ_COMMON= \
+	cd_shared.o \
+	cl_input.o \
+	cl_main.o \
+	gl_backend.o \
+	gl_rmain.o \
+	gl_textures.o \
+	crypto.o \
+	cgf_read.o \
+	host.o \
+	irc.o \
+	mathlib.o \
+	r_shadow.o \
+	sbar.o \
+	image.o \
+	sv_main.o \
+	vid_shared.o \
+	world.o \
+	keys.o \
 	bih.o \
 	crypto.o \
+	cap_avi.o \
+	cap_ogg.o \
 	cl_collision.o \
 	cl_demo.o \
 	cl_dyntexture.o \
-	cl_input.o \
-	cl_main.o \
 	cl_parse.o \
 	cl_particles.o \
 	cl_screen.o \
@@ -105,21 +124,14 @@ OBJ_COMMON= \
 	fs.o \
 	ft2.o \
 	utf8lib.o \
-	gl_backend.o \
 	gl_draw.o \
-	gl_rmain.o \
 	gl_rsurf.o \
-	gl_textures.o \
 	hmac.o \
-	host.o \
 	host_cmd.o \
-	image.o \
 	image_png.o \
 	jpeg.o \
-	keys.o \
 	lhnet.o \
 	libcurl.o \
-	mathlib.o \
 	matrixlib.o \
 	mdfour.o \
 	meshqueue.o \
@@ -137,27 +149,28 @@ OBJ_COMMON= \
 	prvm_cmds.o \
 	prvm_edict.o \
 	prvm_exec.o \
+	random.o \
 	r_explosion.o \
 	r_lerpanim.o \
 	r_lightning.o \
 	r_modules.o \
-	r_shadow.o \
 	r_sky.o \
 	r_sprites.o \
-	sbar.o \
+	sha256.o \
+	siphash.o \
+	stats.o \
 	sv_demo.o \
-	sv_main.o \
 	sv_move.o \
 	sv_phys.o \
 	sv_user.o \
 	svbsp.o \
 	svvm_cmds.o \
 	sys_shared.o \
-	vid_shared.o \
+	timedemo.o \
 	view.o \
 	wad.o \
-	world.o \
-	zone.o
+	zone.o \
+	slre.o
 
 OBJ_MENU= \
 	menu.o \
@@ -166,12 +179,12 @@ OBJ_MENU= \
 # note that builddate.c is very intentionally not compiled to a .o before
 # being linked, because it should be recompiled every time an executable is
 # built to give the executable a proper date string
-OBJ_SV= builddate.c sys_linux.o vid_null.o thread_null.o $(OBJ_SND_NULL) $(OBJ_COMMON)
+OBJ_SV= builddate.c sys_linux.o vid_null.o thread_null.o $(OBJ_SND_NULL) $(OBJ_COMMON) $(OBJ_NOCD)
 OBJ_SDL= builddate.c sys_sdl.o vid_sdl.o thread_sdl.o $(OBJ_MENU) $(OBJ_SND_COMMON) snd_sdl.o $(OBJ_SDLCD) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
 
 
 # Compilation
-CFLAGS_COMMON=$(CFLAGS_MAKEDEP) $(CFLAGS_PRELOAD) $(CFLAGS_FS) $(CFLAGS_WARNINGS) $(CFLAGS_LIBZ) $(CFLAGS_LIBJPEG) $(CFLAGS_D3D) $(CFLAGS_NET) $(CFLAGS_SDL) -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -I../../../
+CFLAGS_COMMON=$(CFLAGS_MAKEDEP) $(CFLAGS_PRELOAD) $(CFLAGS_FS) $(CFLAGS_WARNINGS) $(CFLAGS_LIBZ) $(CFLAGS_LIBJPEG) $(CFLAGS_LIBPNG) $(CFLAGS_D3D) $(CFLAGS_NET) $(CFLAGS_OGGVORBIS) -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -I../../../
 CFLAGS_CLIENT=-DCONFIG_MENU -DCONFIG_CD $(CFLAGS_VIDEO_CAPTURE)
 CFLAGS_SERVER=
 CFLAGS_DEBUG=-ggdb
@@ -209,20 +222,23 @@ LDFLAGS_RELEASE=$(OPTIM_RELEASE) -DSVNREVISION=`{ test -d .svn && svnversion; } 
 
 OBJ_GLX= builddate.c sys_linux.o vid_glx.o thread_pthread.o keysym2ucs.o $(OBJ_MENU) $(OBJ_SOUND) $(OBJ_CD) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
 
-LDFLAGS_UNIXCOMMON=-lm $(LIB_ODE) $(LIB_Z) $(LIB_JPEG) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL)
-LDFLAGS_UNIXCL=-L$(UNIX_X11LIBPATH) -lX11 -lXpm -lXext -lXxf86vm -pthread $(LIB_SOUND)
+LDFLAGS_UNIXCOMMON=-lm $(LIB_ODE) $(LIB_Z) $(LIB_JPEG) $(LIB_PNG) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL)
+LDFLAGS_UNIXCL=-L$(UNIX_X11LIBPATH) -lX11 -lXpm -lXext -lXxf86vm -pthread $(LIB_SOUND) $(LIB_OGGVORBIS)
 LDFLAGS_UNIXCL_PRELOAD=-lz -ljpeg -lpng -logg -ltheora -lvorbis -lvorbisenc -lvorbisfile -lcurl
 LDFLAGS_UNIXSV_PRELOAD=-lz -ljpeg -lpng -lcurl
 LDFLAGS_UNIXSDL_PRELOAD=-lz -ljpeg -lpng -logg -ltheora -lvorbis -lvorbisenc -lvorbisfile -lcurl
 CFLAGS_UNIX_PRELOAD=-DPREFER_PRELOAD
 
-LDFLAGS_UNIXSDL=$(SDLCONFIG_LIBS)
-EXE_UNIXCL=darkplaces-glx
-EXE_UNIXSV=darkplaces-dedicated
-EXE_UNIXSDL=darkplaces-sdl
-EXE_UNIXCLNEXUIZ=nexuiz-glx
-EXE_UNIXSVNEXUIZ=nexuiz-dedicated
-EXE_UNIXSDLNEXUIZ=nexuiz-sdl
+LDFLAGS_UNIXSDL=$(SDLCONFIG_LIBS) $(LIB_OGGVORBIS)
+EXE_UNIXCL=darkplaces-rm-glx
+EXE_UNIXSV=darkplaces-rm-dedicated
+EXE_UNIXSDL=darkplaces-rm-sdl
+EXE_UNIXCLNEXUIZ=nexuiz-dprm-glx
+EXE_UNIXSVNEXUIZ=nexuiz-dprm-dedicated
+EXE_UNIXSDLNEXUIZ=nexuiz-dprm-sdl
+EXE_UNIXCLVECXIS=vecxis-glx
+EXE_UNIXSVVECXIS=vecxis-dedicated
+EXE_UNIXSDLVECXIS=vecxis-sdl
 
 CMD_UNIXRM=rm -rf
 CMD_UNIXCP=cp -f
@@ -243,14 +259,15 @@ LDFLAGS_LINUXSDL=$(LDFLAGS_UNIXCOMMON) -lrt -ldl $(LDFLAGS_UNIXSDL)
 OBJ_MACOSXCD=$(OBJ_NOCD)
 
 # Link
-LDFLAGS_MACOSXCL=$(LDFLAGS_UNIXCOMMON) -ldl -framework IOKit -framework Carbon $(LIB_SOUND)
+LDFLAGS_MACOSXCL=$(LDFLAGS_UNIXCOMMON) $(LIB_OGGVORBIS) -ldl -framework IOKit -framework Carbon $(LIB_SOUND)
 LDFLAGS_MACOSXSV=$(LDFLAGS_UNIXCOMMON) -ldl
-LDFLAGS_MACOSXSDL=$(LDFLAGS_UNIXCOMMON) -ldl -framework IOKit $(SDLCONFIG_STATICLIBS) ../../../SDLMain.m
+LDFLAGS_MACOSXSDL=$(LDFLAGS_UNIXCOMMON) $(LIB_OGGVORBIS) -ldl -framework IOKit $(SDLCONFIG_STATICLIBS) ../../../SDLMain.m
 
 OBJ_AGL= builddate.c sys_linux.o vid_agl.o thread_null.o $(OBJ_MENU) $(OBJ_SOUND) $(OBJ_CD) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
 
-EXE_MACOSXCL=darkplaces-agl
-EXE_MACOSXCLNEXUIZ=nexuiz-agl
+EXE_MACOSXCL=darkplaces-rm-agl
+EXE_MACOSXCLNEXUIZ=nexuiz-dprm-agl
+EXE_MACOSXCLVECXIS=vecxis-agl
 
 
 ##### SunOS specific variables #####
@@ -270,9 +287,8 @@ LDFLAGS_SUNOSSDL=$(LDFLAGS_UNIXCOMMON) -lrt -ldl -lsocket -lnsl $(LDFLAGS_UNIXSD
 
 # Link
 LDFLAGS_BSDCL=$(LDFLAGS_UNIXCOMMON) -lutil $(LDFLAGS_UNIXCL)
-LDFLAGS_BSDSV=$(LDFLAGS_UNIXCOMMON) 
+LDFLAGS_BSDSV=$(LDFLAGS_UNIXCOMMON)
 LDFLAGS_BSDSDL=$(LDFLAGS_UNIXCOMMON) $(LDFLAGS_UNIXSDL)
-
 
 ##### Win32 specific variables #####
 
@@ -282,19 +298,30 @@ OBJ_WGL= builddate.c sys_win.o vid_wgl.o thread_null.o $(OBJ_MENU) $(OBJ_SND_WIN
 
 # Link
 # see LDFLAGS_WINCOMMON in makefile
-LDFLAGS_WINCL=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) -mwindows -lwinmm -luser32 -lgdi32 -ldxguid -ldinput -lcomctl32 -lws2_32 $(LDFLAGS_D3D) $(LIB_Z) $(LIB_JPEG)
-LDFLAGS_WINSV=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) -mconsole -lwinmm -lws2_32 $(LIB_Z) $(LIB_JPEG)
-LDFLAGS_WINSDL=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) $(SDLCONFIG_LIBS) -lwinmm -lws2_32 $(LIB_Z) $(LIB_JPEG)
-EXE_WINCL=darkplaces.exe
-EXE_WINSV=darkplaces-dedicated.exe
-EXE_WINSDL=darkplaces-sdl.exe
-EXE_WINCLNEXUIZ=nexuiz.exe
-EXE_WINSVNEXUIZ=nexuiz-dedicated.exe
-EXE_WINSDLNEXUIZ=nexuiz-sdl.exe
+LDFLAGS_WINCL=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) -mwindows -lwinmm -luser32 -lgdi32 -ldxguid -ldinput -lcomctl32 -lws2_32 $(LDFLAGS_D3D) $(LIB_Z) $(LIB_JPEG) $(LIB_PNG) $(LIB_OGGVORBIS)
+LDFLAGS_WINSV=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) -mconsole -lwinmm -lws2_32 $(LIB_Z) $(LIB_JPEG) $(LIB_PNG)
+LDFLAGS_WINSDL=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) $(SDLCONFIG_LIBS) -lwinmm -lws2_32 $(LIB_Z) $(LIB_JPEG) $(LIB_PNG) $(LIB_OGGVORBIS)
+EXE_WINCL=darkplaces-rm-wgl
+EXE_WINSV=darkplaces-rm-dedicated
+EXE_WINSDL=darkplaces-rm-sdl
+EXE_WINCLNEXUIZ=nexuiz-dprm
+EXE_WINSVNEXUIZ=nexuiz-dprm-dedicated
+EXE_WINSDLNEXUIZ=nexuiz-dprm-sdl
+EXE_WINCLVECXIS=vecxis-wgl
+EXE_WINSVVECXIS=vecxis-dedicated
+EXE_WINSDLVECXIS=vecxis-sdl
 
 VPATH := ../../../
 
 ##### Commands #####
+
+INSTALL=/usr/bin/install
+INSTALLICON=$(INSTALL) -TDm644
+INSTALL_UPDATEICONCACHE?=1
+
+ifndef PREFIX
+	PREFIX=/usr
+endif
 
 .PHONY : clean clean-profile help \
 	 debug profile release \
@@ -306,35 +333,42 @@ help:
 	@echo
 	@echo "===== Choose one ====="
 	@echo "* $(MAKE) clean                : delete all files produced by the build except"
-	@echo "                              profiling information"
+	@echo "                                 profiling information"
 	@echo "* $(MAKE) clean-profile        : delete all files produced by the build, including"
-	@echo "                              profiling informaiton"
+	@echo "                                 profiling informaiton"
 	@echo "* $(MAKE) help                 : this help"
 	@echo "* $(MAKE) debug                : make client and server binaries (debug versions)"
 	@echo "* $(MAKE) profile              : make client and server binaries (profile versions)"
 	@echo "* $(MAKE) release              : make client and server binaries (release versions)"
 	@echo "* $(MAKE) release-profile      : make client and server binaries (release versions)"
-	@echo "                              (with profiling optimizations) The profiled"
-	@echo "                              version of the program must have been"
-	@echo "                              previously compiled"
+	@echo "                                 with profileing optomizations) The profiled"
+	@echo "                                 version of the program must have been"
+	@echo "                                 previously compiled"
 	@echo "* $(MAKE) nexuiz               : make client and server binaries with nexuiz icon"
-	@echo "                              (release versions)"
+	@echo "                                 (release versions)"
+	@echo "* $(MAKE) vecxis               : make client and server binaries for Vecxis (release versions)"
 	@echo "* $(MAKE) cl-debug             : make client (debug version)"
 	@echo "* $(MAKE) cl-profile           : make client (profile version)"
-	@echo "* $(MAKE) cl-release-profile   : make client (release profile version)"
 	@echo "* $(MAKE) cl-release           : make client (release version)"
+	@echo "* $(MAKE) cl-release-profile   : make client (release version)"
 	@echo "* $(MAKE) cl-nexuiz            : make client with nexuiz icon (release version)"
+	@echo "* $(MAKE) cl-vecxis            : make client for Vecxis (release version)"
+	@echo
 	@echo "* $(MAKE) sv-debug             : make dedicated server (debug version)"
 	@echo "* $(MAKE) sv-profile           : make dedicated server (profile version)"
-	@echo "* $(MAKE) sv-release-profile   : make dedicated server (release profile version)"
 	@echo "* $(MAKE) sv-release           : make dedicated server (release version)"
-	@echo "* $(MAKE) sv-nexuiz            : make dedicated server with nexuiz icon"
-	@echo "                              (release version)"
-	@echo "* $(MAKE) sdl-debug            : make SDL client (debug version)"
-	@echo "* $(MAKE) sdl-profile          : make SDL client (profile version)"
-	@echo "* $(MAKE) sdl-release-profile  : make SDL client (release version)"
-	@echo "* $(MAKE) sdl-release          : make SDL client (release version)"
-	@echo "* $(MAKE) sdl-nexuiz           : make SDL client with nexuiz icon (release version)"
+	@echo "* $(MAKE) sv-release-profile   : make dedicated server (release version)"
+	@echo "* $(MAKE) sv-nexuiz            : make dedicated server with nexuiz icon (release version)"
+	@echo "* $(MAKE) sv-vecxis            : make dedicated server for Vecxis (release version)"
+	@echo
+	@echo "* $(MAKE) sdl-debug            : make SDL2 client (debug version)"
+	@echo "* $(MAKE) sdl-profile          : make SDL2 client (profile version)"
+	@echo "* $(MAKE) sdl-release          : make SDL2 client (release version)"
+	@echo "* $(MAKE) sdl-release-profile  : make SDL2 client (profile version)"
+	@echo "* $(MAKE) sdl-nexuiz           : make SDL2 client with nexuiz icon (release version)"
+	@echo "* $(MAKE) sdl-vecxis           : make SDL2 client for Vecxis (release version)"
+	@echo
+	@echo "* $(MAKE) install              : install built executables into PREFIX (currently ${PREFIX})"
 	@echo
 
 debug :
@@ -348,6 +382,9 @@ release :
 
 release-profile :
 	$(MAKE) $(TARGETS_RELEASE_PROFILE)
+
+vecxis :
+	$(MAKE) $(TARGETS_VECXIS)
 
 nexuiz :
 	$(MAKE) $(TARGETS_NEXUIZ)
@@ -372,10 +409,15 @@ cl-release-profile :
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_CL)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1
 
+cl-vecxis :
+	$(MAKE) bin-release \
+		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
+		EXE='$(EXE_CLVECXIS)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1 ISVECXIS=1
+
 cl-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_CLNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1
+		EXE='$(EXE_CLNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1 ISNEXUIZ=1
 
 sv-debug :
 	$(MAKE) bin-debug \
@@ -397,10 +439,15 @@ sv-release-profile :
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_SV)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1
 
+sv-vecxis :
+	$(MAKE) bin-release \
+		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
+		EXE='$(EXE_SVVECXIS)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1 ISVECXIS=1
+		
 sv-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_SVNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1
+		EXE='$(EXE_SVNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1 ISNEXUIZ=1
 
 sdl-debug :
 	$(MAKE) bin-debug \
@@ -422,10 +469,33 @@ sdl-release-profile :
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_SDL)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1
 
+sdl-vecxis :
+	$(MAKE) bin-release \
+		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
+		EXE='$(EXE_SDLVECXIS)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1 ISVECXIS=1
+
 sdl-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_SDLNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1
+		EXE='$(EXE_SDLNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1 ISNEXUIZ=1
+
+sdl2-debug :
+	$(MAKE) sdl-debug
+
+sdl2-profile :
+	$(MAKE) sdl-profile
+
+sdl2-release :
+	$(MAKE) sdl-release
+
+sdl2-release-profile :
+	$(MAKE) sdl-release-profile
+
+sdl2-nexuiz :
+	$(MAKE) sdl-nexuiz
+
+sdl2-vecxis :
+	$(MAKE) sdl-vecxis
 
 bin-debug :
 	$(CHECKLEVEL1)
@@ -454,7 +524,7 @@ bin-release :
 	$(MAKE) prepare BUILD_DIR=build-obj/release/$(EXE)
 	$(MAKE) -C build-obj/release/$(EXE) $(EXE) \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		CFLAGS='$(CFLAGS_COMMON) $(CFLAGS_FEATURES) $(CFLAGS_EXTRA) $(CFLAGS_RELEASE) $(OPTIM_RELEASE)'\
+		CFLAGS='$(CFLAGS_COMMON) $(CFLAGS_SDL) $(CFLAGS_FEATURES) $(CFLAGS_EXTRA) $(CFLAGS_RELEASE) $(OPTIM_RELEASE)'\
 		LDFLAGS='$(LDFLAGS_RELEASE) $(LDFLAGS_COMMON)' LEVEL=2
 	$(STRIP) $(EXE)
 
@@ -507,6 +577,10 @@ darkplaces.o: %.o : %.rc
 	$(CHECKLEVEL2)
 	$(WINDRES) -o $@ $<
 
+vecxis.o: %.o : %.rc
+	$(CHECKLEVEL2)
+	$(WINDRES) -o $@ $<
+	
 nexuiz.o: %.o : %.rc
 	$(CHECKLEVEL2)
 	$(WINDRES) -o $@ $<
@@ -527,6 +601,18 @@ $(EXE_SDL): $(OBJ_SDL) $(OBJ_ICON)
 	$(CHECKLEVEL2)
 	$(DO_LD)
 
+$(EXE_CLVECXIS): $(OBJ_CL) $(OBJ_ICON_VECXIS)
+	$(CHECKLEVEL2)
+	$(DO_LD)
+
+$(EXE_SVVECXIS): $(OBJ_SV) $(OBJ_ICON_VECXIS)
+	$(CHECKLEVEL2)
+	$(DO_LD)
+
+$(EXE_SDLVECXIS): $(OBJ_SDL) $(OBJ_ICON_VECXIS)
+	$(CHECKLEVEL2)
+	$(DO_LD)
+
 $(EXE_CLNEXUIZ): $(OBJ_CL) $(OBJ_ICON_NEXUIZ)
 	$(CHECKLEVEL2)
 	$(DO_LD)
@@ -543,13 +629,44 @@ clean:
 	-$(CMD_RM) $(EXE_CL)
 	-$(CMD_RM) $(EXE_SV)
 	-$(CMD_RM) $(EXE_SDL)
+	-$(CMD_RM) $(EXE_CLVECXIS)
+	-$(CMD_RM) $(EXE_SVVECXIS)
+	-$(CMD_RM) $(EXE_SDLVECXIS)
 	-$(CMD_RM) $(EXE_CLNEXUIZ)
 	-$(CMD_RM) $(EXE_SVNEXUIZ)
 	-$(CMD_RM) $(EXE_SDLNEXUIZ)
 	-$(CMD_RM) *.o
 	-$(CMD_RM) *.d
+	-$(CMD_RM) *.exe
 	-$(CMD_RM) build-obj/
 
 clean-profile: clean
 	-$(CMD_RM) *.gcda
 	-$(CMD_RM) *.gcno
+
+install:
+	if test -e $(EXE_CL); then $(INSTALL) $(EXE_CL) "$(PREFIX)/bin"; fi
+	if test -e $(EXE_SDL); then $(INSTALL) $(EXE_SDL) "$(PREFIX)/bin"; fi
+	if test -e $(EXE_SV); then $(INSTALL) $(EXE_SV) "$(PREFIX)/bin"; fi
+	if test -e $(EXE_CLNEXUIZ); then \
+		$(INSTALL) $(EXE_CLNEXUIZ) "$(PREFIX)/bin"; \
+		./nex-makedesktop.sh "Nexuiz (DPRM-GLX)" "$(PREFIX)/bin/$(EXE_CLNEXUIZ)" > "$(PREFIX)/share/applications/$(EXE_CLNEXUIZ).desktop"; \
+	fi
+	if test -e $(EXE_SDLNEXUIZ); then \
+		$(INSTALL) $(EXE_SDLNEXUIZ) "$(PREFIX)/bin"; \
+		./nex-makedesktop.sh "Nexuiz (DPRM-SDL)" "$(PREFIX)/bin/$(EXE_SDLNEXUIZ)" > "$(PREFIX)/share/applications/$(EXE_SDLNEXUIZ).desktop"; \
+	fi
+	if test -e $(EXE_SVNEXUIZ); then $(INSTALL) $(EXE_SVNEXUIZ) "$(PREFIX)/bin"; fi
+	if test -e $(EXE_CLNEXUIZ) || test -e $(EXE_SDLNEXUIZ); then \
+		$(INSTALLICON) nexuiz.xpm "$(PREFIX)/share/pixmaps/nexuiz-dprm.xpm"; \
+		$(INSTALLICON) nexuiz16x16.png "$(PREFIX)/share/icons/hicolor/16x16/apps/nexuiz-dprm.png"; \
+		$(INSTALLICON) nexuiz24x24.png "$(PREFIX)/share/icons/hicolor/24x24/apps/nexuiz-dprm.png"; \
+		$(INSTALLICON) nexuiz32x32.png "$(PREFIX)/share/icons/hicolor/32x32/apps/nexuiz-dprm.png"; \
+		$(INSTALLICON) nexuiz48x48.png "$(PREFIX)/share/icons/hicolor/48x48/apps/nexuiz-dprm.png"; \
+		$(INSTALLICON) nexuiz256x256.png "$(PREFIX)/share/icons/hicolor/256x256/apps/nexuiz-dprm.png"; \
+		if test $(INSTALL_UPDATEICONCACHE) -ne 0; then \
+			gtk-update-icon-cache -f -t "$(PREFIX)/share/icons/hicolor" || true; \
+			gtk-update-icon-cache-3.0 -f -t "$(PREFIX)/share/icons/hicolor" || true; \
+		fi \
+	fi
+

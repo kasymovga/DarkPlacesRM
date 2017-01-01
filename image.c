@@ -1502,7 +1502,7 @@ static void Image_Resample32Nolerp(const void *indata, int inwidth, int inheight
 		}
 		if (j & 1)
 		{
-			out[0] = inrow[frac >> 16];frac += fracstep;
+			out[0] = inrow[frac >> 16];//frac += fracstep;
 			out += 1;
 		}
 	}

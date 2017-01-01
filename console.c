@@ -602,7 +602,6 @@ void Log_ConPrint (const char *msg)
 			memcpy (newqueue, logqueue, logq_ind);
 			Mem_Free (logqueue);
 			logqueue = newqueue;
-			remain = logq_size - logq_ind;
 		}
 		memcpy (&logqueue[logq_ind], msg, len);
 		logq_ind += len;
@@ -710,11 +709,11 @@ Con_MessageMode_f
 static void Con_MessageMode_f (void)
 {
 	key_dest = key_message;
-	chat_mode = 0; // "say"
+	chat_mode = DP_CHAT_MODE_SAY; // "say"
 	if(Cmd_Argc() > 1)
 	{
 		dpsnprintf(chat_buffer, sizeof(chat_buffer), "%s ", Cmd_Args());
-		chat_bufferlen = (unsigned int)strlen(chat_buffer);
+		chat_bufferlen = chat_cursor = (unsigned int)strlen(chat_buffer); // Izy's patch
 	}
 }
 
@@ -727,11 +726,11 @@ Con_MessageMode2_f
 static void Con_MessageMode2_f (void)
 {
 	key_dest = key_message;
-	chat_mode = 1; // "say_team"
+	chat_mode = DP_CHAT_MODE_SAYTEAM; // "say_team"
 	if(Cmd_Argc() > 1)
 	{
 		dpsnprintf(chat_buffer, sizeof(chat_buffer), "%s ", Cmd_Args());
-		chat_bufferlen = (unsigned int)strlen(chat_buffer);
+		chat_bufferlen = chat_cursor = (unsigned int)strlen(chat_buffer); // Izy's patch
 	}
 }
 
@@ -746,9 +745,9 @@ static void Con_CommandMode_f (void)
 	if(Cmd_Argc() > 1)
 	{
 		dpsnprintf(chat_buffer, sizeof(chat_buffer), "%s ", Cmd_Args());
-		chat_bufferlen = (unsigned int)strlen(chat_buffer);
+		chat_bufferlen = chat_cursor = (unsigned int)strlen(chat_buffer); // Izy's patch
 	}
-	chat_mode = -1; // command
+	chat_mode = DP_CHAT_MODE_COMMAND; // command
 }
 
 /*
@@ -970,6 +969,10 @@ static void Con_PrintToHistory(const char *txt, int mask)
 	}
 }
 
+char Con_Qfont_Translate(unsigned char c) {
+    return qfont_table[c];
+}
+
 void Con_Rcon_Redirect_Init(lhnetsocket_t *sock, lhnetaddress_t *dest, qboolean proquakeprotocol)
 {
 	rcon_redirect_sock = sock;
@@ -1065,7 +1068,7 @@ static void Con_Rcon_AddChar(int c)
  * @param _b Blue (0-255)
  * @return A quake color character.
  */
-static char Sys_Con_NearestColor(const unsigned char _r, const unsigned char _g, const unsigned char _b)
+char Sys_Con_NearestColor(const unsigned char _r, const unsigned char _g, const unsigned char _b)
 {
 	float r = ((float)_r)/255.0;
 	float g = ((float)_g)/255.0;
@@ -1821,17 +1824,49 @@ void Con_DrawNotify (void)
 	{
 		//static char *cursor[2] = { "\xee\x80\x8a", "\xee\x80\x8b" }; // { off, on }
 		int colorindex = -1;
+        // Added by Izy (izy from izysoftware.com)
+        size_t  skiptext; 
+        const char *prefix = "";
 		const char *cursor;
 		char charbuf16[16];
-		cursor = u8_encodech(0xE00A + ((int)(realtime * con_cursorspeed)&1), NULL, charbuf16);
+        unsigned onoff;
+        size_t cursor_size;
+        size_t sizeofchar_to_replace;
+        const unsigned magic_numbers[2][2] = { {0xE00A, 0xE00B}, {0xE00A, 0xE08D} };
+        onoff = (unsigned)(realtime * con_cursorspeed) & 1;
+        cursor_size = u8_fromchar(magic_numbers[chat_modifiers.ins ? 0 : 1][onoff], charbuf16, sizeof(charbuf16));
+        cursor = charbuf16;
 
-		// LordHavoc: speedup, and other improvements
-		if (chat_mode < 0)
-			dpsnprintf(temptext, sizeof(temptext), "]%s%s", chat_buffer, cursor);
-		else if(chat_mode)
-			dpsnprintf(temptext, sizeof(temptext), "say_team:%s%s", chat_buffer, cursor);
-		else
-			dpsnprintf(temptext, sizeof(temptext), "say:%s%s", chat_buffer, cursor);
+        // Added by Izy (izy from izysoftware.com)
+        switch(chat_mode)
+        {
+            case DP_CHAT_MODE_COMMAND:
+                prefix = "]";
+                break;
+            case DP_CHAT_MODE_SAY:
+                prefix = "say:";
+                break;
+            case DP_CHAT_MODE_SAYTEAM:
+                prefix = "say_team:";
+                break;
+        }
+        // Added by Izy (izy from izysoftware.com)
+        if(chat_bufferlen == chat_cursor)
+	        dpsnprintf(temptext, sizeof(temptext), "%s%s%s", prefix, chat_buffer, cursor);
+        else
+        {
+	        dpsnprintf(temptext, sizeof(temptext), "%s%s", prefix, chat_buffer);
+            if(onoff)
+            {
+                skiptext = strlen(prefix);
+                sizeofchar_to_replace = u8_bytelen(&temptext[chat_cursor+skiptext], 1);
+                if(sizeofchar_to_replace != cursor_size)
+                    memmove(&temptext[chat_cursor+skiptext+cursor_size], 
+                            &temptext[chat_cursor+skiptext+sizeofchar_to_replace], 
+                            chat_bufferlen - (chat_cursor + sizeofchar_to_replace) + 1);
+                memcpy(&temptext[chat_cursor+skiptext], cursor, cursor_size);
+            }
+        }
 
 		// FIXME word wrap
 		inputsize = (numChatlines ? con_chatsize : con_notifysize).value;
@@ -2118,7 +2153,6 @@ qboolean GetMapList (const char *s, char *completedname, int completednamebuffer
 		char desc[64];
 		desc[0] = 0;
 		strlcpy(message, "^1ERROR: open failed^7", sizeof(message));
-		p = 0;
 		f = FS_OpenVirtualFile(t->filenames[i], true);
 		if(f)
 		{
@@ -2618,7 +2652,7 @@ static const char **Nicks_CompleteBuildList(int count)
 
 	Nicks_CutMatches(count);
 
-	buf[bpos] = NULL;
+	buf[bpos] = '\0';
 	return buf;
 }
 
@@ -2980,7 +3014,7 @@ void Con_CompleteCommandLine (void)
 	if (n)
 		cmd = *(list[3] = Nicks_CompleteBuildList(n));
 
-	for (cmd_len = (int)strlen(s);;cmd_len++)
+	for (cmd_len = (int)strlen(s); cmd && cmd[cmd_len] != '\0'; cmd_len++)
 	{
 		const char **l;
 		for (i = 0; i < 3; i++)
@@ -2988,13 +3022,6 @@ void Con_CompleteCommandLine (void)
 				for (l = list[i];*l;l++)
 					if ((*l)[cmd_len] != cmd[cmd_len])
 						goto done;
-		// all possible matches share this character, so we continue...
-		if (!cmd[cmd_len])
-		{
-			// if all matches ended at the same position, stop
-			// (this means there is only one match)
-			break;
-		}
 	}
 done:
 

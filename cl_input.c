@@ -589,7 +589,7 @@ void CL_Input (void)
 	}
 
 	// apply m_accelerate if it is on
-	if(m_accelerate.value > 1)
+	if(m_accelerate.value)
 	{
 		static float averagespeed = 0;
 		float speed, f, mi, ma;
@@ -604,34 +604,45 @@ void CL_Input (void)
 		mi = max(1, m_accelerate_minspeed.value);
 		ma = max(m_accelerate_minspeed.value + 1, m_accelerate_maxspeed.value);
 
-		if(averagespeed <= mi)
+		if (m_accelerate.value < 0)
 		{
-			f = 1;
+			f = -1 * m_accelerate.value * averagespeed * cl.realframetime;
+			in_mouse_x += in_mouse_x * f;
+			in_mouse_y += in_mouse_y * f;
 		}
-		else if(averagespeed >= ma)
+		else if (m_accelerate.value > 1)
 		{
-			f = m_accelerate.value;
-		}
-		else
-		{
-			f = averagespeed;
-			f = (f - mi) / (ma - mi) * (m_accelerate.value - 1) + 1;
+			if(averagespeed <= mi)
+			{
+				f = 1;
+			}
+			else if(averagespeed >= ma)
+			{
+				f = m_accelerate.value;
+			}
+			else
+			{
+				f = averagespeed;
+				f = (f - mi) / (ma - mi) * (m_accelerate.value - 1) + 1;
+			}
+			in_mouse_x *= f;
+			in_mouse_y *= f;
 		}
 
-		in_mouse_x *= f;
-		in_mouse_y *= f;
 	}
 
 	// apply m_filter if it is on
-	mx = in_mouse_x;
-	my = in_mouse_y;
 	if (m_filter.integer)
 	{
+		mx = in_mouse_x;
+		my = in_mouse_y;
+
 		in_mouse_x = (mx + old_mouse_x) * 0.5;
 		in_mouse_y = (my + old_mouse_y) * 0.5;
+		
+		old_mouse_x = mx;
+		old_mouse_y = my;
 	}
-	old_mouse_x = mx;
-	old_mouse_y = my;
 
 	// ignore a mouse move if mouse was activated/deactivated this frame
 	if (cl_ignoremousemoves)
@@ -1548,7 +1559,7 @@ void CL_UpdateMoveVars(void)
 
 	if(!(cl.moveflags & MOVEFLAG_VALID))
 	{
-		if(gamemode == GAME_NEXUIZ)  // Legacy hack to work with old servers of Nexuiz.
+		if(IS_OLDNEXUIZ_DERIVED(gamemode))  // Legacy hack to work with old servers of Nexuiz.
 			cl.moveflags = MOVEFLAG_Q2AIRACCELERATE;
 	}
 

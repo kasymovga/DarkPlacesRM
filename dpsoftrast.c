@@ -3670,16 +3670,16 @@ void DPSOFTRAST_PixelShader_LightDirection(DPSOFTRAST_State_Thread *thread, cons
 	unsigned char buffer_FragColorbgra8[DPSOFTRAST_DRAW_MAXSPANLENGTH*4];
 	int x, startx = span->startx, endx = span->endx;
 	float Color_Ambient[4], Color_Diffuse[4], Color_Specular[4], Color_Glow[4], Color_Pants[4], Color_Shirt[4], LightColor[4];
-	float LightVectordata[4];
-	float LightVectorslope[4];
-	float EyeVectordata[4];
-	float EyeVectorslope[4];
-	float VectorSdata[4];
-	float VectorSslope[4];
-	float VectorTdata[4];
-	float VectorTslope[4];
-	float VectorRdata[4];
-	float VectorRslope[4];
+	float LightVectordata[4] = {};
+	float LightVectorslope[4] = {};
+	float EyeVectordata[4] = {};
+	float EyeVectorslope[4] = {};
+	float VectorSdata[4] = {};
+	float VectorSslope[4] = {};
+	float VectorTdata[4] = {};
+	float VectorTslope[4] = {};
+	float VectorRdata[4] = {};
+	float VectorRslope[4] = {};
 	float z;
 	float diffusetex[4];
 	float glosstex[4];
@@ -3945,6 +3945,13 @@ void DPSOFTRAST_PixelShader_LightDirection(DPSOFTRAST_State_Thread *thread, cons
 			diffusetex[1] = buffer_texture_colorbgra8[x*4+1];
 			diffusetex[2] = buffer_texture_colorbgra8[x*4+2];
 			diffusetex[3] = buffer_texture_colorbgra8[x*4+3];
+			if (thread->shader_permutation & SHADERPERMUTATION_COLORMAPPING)
+			{
+				diffusetex[0] += buffer_texture_pantsbgra8[x*4+0] * Color_Pants[0] + buffer_texture_shirtbgra8[x*4+0] * Color_Shirt[0];
+				diffusetex[1] += buffer_texture_pantsbgra8[x*4+1] * Color_Pants[1] + buffer_texture_shirtbgra8[x*4+1] * Color_Shirt[1];
+				diffusetex[2] += buffer_texture_pantsbgra8[x*4+2] * Color_Pants[2] + buffer_texture_shirtbgra8[x*4+2] * Color_Shirt[2];
+				diffusetex[3] += buffer_texture_pantsbgra8[x*4+3] * Color_Pants[3] + buffer_texture_shirtbgra8[x*4+3] * Color_Shirt[3];
+			}
 			surfacenormal[0] = buffer_texture_normalbgra8[x*4+2] * (1.0f / 128.0f) - 1.0f;
 			surfacenormal[1] = buffer_texture_normalbgra8[x*4+1] * (1.0f / 128.0f) - 1.0f;
 			surfacenormal[2] = buffer_texture_normalbgra8[x*4+0] * (1.0f / 128.0f) - 1.0f;
@@ -5607,12 +5614,12 @@ int DPSOFTRAST_Init(int width, int height, int numthreads, int interlace, unsign
 	dpsoftrast.interlace = dpsoftrast.usethreads ? bound(0, interlace, 1) : 0;
 	dpsoftrast.numthreads = dpsoftrast.usethreads ? bound(1, numthreads, 64) : 1;
 	dpsoftrast.threads = (DPSOFTRAST_State_Thread *)MM_CALLOC(dpsoftrast.numthreads, sizeof(DPSOFTRAST_State_Thread));
-	for (i = 0; i < dpsoftrast.numthreads; i++)
+	for (i = 0; dpsoftrast.threads && i < dpsoftrast.numthreads; i++)
 	{
 		DPSOFTRAST_State_Thread *thread = &dpsoftrast.threads[i];
 		thread->index = i;
 		thread->cullface = GL_BACK;
-       	thread->colormask[0] = 1; 
+		thread->colormask[0] = 1; 
 		thread->colormask[1] = 1;
 		thread->colormask[2] = 1;
 		thread->colormask[3] = 1;

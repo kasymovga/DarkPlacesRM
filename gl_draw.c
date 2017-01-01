@@ -1665,7 +1665,6 @@ float DrawQ_String_Scale(float startx, float starty, const char *text, size_t ma
 								// ...done! now colorindex has rgba codes (1,rrrr,gggg,bbbb,aaaa)
 								//Con_Printf("^1colorindex:^7 %x\n", colorindex);
 								DrawQ_GetTextColor(DrawQ_Color, colorindex, basered, basegreen, baseblue, basealpha, shadow != 0);
-								i+=4;
 								text+=4;
 								continue;
 							}

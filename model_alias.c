@@ -585,8 +585,8 @@ int Mod_Alias_GetExtendedTagInfoForIndex(const dp_model_t *model, unsigned int s
 int Mod_Alias_GetTagIndexForName(const dp_model_t *model, unsigned int skin, const char *tagname)
 {
 	int i;
-	if(skin >= (unsigned int)model->numskins)
-		skin = 0;
+// 	if(skin >= (unsigned int)model->numskins)
+// 		skin = 0;
 	if (model->num_bones)
 		for (i = 0;i < model->num_bones;i++)
 			if (!strcasecmp(tagname, model->data_bones[i].name))
@@ -736,7 +736,7 @@ static void Mod_Alias_MorphMesh_CompileFrames(void)
 	loadmodel->surfmesh.data_svector3f = (float *)datapointer;datapointer += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_tvector3f = (float *)datapointer;datapointer += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_normal3f = (float *)datapointer;datapointer += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
-	loadmodel->surfmesh.data_morphtexvecvertex = (texvecvertex_t *)datapointer;datapointer += loadmodel->surfmesh.num_morphframes * loadmodel->surfmesh.num_vertices * sizeof(texvecvertex_t);
+	loadmodel->surfmesh.data_morphtexvecvertex = (texvecvertex_t *)datapointer;//datapointer += loadmodel->surfmesh.num_morphframes * loadmodel->surfmesh.num_vertices * sizeof(texvecvertex_t);
 	// this counts down from the last frame to the first so that the final data in surfmesh is for frame zero (which is what the renderer expects to be there)
 	for (i = loadmodel->surfmesh.num_morphframes-1;i >= 0;i--)
 	{
@@ -1044,7 +1044,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->nummodelsurfaces = loadmodel->num_surfaces;
 	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int));
 	loadmodel->data_surfaces = (msurface_t *)data;data += loadmodel->num_surfaces * sizeof(msurface_t);
-	loadmodel->sortedmodelsurfaces = (int *)data;data += loadmodel->num_surfaces * sizeof(int);
+	loadmodel->sortedmodelsurfaces = (int *)data;//data += loadmodel->num_surfaces * sizeof(int);
 	loadmodel->sortedmodelsurfaces[0] = 0;
 
 	loadmodel->numskins = LittleLong(pinmodel->numskins);
@@ -1442,7 +1442,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->surfmesh.data_element3i = (int *)data;data += loadmodel->surfmesh.num_triangles * sizeof(int[3]);
 	if (r_enableshadowvolumes.integer)
 	{
-		loadmodel->surfmesh.data_neighbor3i = (int *)data;data += loadmodel->surfmesh.num_triangles * sizeof(int[3]);
+		loadmodel->surfmesh.data_neighbor3i = (int *)data;//data += loadmodel->surfmesh.num_triangles * sizeof(int[3]);
 	}
 
 	loadmodel->synctype = ST_RAND;
@@ -1528,7 +1528,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	vertremap = (int *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_vertices * sizeof(int));
 	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_vertices * sizeof(float[2]) + loadmodel->surfmesh.num_vertices * loadmodel->surfmesh.num_morphframes * sizeof(trivertx_t));
 	loadmodel->surfmesh.data_texcoordtexture2f = (float *)data;data += loadmodel->surfmesh.num_vertices * sizeof(float[2]);
-	loadmodel->surfmesh.data_morphmdlvertex = (trivertx_t *)data;data += loadmodel->surfmesh.num_vertices * loadmodel->surfmesh.num_morphframes * sizeof(trivertx_t);
+	loadmodel->surfmesh.data_morphmdlvertex = (trivertx_t *)data;//data += loadmodel->surfmesh.num_vertices * loadmodel->surfmesh.num_morphframes * sizeof(trivertx_t);
 	for (i = 0;i < loadmodel->surfmesh.num_vertices;i++)
 	{
 		int sts, stt;
@@ -1740,7 +1740,7 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->surfmesh.data_morphmd3vertex = (md3vertex_t *)data;data += meshvertices * loadmodel->numframes * sizeof(md3vertex_t);
 	if (meshvertices <= 65536)
 	{
-		loadmodel->surfmesh.data_element3s = (unsigned short *)data;data += meshtriangles * sizeof(unsigned short[3]);
+		loadmodel->surfmesh.data_element3s = (unsigned short *)data;//data += meshtriangles * sizeof(unsigned short[3]);
 	}
 
 	meshvertices = 0;
@@ -2020,7 +2020,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	{
 		loadmodel->surfmesh.data_element3s = (unsigned short *)data;data += loadmodel->surfmesh.num_triangles * sizeof(unsigned short[3]);
 	}
-	loadmodel->data_poses7s = (short *)data;data += loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]);
+	loadmodel->data_poses7s = (short *)data;//data += loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]);
 	loadmodel->surfmesh.data_blendweights = NULL;
 
 	//zymlump_t lump_poses; // float pose[numposes][numbones][3][4]; // animation data
@@ -2355,7 +2355,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	{
 		loadmodel->surfmesh.data_element3s = (unsigned short *)data;data += meshtriangles * sizeof(unsigned short[3]);
 	}
-	loadmodel->data_poses7s = (short *)data;data += loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]);
+	loadmodel->data_poses7s = (short *)data;//data += loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]);
 	loadmodel->surfmesh.data_blendweights = (blendweights_t *)Mem_Alloc(loadmodel->mempool, meshvertices * sizeof(blendweights_t));
 
 	for (i = 0;i < loadmodel->numskins;i++)
@@ -2944,7 +2944,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 				p->quat[3] = LittleFloat(p->quat[3]);
 				p->frametime = LittleFloat(p->frametime);
 #ifdef PSKQUATNEGATIONS
-				if (index % numbones)
+				if (numbones && index % numbones)
 				{
 					p->quat[0] *= -1;
 					p->quat[1] *= -1;
@@ -3021,7 +3021,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	{
 		loadmodel->surfmesh.data_element3s = (unsigned short *)data;data += loadmodel->surfmesh.num_triangles * sizeof(unsigned short[3]);
 	}
-	loadmodel->data_poses7s = (short *)data;data += loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]);
+	loadmodel->data_poses7s = (short *)data;//data += loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]);
 	loadmodel->surfmesh.data_blendweights = (blendweights_t *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_vertices * sizeof(blendweights_t));
 
 	for (i = 0;i < loadmodel->numskins;i++)
@@ -3528,7 +3528,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	{
 		loadmodel->surfmesh.data_element3s = (unsigned short *)data;data += meshtriangles * sizeof(unsigned short[3]);
 	}
-	loadmodel->data_poses7s = (short *)data;data += loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]);
+	loadmodel->data_poses7s = (short *)data;//data += loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]);
 	if (vblendindexes && vblendweights)
 		loadmodel->surfmesh.data_blendweights = (blendweights_t *)Mem_Alloc(loadmodel->mempool, meshvertices * sizeof(blendweights_t));
 
@@ -3575,7 +3575,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	else
 	{
 		iqmjoint_t *injoint = (iqmjoint_t *)(pbase + header.ofs_joints);
-		if (header.num_joints)
+		if (loadmodel->num_bones)
 			joint = (iqmjoint_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_bones * sizeof(iqmjoint_t));
 		for (i = 0;i < loadmodel->num_bones;i++)
 		{

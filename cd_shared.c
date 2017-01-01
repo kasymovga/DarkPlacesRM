@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "cdaudio.h"
 #include "sound.h"
+#include "random.h"
 
 // used by menu to ghost CD audio slider
 cvar_t cdaudioinitialized = {CVAR_READONLY,"cdaudioinitialized","0","indicates if CD Audio system is active"};
@@ -111,7 +112,7 @@ static void CDAudio_Eject (void)
 {
 	if (!enabled)
 		return;
-	
+
 	if(cdaudio.integer == 0)
 		return;
 
@@ -267,10 +268,10 @@ void CDAudio_Play_byName (const char *trackname, qboolean looping, qboolean tryr
 	{
 		if(CDAudio_Play_real(track, looping, false))
 			goto success;
-		
+
 		if(cdValid && maxTrack > 0)
 		{
-			track = 1 + (rand() % maxTrack);
+			track = 1 + (xrand() % maxTrack);
 			if(CDAudio_Play_real(track, looping, true))
 				goto success;
 		}

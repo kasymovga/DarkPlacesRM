@@ -22,7 +22,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef VID_H
 #define VID_H
 
+#ifdef VECXIS_RELEASE
+#define ENGINE_ICON vecxis_xpm
+#else
 #define ENGINE_ICON ( (gamemode == GAME_NEXUIZ) ? nexuiz_xpm : darkplaces_xpm )
+#endif
 
 extern int cl_available;
 

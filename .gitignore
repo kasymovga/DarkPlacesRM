@@ -8,6 +8,16 @@ darkplaces-agl
 darkplaces-glx
 darkplaces-sdl
 darkplaces-dedicated
+darkplaces-rm-agl
+darkplaces-rm-glx
+darkplaces-rm-sdl
+darkplaces-rm-dedicated
+nexuiz-dprm-sdl
+nexuiz-dprm-glx
+nexuiz-dprm-dedicated
+vecxis-sdl
+vecxis-glx
+vecxis-dedicated
 gmon.out
 *.ncb
 *.opt
@@ -19,3 +29,8 @@ Makefile.win
 *.dll
 *.dylib
 *.dSYM
+*.gcda
+cscope.out
+lua-5.3.0/
+LuaJIT-2.0.3/
+bazel*

@@ -20,12 +20,38 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // cvar.c -- dynamic variable tracking
 
 #include "quakedef.h"
+#include "siphash.h"
+
+#include <time.h>
 
 const char *cvar_dummy_description = "custom cvar";
 
 cvar_t *cvar_vars = NULL;
 cvar_t *cvar_hashtable[CVAR_HASHSIZE];
 const char *cvar_null_string = "";
+
+static uint8_t hashtable_key[16];
+
+static inline uint64_t siphash_Block(const char* name, const size_t len) {
+    uint64_t res;
+    siphash(&res, (const uint8_t*)name, len, hashtable_key);
+
+    return res;
+}
+
+void Cvar_InitTable(void) {
+    uint64_t tmp = 0;
+    int i;
+
+    for(i=0; i<16; ++i) {
+        if(0 == i) {
+            tmp = (uint64_t)clock();
+        } else if(8 == i) {
+            tmp = (uint64_t)time(NULL);
+        }
+        hashtable_key[i] ^= ((tmp >> (8*(i%8))) & UINT8_C(0xff));
+    }
+}
 
 /*
 ============
@@ -38,7 +64,7 @@ cvar_t *Cvar_FindVar (const char *var_name)
 	cvar_t *var;
 
 	// use hash lookup to minimize search time
-	hashindex = CRC_Block((const unsigned char *)var_name, strlen(var_name)) % CVAR_HASHSIZE;
+	hashindex = siphash_Block(var_name, strlen(var_name)) % CVAR_HASHSIZE;
 	for (var = cvar_hashtable[hashindex];var;var = var->nextonhashchain)
 		if (!strcmp (var_name, var->name))
 			return var;
@@ -76,7 +102,7 @@ static cvar_t *Cvar_FindVarLink (const char *var_name, cvar_t **parent, cvar_t *
 	cvar_t *var;
 
 	// use hash lookup to minimize search time
-	hashindex = CRC_Block((const unsigned char *)var_name, strlen(var_name));
+	hashindex = siphash_Block(var_name, strlen(var_name)) % CVAR_HASHSIZE;
 	if(parent) *parent = NULL;
 	if(prev_alpha) *prev_alpha = NULL;
 	if(link) *link = &cvar_hashtable[hashindex];
@@ -329,6 +355,26 @@ void Cvar_UpdateAllAutoCvars(void)
 		Cvar_UpdateAutoCvar(var);
 }
 
+static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *var, char *oldvalue) {
+    int func = PRVM_allfunction(CvarUpdated);
+    if(!func)
+        return;
+
+    PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, var->name);
+    PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldvalue);
+    prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
+}
+
+static void Cvar_NotifyAllProgs(cvar_t *var, char *oldvalue) {
+    int i;
+
+    for(i = 0; i < PRVM_PROG_MAX; ++i) {
+        prvm_prog_t *prog = &prvm_prog_list[i];
+        if(prog->loaded)
+            Cvar_NotifyProg(prog, var, oldvalue);
+    }
+}
+
 /*
 ============
 Cvar_Set
@@ -339,12 +385,18 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 {
 	qboolean changed;
 	size_t valuelen;
-	char vabuf[1024];
+	char vabuf[1024], *oldval = NULL;
 
 	changed = strcmp(var->string, value) != 0;
 	// LordHavoc: don't reallocate when there is no change
 	if (!changed)
 		return;
+
+    if(var->flags & CVAR_WATCHED) {
+        valuelen = strlen(var->string);
+        oldval = (char*)Z_Malloc(valuelen + 1);
+        memcpy(oldval, var->string, valuelen + 1);
+    }
 
 	// LordHavoc: don't reallocate when the buffer is the same size
 	valuelen = strlen(value);
@@ -418,6 +470,11 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 	}
 
 	Cvar_UpdateAutoCvar(var);
+
+    if(oldval) { // CVAR_WATCHED
+        Cvar_NotifyAllProgs(var, oldval);
+        Z_Free(oldval);
+    }
 }
 
 void Cvar_SetQuick (cvar_t *var, const char *value)
@@ -437,7 +494,13 @@ void Cvar_SetQuick (cvar_t *var, const char *value)
 void Cvar_Set (const char *var_name, const char *value)
 {
 	cvar_t *var;
-	var = Cvar_FindVar (var_name);
+
+	if(!strcmp(var_name, "r_glsl")) {
+		Con_Printf("Cvar_Set: Attempted to set %s, updating vid_gl20 instead to preserve Nexuiz compatibility\n", var_name);
+		var = Cvar_FindVar("vid_gl20");
+	} else
+		var = Cvar_FindVar(var_name);
+
 	if (var == NULL)
 	{
 		Con_Printf("Cvar_Set: variable %s not found\n", var_name);
@@ -570,7 +633,7 @@ void Cvar_RegisterVariable (cvar_t *variable)
 	variable->next = next;
 
 	// link to head of list in this hash table index
-	hashindex = CRC_Block((const unsigned char *)variable->name, strlen(variable->name)) % CVAR_HASHSIZE;
+	hashindex = siphash_Block(variable->name, strlen(variable->name)) % CVAR_HASHSIZE;
 	variable->nextonhashchain = cvar_hashtable[hashindex];
 	cvar_hashtable[hashindex] = variable;
 }
@@ -590,6 +653,13 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 
 	if (developer_extra.integer)
 		Con_DPrintf("Cvar_Get(\"%s\", \"%s\", %i);\n", name, value, flags);
+
+	if(!strcmp(name, "r_glsl")) {
+		Con_Printf("Cvar_Set: Attempted to set %s, updating vid_gl20 instead to preserve Nexuiz compatibility\n", name);
+		cvar = Cvar_FindVar("vid_gl20");
+		Cvar_SetQuick(cvar, value);
+		return cvar;
+	}
 
 // first check to see if it has already been defined
 	cvar = Cvar_FindVar (name);
@@ -655,7 +725,7 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 	cvar->next = next;
 
 	// link to head of list in this hash table index
-	hashindex = CRC_Block((const unsigned char *)cvar->name, strlen(cvar->name)) % CVAR_HASHSIZE;
+	hashindex = siphash_Block(cvar->name, strlen(cvar->name)) % CVAR_HASHSIZE;
 	cvar->nextonhashchain = cvar_hashtable[hashindex];
 	cvar_hashtable[hashindex] = cvar;
 
@@ -689,7 +759,7 @@ qboolean	Cvar_Command (void)
 	if (developer_extra.integer)
 		Con_DPrint("Cvar_Command: ");
 
-	if (v->flags & CVAR_READONLY)
+	if (v->flags & CVAR_READONLY && strcmp(v->name, "r_glsl"))
 	{
 		Con_Printf("%s is read-only\n", v->name);
 		return true;
@@ -796,7 +866,7 @@ void Cvar_RestoreInitState(void)
 			// remove this cvar, it did not exist at init
 			Con_DPrintf("Cvar_RestoreInitState: Destroying cvar \"%s\"\n", c->name);
 			// unlink struct from hash
-			hashindex = CRC_Block((const unsigned char *)c->name, strlen(c->name)) % CVAR_HASHSIZE;
+			hashindex = siphash_Block(c->name, strlen(c->name)) % CVAR_HASHSIZE;
 			for (cp2 = &cvar_hashtable[hashindex];(c2 = *cp2);)
 			{
 				if (c2 == c)
@@ -939,7 +1009,7 @@ void Cvar_Set_f (void)
 
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
-	if (cvar && cvar->flags & CVAR_READONLY)
+	if (cvar && cvar->flags & CVAR_READONLY && strcmp(cvar->name, "r_glsl"))
 	{
 		Con_Printf("Set: %s is read-only\n", cvar->name);
 		return;
@@ -965,7 +1035,7 @@ void Cvar_SetA_f (void)
 
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
-	if (cvar && cvar->flags & CVAR_READONLY)
+	if (cvar && cvar->flags & CVAR_READONLY && strcmp(cvar->name, "r_glsl"))
 	{
 		Con_Printf("SetA: %s is read-only\n", cvar->name);
 		return;

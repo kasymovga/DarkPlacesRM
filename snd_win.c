@@ -550,8 +550,8 @@ qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 {
 #ifdef SUPPORTDIRECTX
 	qboolean wavonly;
+    sndinitstat stat;
 #endif
-	sndinitstat	stat;
 
 	if (!sndsys_registeredcvars)
 	{
@@ -568,9 +568,9 @@ qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 #endif
 	wav_init = false;
 
-	stat = SIS_FAILURE;	// assume DirectSound won't initialize
-
 #ifdef SUPPORTDIRECTX
+    stat = SIS_FAILURE; // assume DirectSound won't initialize
+
 	// Init DirectSound
 	if (!wavonly)
 	{

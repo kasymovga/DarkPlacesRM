@@ -4153,7 +4153,7 @@ void R_RTLight_Compile(rtlight_t *rtlight)
 		rtlight->static_numshadowtrispvsbytes = numshadowtrispvsbytes;
 		rtlight->static_shadowtrispvs = (unsigned char *)data;data += numshadowtrispvsbytes;
 		rtlight->static_numlighttrispvsbytes = numlighttrispvsbytes;
-		rtlight->static_lighttrispvs = (unsigned char *)data;data += numlighttrispvsbytes;
+		rtlight->static_lighttrispvs = (unsigned char *)data;//data += numlighttrispvsbytes;
 		if (rtlight->static_numsurfaces)
 			memcpy(rtlight->static_surfacelist, r_shadow_buffer_surfacelist, rtlight->static_numsurfaces * sizeof(*rtlight->static_surfacelist));
 		if (rtlight->static_numleafs)

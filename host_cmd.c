@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // for secure rcon authentication
 #include "hmac.h"
 #include "mdfour.h"
+#include "random.h"
 #include <time.h>
 
 int current_skill;
@@ -54,6 +55,8 @@ extern cvar_t developer_entityparsing;
 Host_Quit_f
 ==================
 */
+
+#include "timedemo.h"
 
 void Host_Quit_f (void)
 {
@@ -108,7 +111,7 @@ static void Host_Status_f (void)
 		if (svs.clients[i].active)
 			players++;
 	print ("host:     %s\n", Cvar_VariableString ("hostname"));
-	print ("version:  %s build %s (gamename %s)\n", gamename, buildstring, gamenetworkfiltername);
+	print ("version:  DarkPlacesRM " DP_OS_NAME " build %s (Running %s)\n", buildstring, gamenetworkfiltername);
 	print ("protocol: %i (%s)\n", Protocol_NumberForEnum(sv.protocol), Protocol_NameForEnum(sv.protocol));
 	print ("map:      %s\n", sv.name);
 	print ("timing:   %s\n", Host_TimingReport(vabuf, sizeof(vabuf)));
@@ -139,7 +142,7 @@ static void Host_Status_f (void)
 			}
 			else
 				hours = 0;
-			
+
 			packetloss = 0;
 			if (client->netconnection)
 				for (j = 0;j < NETGRAPH_PACKETS;j++)
@@ -173,7 +176,7 @@ static void Host_Status_f (void)
 					frags = atoi(qcstatus);
 			}
 		}
-		
+
 		if (in == 0) // default layout
 		{
 			if (sv.protocol == PROTOCOL_QUAKE && svs.maxclients <= 99)
@@ -663,7 +666,7 @@ void Host_Savegame_to(prvm_prog_t *prog, const char *name)
 				// (like newline, specifically) into escape codes
 				s = stringbuffer->strings[k];
 				for (l = 0;l < (int)sizeof(line) - 2 && *s;)
-				{	
+				{
 					if (*s == '\n')
 					{
 						line[l++] = '\\';
@@ -1078,7 +1081,7 @@ static void Host_Loadgame_f (void)
 						else
 							Con_Printf("failed to create stringbuffer %i \"%s\"\n", i, com_token);
 					}
-				}	
+				}
 				// skip any trailing text or unrecognized commands
 				while (COM_ParseToken_Simple(&t, true, false, true) && strcmp(com_token, "\n"))
 					;
@@ -1362,7 +1365,7 @@ static void Host_Playerskin_f (void)
 
 static void Host_Version_f (void)
 {
-	Con_Printf("Version: %s build %s\n", gamename, buildstring);
+	Con_Printf("Version: DarkPlacesRM " DP_OS_NAME " build %s (Running %s)\n", buildstring, gamename);
 }
 
 static void Host_Say(qboolean teamonly)
@@ -1691,8 +1694,9 @@ static void Host_BottomColor_f(void)
 	Host_Color(-1, atoi(Cmd_Argv(1)));
 }
 
-cvar_t cl_rate = {CVAR_SAVE | CVAR_NQUSERINFOHACK, "_cl_rate", "20000", "internal storage cvar for current rate (changed by rate command)"};
+cvar_t cl_rate = {CVAR_SAVE | CVAR_NQUSERINFOHACK, "_cl_rate", "40000", "internal storage cvar for current rate (changed by rate command)"};
 cvar_t cl_rate_burstsize = {CVAR_SAVE | CVAR_NQUSERINFOHACK, "_cl_rate_burstsize", "1024", "internal storage cvar for current rate control burst size (changed by rate_burstsize command)"};
+
 static void Host_Rate_f(void)
 {
 	int rate;
@@ -1791,7 +1795,7 @@ static void Host_Pause_f (void)
 			}
 		}
 	}
-	
+
 	sv.paused ^= 1;
 	if (cmd_source != src_command)
 		SV_BroadcastPrintf("%s %spaused the game\n", host_client->name, sv.paused ? "" : "un");
@@ -2628,6 +2632,12 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 		return;
 	}
 
+    if (!Cmd_Args())
+    {
+        Con_Printf ("Usage: rcon <command>\n");
+        return;
+    }
+
 	e = strchr(rcon_password.string, ' ');
 	n = e ? e-rcon_password.string : (int)strlen(rcon_password.string);
 
@@ -2672,7 +2682,7 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 		{
 			char buf[1500];
 			char argbuf[1500];
-			dpsnprintf(argbuf, sizeof(argbuf), "%ld.%06d %s", (long) time(NULL), (int) (rand() % 1000000), Cmd_Args());
+			dpsnprintf(argbuf, sizeof(argbuf), "%ld.%06d %s", (long) time(NULL), (int) (xrand() % 1000000), Cmd_Args());
 			memcpy(buf, "\377\377\377\377srcon HMAC-MD4 TIME ", 24);
 			if(HMAC_MDFOUR_16BYTES((unsigned char *) (buf + 24), (unsigned char *) argbuf, (int)strlen(argbuf), (unsigned char *) rcon_password.string, n))
 			{

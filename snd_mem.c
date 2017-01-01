@@ -190,7 +190,7 @@ qboolean Snd_AppendToSndBuffer (snd_buffer_t* sb, const unsigned char *samples, 
 			else
 			{
 				tmpcount = outcount - total_out;
-				interpolation_limit = (int)ceil((double)(((remain_in / format->channels) - 1) << FRACTIONAL_BITS) / fracstep);
+				interpolation_limit = (int)ceil((double)((remain_in / max(1,format->channels - 1)) << FRACTIONAL_BITS) / fracstep);
 				if (interpolation_limit > tmpcount)
 					interpolation_limit = tmpcount;
 			}

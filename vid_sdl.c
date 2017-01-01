@@ -61,13 +61,19 @@ io_connect_t IN_GetIOHandle(void)
 #define SDL_R_RESTART
 #endif
 
+#define SDL_MOUSE_RELATIVE_DOES_NOT_SUCK
+
 // Tell startup code that we have a client
 int cl_available = true;
 
 qboolean vid_supportrefreshrate = false;
 
 static qboolean vid_usingmouse = false;
-static qboolean vid_usingmouse_relativeworks = false; // SDL2 workaround for unimplemented RelativeMouse mode
+/* 
+ * SDL2 workaround for unimplemented RelativeMouse mode
+ * defined with SDL_MOUSE_RELATIVE_DOES_NOT_SUCK at a later point
+ */
+static qboolean vid_usingmouse_relativeworks = false;
 static qboolean vid_usinghidecursor = false;
 static qboolean vid_hasfocus = false;
 static qboolean vid_isfullscreen;
@@ -420,8 +426,13 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 #if SDL_MAJOR_VERSION == 1
 		SDL_WM_GrabInput( relative ? SDL_GRAB_ON : SDL_GRAB_OFF );
 #else
+#ifdef SDL_MOUSE_RELATIVE_DOES_NOT_SUCK
 		vid_usingmouse_relativeworks = SDL_SetRelativeMouseMode(relative ? SDL_TRUE : SDL_FALSE) == 0;
-//		Con_Printf("VID_SetMouse(%i, %i, %i) relativeworks = %i\n", (int)fullscreengrab, (int)relative, (int)hidecursor, (int)vid_usingmouse_relativeworks);
+        Con_DPrintf("VID_SetMouse(%i, %i, %i) relativeworks = %i\n", (int)fullscreengrab, (int)relative, (int)hidecursor, (int)vid_usingmouse_relativeworks);
+#else
+		vid_usingmouse_relativeworks = SDL_FALSE;
+#endif
+
 #endif
 #ifdef MACOSX
 		if(relative)
@@ -1002,7 +1013,7 @@ void IN_Move( void )
 	}
 	else
 	{
-		if (vid_usingmouse)
+		if (vid_usingmouse && vid_activewindow)
 		{
 			if (vid_stick_mouse.integer || !vid_usingmouse_relativeworks)
 			{
@@ -1072,14 +1083,18 @@ static keynum_t buttonremap[] =
 	K_MOUSE1,
 	K_MOUSE3,
 	K_MOUSE2,
+
+/*
+ * Mouse wheels are BUTTONS in SDL 1, they are NOT buttons in SDL2!
+ * Mapping them here will cause MOUSE4 and MOUSE5 to register as MWHEELUP and MWHEELDOWN respectively,
+ * making them effectively useless.
+ */
+
 #if SDL_MAJOR_VERSION == 1
-	// TODO Find out how SDL maps these buttons. It looks like we should
-	// still include these for sdl2? At least the button indexes don't
-	// differ between SDL1 and SDL2 for me, thus this array should stay the
-	// same (in X11 button order).
 	K_MWHEELUP,
 	K_MWHEELDOWN,
 #endif
+
 	K_MOUSE4,
 	K_MOUSE5,
 	K_MOUSE6,
@@ -1176,12 +1191,6 @@ void Sys_SendKeyEvents( void )
 #endif
 				}
 				break;
-#if SDL_MAJOR_VERSION != 1
-			case SDL_TEXTEDITING:
-				break;
-			case SDL_TEXTINPUT:
-				break;
-#endif
 			case SDL_MOUSEMOTION:
 				break;
 			default:
@@ -2170,8 +2179,12 @@ static SDL_Surface *VID_WrapSDL_SetVideoMode(int screenwidth, int screenheight, 
 }
 #else
 // Adding the OS independent XPM version --blub
+#ifdef VECXIS_RELEASE
+#include "vecxis.xpm"
+#else
 #include "darkplaces.xpm"
 #include "nexuiz.xpm"
+#endif
 #if SDL_MAJOR_VERSION == 1
 #if SDL_VIDEO_DRIVER_X11 && !SDL_VIDEO_DRIVER_QUARTZ
 #include <SDL_syswm.h>
@@ -2422,8 +2435,13 @@ static void VID_OutputVersion(void)
 }
 
 #ifdef WIN32
+#if SDL_MAJOR_VERSION == 1
+#else
 static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
 {
+    int workHeight, workWidth, titleBarPixels, screenHeight;
+    RECT workArea;
+
 	LONG width = mode->width; // vid_width
 	LONG height = mode->height; // vid_height
 
@@ -2434,16 +2452,15 @@ static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
 	rect->bottom = height;
 	AdjustWindowRectEx(rect, WS_CAPTION|WS_THICKFRAME, false, 0);
 
-	RECT workArea;
 	SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
-	int workWidth = workArea.right - workArea.left;
-	int workHeight = workArea.bottom - workArea.top;
+	workWidth = workArea.right - workArea.left;
+	workHeight = workArea.bottom - workArea.top;
 
 	// SDL forces the window height to be <= screen height - 27px (on Win8.1 - probably intended for the title bar) 
 	// If the task bar is docked to the the left screen border and we move the window to negative y,
 	// there would be some part of the regular desktop visible on the bottom of the screen.
-	int titleBarPixels = 2;
-	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+	titleBarPixels = 2;
+	screenHeight = GetSystemMetrics(SM_CYSCREEN);
 	if (screenHeight == workHeight)
 		titleBarPixels = -rect->top;
 
@@ -2463,6 +2480,7 @@ static void AdjustWindowBounds(viddef_mode_t *mode, RECT *rect)
 		rect->top = workArea.top + max(0, (workHeight - height) / 2);
 	}
 }
+#endif
 #endif
 
 static qboolean VID_InitModeGL(viddef_mode_t *mode)
@@ -2488,6 +2506,8 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 		flags |= SDL_RESIZABLE;
 #else
 		windowflags |= SDL_WINDOW_RESIZABLE;
+
+    SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, vid_desktopfullscreen.integer? "0" : "1");
 #endif
 
 	VID_OutputVersion();
@@ -2545,7 +2565,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 		desktop_mode.pixelheight_num = 1;
 		desktop_mode.pixelheight_denom = 1; // SDL does not provide this
 		if (mode->fullscreen) {
-			if (vid_desktopfullscreen.integer)
+			if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			{
 				mode->width = vi->current_w;
 				mode->height = vi->current_h;
@@ -2558,7 +2578,7 @@ static qboolean VID_InitModeGL(viddef_mode_t *mode)
 #else
 	{
 		if (mode->fullscreen) {
-			if (vid_desktopfullscreen.integer)
+			if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			{
 				vid_mode_t *m = VID_GetDesktopMode();
 				mode->width = m->width;
@@ -2723,7 +2743,7 @@ static qboolean VID_InitModeSoft(viddef_mode_t *mode)
 		mode->bitsperpixel = vi->vfmt->BitsPerPixel;
 		flags |= SDL_FULLSCREEN;
 #else
-		if (vid_desktopfullscreen.integer)
+		if (vid_desktopfullscreen.integer || sys_first_run.integer)
 			windowflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 		else
 			windowflags |= SDL_WINDOW_FULLSCREEN;

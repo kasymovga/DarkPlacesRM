@@ -25,7 +25,6 @@
 #ifndef FS_H
 #define FS_H
 
-
 // ------ Types ------ //
 
 typedef struct qfile_s qfile_t;
@@ -37,7 +36,20 @@ typedef __int64 fs_offset_t; ///< 64bit (lots of warnings, and read/write still 
 typedef long long fs_offset_t;
 #endif
 
+typedef struct pack_s pack_t;
+typedef struct packfile_s packfile_t;
 
+/*! \name Packages in memory
+ * @{
+ */
+/// the offset in packfile_t is the true contents offset
+#define PACKFILE_FLAG_TRUEOFFS (1 << 0)
+/// file compressed using the deflate algorithm
+#define PACKFILE_FLAG_DEFLATED (1 << 1)
+/// file is a symbolic link
+#define PACKFILE_FLAG_SYMLINK (1 << 2)
+/// FIXME: ugly hack circumventing all the other flags
+#define PACKFILE_FLAG_CGF (1 << 3)
 
 // ------ Variables ------ //
 
@@ -80,6 +92,7 @@ void FS_Purge (qfile_t* file);
 const char *FS_FileWithoutPath (const char *in);
 const char *FS_FileExtension (const char *in);
 int FS_CheckNastyPath (const char *path, qboolean isgamedir);
+packfile_t* FS_AddFileToPack (const char* name, pack_t* pack, fs_offset_t offset, fs_offset_t packsize, fs_offset_t realsize, int flags);
 
 extern const char *const fs_checkgamedir_missing; // "(missing)"
 const char *FS_CheckGameDir(const char *gamedir); // returns NULL if nasty, fs_checkgamedir_missing (exact pointer) if missing

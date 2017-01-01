@@ -242,6 +242,7 @@ void* Sys_GetProcAddress (dllhandle_t handle, const char* name)
 #if defined(CLOCK_MONOTONIC) || defined(CLOCK_HIRES)
 # define HAVE_CLOCKGETTIME 1
 #endif
+
 // FIXME improve this check, manpage hints to DST_NONE
 # define HAVE_GETTIMEOFDAY 1
 #endif
