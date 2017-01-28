@@ -112,6 +112,7 @@ static cvar_t net_slist_timeout = {0, "net_slist_timeout", "4", "how long to lis
 static cvar_t net_slist_pause = {0, "net_slist_pause", "0", "when set to 1, the server list won't update until it is set back to 0"};
 static cvar_t net_slist_maxtries = {0, "net_slist_maxtries", "3", "how many times to ask the same server for information (more times gives better ping reports but takes longer)"};
 static cvar_t net_slist_favorites = {CVAR_SAVE | CVAR_NQUSERINFOHACK, "net_slist_favorites", "", "contains a list of IP addresses and ports to always query explicitly"};
+static cvar_t net_slist_extra = {CVAR_SAVE | CVAR_NQUSERINFOHACK, "net_slist_extra", "", "contains a list of IP addresses and ports to always query explicitly"};
 static cvar_t net_tos_dscp = {CVAR_SAVE, "net_tos_dscp", "32", "DiffServ Codepoint for network sockets (may need game restart to apply)"};
 static cvar_t gameversion = {0, "gameversion", "0", "version of game data (mod-specific) to be sent to querying clients"};
 static cvar_t gameversion_min = {0, "gameversion_min", "-1", "minimum version of game data (mod-specific), when client and server gameversion mismatch in the server browser the server is shown as incompatible; if -1, gameversion is used alone"};
@@ -203,6 +204,35 @@ void NetConn_UpdateFavorites(void)
 		{
 			if(LHNETADDRESS_FromString(&favorites[nFavorites], com_token, 26000))
 				++nFavorites;
+		}
+	}
+}
+
+#define MAX_EXTRASERVERS 2048
+static int nExtra = 0;
+static lhnetaddress_t extra[MAX_EXTRASERVERS];
+static int nExtra_idfp = 0;
+static char extra_idfp[MAX_EXTRASERVERS][FP64_SIZE+1];
+
+void NetConn_UpdateExtra(void)
+{
+	const char *p;
+	nExtra = 0;
+	nExtra_idfp = 0;
+	p = net_slist_extra.string;
+	while((size_t) nExtra < sizeof(extra) / sizeof(*extra) && COM_ParseToken_Console(&p))
+	{
+		if(com_token[0] != '[' && strlen(com_token) == FP64_SIZE && !strchr(com_token, '.'))
+		// currently 44 bytes, longest possible IPv6 address: 39 bytes, so this works
+		// (if v6 address contains port, it must start with '[')
+		{
+			strlcpy(extra_idfp[nExtra_idfp], com_token, sizeof(extra_idfp[nExtra_idfp]));
+			++nExtra_idfp;
+		}
+		else
+		{
+			if(LHNETADDRESS_FromString(&extra[nExtra], com_token, 26000))
+				++nExtra;
 		}
 	}
 }
@@ -3703,10 +3733,23 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 				{
 					if(LHNETADDRESS_GetAddressType(&favorites[j]) == af)
 					{
-						if(LHNETADDRESS_ToString(&favorites[j], request, sizeof(request), true))
+						if(LHNETADDRESS_ToString(&favorites[j], request, sizeof(request), true)) {
 							NetConn_ClientParsePacket_ServerList_PrepareQuery( PROTOCOL_DARKPLACES7, request, true );
+						}
 					}
 				}
+
+				// search extra servers
+				for(j = 0; j < nExtra; ++j)
+				{
+					if(LHNETADDRESS_GetAddressType(&extra[j]) == af)
+					{
+						if(LHNETADDRESS_ToString(&extra[j], request, sizeof(request), true))
+							NetConn_ClientParsePacket_ServerList_PrepareQuery( PROTOCOL_DARKPLACES7, request, false );
+					}
+				}
+
+				serverlist_querysleep = false;
 			}
 		}
 	}
@@ -3755,6 +3798,19 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 						{
 							NetConn_WriteString(cl_sockets[i], "\377\377\377\377status\n", &favorites[j]);
 							NetConn_ClientParsePacket_ServerList_PrepareQuery( PROTOCOL_QUAKEWORLD, request, true );
+						}
+					}
+				}
+
+				// search extra servers
+				for(j = 0; j < nExtra; ++j)
+				{
+					if(LHNETADDRESS_GetAddressType(&extra[j]) == af)
+					{
+						if(LHNETADDRESS_ToString(&extra[j], request, sizeof(request), true))
+						{
+							NetConn_WriteString(cl_sockets[i], "\377\377\377\377status\n", &extra[j]);
+							NetConn_ClientParsePacket_ServerList_PrepareQuery( PROTOCOL_QUAKEWORLD, request, false );
 						}
 					}
 				}
@@ -3897,6 +3953,7 @@ void NetConn_Init(void)
 	Cvar_RegisterVariable(&net_slist_timeout);
 	Cvar_RegisterVariable(&net_slist_maxtries);
 	Cvar_RegisterVariable(&net_slist_favorites);
+	Cvar_RegisterVariable(&net_slist_extra);
 	Cvar_RegisterVariable(&net_slist_pause);
 	if(LHNET_DefaultDSCP(-1) >= 0) // register cvar only if supported
 		Cvar_RegisterVariable(&net_tos_dscp);

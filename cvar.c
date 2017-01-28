@@ -466,6 +466,8 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 #ifdef CONFIG_MENU
 		else if (!strcmp(var->name, "net_slist_favorites"))
 			NetConn_UpdateFavorites();
+		else if (!strcmp(var->name, "net_slist_extra"))
+			NetConn_UpdateExtra();
 #endif
 	}
 
