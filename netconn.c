@@ -3758,6 +3758,8 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 						}
 					}
 				}
+
+				serverlist_querysleep = false;
 			}
 		}
 	}
