@@ -7107,7 +7107,8 @@ void R_UpdateVariables(void)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-		r_gpuskeletal = vid.support.arb_uniform_buffer_object && r_glsl_skeletal.integer && !r_showsurfaces.integer; // FIXME add r_showsurfaces support to GLSL skeletal!
+		r_gpuskeletal = vid.support.arb_uniform_buffer_object && r_glsl_skeletal.integer && !r_showsurfaces.integer
+				&& r_shadows.integer <= 0 && !r_refdef.scene.rtdlightshadows && !r_refdef.scene.rtworldshadows; // FIXME add r_showsurfaces support to GLSL skeletal!
 	case RENDERPATH_D3D9:
 	case RENDERPATH_D3D10:
 	case RENDERPATH_D3D11:
