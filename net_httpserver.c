@@ -6,8 +6,8 @@
 #ifdef USE_LIBMICROHTTPD
 #include <string.h>
 #include <microhttpd.h>
-cvar_t net_http_server = {0, "net_http_server","1", "Internal http server"};
-cvar_t net_http_server_host = {0, "net_http_server_host","", "External server address"};
+static cvar_t net_http_server = {0, "net_http_server","1", "Internal http server"};
+static cvar_t net_http_server_host = {0, "net_http_server_host","", "External server address"};
 
 static struct MHD_Daemon *mhd_daemon;
 
