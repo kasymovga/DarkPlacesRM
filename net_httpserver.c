@@ -11,12 +11,6 @@ cvar_t net_http_server_host = {0, "net_http_server_host","", "External server ad
 
 static struct MHD_Daemon *mhd_daemon;
 
-int answer_to_connection(void *cls, struct MHD_Connection *connection,
-                         const char *url,
-                         const char *method, const char *version,
-                         const char *upload_data,
-                         size_t *upload_data_size, void **con_cls);
-
 static ssize_t Net_HttpServer_FileReadCallback(void *cls, uint64_t pos, char *buf, size_t max) {
 	qfile_t *file = cls;
 	FS_Seek(file, pos, SEEK_SET);
