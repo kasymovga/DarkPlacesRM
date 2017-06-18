@@ -21,7 +21,7 @@ static void Net_HttpServer_FileFreeCallback(void *cls) {
 	FS_Close((qfile_t *)cls);
 }
 
-int Net_HttpServer_Request(void *cls, struct MHD_Connection *connection,
+static int Net_HttpServer_Request(void *cls, struct MHD_Connection *connection,
                          const char *url,
                          const char *method, const char *version,
                          const char *upload_data,
