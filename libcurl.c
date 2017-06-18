@@ -2,6 +2,7 @@
 #include "fs.h"
 #include "libcurl.h"
 #include "thread.h"
+#include "net_httpserver.h"
 
 #include "image.h"
 #include "jpeg.h"
@@ -1716,7 +1717,7 @@ static const char *Curl_FindPackURL(const char *filename)
 	}
 	if(buf)
 		Z_Free(buf);
-	return sv_curl_defaulturl.string;
+	return (net_http_server_url ? net_http_server_url : sv_curl_defaulturl.string);
 }
 
 typedef struct requirement_s
