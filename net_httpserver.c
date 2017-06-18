@@ -6,7 +6,6 @@
 #ifdef USE_LIBMICROHTTPD
 #include <string.h>
 #include <microhttpd.h>
-static cvar_t net_http_server = {0, "net_http_server","1", "Internal http server"};
 static cvar_t net_http_server_host = {0, "net_http_server_host","", "External server address"};
 
 static struct MHD_Daemon *mhd_daemon;
@@ -77,11 +76,7 @@ void Net_HttpServerInit(void)
 {
 #ifdef USE_LIBMICROHTTPD
 	int i;
-	Cvar_RegisterVariable (&net_http_server);
 	Cvar_RegisterVariable (&net_http_server_host);
-	if (!net_http_server.integer)
-		return;
-
 	for (i = 0; i < 3; i++) {
 		net_http_server_port = sv_netport.integer + i;
 		mhd_daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, net_http_server_port, NULL, NULL,
