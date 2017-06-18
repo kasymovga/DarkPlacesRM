@@ -71,33 +71,39 @@ static int Net_HttpServer_Request(void *cls, struct MHD_Connection *connection,
 }
 #endif
 
+static int net_http_server_port;
 static char net_http_server_url_data[128];
 void Net_HttpServerInit(void)
 {
 #ifdef USE_LIBMICROHTTPD
-	int port, i;
-#endif
-	net_http_server_url = NULL;
-#ifdef USE_LIBMICROHTTPD
+	int i;
 	Cvar_RegisterVariable (&net_http_server);
 	Cvar_RegisterVariable (&net_http_server_host);
 	if (!net_http_server.integer)
 		return;
 
 	for (i = 0; i < 3; i++) {
-		port = sv_netport.integer + i;
-		mhd_daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, port, NULL, NULL,
+		net_http_server_port = sv_netport.integer + i;
+		mhd_daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, net_http_server_port, NULL, NULL,
 		                              Net_HttpServer_Request, NULL, MHD_OPTION_END);
 		if (mhd_daemon)
 			break;
 	}
 	if (mhd_daemon) {
-		dpsnprintf(net_http_server_url_data, 64, "http://%s:%i/", net_http_server_host.string, port);
-		net_http_server_url = net_http_server_url_data;
-		Con_Printf("libmicrohttpd listen port %i\n", (int)port);
+		Con_Printf("libmicrohttpd listen port %i\n", (int)net_http_server_port);
 	} else
-		Con_Printf("libmicrohttpd listen failed on port %i\n", (int)port);
+		Con_Printf("libmicrohttpd listen failed on port %i\n", (int)net_http_server_port);
 #endif
+}
+
+const char *Net_HttpServerUrl(void) {
+#ifdef USE_LIBMICROHTTPD
+	if (mhd_daemon) {
+		dpsnprintf(net_http_server_url_data, 64, "http://%s:%i/", net_http_server_host.string, net_http_server_port);
+		return net_http_server_url_data;
+	}
+#endif
+	return NULL;
 }
 
 void Net_HttpServerShutdown(void)
