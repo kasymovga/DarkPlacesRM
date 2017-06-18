@@ -98,7 +98,7 @@ const char *Net_HttpServerUrl(void) {
 		return net_http_server_url_data;
 	}
 #endif
-	return NULL;
+	return "";
 }
 
 void Net_HttpServerShutdown(void)

@@ -1661,7 +1661,6 @@ this file for obvious reasons.
 static const char *Curl_FindPackURL(const char *filename)
 {
 	static char foundurl[1024]; // invoked only by server
-	const char *net_http_server_url;
 	fs_offset_t filesize;
 	char *buf = (char *) FS_LoadFile("curl_urls.txt", tempmempool, true, &filesize);
 	if(buf && filesize)
@@ -1718,8 +1717,11 @@ static const char *Curl_FindPackURL(const char *filename)
 	}
 	if(buf)
 		Z_Free(buf);
-	net_http_server_url = Net_HttpServerUrl();
-	return (net_http_server_url ? net_http_server_url : sv_curl_defaulturl.string);
+
+	if (sv_curl_defaulturl.string[0])
+		return sv_curl_defaulturl.string;
+
+	return Net_HttpServerUrl();
 }
 
 typedef struct requirement_s
