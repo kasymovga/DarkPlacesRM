@@ -71,7 +71,7 @@ static int Net_HttpServer_Request(void *cls, struct MHD_Connection *connection,
 }
 #endif
 
-static net_http_server_url_data[128];
+static char net_http_server_url_data[128];
 void Net_HttpServerInit(void)
 {
 #ifdef USE_LIBMICROHTTPD
