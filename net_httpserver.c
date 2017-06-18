@@ -86,6 +86,7 @@ void Net_HttpServerInit(void)
 	net_http_server_url = NULL;
 #ifdef USE_LIBMICROHTTPD
 	Cvar_RegisterVariable (&net_http_server);
+	Cvar_RegisterVariable (&net_http_server_host);
 	if (!net_http_server.integer)
 		return;
 
