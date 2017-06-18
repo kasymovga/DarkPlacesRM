@@ -1,9 +1,9 @@
+#include "net_httpserver.h"
+#ifdef USE_LIBMICROHTTPD
 #include "quakedef.h"
 #include "netconn.h"
-#include "net_httpserver.h"
 #include "fs.h"
-
-#ifdef USE_LIBMICROHTTPD
+#include "thread.h"
 #include <string.h>
 #include <microhttpd.h>
 static cvar_t net_http_server_host = {0, "net_http_server_host","", "External server address"};
@@ -76,6 +76,9 @@ void Net_HttpServerInit(void)
 {
 #ifdef USE_LIBMICROHTTPD
 	int i;
+	if (!Thread_HasThreads())
+		return;
+
 	Cvar_RegisterVariable (&net_http_server_host);
 	for (i = 0; i < 3; i++) {
 		net_http_server_port = sv_netport.integer + i;
