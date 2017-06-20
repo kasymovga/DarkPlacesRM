@@ -50,11 +50,11 @@ static int Net_HttpServer_Request(void *cls, struct MHD_Connection *connection,
 	if (strcasecmp(&pk3[pk3_len - 4], ".pk3"))
 		return MHD_NO;
 
-	pk3_file = FS_OpenRealFile(pk3, "r", false);
+	pk3_file = FS_OpenVirtualFile(pk3, false);
 	if (!pk3_file) {
 		char dlcache_pk3[pk3_len + 9];
 		sprintf(dlcache_pk3, "dlcache/%s", pk3);
-		pk3_file = FS_OpenRealFile(dlcache_pk3, "r", false);
+		pk3_file = FS_OpenVirtualFile(dlcache_pk3, false);
 	}
 	if (!pk3_file)
 		return MHD_NO;
