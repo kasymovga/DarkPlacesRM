@@ -352,7 +352,7 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 endif
 
 ifeq ($(DP_LIBMICROHTTPD),yes)
-	CFLAGS_LIBMICROHTTPD=-DUSE_LIBMICROHTTPD
+	CFLAGS_LIBMICROHTTPD=-DUSE_LIBMICROHTTPD `pkg-config --cflags libmicrohttpd`
 	LIB_LIBMICROHTTPD=`pkg-config --libs libmicrohttpd`
 endif
 
