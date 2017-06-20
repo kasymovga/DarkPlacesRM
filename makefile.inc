@@ -180,7 +180,11 @@ OBJ_MENU= \
 # note that builddate.c is very intentionally not compiled to a .o before
 # being linked, because it should be recompiled every time an executable is
 # built to give the executable a proper date string
-OBJ_SV= builddate.c sys_linux.o vid_null.o thread_null.o $(OBJ_SND_NULL) $(OBJ_COMMON) $(OBJ_NOCD)
+ifeq ($(DP_MAKE_TARGET), mingw)
+	OBJ_SV= builddate.c sys_linux.o vid_null.o thread_win.o $(OBJ_SND_NULL) $(OBJ_COMMON) $(OBJ_NOCD)
+else
+	OBJ_SV= builddate.c sys_linux.o vid_null.o thread_pthread.o $(OBJ_SND_NULL) $(OBJ_COMMON) $(OBJ_NOCD)
+endif
 OBJ_SDL= builddate.c sys_sdl.o vid_sdl.o thread_sdl.o $(OBJ_MENU) $(OBJ_SND_COMMON) snd_sdl.o $(OBJ_SDLCD) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
 
 
@@ -250,7 +254,7 @@ CMD_UNIXMKDIR=mkdir -p
 
 # Link
 LDFLAGS_LINUXCL=$(LDFLAGS_UNIXCOMMON) -lrt -ldl $(LDFLAGS_UNIXCL)
-LDFLAGS_LINUXSV=$(LDFLAGS_UNIXCOMMON) -lrt -ldl
+LDFLAGS_LINUXSV=$(LDFLAGS_UNIXCOMMON) -lrt -ldl -pthread
 LDFLAGS_LINUXSDL=$(LDFLAGS_UNIXCOMMON) -lrt -ldl $(LDFLAGS_UNIXSDL)
 
 
