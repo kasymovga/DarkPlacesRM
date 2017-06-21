@@ -401,6 +401,7 @@ static int MapScancode( unsigned int sdlscancode )
 	case SDL_SCANCODE_7:                  return '7';
 	case SDL_SCANCODE_8:                  return '8';
 	case SDL_SCANCODE_9:                  return '9';
+	case SDL_SCANCODE_EQUALS:             return '=';
 	case SDL_SCANCODE_BACKSLASH:          return '\\';
 	case SDL_SCANCODE_GRAVE:              return '`';
 	case SDL_SCANCODE_A:                  return 'a';
