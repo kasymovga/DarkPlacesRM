@@ -96,6 +96,7 @@ static int video_flags;
 static SDL_GLContext context;
 static SDL_Window *window;
 static int window_flags;
+static cvar_t vid_sdl_use_scancodes = {CVAR_SAVE, "vid_sdl_use_scancodes", "1", "use SDL scancodes instead of keycodes"};
 #endif
 static SDL_Surface *vid_softsurface;
 static vid_mode_t desktop_mode;
@@ -373,6 +374,234 @@ static int MapKey( unsigned int sdlkey )
 #endif
 	}
 }
+
+#if SDL_MAJOR_VERSION != 1
+static int MapScancode( unsigned int sdlscancode )
+{
+	switch(sdlscancode)
+	{
+	default: return 0;
+	case SDL_SCANCODE_RETURN:             return K_ENTER;
+	case SDL_SCANCODE_ESCAPE:             return K_ESCAPE;
+	case SDL_SCANCODE_BACKSPACE:          return K_BACKSPACE;
+	case SDL_SCANCODE_TAB:                return K_TAB;
+	case SDL_SCANCODE_SPACE:              return K_SPACE;
+	case SDL_SCANCODE_APOSTROPHE:         return '\'';
+	case SDL_SCANCODE_COMMA:              return ',';
+	case SDL_SCANCODE_MINUS:              return '-';
+	case SDL_SCANCODE_PERIOD:             return '.';
+	case SDL_SCANCODE_SLASH:              return '/';
+	case SDL_SCANCODE_0:                  return '0';
+	case SDL_SCANCODE_1:                  return '1';
+	case SDL_SCANCODE_2:                  return '2';
+	case SDL_SCANCODE_3:                  return '3';
+	case SDL_SCANCODE_4:                  return '4';
+	case SDL_SCANCODE_5:                  return '5';
+	case SDL_SCANCODE_6:                  return '6';
+	case SDL_SCANCODE_7:                  return '7';
+	case SDL_SCANCODE_8:                  return '8';
+	case SDL_SCANCODE_9:                  return '9';
+	case SDL_SCANCODE_BACKSLASH:          return '\\';
+	case SDL_SCANCODE_GRAVE:              return '`';
+	case SDL_SCANCODE_A:                  return 'a';
+	case SDL_SCANCODE_B:                  return 'b';
+	case SDL_SCANCODE_C:                  return 'c';
+	case SDL_SCANCODE_D:                  return 'd';
+	case SDL_SCANCODE_E:                  return 'e';
+	case SDL_SCANCODE_F:                  return 'f';
+	case SDL_SCANCODE_G:                  return 'g';
+	case SDL_SCANCODE_H:                  return 'h';
+	case SDL_SCANCODE_I:                  return 'i';
+	case SDL_SCANCODE_J:                  return 'j';
+	case SDL_SCANCODE_K:                  return 'k';
+	case SDL_SCANCODE_L:                  return 'l';
+	case SDL_SCANCODE_M:                  return 'm';
+	case SDL_SCANCODE_N:                  return 'n';
+	case SDL_SCANCODE_O:                  return 'o';
+	case SDL_SCANCODE_P:                  return 'p';
+	case SDL_SCANCODE_Q:                  return 'q';
+	case SDL_SCANCODE_R:                  return 'r';
+	case SDL_SCANCODE_S:                  return 's';
+	case SDL_SCANCODE_T:                  return 't';
+	case SDL_SCANCODE_U:                  return 'u';
+	case SDL_SCANCODE_V:                  return 'v';
+	case SDL_SCANCODE_W:                  return 'w';
+	case SDL_SCANCODE_X:                  return 'x';
+	case SDL_SCANCODE_Y:                  return 'y';
+	case SDL_SCANCODE_Z:                  return 'z';
+	case SDL_SCANCODE_CAPSLOCK:           return K_CAPSLOCK;
+	case SDL_SCANCODE_F1:                 return K_F1;
+	case SDL_SCANCODE_F2:                 return K_F2;
+	case SDL_SCANCODE_F3:                 return K_F3;
+	case SDL_SCANCODE_F4:                 return K_F4;
+	case SDL_SCANCODE_F5:                 return K_F5;
+	case SDL_SCANCODE_F6:                 return K_F6;
+	case SDL_SCANCODE_F7:                 return K_F7;
+	case SDL_SCANCODE_F8:                 return K_F8;
+	case SDL_SCANCODE_F9:                 return K_F9;
+	case SDL_SCANCODE_F10:                return K_F10;
+	case SDL_SCANCODE_F11:                return K_F11;
+	case SDL_SCANCODE_F12:                return K_F12;
+	case SDL_SCANCODE_PRINTSCREEN:        return K_PRINTSCREEN;
+	case SDL_SCANCODE_SCROLLLOCK:         return K_SCROLLOCK;
+	case SDL_SCANCODE_PAUSE:              return K_PAUSE;
+	case SDL_SCANCODE_INSERT:             return K_INS;
+	case SDL_SCANCODE_HOME:               return K_HOME;
+	case SDL_SCANCODE_PAGEUP:             return K_PGUP;
+#ifdef __IPHONEOS__
+	case SDL_SCANCODE_DELETE:             return K_BACKSPACE;
+#else
+	case SDL_SCANCODE_DELETE:             return K_DEL;
+#endif
+	case SDL_SCANCODE_END:                return K_END;
+	case SDL_SCANCODE_PAGEDOWN:           return K_PGDN;
+	case SDL_SCANCODE_RIGHT:              return K_RIGHTARROW;
+	case SDL_SCANCODE_LEFT:               return K_LEFTARROW;
+	case SDL_SCANCODE_DOWN:               return K_DOWNARROW;
+	case SDL_SCANCODE_UP:                 return K_UPARROW;
+	case SDL_SCANCODE_NUMLOCKCLEAR:       return K_NUMLOCK;
+	case SDL_SCANCODE_KP_DIVIDE:          return K_KP_DIVIDE;
+	case SDL_SCANCODE_KP_MULTIPLY:        return K_KP_MULTIPLY;
+	case SDL_SCANCODE_KP_MINUS:           return K_KP_MINUS;
+	case SDL_SCANCODE_KP_PLUS:            return K_KP_PLUS;
+	case SDL_SCANCODE_KP_ENTER:           return K_KP_ENTER;
+	case SDL_SCANCODE_KP_1:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_1 : K_END);
+	case SDL_SCANCODE_KP_2:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_2 : K_DOWNARROW);
+	case SDL_SCANCODE_KP_3:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_3 : K_PGDN);
+	case SDL_SCANCODE_KP_4:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_4 : K_LEFTARROW);
+	case SDL_SCANCODE_KP_5:               return K_KP_5;
+	case SDL_SCANCODE_KP_6:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_6 : K_RIGHTARROW);
+	case SDL_SCANCODE_KP_7:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_7 : K_HOME);
+	case SDL_SCANCODE_KP_8:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_8 : K_UPARROW);
+	case SDL_SCANCODE_KP_9:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_9 : K_PGUP);
+	case SDL_SCANCODE_KP_0:               return ((SDL_GetModState() & KMOD_NUM) ? K_KP_0 : K_INS);
+	case SDL_SCANCODE_KP_PERIOD:          return ((SDL_GetModState() & KMOD_NUM) ? K_KP_PERIOD : K_DEL);
+//	case SDL_SCANCODE_APPLICATION:        return K_APPLICATION;
+//	case SDL_SCANCODE_POWER:              return K_POWER;
+	case SDL_SCANCODE_KP_EQUALS:          return K_KP_EQUALS;
+//	case SDL_SCANCODE_F13:                return K_F13;
+//	case SDL_SCANCODE_F14:                return K_F14;
+//	case SDL_SCANCODE_F15:                return K_F15;
+//	case SDL_SCANCODE_F16:                return K_F16;
+//	case SDL_SCANCODE_F17:                return K_F17;
+//	case SDL_SCANCODE_F18:                return K_F18;
+//	case SDL_SCANCODE_F19:                return K_F19;
+//	case SDL_SCANCODE_F20:                return K_F20;
+//	case SDL_SCANCODE_F21:                return K_F21;
+//	case SDL_SCANCODE_F22:                return K_F22;
+//	case SDL_SCANCODE_F23:                return K_F23;
+//	case SDL_SCANCODE_F24:                return K_F24;
+//	case SDL_SCANCODE_EXECUTE:            return K_EXECUTE;
+//	case SDL_SCANCODE_HELP:               return K_HELP;
+//	case SDL_SCANCODE_MENU:               return K_MENU;
+//	case SDL_SCANCODE_SELECT:             return K_SELECT;
+//	case SDL_SCANCODE_STOP:               return K_STOP;
+//	case SDL_SCANCODE_AGAIN:              return K_AGAIN;
+//	case SDL_SCANCODE_UNDO:               return K_UNDO;
+//	case SDL_SCANCODE_CUT:                return K_CUT;
+//	case SDL_SCANCODE_COPY:               return K_COPY;
+//	case SDL_SCANCODE_PASTE:              return K_PASTE;
+//	case SDL_SCANCODE_FIND:               return K_FIND;
+//	case SDL_SCANCODE_MUTE:               return K_MUTE;
+//	case SDL_SCANCODE_VOLUMEUP:           return K_VOLUMEUP;
+//	case SDL_SCANCODE_VOLUMEDOWN:         return K_VOLUMEDOWN;
+//	case SDL_SCANCODE_KP_COMMA:           return K_KP_COMMA;
+//	case SDL_SCANCODE_KP_EQUALSAS400:     return K_KP_EQUALSAS400;
+//	case SDL_SCANCODE_ALTERASE:           return K_ALTERASE;
+//	case SDL_SCANCODE_SYSREQ:             return K_SYSREQ;
+//	case SDL_SCANCODE_CANCEL:             return K_CANCEL;
+//	case SDL_SCANCODE_CLEAR:              return K_CLEAR;
+//	case SDL_SCANCODE_PRIOR:              return K_PRIOR;
+//	case SDL_SCANCODE_RETURN2:            return K_RETURN2;
+//	case SDL_SCANCODE_SEPARATOR:          return K_SEPARATOR;
+//	case SDL_SCANCODE_OUT:                return K_OUT;
+//	case SDL_SCANCODE_OPER:               return K_OPER;
+//	case SDL_SCANCODE_CLEARAGAIN:         return K_CLEARAGAIN;
+//	case SDL_SCANCODE_CRSEL:              return K_CRSEL;
+//	case SDL_SCANCODE_EXSEL:              return K_EXSEL;
+//	case SDL_SCANCODE_KP_00:              return K_KP_00;
+//	case SDL_SCANCODE_KP_000:             return K_KP_000;
+//	case SDL_SCANCODE_THOUSANDSSEPARATOR: return K_THOUSANDSSEPARATOR;
+//	case SDL_SCANCODE_DECIMALSEPARATOR:   return K_DECIMALSEPARATOR;
+//	case SDL_SCANCODE_CURRENCYUNIT:       return K_CURRENCYUNIT;
+//	case SDL_SCANCODE_CURRENCYSUBUNIT:    return K_CURRENCYSUBUNIT;
+//	case SDL_SCANCODE_KP_LEFTPAREN:       return K_KP_LEFTPAREN;
+//	case SDL_SCANCODE_KP_RIGHTPAREN:      return K_KP_RIGHTPAREN;
+//	case SDL_SCANCODE_KP_LEFTBRACE:       return K_KP_LEFTBRACE;
+//	case SDL_SCANCODE_KP_RIGHTBRACE:      return K_KP_RIGHTBRACE;
+//	case SDL_SCANCODE_KP_TAB:             return K_KP_TAB;
+//	case SDL_SCANCODE_KP_BACKSPACE:       return K_KP_BACKSPACE;
+//	case SDL_SCANCODE_KP_A:               return K_KP_A;
+//	case SDL_SCANCODE_KP_B:               return K_KP_B;
+//	case SDL_SCANCODE_KP_C:               return K_KP_C;
+//	case SDL_SCANCODE_KP_D:               return K_KP_D;
+//	case SDL_SCANCODE_KP_E:               return K_KP_E;
+//	case SDL_SCANCODE_KP_F:               return K_KP_F;
+//	case SDL_SCANCODE_KP_XOR:             return K_KP_XOR;
+//	case SDL_SCANCODE_KP_POWER:           return K_KP_POWER;
+//	case SDL_SCANCODE_KP_PERCENT:         return K_KP_PERCENT;
+//	case SDL_SCANCODE_KP_LESS:            return K_KP_LESS;
+//	case SDL_SCANCODE_KP_GREATER:         return K_KP_GREATER;
+//	case SDL_SCANCODE_KP_AMPERSAND:       return K_KP_AMPERSAND;
+//	case SDL_SCANCODE_KP_DBLAMPERSAND:    return K_KP_DBLAMPERSAND;
+//	case SDL_SCANCODE_KP_VERTICALBAR:     return K_KP_VERTICALBAR;
+//	case SDL_SCANCODE_KP_DBLVERTICALBAR:  return K_KP_DBLVERTICALBAR;
+//	case SDL_SCANCODE_KP_COLON:           return K_KP_COLON;
+//	case SDL_SCANCODE_KP_HASH:            return K_KP_HASH;
+//	case SDL_SCANCODE_KP_SPACE:           return K_KP_SPACE;
+//	case SDL_SCANCODE_KP_AT:              return K_KP_AT;
+//	case SDL_SCANCODE_KP_EXCLAM:          return K_KP_EXCLAM;
+//	case SDL_SCANCODE_KP_MEMSTORE:        return K_KP_MEMSTORE;
+//	case SDL_SCANCODE_KP_MEMRECALL:       return K_KP_MEMRECALL;
+//	case SDL_SCANCODE_KP_MEMCLEAR:        return K_KP_MEMCLEAR;
+//	case SDL_SCANCODE_KP_MEMADD:          return K_KP_MEMADD;
+//	case SDL_SCANCODE_KP_MEMSUBTRACT:     return K_KP_MEMSUBTRACT;
+//	case SDL_SCANCODE_KP_MEMMULTIPLY:     return K_KP_MEMMULTIPLY;
+//	case SDL_SCANCODE_KP_MEMDIVIDE:       return K_KP_MEMDIVIDE;
+//	case SDL_SCANCODE_KP_PLUSMINUS:       return K_KP_PLUSMINUS;
+//	case SDL_SCANCODE_KP_CLEAR:           return K_KP_CLEAR;
+//	case SDL_SCANCODE_KP_CLEARENTRY:      return K_KP_CLEARENTRY;
+//	case SDL_SCANCODE_KP_BINARY:          return K_KP_BINARY;
+//	case SDL_SCANCODE_KP_OCTAL:           return K_KP_OCTAL;
+//	case SDL_SCANCODE_KP_DECIMAL:         return K_KP_DECIMAL;
+//	case SDL_SCANCODE_KP_HEXADECIMAL:     return K_KP_HEXADECIMAL;
+	case SDL_SCANCODE_LCTRL:              return K_CTRL;
+	case SDL_SCANCODE_LSHIFT:             return K_SHIFT;
+	case SDL_SCANCODE_LALT:               return K_ALT;
+//	case SDL_SCANCODE_LGUI:               return K_LGUI;
+	case SDL_SCANCODE_RCTRL:              return K_CTRL;
+	case SDL_SCANCODE_RSHIFT:             return K_SHIFT;
+	case SDL_SCANCODE_RALT:               return K_ALT;
+//	case SDL_SCANCODE_RGUI:               return K_RGUI;
+//	case SDL_SCANCODE_MODE:               return K_MODE;
+//	case SDL_SCANCODE_AUDIONEXT:          return K_AUDIONEXT;
+//	case SDL_SCANCODE_AUDIOPREV:          return K_AUDIOPREV;
+//	case SDL_SCANCODE_AUDIOSTOP:          return K_AUDIOSTOP;
+//	case SDL_SCANCODE_AUDIOPLAY:          return K_AUDIOPLAY;
+//	case SDL_SCANCODE_AUDIOMUTE:          return K_AUDIOMUTE;
+//	case SDL_SCANCODE_MEDIASELECT:        return K_MEDIASELECT;
+//	case SDL_SCANCODE_WWW:                return K_WWW;
+//	case SDL_SCANCODE_MAIL:               return K_MAIL;
+//	case SDL_SCANCODE_CALCULATOR:         return K_CALCULATOR;
+//	case SDL_SCANCODE_COMPUTER:           return K_COMPUTER;
+//	case SDL_SCANCODE_AC_SEARCH:          return K_AC_SEARCH; // Android button
+//	case SDL_SCANCODE_AC_HOME:            return K_AC_HOME; // Android button
+	case SDL_SCANCODE_AC_BACK:            return K_ESCAPE; // Android button
+//	case SDL_SCANCODE_AC_FORWARD:         return K_AC_FORWARD; // Android button
+//	case SDL_SCANCODE_AC_STOP:            return K_AC_STOP; // Android button
+//	case SDL_SCANCODE_AC_REFRESH:         return K_AC_REFRESH; // Android button
+//	case SDL_SCANCODE_AC_BOOKMARKS:       return K_AC_BOOKMARKS; // Android button
+//	case SDL_SCANCODE_BRIGHTNESSDOWN:     return K_BRIGHTNESSDOWN;
+//	case SDL_SCANCODE_BRIGHTNESSUP:       return K_BRIGHTNESSUP;
+//	case SDL_SCANCODE_DISPLAYSWITCH:      return K_DISPLAYSWITCH;
+//	case SDL_SCANCODE_KBDILLUMTOGGLE:     return K_KBDILLUMTOGGLE;
+//	case SDL_SCANCODE_KBDILLUMDOWN:       return K_KBDILLUMDOWN;
+//	case SDL_SCANCODE_KBDILLUMUP:         return K_KBDILLUMUP;
+//	case SDL_SCANCODE_EJECT:              return K_EJECT;
+//	case SDL_SCANCODE_SLEEP:              return K_SLEEP;
+	}
+}
+#endif
 
 qboolean VID_HasScreenKeyboardSupport(void)
 {
@@ -1248,7 +1477,11 @@ void Sys_SendKeyEvents( void )
 				else
 					Con_DPrintf("SDL_Event: SDL_KEYUP %i\n", event.key.keysym.sym);
 #endif
-				keycode = MapKey(event.key.keysym.sym);
+				if (vid_sdl_use_scancodes.integer)
+					keycode = MapScancode(event.key.keysym.scancode);
+				else
+					keycode = MapKey(event.key.keysym.sym);
+
 				if (!VID_JoyBlockEmulatedKeys(keycode))
 					Key_Event(keycode, 0, (event.key.state == SDL_PRESSED));
 				break;
@@ -2068,6 +2301,9 @@ void VID_Init (void)
 
 #ifdef SDL_R_RESTART
 	R_RegisterModule("SDL", sdl_start, sdl_shutdown, sdl_newmap, NULL, NULL);
+#endif
+#if SDL_MAJOR_VERSION != 1
+	Cvar_RegisterVariable(&vid_sdl_use_scancodes);
 #endif
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
