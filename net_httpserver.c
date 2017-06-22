@@ -198,14 +198,12 @@ void Net_HttpServerInit(void)
 	if (!net_http_server.integer)
 		return;
 
-	Con_Printf("Obtaining socket pair\n");
 #ifdef WIN32
 	if (win_socketpair(control_sock))
 #else
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, control_sock) < 0)
 #endif
 		return;
-	Con_Printf("Obtaining socket pair done\n");
 
 	Cvar_RegisterVariable (&net_http_server_host);
 	for (i = 0; i < 3; i++) {
