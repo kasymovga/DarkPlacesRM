@@ -18,6 +18,7 @@
 #include <microhttpd.h>
 #include <errno.h>
 static cvar_t net_http_server_host = {0, "net_http_server_host","", "External server address"};
+static cvar_t net_http_server = {0, "net_http_server","1", "Internal http server"};
 
 static struct MHD_Daemon *mhd_daemon;
 
@@ -193,6 +194,9 @@ void Net_HttpServerInit(void)
 		Con_Printf("No thread support, http server disabled\n");
 		return;
 	}
+	Cvar_RegisterVariable (&net_http_server);
+	if (!net_http_server.integer)
+		return;
 
 	Con_Printf("Obtaining socket pair\n");
 #ifdef WIN32
