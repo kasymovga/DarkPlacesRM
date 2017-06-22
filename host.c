@@ -1308,6 +1308,7 @@ static void Host_Init (void)
 
 	IRC_Init();
 	Thread_Init();
+	Net_HttpServerInit();
 
 	if (cls.state == ca_dedicated)
 		Cmd_AddCommand ("disconnect", CL_Disconnect_f, "disconnect from server (or disconnect all clients if running a server)");
@@ -1407,7 +1408,7 @@ static void Host_Init (void)
 		Cbuf_Execute();
 	}
 
-	Net_HttpServerInit();
+	Net_HttpServerStart();
 
 	Con_DPrint("========Initialized=========\n");
 

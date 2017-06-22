@@ -189,12 +189,19 @@ static char net_http_server_url_data[128];
 void Net_HttpServerInit(void)
 {
 #ifdef USE_LIBMICROHTTPD
+	Cvar_RegisterVariable (&net_http_server);
+	Cvar_RegisterVariable (&net_http_server_host);
+#endif
+}
+
+void Net_HttpServerStart(void)
+{
+#ifdef USE_LIBMICROHTTPD
 	int i;
 	if (!Thread_HasThreads()) {
 		Con_Printf("No thread support, http server disabled\n");
 		return;
 	}
-	Cvar_RegisterVariable (&net_http_server);
 	if (!net_http_server.integer)
 		return;
 
@@ -205,7 +212,6 @@ void Net_HttpServerInit(void)
 #endif
 		return;
 
-	Cvar_RegisterVariable (&net_http_server_host);
 	for (i = 0; i < 3; i++) {
 		net_http_server_port = sv_netport.integer + i;
 		mhd_daemon = MHD_start_daemon(MHD_USE_AUTO, net_http_server_port, NULL, NULL,
