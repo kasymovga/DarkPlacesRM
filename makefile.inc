@@ -87,7 +87,6 @@ OBJ_COMMON= \
 	gl_rmain.o \
 	gl_textures.o \
 	crypto.o \
-	cgf_read.o \
 	host.o \
 	irc.o \
 	mathlib.o \
