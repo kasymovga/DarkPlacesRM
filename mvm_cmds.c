@@ -57,6 +57,7 @@ const char *vm_m_extensions =
 "DP_RM_CVAR_WATCHED "
 "DP_RM_REGEX2 "
 "DP_RM_QCSENDPACKET "
+"DP_RM_GEOIP "
 ;
 
 /*
@@ -1265,19 +1266,19 @@ VM_CL_gettagindex,				// #311 float(entity ent, string tagname) gettagindex (DP_
 VM_CL_gettaginfo,					// #312 vector(entity ent, float tagindex) gettaginfo (DP_QC_GETTAGINFO) (DP_QC_RENDER_SCENE)
 #else
 // CSQC range #300-#399
-NULL,		
-NULL,		
-NULL,		
-NULL,		
-NULL,		
-NULL,		
-NULL,		
-NULL,	
-NULL,	
 NULL,
-NULL,	
-NULL,	
-NULL,	
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
+NULL,
 #endif
 NULL,									// #313
 NULL,									// #314
@@ -1766,8 +1767,9 @@ NULL,                            // #796
 NULL,                            // #797
 NULL,                            // #798
 NULL,                            // #799
-VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800;
+VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800; (DP_RM_REGEX2)
 VM_net_sendpacket,               // #801 float(string addr, string data) net_sendpacket = #801; (DP_RM_QCSENDPACKET)
+VM_GeoIP_LookUp,				 // #802 string(string addr) GeoIP_LookUp = #802; (DP_RM_GEOIP)
 NULL
 };
 
