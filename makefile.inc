@@ -171,7 +171,8 @@ OBJ_COMMON= \
 	view.o \
 	wad.o \
 	zone.o \
-	slre.o
+	slre.o \
+	geoip.o
 
 OBJ_MENU= \
 	menu.o \
@@ -453,7 +454,7 @@ sv-vecxis :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_SVVECXIS)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1 ISVECXIS=1
-		
+
 sv-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
@@ -590,7 +591,7 @@ darkplaces.o: %.o : %.rc
 vecxis.o: %.o : %.rc
 	$(CHECKLEVEL2)
 	$(WINDRES) -o $@ $<
-	
+
 nexuiz.o: %.o : %.rc
 	$(CHECKLEVEL2)
 	$(WINDRES) -o $@ $<

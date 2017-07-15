@@ -17,6 +17,7 @@
 #include "mdfour.h"
 #include "irc.h"
 #include "slre.h"
+#include "geoip.h"
 
 extern cvar_t prvm_backtraceforwarnings;
 #ifdef USEODE
@@ -704,7 +705,7 @@ void VM_cvar_type(prvm_prog_t *prog)
 		ret |= CVAR_TYPEFLAG_MODIFIED;
     if(cvar->flags & CVAR_WATCHED)
         ret |= CVAR_TYPEFLAG_WATCHED;
-	
+
 	PRVM_G_FLOAT(OFS_RETURN) = ret;
 }
 
@@ -2154,14 +2155,14 @@ void VM_entityfieldtype(prvm_prog_t *prog)
 {
 	ddef_t *d;
 	int i = (int)PRVM_G_FLOAT(OFS_PARM0);
-	
+
 	if (i < 0 || i >= prog->numfielddefs)
 	{
 		VM_Warning(prog, "VM_entityfieldtype: %s: field index out of bounds\n", prog->name);
 		PRVM_G_FLOAT(OFS_RETURN) = -1.0;
 		return;
 	}
-	
+
 	d = &prog->fielddefs[i];
 	PRVM_G_FLOAT(OFS_RETURN) = (prvm_vec_t)d->type;
 }
@@ -2183,16 +2184,16 @@ void VM_getentityfieldstring(prvm_prog_t *prog)
 	prvm_edict_t * ent;
 	int i = (int)PRVM_G_FLOAT(OFS_PARM0);
 	char valuebuf[MAX_INPUTLINE];
-	
+
 	if (i < 0 || i >= prog->numfielddefs)
 	{
         VM_Warning(prog, "VM_entityfielddata: %s: field index out of bounds\n", prog->name);
 		PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, "");
 		return;
 	}
-	
+
 	d = &prog->fielddefs[i];
-	
+
 	// get the entity
 	ent = PRVM_G_EDICT(OFS_PARM1);
 	if(ent->priv.required->free)
@@ -2202,7 +2203,7 @@ void VM_getentityfieldstring(prvm_prog_t *prog)
 		return;
 	}
 	val = (prvm_eval_t *)(ent->fields.fp + d->ofs);
-	
+
 	// if it's 0 or blank, return an empty string
 	type = d->type & ~DEF_SAVEGLOBAL;
 	for (j=0 ; j<prvm_type_size[type] ; j++)
@@ -2213,7 +2214,7 @@ void VM_getentityfieldstring(prvm_prog_t *prog)
 		PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, "");
 		return;
 	}
-		
+
 	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, PRVM_UglyValueString(prog, (etype_t)d->type, val, valuebuf, sizeof(valuebuf)));
 }
 
@@ -2417,7 +2418,7 @@ void VM_substring(prvm_prog_t *prog)
 	string[length] = 0;
 	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, string);
 	*/
-	
+
 	s = PRVM_G_STRING(OFS_PARM0);
 	start = (int)PRVM_G_FLOAT(OFS_PARM1);
 	length = (int)PRVM_G_FLOAT(OFS_PARM2);
@@ -2435,7 +2436,7 @@ void VM_substring(prvm_prog_t *prog)
 			u_slength = (int)u8_strlen(s);
 		length += u_slength - start + 1;
 	}
-		
+
 	// positive start, positive length
 	u_start = u8_byteofs(s, start, NULL);
 	if (u_start < 0)
@@ -2446,7 +2447,7 @@ void VM_substring(prvm_prog_t *prog)
 	u_length = u8_bytelen(s + u_start, length);
 	if (u_length >= sizeof(string)-1)
 		u_length = sizeof(string)-1;
-	
+
 	memcpy(string, s + u_start, u_length);
 	string[u_length] = 0;
 	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, string);
@@ -3325,7 +3326,7 @@ void VM_chr(prvm_prog_t *prog)
 
 	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, tmp);
 	*/
-	
+
 	char tmp[8];
 	int len;
 	VM_SAFEPARMCOUNT(1, VM_chr);
@@ -3549,7 +3550,7 @@ void VM_drawcolorcodedstring(prvm_prog_t *prog)
 		pos = PRVM_G_VECTOR(OFS_PARM0);
 		string = PRVM_G_STRING(OFS_PARM1);
 		scale = PRVM_G_VECTOR(OFS_PARM2);
-		VectorCopy(PRVM_G_VECTOR(OFS_PARM3), rgb); 
+		VectorCopy(PRVM_G_VECTOR(OFS_PARM3), rgb);
 		alpha = PRVM_G_FLOAT(OFS_PARM4);
 		flag = (int)PRVM_G_FLOAT(OFS_PARM5);
 	}
@@ -4355,7 +4356,7 @@ void VM_gecko_navigate(prvm_prog_t *prog) {
 ========================
 VM_gecko_keyevent
 
-float[bool] gecko_keyevent( string name, float key, float eventtype ) 
+float[bool] gecko_keyevent( string name, float key, float eventtype )
 ========================
 */
 void VM_gecko_keyevent(prvm_prog_t *prog) {
@@ -4799,7 +4800,7 @@ void BufStr_Set(prvm_prog_t *prog, prvm_stringbuffer_t *stringbuffer, int strind
 void BufStr_Del(prvm_prog_t *prog, prvm_stringbuffer_t *stringbuffer)
 {
 	int i;
-	
+
 	if (!stringbuffer)
 		return;
 
@@ -4842,9 +4843,9 @@ void VM_buf_create (prvm_prog_t *prog)
 {
 	prvm_stringbuffer_t *stringbuffer;
 	int i;
-	
+
 	VM_SAFEPARMCOUNTRANGE(0, 2, VM_buf_create);
-	
+
 	// VorteX: optional parm1 (buffer format) is unfinished, to keep intact with future databuffers extension must be set to "string"
 	if(prog->argc >= 1 && strcmp(PRVM_G_STRING(OFS_PARM0), "string"))
 	{
@@ -5291,7 +5292,7 @@ void VM_buf_writefile(prvm_prog_t *prog)
 		VM_Warning(prog, "VM_buf_writefile: no such file handle %i (or file has been closed) in %s\n", filenum, prog->name);
 		return;
 	}
-	
+
 	// get string buffer
     stringbuffer = BufStr_Get(prog, (int)PRVM_G_FLOAT(OFS_PARM1));
 	if(!stringbuffer)
@@ -5362,7 +5363,7 @@ static const char *detect_match_rule(char *pattern, int *matchrule)
 	ppos = strchr(pattern, '*');
 	qpos = strchr(pattern, '?');
 	// has ? - pattern
-	if (qpos) 
+	if (qpos)
 	{
 		*matchrule = MATCH_PATTERN;
 		return pattern;
@@ -5374,8 +5375,8 @@ static const char *detect_match_rule(char *pattern, int *matchrule)
 		if ((ppos - pattern) == 0)
 		{
 			ppos = strchr(pattern+1, '*');
-			// *something 
-			if (!ppos) 
+			// *something
+			if (!ppos)
 			{
 				*matchrule = MATCH_RIGHT;
 				return pattern+1;
@@ -5441,7 +5442,7 @@ void VM_bufstr_find(prvm_prog_t *prog)
 	char string[VM_STRINGTEMP_LENGTH];
 	int matchrule, matchlen, i, step;
 	const char *match;
-	
+
 	VM_SAFEPARMCOUNTRANGE(3, 5, VM_bufstr_find);
 
 	PRVM_G_FLOAT(OFS_RETURN) = -1;
@@ -5562,7 +5563,7 @@ void VM_buf_cvarlist(prvm_prog_t *prog)
 		antilen = 0;
 	else
 		antilen = strlen(antipartial);
-	
+
 	for (n = 0;n < stringbuffer->num_strings;n++)
 		if (stringbuffer->strings[n])
 			Mem_Free(stringbuffer->strings[n]);
@@ -5588,12 +5589,12 @@ void VM_buf_cvarlist(prvm_prog_t *prog)
 	stringbuffer->max_strings = stringbuffer->num_strings = n;
 	if (stringbuffer->max_strings)
 		stringbuffer->strings = (char **)Mem_Alloc(prog->progs_mempool, sizeof(stringbuffer->strings[0]) * stringbuffer->max_strings);
-	
+
 	if (stringbuffer->strings == NULL) {
 		VM_Warning(prog, "VM_buf_cvarlist: can't allocate space for buffer in %s\n", prog->name);
 		return;
 	}
-	
+
 	n = 0;
 	for(cvar = cvar_vars; cvar; cvar = cvar->next)
 	{
@@ -5743,7 +5744,7 @@ void VM_uncolorstring (prvm_prog_t *prog)
 	szString = PRVM_G_STRING(OFS_PARM0);
 	COM_StringDecolorize(szString, 0, szNewString, sizeof(szNewString), TRUE);
 	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, szNewString);
-	
+
 }
 
 // #221 float(string str, string sub[, float startpos]) strstrofs (FTE_STRINGS)
@@ -6518,14 +6519,14 @@ Common functions between menu.dat and clsprogs
 =========
 */
 
-//#349 float() isdemo 
+//#349 float() isdemo
 void VM_CL_isdemo (prvm_prog_t *prog)
 {
 	VM_SAFEPARMCOUNT(0, VM_CL_isdemo);
 	PRVM_G_FLOAT(OFS_RETURN) = cls.demoplayback;
 }
 
-//#355 float() videoplaying 
+//#355 float() videoplaying
 void VM_CL_videoplaying (prvm_prog_t *prog)
 {
 	VM_SAFEPARMCOUNT(0, VM_CL_videoplaying);
@@ -6653,7 +6654,7 @@ void VM_sprintf(prvm_prog_t *prog)
 
 				// complete directive format:
 				// %3$*1$.*2$ld
-				
+
 				width = -1;
 				precision = -1;
 				thisarg = -1;
@@ -7391,7 +7392,7 @@ void VM_physics_enable(prvm_prog_t *prog)
 {
 	prvm_edict_t *ed;
 	edict_odefunc_t f;
-	
+
 	VM_SAFEPARMCOUNT(2, VM_physics_enable);
 	ed = PRVM_G_EDICT(OFS_PARM0);
 	if (!ed)
@@ -7415,7 +7416,7 @@ void VM_physics_addforce(prvm_prog_t *prog)
 {
 	prvm_edict_t *ed;
 	edict_odefunc_t f;
-	
+
 	VM_SAFEPARMCOUNT(3, VM_physics_addforce);
 	ed = PRVM_G_EDICT(OFS_PARM0);
 	if (!ed)
@@ -7441,7 +7442,7 @@ void VM_physics_addtorque(prvm_prog_t *prog)
 {
 	prvm_edict_t *ed;
 	edict_odefunc_t f;
-	
+
 	VM_SAFEPARMCOUNT(2, VM_physics_addtorque);
 	ed = PRVM_G_EDICT(OFS_PARM0);
 	if (!ed)
@@ -7604,7 +7605,7 @@ void VM_GlobalGet(prvm_prog_t *prog) {
     const char *s;
     prvm_eval_t *v;
     char valuebuf[MAX_INPUTLINE];
-    
+
     VM_SAFEPARMCOUNT(1, GlobalGet);
 
     s = PRVM_G_STRING(OFS_PARM0);
@@ -7709,10 +7710,24 @@ void VM_net_sendpacket(prvm_prog_t *prog) {
     }
 }
 
+void VM_GeoIP_LookUp(prvm_prog_t *prog) {
+	const char *ipstr;
+	char buf[3];
+
+	VM_SAFEPARMCOUNT(1, GeoIP_LookUp);
+	ipstr = PRVM_G_STRING(OFS_PARM0);
+
+	if(GeoIP_LookUp(ipstr, buf, sizeof(buf))) {
+		PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, buf);
+	} else {
+		PRVM_G_INT(OFS_RETURN) = 0;
+	}
+}
+
 /*
- * 
+ *
  *  IRC stuff
- *  
+ *
  */
 
 /*
@@ -7726,10 +7741,10 @@ This is here for the argv() hack
 void IRC_Callback_QuakeC(prvm_prog_t *prog, int handle, const char *event, int numeric, const char *origin, const char **params, unsigned int count) {
     if(!prog || !(PRVM_allfunction(IRC_Event)))
         return;
-    
+
     for(num_tokens = 0; num_tokens < (int)count; ++num_tokens)
         tokens[num_tokens] = PRVM_SetTempString(prog, params[num_tokens]);
-    
+
     PRVM_G_FLOAT(OFS_PARM0) = handle;
     PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, event);
     PRVM_G_FLOAT(OFS_PARM2) = numeric;
@@ -7746,12 +7761,12 @@ void VM_IRC_CreateSession(prvm_prog_t *prog) {
 void VM_IRC_ConnectSession(prvm_prog_t *prog) {
     VM_SAFEPARMCOUNT(7, VM_IRC_CreateSession);
     PRVM_G_FLOAT(OFS_RETURN) = IRC_ConnectSession(
-        (int)PRVM_G_FLOAT(OFS_PARM0), 
-        (const char*)PRVM_G_STRING(OFS_PARM1), 
+        (int)PRVM_G_FLOAT(OFS_PARM0),
+        (const char*)PRVM_G_STRING(OFS_PARM1),
         (unsigned short)PRVM_G_FLOAT(OFS_PARM2),
         (const char*)PRVM_G_STRING(OFS_PARM3),
-        (const char*)PRVM_G_STRING(OFS_PARM4), 
-        (const char*)PRVM_G_STRING(OFS_PARM5), 
+        (const char*)PRVM_G_STRING(OFS_PARM4),
+        (const char*)PRVM_G_STRING(OFS_PARM5),
         (const char*)PRVM_G_STRING(OFS_PARM6)
     );
 }
@@ -7819,7 +7834,7 @@ void VM_IRC_TerminateSession(prvm_prog_t *prog) {
 void VM_IRC_DP2IRC(prvm_prog_t *prog) {
     char szNewString[VM_STRINGTEMP_LENGTH];
     const char *szString;
-    
+
     VM_SAFEPARMCOUNT(1,VM_IRC_DP2IRC);
     szString = PRVM_G_STRING(OFS_PARM0);
     IRC_Translate_DP2IRC(szString, szNewString, sizeof(szNewString));
@@ -7829,7 +7844,7 @@ void VM_IRC_DP2IRC(prvm_prog_t *prog) {
 void VM_IRC_IRC2DP(prvm_prog_t *prog) {
     char szNewString[VM_STRINGTEMP_LENGTH];
     const char *szString;
-    
+
     VM_SAFEPARMCOUNT(1,VM_IRC_IRC2DP);
     szString = PRVM_G_STRING(OFS_PARM0);
     IRC_Translate_IRC2DP(szString, szNewString, sizeof(szNewString));

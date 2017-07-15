@@ -157,7 +157,7 @@ void	cin_restart(string name)
 float[bool] gecko_create( string name )
 void gecko_destroy( string name )
 void gecko_navigate( string name, string URI )
-float[bool] gecko_keyevent( string name, float key, float eventtype ) 
+float[bool] gecko_keyevent( string name, float key, float eventtype )
 void gecko_mousemove( string name, float x, float y )
 
 ==============================================================================
@@ -508,6 +508,7 @@ void VM_GlobalSet(prvm_prog_t *prog);
 
 void VM_regex_match(prvm_prog_t *prog);
 void VM_net_sendpacket(prvm_prog_t *prog);
+void VM_GeoIP_LookUp(prvm_prog_t *prog);
 
 // irc
 void VM_IRC_CreateSession(prvm_prog_t *prog);

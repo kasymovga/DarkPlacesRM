@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "thread.h"
 #include "utf8lib.h"
 #include "irc.h"
+#include "geoip.h"
 #include "random.h"
 #include "net_httpserver.h"
 
@@ -1309,6 +1310,7 @@ static void Host_Init (void)
 	IRC_Init();
 	Thread_Init();
 	Net_HttpServerInit();
+	GeoIP_Init();
 
 	if (cls.state == ca_dedicated)
 		Cmd_AddCommand ("disconnect", CL_Disconnect_f, "disconnect from server (or disconnect all clients if running a server)");
@@ -1455,7 +1457,7 @@ void Host_Shutdown(void)
 
 	// shut down local server if active
 	SV_LockThreadMutex();
-	Host_ShutdownServer ();
+	Host_ShutdownServer();
 	SV_UnlockThreadMutex();
 
 #ifdef CONFIG_MENU
@@ -1470,6 +1472,7 @@ void Host_Shutdown(void)
 	CL_Video_Shutdown();
 
     IRC_Shutdown();
+    GeoIP_Shutdown();
 	Host_SaveConfig();
 
 #ifdef CONFIG_CD

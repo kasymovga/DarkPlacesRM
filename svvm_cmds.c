@@ -237,6 +237,7 @@ const char *vm_sv_extensions =
 "DP_RM_CLIENTDATAENT "
 "DP_RM_CLIPGROUP "
 "DP_RM_QCSENDPACKET "
+"DP_RM_GEOIP "
 //"EXT_CSQC " // not ready yet
 ;
 
@@ -2439,7 +2440,7 @@ void SV_GetEntityMatrix (prvm_prog_t *prog, prvm_edict_t *ent, matrix4x4_t *out,
 	scale = PRVM_serveredictfloat(ent, scale);
 	if (!scale)
 		scale = 1.0f;
-	
+
 	if (viewmatrix)
 		Matrix4x4_CreateFromQuakeEntity(out, PRVM_serveredictvector(ent, origin)[0], PRVM_serveredictvector(ent, origin)[1], PRVM_serveredictvector(ent, origin)[2] + PRVM_serveredictvector(ent, view_ofs)[2], PRVM_serveredictvector(ent, v_angle)[0], PRVM_serveredictvector(ent, v_angle)[1], PRVM_serveredictvector(ent, v_angle)[2], scale * cl_viewmodel_scale.value);
 	else
@@ -3995,8 +3996,9 @@ NULL,                            // #796
 NULL,                            // #797
 NULL,                            // #798
 NULL,                            // #799
-VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800;
+VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800; (DP_RM_REGEX2)
 VM_net_sendpacket,               // #801 float(string addr, string data) net_sendpacket = #801; (DP_RM_QCSENDPACKET)
+VM_GeoIP_LookUp,				 // #802 string(string addr) GeoIP_LookUp = #802; (DP_RM_GEOIP)
 NULL
 };
 
