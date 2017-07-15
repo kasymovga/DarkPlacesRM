@@ -14,7 +14,7 @@ static MMDB_s *geoip_database;
 
 static int (*MMDB_open)(const char *const filename, uint32_t flags, MMDB_s *const mmdb);
 static void (*MMDB_close)(MMDB_s *const mmdb);
-static const char (*MMDB_strerror)(int error_code);
+static const char* (*MMDB_strerror)(int error_code);
 static MMDB_lookup_result_s (*MMDB_lookup_string)(MMDB_s *const mmdb, const char *const ipstr, int *const gai_error, int *const mmdb_error);
 static int (*MMDB_get_value)(MMDB_entry_s *const start, MMDB_entry_data_s *const entry_data, ...);
 
