@@ -6,10 +6,10 @@
 #include <windows.h>
 #include <io.h>
 #define SOCKET_CLOSE closesocket
-#else
+#else //WIN32
 #define SOCKET_CLOSE close
 #define SOCKET int
-#endif
+#endif //WIN32
 #include "quakedef.h"
 #include "netconn.h"
 #include "fs.h"
@@ -84,7 +84,7 @@ finish:
 	closesocket(listener);
     return ret;
 }
-#endif
+#endif //WIN32
 static ssize_t Net_HttpServer_FileReadCallback(void *cls, uint64_t pos, char *buf, size_t max) {
 	qfile_t *file = cls;
 	FS_Seek(file, pos, SEEK_SET);
@@ -181,17 +181,18 @@ static int Net_HttpServer_Thread(void *daemon) {
 	Con_Printf("libmicrohttpd thread finished\n");
 	return 0;
 }
-#endif
 
 static void *mhd_thread;
 static int net_http_server_port;
 static char net_http_server_url_data[128];
+#endif //USE_LIBMICROHTTPD
+
 void Net_HttpServerInit(void)
 {
 #ifdef USE_LIBMICROHTTPD
 	Cvar_RegisterVariable (&net_http_server);
 	Cvar_RegisterVariable (&net_http_server_host);
-#endif
+#endif //USE_LIBMICROHTTPD
 }
 
 void Net_HttpServerStart(void)
@@ -207,9 +208,9 @@ void Net_HttpServerStart(void)
 
 #ifdef WIN32
 	if (win_socketpair(control_sock))
-#else
+#else //WIN32
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, control_sock) < 0)
-#endif
+#endif //WIN32
 		return;
 
 	for (i = 0; i < 3; i++) {
@@ -228,7 +229,7 @@ void Net_HttpServerStart(void)
 		SOCKET_CLOSE(control_sock[0]);
 		SOCKET_CLOSE(control_sock[1]);
 	}
-#endif
+#endif //USE_LIBMICROHTTPD
 }
 
 const char *Net_HttpServerUrl(void) {
@@ -237,7 +238,7 @@ const char *Net_HttpServerUrl(void) {
 		dpsnprintf(net_http_server_url_data, 64, "http://%s:%i/", net_http_server_host.string, net_http_server_port);
 		return net_http_server_url_data;
 	}
-#endif
+#endif //USE_LIBMICROHTTPD
 	return "";
 }
 
@@ -249,5 +250,5 @@ void Net_HttpServerShutdown(void)
 
 	if (mhd_thread)
 		Thread_WaitThread(mhd_thread, 0);
-#endif
+#endif //USE_LIBMICROHTTPD
 }
