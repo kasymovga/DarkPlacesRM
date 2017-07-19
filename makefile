@@ -77,7 +77,6 @@ TARGETS_PROFILE=sv-profile cl-profile sdl-profile
 TARGETS_RELEASE=sv-release cl-release sdl-release
 TARGETS_RELEASE_PROFILE=sv-release-profile cl-release-profile sdl-release-profile
 TARGETS_NEXUIZ=sv-nexuiz cl-nexuiz sdl-nexuiz
-TARGETS_VECXIS=sv-vecxis sdl2-vecxis
 
 ###### Optional features #####
 DP_CDDA?=enabled
@@ -110,7 +109,6 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	OBJ_CL=$(OBJ_GLX)
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
-	OBJ_ICON_VECXIS=
 
 	LDFLAGS_CL=$(LDFLAGS_LINUXCL)
 	LDFLAGS_SV=$(LDFLAGS_LINUXSV)
@@ -135,10 +133,6 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 	DP_LINK_OGGVORBIS?=dlopen
 
-	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
-	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
-	EXE_SDLVECXIS=$(EXE_UNIXSDLVECXIS)
-
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
 	#LIB_JPEG=-ljpeg
@@ -154,7 +148,6 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	OBJ_CL=$(OBJ_AGL)
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
-	OBJ_ICON_VECXIS=
 
 	LDFLAGS_CL=$(LDFLAGS_MACOSXCL)
 	LDFLAGS_SV=$(LDFLAGS_MACOSXSV)
@@ -170,9 +163,6 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	EXE_CLNEXUIZ=$(EXE_MACOSXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
-	EXE_CLVECXIS=$(EXE_MACOSXCLVECXIS)
-	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
-	EXE_SDLVECXIS=$(EXE_UNIXSDLVECXIS)
 
 	ifeq ($(word 2, $(filter -arch, $(CC))), -arch)
 		CFLAGS_MAKEDEP=
@@ -192,7 +182,6 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	TARGETS_RELEASE=sv-release sdl-release
 	TARGETS_RELEASE_PROFILE=sv-release-profile sdl-release-profile
 	TARGETS_NEXUIZ=sv-nexuiz sdl-nexuiz
-	TARGETS_VECXIS=sv-vecxis sdl-vecxis
 endif
 
 # SunOS configuration (Solaris)
@@ -203,7 +192,6 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	OBJ_CL=$(OBJ_GLX)
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
-	OBJ_ICON_VECXIS=
 
 	CFLAGS_EXTRA=$(CFLAGS_SUNOS)
 
@@ -230,10 +218,6 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 	DP_LINK_OGGVORBIS?=dlopen
 
-	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
-	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
-	EXE_SDLVECXIS=$(EXE_UNIXSDLVECXIS)
-
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
 	#LIB_JPEG=-ljpeg
@@ -253,7 +237,6 @@ endif
 	OBJ_CL=$(OBJ_GLX)
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
-	OBJ_ICON_VECXIS=
 
 	LDFLAGS_CL=$(LDFLAGS_BSDCL)
 	LDFLAGS_SV=$(LDFLAGS_BSDSV)
@@ -277,10 +260,6 @@ endif
 	DP_LINK_CRYPTO?=dlopen
 	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 	DP_LINK_OGGVORBIS?=dlopen
-
-	EXE_CLVECXIS=$(EXE_UNIXCLVECXIS)
-	EXE_SVVECXIS=$(EXE_UNIXSVVECXIS)
-	EXE_SDLVECXIS=$(EXE_UNIXSDLVECXIS)
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
@@ -311,7 +290,6 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	OBJ_CL=$(OBJ_WGL)
 	OBJ_ICON=darkplaces.o
 	OBJ_ICON_NEXUIZ=nexuiz.o
-	OBJ_ICON_VECXIS=vecxis.o
 
 	LDFLAGS_CL=$(LDFLAGS_WINCL)
 	LDFLAGS_SV=$(LDFLAGS_WINSV)
@@ -330,9 +308,6 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	EXE_CLNEXUIZ=$(EXE_WINCLNEXUIZ)-$(MINGWARCH).exe
 	EXE_SVNEXUIZ=$(EXE_WINSVNEXUIZ)-$(MINGWARCH).exe
 	EXE_SDLNEXUIZ=$(EXE_WINSDLNEXUIZ)-$(MINGWARCH).exe
-	EXE_CLVECXIS=$(EXE_WINCLVECXIS)-$(MINGWARCH).exe
-	EXE_SVVECXIS=$(EXE_WINSVVECXIS)-$(MINGWARCH).exe
-	EXE_SDLVECXIS=$(EXE_WINSDLVECXIS)-$(MINGWARCH).exe
 
 	ifeq ($(MINGWARCH), i686)
 		CPUOPTIMIZATIONS=-march=i686 -fno-math-errno -ffinite-math-only -fno-rounding-math -fno-signaling-nans -fno-trapping-math
@@ -477,7 +452,6 @@ endif
 
 DP_FS_USERDIRMODE?=USERDIRMODE_SAVEDGAMES
 DP_FS_BASEDIR_NEXUIZ?=/usr/share/games/nexuiz
-DP_FS_BASEDIR_VECXIS?=/usr/share/games/vecxis
 CFLAGS_MAKEDEP?=-MMD
 
 ifeq ($(DP_MAKE_TARGET), linux)
@@ -486,10 +460,6 @@ ifeq ($(ISNEXUIZ), 1)
 	DP_FS_BASEDIR=$(DP_FS_BASEDIR_NEXUIZ)
 endif
 endif
-endif
-
-ifeq ($(ISVECXIS), 1)
-CFLAGS_EXTRA+=-DVECXIS_RELEASE
 endif
 
 ifdef DP_FS_BASEDIR

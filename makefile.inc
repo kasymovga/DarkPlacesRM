@@ -245,9 +245,6 @@ EXE_UNIXSDL=darkplaces-rm-sdl
 EXE_UNIXCLNEXUIZ=nexuiz-dprm-glx
 EXE_UNIXSVNEXUIZ=nexuiz-dprm-dedicated
 EXE_UNIXSDLNEXUIZ=nexuiz-dprm-sdl
-EXE_UNIXCLVECXIS=vecxis-glx
-EXE_UNIXSVVECXIS=vecxis-dedicated
-EXE_UNIXSDLVECXIS=vecxis-sdl
 
 CMD_UNIXRM=rm -rf
 CMD_UNIXCP=cp -f
@@ -276,7 +273,6 @@ OBJ_AGL= builddate.c sys_linux.o vid_agl.o thread_null.o $(OBJ_MENU) $(OBJ_SOUND
 
 EXE_MACOSXCL=darkplaces-rm-agl
 EXE_MACOSXCLNEXUIZ=nexuiz-dprm-agl
-EXE_MACOSXCLVECXIS=vecxis-agl
 
 
 ##### SunOS specific variables #####
@@ -316,9 +312,6 @@ EXE_WINSDL=darkplaces-rm-sdl
 EXE_WINCLNEXUIZ=nexuiz-dprm
 EXE_WINSVNEXUIZ=nexuiz-dprm-dedicated
 EXE_WINSDLNEXUIZ=nexuiz-dprm-sdl
-EXE_WINCLVECXIS=vecxis-wgl
-EXE_WINSVVECXIS=vecxis-dedicated
-EXE_WINSDLVECXIS=vecxis-sdl
 
 VPATH := ../../../
 
@@ -355,27 +348,23 @@ help:
 	@echo "                                 previously compiled"
 	@echo "* $(MAKE) nexuiz               : make client and server binaries with nexuiz icon"
 	@echo "                                 (release versions)"
-	@echo "* $(MAKE) vecxis               : make client and server binaries for Vecxis (release versions)"
 	@echo "* $(MAKE) cl-debug             : make client (debug version)"
 	@echo "* $(MAKE) cl-profile           : make client (profile version)"
 	@echo "* $(MAKE) cl-release           : make client (release version)"
 	@echo "* $(MAKE) cl-release-profile   : make client (release version)"
 	@echo "* $(MAKE) cl-nexuiz            : make client with nexuiz icon (release version)"
-	@echo "* $(MAKE) cl-vecxis            : make client for Vecxis (release version)"
 	@echo
 	@echo "* $(MAKE) sv-debug             : make dedicated server (debug version)"
 	@echo "* $(MAKE) sv-profile           : make dedicated server (profile version)"
 	@echo "* $(MAKE) sv-release           : make dedicated server (release version)"
 	@echo "* $(MAKE) sv-release-profile   : make dedicated server (release version)"
 	@echo "* $(MAKE) sv-nexuiz            : make dedicated server with nexuiz icon (release version)"
-	@echo "* $(MAKE) sv-vecxis            : make dedicated server for Vecxis (release version)"
 	@echo
 	@echo "* $(MAKE) sdl-debug            : make SDL2 client (debug version)"
 	@echo "* $(MAKE) sdl-profile          : make SDL2 client (profile version)"
 	@echo "* $(MAKE) sdl-release          : make SDL2 client (release version)"
 	@echo "* $(MAKE) sdl-release-profile  : make SDL2 client (profile version)"
 	@echo "* $(MAKE) sdl-nexuiz           : make SDL2 client with nexuiz icon (release version)"
-	@echo "* $(MAKE) sdl-vecxis           : make SDL2 client for Vecxis (release version)"
 	@echo
 	@echo "* $(MAKE) install              : install built executables into PREFIX (currently ${PREFIX})"
 	@echo
@@ -391,9 +380,6 @@ release :
 
 release-profile :
 	$(MAKE) $(TARGETS_RELEASE_PROFILE)
-
-vecxis :
-	$(MAKE) $(TARGETS_VECXIS)
 
 nexuiz :
 	$(MAKE) $(TARGETS_NEXUIZ)
@@ -417,11 +403,6 @@ cl-release-profile :
 	$(MAKE) bin-release-profile \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_CL)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1
-
-cl-vecxis :
-	$(MAKE) bin-release \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_CLVECXIS)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1 ISVECXIS=1
 
 cl-nexuiz :
 	$(MAKE) bin-release \
@@ -447,11 +428,6 @@ sv-release-profile :
 	$(MAKE) bin-release-profile \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_SV)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1
-
-sv-vecxis :
-	$(MAKE) bin-release \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_SVVECXIS)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1 ISVECXIS=1
 		
 sv-nexuiz :
 	$(MAKE) bin-release \
@@ -478,11 +454,6 @@ sdl-release-profile :
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_SDL)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1
 
-sdl-vecxis :
-	$(MAKE) bin-release \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_SDLVECXIS)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1 ISVECXIS=1
-
 sdl-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
@@ -502,9 +473,6 @@ sdl2-release-profile :
 
 sdl2-nexuiz :
 	$(MAKE) sdl-nexuiz
-
-sdl2-vecxis :
-	$(MAKE) sdl-vecxis
 
 bin-debug :
 	$(CHECKLEVEL1)
@@ -586,10 +554,6 @@ darkplaces.o: %.o : %.rc
 	$(CHECKLEVEL2)
 	$(WINDRES) -o $@ $<
 
-vecxis.o: %.o : %.rc
-	$(CHECKLEVEL2)
-	$(WINDRES) -o $@ $<
-	
 nexuiz.o: %.o : %.rc
 	$(CHECKLEVEL2)
 	$(WINDRES) -o $@ $<
@@ -610,18 +574,6 @@ $(EXE_SDL): $(OBJ_SDL) $(OBJ_ICON)
 	$(CHECKLEVEL2)
 	$(DO_LD)
 
-$(EXE_CLVECXIS): $(OBJ_CL) $(OBJ_ICON_VECXIS)
-	$(CHECKLEVEL2)
-	$(DO_LD)
-
-$(EXE_SVVECXIS): $(OBJ_SV) $(OBJ_ICON_VECXIS)
-	$(CHECKLEVEL2)
-	$(DO_LD)
-
-$(EXE_SDLVECXIS): $(OBJ_SDL) $(OBJ_ICON_VECXIS)
-	$(CHECKLEVEL2)
-	$(DO_LD)
-
 $(EXE_CLNEXUIZ): $(OBJ_CL) $(OBJ_ICON_NEXUIZ)
 	$(CHECKLEVEL2)
 	$(DO_LD)
@@ -638,9 +590,6 @@ clean:
 	-$(CMD_RM) $(EXE_CL)
 	-$(CMD_RM) $(EXE_SV)
 	-$(CMD_RM) $(EXE_SDL)
-	-$(CMD_RM) $(EXE_CLVECXIS)
-	-$(CMD_RM) $(EXE_SVVECXIS)
-	-$(CMD_RM) $(EXE_SDLVECXIS)
 	-$(CMD_RM) $(EXE_CLNEXUIZ)
 	-$(CMD_RM) $(EXE_SVNEXUIZ)
 	-$(CMD_RM) $(EXE_SDLNEXUIZ)

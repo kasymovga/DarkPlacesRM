@@ -2416,12 +2416,8 @@ static SDL_Surface *VID_WrapSDL_SetVideoMode(int screenwidth, int screenheight, 
 }
 #else
 // Adding the OS independent XPM version --blub
-#ifdef VECXIS_RELEASE
-#include "vecxis.xpm"
-#else
 #include "darkplaces.xpm"
 #include "nexuiz.xpm"
-#endif
 #if SDL_MAJOR_VERSION == 1
 #if SDL_VIDEO_DRIVER_X11 && !SDL_VIDEO_DRIVER_QUARTZ
 #include <SDL_syswm.h>
