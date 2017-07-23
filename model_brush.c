@@ -113,7 +113,7 @@ void Mod_BrushInit(void)
 
 	// these games were made for older DP engines and are no longer
 	// maintained; use this hack to show their textures properly
-	if(gamemode == GAME_NEXUIZ || gamemode == GAME_VECXIS)
+	if(gamemode == GAME_NEXUIZ)
 		Cvar_SetQuick(&mod_q3shader_force_addalpha, "1");
 
 	memset(&mod_q1bsp_texture_solid, 0, sizeof(mod_q1bsp_texture_solid));

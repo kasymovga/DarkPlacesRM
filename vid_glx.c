@@ -52,12 +52,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "utf8lib.h"
 #include "image.h"
 
-#ifdef VECXIS_RELEASE
-#include "vecxis.xpm"
-#else
 #include "darkplaces.xpm"
 #include "nexuiz.xpm"
-#endif
 
 // Tell startup code that we have a client
 int cl_available = true;
