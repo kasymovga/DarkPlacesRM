@@ -1641,13 +1641,6 @@ void Cmd_AddCommand_WithClientCommand (const char *cmd_name, xcommand_t consolef
 	cmd_function_t *cmd;
 	cmd_function_t *prev, *current;
 
-// fail if the command is a variable name
-	if (Cvar_FindVar( cmd_name ))
-	{
-		Con_Printf("Cmd_AddCommand: %s already defined as a var\n", cmd_name);
-		return;
-	}
-
 // fail if the command already exists
 	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
 	{
