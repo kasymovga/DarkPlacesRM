@@ -602,13 +602,6 @@ void Cvar_RegisterVariable (cvar_t *variable)
 		return;
 	}
 
-// check for overlap with a command
-	if (Cmd_Exists (variable->name))
-	{
-		Con_Printf("Cvar_RegisterVariable: %s is a command\n", variable->name);
-		return;
-	}
-
 // copy the value off, because future sets will Z_Free it
 	oldstr = (char *)variable->string;
 	alloclen = strlen(variable->string) + 1;
@@ -686,13 +679,6 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 	if (!*name)
 	{
 		Con_Printf("Cvar_Get: invalid variable name\n");
-		return NULL;
-	}
-
-// check for overlap with a command
-	if (Cmd_Exists (name))
-	{
-		Con_Printf("Cvar_Get: %s is a command\n", name);
 		return NULL;
 	}
 
