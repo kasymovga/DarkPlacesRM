@@ -1,6 +1,10 @@
-
+#ifdef __SIZEOF_INT128__
+#define GEOIP_ENABLED
+#endif
 #include "quakedef.h"
 #include "geoip.h"
+
+#ifdef GEOIP_ENABLED
 #include "maxminddb_defs.h"
 
 #include <errno.h>
@@ -131,22 +135,28 @@ static void GeoIP_Cmd_LookUp_f(void) {
     GeoIP_LookUp(Cmd_Argv(1), code, sizeof(code));
     GeoIP_Printf("%s: %s\n", Cmd_Argv(1), code);
 }
+#endif //GEOIP_ENABLED
 
 void GeoIP_Init(void) {
+#ifdef GEOIP_ENABLED
     geoip_mempool = Mem_AllocPool("geoip", 0, NULL);
     Cvar_RegisterVariable(&geoip_initialized);
     Cvar_RegisterVariable(&geoip_db_file);
     Cmd_AddCommand("geoip_reload", GeoIP_Cmd_Reload_f, "Reloads the GeoIP database");
     Cmd_AddCommand("geoip_lookup", GeoIP_Cmd_LookUp_f, "Resolve an IP address to country code");
     GeoIP_OpenLibrary();
+#endif
 }
 
 void GeoIP_Shutdown(void) {
+#ifdef GEOIP_ENABLED
     GeoIP_CloseDB();
     Mem_FreePool(&geoip_mempool);
+#endif
 }
 
 qboolean GeoIP_LookUp(const char *const ipstr, char *buf, size_t buf_size) {
+#ifdef GEOIP_ENABLED
     int gai_error, mmdb_error;
     MMDB_lookup_result_s result;
     MMDB_entry_data_s data;
@@ -171,4 +181,7 @@ qboolean GeoIP_LookUp(const char *const ipstr, char *buf, size_t buf_size) {
 
     strlcpy(buf, data.utf8_string, buf_size);
     return true;
+#else
+	return false;
+#endif
 }
