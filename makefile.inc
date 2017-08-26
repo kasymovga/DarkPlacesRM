@@ -246,6 +246,9 @@ EXE_UNIXSDL=darkplaces-rm-sdl
 EXE_UNIXCLNEXUIZ=nexuiz-dprm-glx
 EXE_UNIXSVNEXUIZ=nexuiz-dprm-dedicated
 EXE_UNIXSDLNEXUIZ=nexuiz-dprm-sdl
+EXE_UNIXCLREXUIZ=rexuiz-glx
+EXE_UNIXSVREXUIZ=rexuiz-dedicated
+EXE_UNIXSDLREXUIZ=rexuiz-sdl
 
 CMD_UNIXRM=rm -rf
 CMD_UNIXCP=cp -f
@@ -274,6 +277,7 @@ OBJ_AGL= builddate.c sys_linux.o vid_agl.o thread_null.o $(OBJ_MENU) $(OBJ_SOUND
 
 EXE_MACOSXCL=darkplaces-rm-agl
 EXE_MACOSXCLNEXUIZ=nexuiz-dprm-agl
+EXE_MACOSXCLREXUIZ=rexuiz-agl
 
 
 ##### SunOS specific variables #####
@@ -313,6 +317,9 @@ EXE_WINSDL=darkplaces-rm-sdl
 EXE_WINCLNEXUIZ=nexuiz-dprm
 EXE_WINSVNEXUIZ=nexuiz-dprm-dedicated
 EXE_WINSDLNEXUIZ=nexuiz-dprm-sdl
+EXE_WINCLREXUIZ=rexuiz
+EXE_WINSVREXUIZ=rexuiz-dedicated
+EXE_WINSDLREXUIZ=rexuiz-sdl
 
 VPATH := ../../../
 
@@ -349,23 +356,28 @@ help:
 	@echo "                                 previously compiled"
 	@echo "* $(MAKE) nexuiz               : make client and server binaries with nexuiz icon"
 	@echo "                                 (release versions)"
+	@echo "* $(MAKE) rexuiz               : make client and server binaries with rexuiz icon"
+	@echo "                                 (release versions)"
 	@echo "* $(MAKE) cl-debug             : make client (debug version)"
 	@echo "* $(MAKE) cl-profile           : make client (profile version)"
 	@echo "* $(MAKE) cl-release           : make client (release version)"
 	@echo "* $(MAKE) cl-release-profile   : make client (release version)"
 	@echo "* $(MAKE) cl-nexuiz            : make client with nexuiz icon (release version)"
+	@echo "* $(MAKE) cl-rexuiz            : make client with rexuiz icon (release version)"
 	@echo
 	@echo "* $(MAKE) sv-debug             : make dedicated server (debug version)"
 	@echo "* $(MAKE) sv-profile           : make dedicated server (profile version)"
 	@echo "* $(MAKE) sv-release           : make dedicated server (release version)"
 	@echo "* $(MAKE) sv-release-profile   : make dedicated server (release version)"
 	@echo "* $(MAKE) sv-nexuiz            : make dedicated server with nexuiz icon (release version)"
+	@echo "* $(MAKE) sv-rexuiz            : make dedicated server with rexuiz icon (release version)"
 	@echo
 	@echo "* $(MAKE) sdl-debug            : make SDL2 client (debug version)"
 	@echo "* $(MAKE) sdl-profile          : make SDL2 client (profile version)"
 	@echo "* $(MAKE) sdl-release          : make SDL2 client (release version)"
 	@echo "* $(MAKE) sdl-release-profile  : make SDL2 client (profile version)"
 	@echo "* $(MAKE) sdl-nexuiz           : make SDL2 client with nexuiz icon (release version)"
+	@echo "* $(MAKE) sdl-rexuiz           : make SDL2 client with rexuiz icon (release version)"
 	@echo
 	@echo "* $(MAKE) install              : install built executables into PREFIX (currently ${PREFIX})"
 	@echo
@@ -384,6 +396,9 @@ release-profile :
 
 nexuiz :
 	$(MAKE) $(TARGETS_NEXUIZ)
+
+rexuiz :
+	$(MAKE) $(TARGETS_REXUIZ)
 
 cl-debug :
 	$(MAKE) bin-debug \
@@ -410,6 +425,11 @@ cl-nexuiz :
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_CLNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1 ISNEXUIZ=1
 
+cl-rexuiz :
+	$(MAKE) bin-release \
+		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
+		EXE='$(EXE_CLREXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1 ISNEXUIZ=1
+
 sv-debug :
 	$(MAKE) bin-debug \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
@@ -434,6 +454,11 @@ sv-nexuiz :
 	$(MAKE) bin-release \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_SVNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1 ISNEXUIZ=1
+
+sv-rexuiz :
+	$(MAKE) bin-release \
+		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
+		EXE='$(EXE_SVREXUIZ)' CFLAGS_FEATURES='$(CFLAGS_SERVER)' LDFLAGS_COMMON='$(LDFLAGS_SV)' LEVEL=1 ISNEXUIZ=1
 
 sdl-debug :
 	$(MAKE) bin-debug \
@@ -460,6 +485,11 @@ sdl-nexuiz :
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
 		EXE='$(EXE_SDLNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1 ISNEXUIZ=1
 
+sdl-rexuiz :
+	$(MAKE) bin-release \
+		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
+		EXE='$(EXE_SDLREXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1 ISNEXUIZ=1
+
 sdl2-debug :
 	$(MAKE) sdl-debug
 
@@ -474,6 +504,9 @@ sdl2-release-profile :
 
 sdl2-nexuiz :
 	$(MAKE) sdl-nexuiz
+
+sdl2-rexuiz :
+	$(MAKE) sdl-rexuiz
 
 bin-debug :
 	$(CHECKLEVEL1)
@@ -584,6 +617,18 @@ $(EXE_SVNEXUIZ): $(OBJ_SV) $(OBJ_ICON_NEXUIZ)
 	$(DO_LD)
 
 $(EXE_SDLNEXUIZ): $(OBJ_SDL) $(OBJ_ICON_NEXUIZ)
+	$(CHECKLEVEL2)
+	$(DO_LD)
+
+$(EXE_CLREXUIZ): $(OBJ_CL) $(OBJ_ICON_NEXUIZ)
+	$(CHECKLEVEL2)
+	$(DO_LD)
+
+$(EXE_SVREXUIZ): $(OBJ_SV) $(OBJ_ICON_NEXUIZ)
+	$(CHECKLEVEL2)
+	$(DO_LD)
+
+$(EXE_SDLREXUIZ): $(OBJ_SDL) $(OBJ_ICON_NEXUIZ)
 	$(CHECKLEVEL2)
 	$(DO_LD)
 

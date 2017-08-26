@@ -77,6 +77,7 @@ TARGETS_PROFILE=sv-profile cl-profile sdl-profile
 TARGETS_RELEASE=sv-release cl-release sdl-release
 TARGETS_RELEASE_PROFILE=sv-release-profile cl-release-profile sdl-release-profile
 TARGETS_NEXUIZ=sv-nexuiz cl-nexuiz sdl-nexuiz
+TARGETS_REXUIZ=sv-rexuiz cl-rexuiz sdl-rexuiz
 
 ###### Optional features #####
 DP_CDDA?=enabled
@@ -124,6 +125,9 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	EXE_CLNEXUIZ=$(EXE_UNIXCLNEXUIZ)
 	EXE_SVNEXUIZ=$(EXE_UNIXSVNEXUIZ)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
+	EXE_CLREXUIZ=$(EXE_UNIXCLREXUIZ)
+	EXE_SVREXUIZ=$(EXE_UNIXSVREXUIZ)
+	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
 
 	DP_LINK_ZLIB?=dlopen
 	DP_LINK_JPEG?=dlopen
@@ -182,6 +186,7 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	TARGETS_RELEASE=sv-release sdl-release
 	TARGETS_RELEASE_PROFILE=sv-release-profile sdl-release-profile
 	TARGETS_NEXUIZ=sv-nexuiz sdl-nexuiz
+	TARGETS_REXUIZ=sv-rexuiz sdl-rexuiz
 endif
 
 # SunOS configuration (Solaris)
