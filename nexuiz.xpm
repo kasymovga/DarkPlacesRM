@@ -1,5 +1,5 @@
 /* XPM */
-static char *nexuiz[] = {
+static char *nexuiz_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "48 48 219 2 ",
 "   c #010101",
