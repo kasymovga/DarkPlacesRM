@@ -625,6 +625,7 @@ static void Cmd_Exec(const char *filename)
 				);
 			break;
 		case GAME_NEXUIZ:
+		case GAME_REXUIZ:
 			Cbuf_InsertText("\n"
 "sv_gameplayfix_blowupfallenzombies 1\n"
 "sv_gameplayfix_findradiusdistancetobox 1\n"
