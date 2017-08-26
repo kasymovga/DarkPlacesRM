@@ -639,6 +639,9 @@ clean:
 	-$(CMD_RM) $(EXE_CLNEXUIZ)
 	-$(CMD_RM) $(EXE_SVNEXUIZ)
 	-$(CMD_RM) $(EXE_SDLNEXUIZ)
+	-$(CMD_RM) $(EXE_CLREXUIZ)
+	-$(CMD_RM) $(EXE_SVREXUIZ)
+	-$(CMD_RM) $(EXE_SDLREXUIZ)
 	-$(CMD_RM) *.o
 	-$(CMD_RM) *.d
 	-$(CMD_RM) *.exe
