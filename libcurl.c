@@ -1011,26 +1011,9 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 					}
 					else
 					{
-						qfile_t *f = FS_OpenRealFile(fn, "rb", false);
-						if(f)
-						{
-							char b[4] = {0};
-							FS_Read(f, b, sizeof(b)); // no "-1", I will use memcmp
-
-							if(memcmp(b, "PK\x03\x04", 4) && memcmp(b, "PACK", 4))
-							{
-								Con_DPrintf("Detected non-PAK %s, clearing and NOT resuming.\n", fn);
-								FS_Close(f);
-								f = FS_OpenRealFile(fn, "wb", false);
-								if(f)
-									FS_Close(f);
-							}
-							else
-							{
-								// OK
-								FS_Close(f);
-							}
-						}
+						qfile_t *f = FS_OpenRealFile(fn, "wb", false);
+						if (f)
+							FS_Close(f);
 					}
 				}
 				else
