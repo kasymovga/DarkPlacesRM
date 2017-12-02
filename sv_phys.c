@@ -2360,8 +2360,13 @@ static void SV_WalkMove (prvm_edict_t *ent)
 		PRVM_serveredictfloat(ent, flags) = (int)PRVM_serveredictfloat(ent, flags) & ~FL_ONGROUND;
 
 	SV_CheckVelocity(ent);
+	ent->priv.required->mark = PRVM_EDICT_MARK_WAIT_FOR_SETORIGIN;
 	SV_LinkEdict(ent);
 	SV_LinkEdict_TouchAreaGrid(ent);
+	if (ent->priv.required->mark == PRVM_EDICT_MARK_SETORIGIN_CAUGHT)
+		clip |= 8;
+
+	ent->priv.required->mark = 0;
 
 	if(clip & 8) // teleport
 		return;
