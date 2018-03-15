@@ -7701,9 +7701,11 @@ void VM_net_sendpacket(prvm_prog_t *prog) {
     strlcpy(send, "\xff\xff\xff\xff", sizeof(send));
     strlcat(send, PRVM_G_STRING(OFS_PARM1), sizeof(send));
 
-    mysocket = NetConn_ChooseClientSocketForAddress(&address);
-    if(!mysocket)
-        mysocket = NetConn_ChooseServerSocketForAddress(&address);
+	if (prog == SVVM_prog)
+		mysocket = NetConn_ChooseServerSocketForAddress(&address);
+	else
+		mysocket = NetConn_ChooseClientSocketForAddress(&address);
+
     if(mysocket) {
         NetConn_Write(mysocket, send, strlen(send), &address);
         PRVM_G_FLOAT(OFS_RETURN) = 1;
