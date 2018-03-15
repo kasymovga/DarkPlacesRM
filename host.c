@@ -293,7 +293,7 @@ static void Host_SaveConfig_to(const char *file)
 // dedicated servers initialize the host but don't parse and set the
 // config.cfg cvars
 	// LordHavoc: don't save a config if it crashed in startup
-	if (host_framecount >= 3 && cls.state != ca_dedicated && !COM_CheckParm("-benchmark") && !COM_CheckParm("-capturedemo"))
+	if (host_framecount >= 3 && !COM_CheckParm("-benchmark") && !COM_CheckParm("-capturedemo"))
 	{
 		f = FS_OpenRealFile(file, "wb", false);
 		if (!f)
@@ -310,7 +310,8 @@ static void Host_SaveConfig_to(const char *file)
 }
 void Host_SaveConfig(void)
 {
-	Host_SaveConfig_to(CONFIGFILENAME);
+	if (cls.state != ca_dedicated)
+		Host_SaveConfig_to(CONFIGFILENAME);
 }
 void Host_SaveConfig_f(void)
 {
