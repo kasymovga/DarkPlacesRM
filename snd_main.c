@@ -680,6 +680,7 @@ void S_Startup (void)
 		snd_format_t suggest_fmt;
 		qboolean accepted;
 
+		i = 10;
 		do //accepted?
 		{
 			Con_Printf("S_Startup: initializing sound output format: %dHz, %d bit, %d channels...\n",
@@ -705,7 +706,7 @@ void S_Startup (void)
 				else if (!S_ChooseCheaperFormat (&chosen_fmt, fixed_speed, fixed_width, fixed_channels))
 					break;
 			}
-		} while (!accepted);
+		} while (!accepted && --i > 0);
 
 		// If we haven't found a suitable format
 		if (!accepted)
