@@ -91,7 +91,9 @@ Create "snd_renderbuffer" with the proper sound format if the call is successful
 May return a suggested format if the requested format isn't available
 ====================
 */
+#if SDL_MAJOR_VERSION != 1
 static int audio_device;
+#endif
 qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 {
 	unsigned int buffersize;
@@ -125,7 +127,11 @@ qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 				"\tSamples   : %i\n",
 				wantspec.channels, wantspec.format, wantspec.freq, wantspec.samples);
 
+#if SDL_MAJOR_VERSION == 1
+	if (SDL_OpenAudio(&wantspec, &obtainspec))
+#else
 	if ((audio_device = SDL_OpenAudioDevice(NULL, 0, &wantspec, &obtainspec, 0)) == 0)
+#endif
 	{
 		Con_Printf( "Failed to open the audio device! (%s)\n", SDL_GetError() );
 		return false;
@@ -143,7 +149,11 @@ qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 		wantspec.format != obtainspec.format ||
 		wantspec.channels != obtainspec.channels)
 	{
+#if SDL_MAJOR_VERSION == 1
+		SDL_CloseAudio();
+#else
 		SDL_CloseAudioDevice(audio_device);
+#endif
 
 		// Pass the obtained format as a suggested format
 		if (suggested != NULL)
@@ -164,7 +174,11 @@ qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 		Cvar_SetValueQuick (&snd_channellayout, SND_CHANNELLAYOUT_STANDARD);
 
 	sdlaudiotime = 0;
+#if SDL_MAJOR_VERSION == 1
+	SDL_PauseAudio(false);
+#else
 	SDL_PauseAudioDevice(audio_device, 0);
+#endif
 
 	return true;
 }
@@ -179,10 +193,14 @@ Stop the sound card, delete "snd_renderbuffer" and free its other resources
 */
 void SndSys_Shutdown(void)
 {
+#if SDL_MAJOR_VERSION == 1
+	SDL_CloseAudio();
+#else
 	if (audio_device > 0) {
 		SDL_CloseAudioDevice(audio_device);
 		audio_device = 0;
 	}
+#endif
 	if (snd_renderbuffer != NULL)
 	{
 		Mem_Free(snd_renderbuffer->ring);
