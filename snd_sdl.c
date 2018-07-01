@@ -179,9 +179,10 @@ Stop the sound card, delete "snd_renderbuffer" and free its other resources
 */
 void SndSys_Shutdown(void)
 {
-	if (audio_device > 0)
+	if (audio_device > 0) {
 		SDL_CloseAudioDevice(audio_device);
-
+		audio_device = 0;
+	}
 	if (snd_renderbuffer != NULL)
 	{
 		Mem_Free(snd_renderbuffer->ring);
