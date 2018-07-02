@@ -25,6 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 
 static unsigned int sdlaudiotime = 0;
+#if SDL_MAJOR_VERSION != 1
+static int audio_device = 0;
+#endif
 
 
 // Note: SDL calls SDL_LockAudio() right before this function, so no need to lock the audio data here
@@ -91,9 +94,6 @@ Create "snd_renderbuffer" with the proper sound format if the call is successful
 May return a suggested format if the requested format isn't available
 ====================
 */
-#if SDL_MAJOR_VERSION != 1
-static int audio_device;
-#endif
 qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 {
 	unsigned int buffersize;
@@ -245,7 +245,11 @@ Get the exclusive lock on "snd_renderbuffer"
 */
 qboolean SndSys_LockRenderBuffer (void)
 {
+#if SDL_MAJOR_VERSION == 1
 	SDL_LockAudio();
+#else
+	SDL_LockAudioDevice(audio_device);
+#endif
 	return true;
 }
 
@@ -259,7 +263,11 @@ Release the exclusive lock on "snd_renderbuffer"
 */
 void SndSys_UnlockRenderBuffer (void)
 {
+#if SDL_MAJOR_VERSION == 1
 	SDL_UnlockAudio();
+#else
+	SDL_UnlockAudioDevice(audio_device);
+#endif
 }
 
 /*
