@@ -1464,6 +1464,7 @@ void Sys_SendKeyEvents( void )
 	VID_EnableJoystick(true);
 
 	while( SDL_PollEvent( &event ) )
+		loop_start:
 		switch( event.type ) {
 			case SDL_QUIT:
 #ifdef DEBUGSDLEVENTS
@@ -1503,7 +1504,8 @@ void Sys_SendKeyEvents( void )
 						{
 							if (!VID_JoyBlockEmulatedKeys(keycode))
 								Key_Event(keycode, 0, isdown);
-							continue;
+
+							goto loop_start;
 						}
 					}
 				}
