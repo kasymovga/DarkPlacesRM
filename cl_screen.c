@@ -1448,6 +1448,11 @@ void SCR_ScreenShot_f (void)
 	{
 		const char *ext;
 		strlcpy(filename, Cmd_Argv(1), sizeof(filename));
+		if (strncasecmp(filename, "screenshot", 10))
+		{
+			Con_Printf("screenshot: supplied filename path must begin with \"screenshot\"\n");
+			return;
+		}
 		ext = FS_FileExtension(filename);
 		if (!strcasecmp(ext, "jpg"))
 		{
