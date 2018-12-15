@@ -862,6 +862,15 @@ static void Host_Loadgame_f (void)
 	if(developer_entityparsing.integer)
 		Con_Printf("Host_Loadgame_f: spawning server\n");
 
+	CL_Disconnect ();
+	Host_ShutdownServer();
+	if(svs.maxclients != svs.maxclients_next)
+	{
+		svs.maxclients = svs.maxclients_next;
+		if (svs.clients)
+			Mem_Free(svs.clients);
+		svs.clients = (client_t *)Mem_Alloc(sv_mempool, sizeof(client_t) * svs.maxclients);
+	}
 	SV_SpawnServer (mapname);
 	if (!sv.active)
 	{
