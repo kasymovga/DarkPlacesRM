@@ -28,7 +28,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifdef SSE_POSSIBLE
 static qboolean r_skeletal_use_sse_defined = false;
+#if _WIN32 && !defined(_WIN64)
+cvar_t r_skeletal_use_sse = {0, "r_skeletal_use_sse", "0", "use SSE for skeletal model animation"};
+#else
 cvar_t r_skeletal_use_sse = {0, "r_skeletal_use_sse", "1", "use SSE for skeletal model animation"};
+#endif
 #endif
 cvar_t r_skeletal_debugbone = {0, "r_skeletal_debugbone", "-1", "development cvar for testing skeletal model code"};
 cvar_t r_skeletal_debugbonecomponent = {0, "r_skeletal_debugbonecomponent", "3", "development cvar for testing skeletal model code"};
