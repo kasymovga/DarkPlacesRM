@@ -754,6 +754,10 @@ static void Host_Savegame_f (void)
 
 	strlcpy (name, Cmd_Argv(1), sizeof (name));
 	FS_DefaultExtension (name, ".sav", sizeof (name));
+	if (strcasecmp(FS_FileExtension(name), "sav")) {
+		Con_Print("Save files can have only \"sav\" extension.\n");
+		return;
+	}
 
 	Host_Savegame_to(prog, name);
 }
