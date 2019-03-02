@@ -337,7 +337,7 @@ static void PNG_error_fn(png_structp png, const char *message)
 
 static void PNG_warning_fn(png_structp png, const char *message)
 {
-	Con_Printf("PNG_LoadImage: warning: %s\n", message);
+	Con_DPrintf("PNG_LoadImage: warning: %s\n", message);
 }
 
 unsigned char *PNG_LoadImage_BGRA (const unsigned char *raw, int filesize, int *miplevel)
