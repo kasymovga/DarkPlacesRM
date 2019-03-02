@@ -600,6 +600,8 @@ static int MapScancode( unsigned int sdlscancode )
 //	case SDL_SCANCODE_KBDILLUMUP:         return K_KBDILLUMUP;
 //	case SDL_SCANCODE_EJECT:              return K_EJECT;
 //	case SDL_SCANCODE_SLEEP:              return K_SLEEP;
+	case SDL_SCANCODE_LEFTBRACKET:        return '[';
+	case SDL_SCANCODE_RIGHTBRACKET:       return ']';
 	}
 }
 #endif
