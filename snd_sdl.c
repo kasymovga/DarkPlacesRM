@@ -52,13 +52,19 @@ static void Buffer_Callback (void *userdata, Uint8 *stream, int len)
 			SndSys_UnlockRenderBuffer();
 			return;
 		}
-
 		// Transfert up to a chunk of samples from snd_renderbuffer to stream
 		MaxFrames = snd_renderbuffer->endframe - snd_renderbuffer->startframe;
 		if (MaxFrames > RequestedFrames)
 			FrameCount = RequestedFrames;
 		else
 			FrameCount = MaxFrames;
+
+		if (FrameCount < RequestedFrames)
+		{
+			memset(stream, 0, len);
+			if (developer_insane.integer && vid_activewindow)
+				Con_DPrintf("SDL sound: %u sample frames missing\n", RequestedFrames - FrameCount);
+		}
 		StartOffset = snd_renderbuffer->startframe % snd_renderbuffer->maxframes;
 		EndOffset = (snd_renderbuffer->startframe + FrameCount) % snd_renderbuffer->maxframes;
 		if (StartOffset > EndOffset)  // if the buffer wraps
@@ -75,9 +81,6 @@ static void Buffer_Callback (void *userdata, Uint8 *stream, int len)
 			memcpy(stream, &snd_renderbuffer->ring[StartOffset * factor], FrameCount * factor);
 
 		snd_renderbuffer->startframe += FrameCount;
-
-		if (FrameCount < RequestedFrames && developer_insane.integer && vid_activewindow)
-			Con_DPrintf("SDL sound: %u sample frames missing\n", RequestedFrames - FrameCount);
 
 		sdlaudiotime += RequestedFrames;
 
