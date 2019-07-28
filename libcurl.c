@@ -16,6 +16,7 @@ static cvar_t sv_curl_maxspeed = {CVAR_SAVE, "sv_curl_maxspeed","0", "maximum do
 static cvar_t cl_curl_enabled = {CVAR_SAVE, "cl_curl_enabled","1", "whether client's download support is enabled"};
 static cvar_t cl_curl_useragent = {0, "cl_curl_useragent","1", "send the User-Agent string (note: turning this off may break stuff)"};
 static cvar_t cl_curl_useragent_append = {0, "cl_curl_useragent_append","", "a string to append to the User-Agent string (useful for name and version number of your mod)"};
+static cvar_t cl_curl_connecttimeout = {CVAR_SAVE, "cl_curl_connecttimeout", "5", "Connection timeout for curl"};
 
 /*
 =================================================================
@@ -66,6 +67,7 @@ typedef enum
 	CINIT(POST, LONG, 47),         /* HTTP POST method */
 	CINIT(FOLLOWLOCATION, LONG, 52),  /* use Location: Luke! */
 	CINIT(POSTFIELDSIZE, LONG, 60),
+	CINIT(CONNECTTIMEOUT, LONG, 78),
 	CINIT(PRIVATE, OBJECTPOINT, 103),
 	CINIT(PROTOCOLS, LONG, 181),
 	CINIT(REDIR_PROTOCOLS, LONG, 182)
@@ -750,6 +752,7 @@ static void CheckPendingDownloads(void)
 				qcurl_easy_setopt(di->curle, CURLOPT_WRITEDATA, (void *) di);
 				qcurl_easy_setopt(di->curle, CURLOPT_PRIVATE, (void *) di);
 				qcurl_easy_setopt(di->curle, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS | CURLPROTO_FTP);
+				qcurl_easy_setopt(di->curle, CURLOPT_CONNECTTIMEOUT, (long) cl_curl_connecttimeout.integer);
 				if(qcurl_easy_setopt(di->curle, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS | CURLPROTO_FTP) != CURLE_OK)
 				{
 					Con_Printf("^1WARNING:^7 for security reasons, please upgrade to libcurl 7.19.4 or above. In a later version of DarkPlaces, HTTP redirect support will be disabled for this libcurl version.\n");
@@ -1537,6 +1540,7 @@ void Curl_Init_Commands(void)
 	Cvar_RegisterVariable (&sv_curl_maxspeed);
 	Cvar_RegisterVariable (&cl_curl_useragent);
 	Cvar_RegisterVariable (&cl_curl_useragent_append);
+	Cvar_RegisterVariable (&cl_curl_connecttimeout);
 	Cmd_AddCommand ("curl", Curl_Curl_f, "download data from an URL and add to search path");
 	//Cmd_AddCommand ("curlcat", Curl_CurlCat_f, "display data from an URL (debugging command)");
 }
