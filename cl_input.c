@@ -523,7 +523,7 @@ Send the intended movement message to the server
 */
 void CL_Input (void)
 {
-	float mx, my;
+	float mx, my, accel = 0;
 	static float old_mouse_x = 0, old_mouse_y = 0;
 
 	// clamp before the move to prevent starting with bad angles
@@ -606,9 +606,7 @@ void CL_Input (void)
 
 		if (m_accelerate.value < 0)
 		{
-			f = -1 * m_accelerate.value * averagespeed * cl.realframetime;
-			in_mouse_x += in_mouse_x * f;
-			in_mouse_y += in_mouse_y * f;
+			accel = -1 * m_accelerate.value * averagespeed * cl.realframetime;
 		}
 		else if (m_accelerate.value > 1)
 		{
@@ -655,7 +653,7 @@ void CL_Input (void)
 	// if not in menu, apply mouse move to viewangles/movement
 	if (!key_consoleactive && key_dest == key_game && !cl.csqc_wantsmousemove && cl_prydoncursor.integer <= 0)
 	{
-		float modulatedsensitivity = sensitivity.value * cl.sensitivityscale;
+		float modulatedsensitivity = (sensitivity.value + accel) * cl.sensitivityscale;
 		if (in_strafe.state & 1)
 		{
 			// strafing mode, all looking is movement
