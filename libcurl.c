@@ -372,6 +372,7 @@ static qboolean CURL_OpenLibrary (void)
 		"libcurl.so.3",
 		"libcurl.so", // FreeBSD
 		"libcurl-gnutls.so.4", // Debian
+		"libcurl-fallback.so", // Fallback library
 #endif
 		NULL
 	};
