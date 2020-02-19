@@ -1996,15 +1996,6 @@ void DrawQ_LineLoop (drawqueuemesh_t *mesh, int flags)
 		}
 #endif
 		break;
-	case RENDERPATH_D3D9:
-		//Con_DPrintf("FIXME D3D9 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
@@ -2043,15 +2034,6 @@ void DrawQ_Line (float width, float x1, float y1, float x2, float y2, float r, f
 		CHECKGLERROR
 #endif
 		break;
-	case RENDERPATH_D3D9:
-		//Con_DPrintf("FIXME D3D9 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
@@ -2084,15 +2066,6 @@ void DrawQ_Lines (float width, int numlines, int flags, qboolean hasalpha)
 		qglDrawArrays(GL_LINES, 0, numlines*2);
 		CHECKGLERROR
 		break;
-	case RENDERPATH_D3D9:
-		//Con_DPrintf("FIXME D3D9 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
@@ -2114,27 +2087,7 @@ void DrawQ_SetClipArea(float x, float y, float width, float height)
 	iy = (int)(0.5 + y * ((float) vid.height / vid_conheight.integer));
 	iw = (int)(0.5 + (x+width) * ((float)vid.width / vid_conwidth.integer)) - ix;
 	ih = (int)(0.5 + (y+height) * ((float) vid.height / vid_conheight.integer)) - iy;
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-	case RENDERPATH_SOFT:
-		GL_Scissor(ix, vid.height - iy - ih, iw, ih);
-		break;
-	case RENDERPATH_D3D9:
-		GL_Scissor(ix, iy, iw, ih);
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	}
-
+	GL_Scissor(ix, vid.height - iy - ih, iw, ih);
 	GL_ScissorTest(true);
 }
 
@@ -2162,9 +2115,6 @@ void R_DrawGamma(void)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_GLES2:
 		if (vid_usinghwgamma || v_glslgamma.integer)
 			return;

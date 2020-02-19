@@ -6,15 +6,6 @@
 #include "image.h"
 #include "random.h"
 
-#ifdef SUPPORTD3D
-#include <d3d9.h>
-#ifdef _MSC_VER
-#pragma comment(lib, "d3d9.lib")
-#endif
-
-LPDIRECT3DDEVICE9 vid_d3d9dev;
-#endif
-
 #ifdef WIN32
 //#include <XInput.h>
 #define XINPUT_GAMEPAD_DPAD_UP          0x0001
@@ -1556,9 +1547,6 @@ void VID_UpdateGamma(qboolean force, int rampsize)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		if (v_glslgamma.integer)

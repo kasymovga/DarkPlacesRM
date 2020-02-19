@@ -3220,12 +3220,6 @@ void VID_Finish (void)
 			}
 #endif
 			break;
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
-			if (r_speeds.integer == 2 || gl_finish.integer)
-				GL_Finish();
-			break;
 		}
 	}
 }

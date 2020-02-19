@@ -2,11 +2,6 @@
 #include "quakedef.h"
 #include "cl_collision.h"
 #include "dpsoftrast.h"
-#ifdef SUPPORTD3D
-#include <d3d9.h>
-extern LPDIRECT3DDEVICE9 vid_d3d9dev;
-extern D3DCAPS9 vid_d3d9caps;
-#endif
 
 // on GLES we have to use some proper #define's
 #ifndef GL_FRAMEBUFFER
@@ -267,18 +262,6 @@ typedef struct gl_state_s
 	memexpandablearray_t meshbufferarray;
 
 	qboolean active;
-
-#ifdef SUPPORTD3D
-//	rtexture_t *d3drt_depthtexture;
-//	rtexture_t *d3drt_colortextures[MAX_RENDERTARGETS];
-	IDirect3DSurface9 *d3drt_depthsurface;
-	IDirect3DSurface9 *d3drt_colorsurfaces[MAX_RENDERTARGETS];
-	IDirect3DSurface9 *d3drt_backbufferdepthsurface;
-	IDirect3DSurface9 *d3drt_backbuffercolorsurface;
-	void *d3dvertexbuffer;
-	void *d3dvertexdata;
-	int d3dvertexsize;
-#endif
 }
 gl_state_t;
 
@@ -351,7 +334,6 @@ static void GL_VBOStats_f(void)
 
 static void GL_Backend_ResetState(void);
 
-static void R_Mesh_InitVertexDeclarations(void);
 static void R_Mesh_DestroyVertexDeclarations(void);
 
 static void R_Mesh_SetUseVBO(void)
@@ -366,16 +348,6 @@ static void R_Mesh_SetUseVBO(void)
 		gl_state.usevbo_staticindex = (vid.support.arb_vertex_buffer_object && (gl_vbo.integer == 1 || gl_vbo.integer == 3)) || vid.forcevbo;
 		gl_state.usevbo_dynamicvertex = (vid.support.arb_vertex_buffer_object && gl_vbo_dynamicvertex.integer && gl_vbo.integer) || vid.forcevbo;
 		gl_state.usevbo_dynamicindex = (vid.support.arb_vertex_buffer_object && gl_vbo_dynamicindex.integer && gl_vbo.integer) || vid.forcevbo;
-		break;
-	case RENDERPATH_D3D9:
-		gl_state.usevbo_staticvertex = gl_state.usevbo_staticindex = (vid.support.arb_vertex_buffer_object && gl_vbo.integer) || vid.forcevbo;
-		gl_state.usevbo_dynamicvertex = gl_state.usevbo_dynamicindex = (vid.support.arb_vertex_buffer_object && gl_vbo_dynamicvertex.integer && gl_vbo_dynamicindex.integer && gl_vbo.integer) || vid.forcevbo;
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_SOFT:
 		gl_state.usevbo_staticvertex = false;
@@ -395,8 +367,6 @@ static void R_Mesh_SetUseVBO(void)
 static void gl_backend_start(void)
 {
 	memset(&gl_state, 0, sizeof(gl_state));
-
-	R_Mesh_InitVertexDeclarations();
 
 	R_Mesh_SetUseVBO();
 	Mem_ExpandableArray_NewArray(&gl_state.meshbufferarray, r_main_mempool, sizeof(r_meshbuffer_t), 128);
@@ -418,18 +388,6 @@ static void gl_backend_start(void)
 		if (vid.support.ext_framebuffer_object)
 			qglGetIntegerv(GL_FRAMEBUFFER_BINDING, &gl_state.defaultframebufferobject);
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DDevice9_GetDepthStencilSurface(vid_d3d9dev, &gl_state.d3drt_backbufferdepthsurface);
-		IDirect3DDevice9_GetRenderTarget(vid_d3d9dev, 0, &gl_state.d3drt_backbuffercolorsurface);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -438,37 +396,10 @@ static void gl_backend_start(void)
 static void gl_backend_shutdown(void)
 {
 	Con_DPrint("OpenGL Backend shutting down\n");
-
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DSurface9_Release(gl_state.d3drt_backbufferdepthsurface);
-		IDirect3DSurface9_Release(gl_state.d3drt_backbuffercolorsurface);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	}
-
 	if (gl_state.preparevertices_tempdata)
 		Mem_Free(gl_state.preparevertices_tempdata);
 
 	Mem_ExpandableArray_FreeArray(&gl_state.meshbufferarray);
-
-	R_Mesh_DestroyVertexDeclarations();
-
 	memset(&gl_state, 0, sizeof(gl_state));
 }
 
@@ -480,92 +411,17 @@ static void gl_backend_devicelost(void)
 {
 	int i, endindex;
 	r_meshbuffer_t *buffer;
-#ifdef SUPPORTD3D
-	gl_state.d3dvertexbuffer = NULL;
-#endif
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DSurface9_Release(gl_state.d3drt_backbufferdepthsurface);
-		IDirect3DSurface9_Release(gl_state.d3drt_backbuffercolorsurface);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	}
 	endindex = (int)Mem_ExpandableArray_IndexRange(&gl_state.meshbufferarray);
 	for (i = 0;i < endindex;i++)
 	{
 		buffer = (r_meshbuffer_t *) Mem_ExpandableArray_RecordAtIndex(&gl_state.meshbufferarray, i);
 		if (!buffer || !buffer->isdynamic)
 			continue;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_SOFT:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			if (buffer->devicebuffer)
-			{
-				if (buffer->isindexbuffer)
-					IDirect3DIndexBuffer9_Release((IDirect3DIndexBuffer9*)buffer->devicebuffer);
-				else
-					IDirect3DVertexBuffer9_Release((IDirect3DVertexBuffer9*)buffer->devicebuffer);
-				buffer->devicebuffer = NULL;
-			}
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		}
 	}
 }
 
 static void gl_backend_devicerestored(void)
 {
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DDevice9_GetDepthStencilSurface(vid_d3d9dev, &gl_state.d3drt_backbufferdepthsurface);
-		IDirect3DDevice9_GetRenderTarget(vid_d3d9dev, 0, &gl_state.d3drt_backbuffercolorsurface);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	}
 }
 
 void gl_backend_init(void)
@@ -642,15 +498,6 @@ void GL_Finish(void)
 	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		qglFinish();
-		break;
-	case RENDERPATH_D3D9:
-		//Con_DPrintf("FIXME D3D9 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_Finish();
@@ -786,24 +633,6 @@ qboolean R_ScissorForBBox(const float *mins, const float *maxs, int *scissor)
 	scissor[1] = iy1;
 	scissor[2] = ix2 - ix1;
 	scissor[3] = iy2 - iy1;
-
-	// D3D Y coordinate is top to bottom, OpenGL is bottom to top, fix the D3D one
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		scissor[1] = vid.height - scissor[1] - scissor[3];
-		break;
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		break;
-	}
-
 	return false;
 }
 
@@ -877,22 +706,6 @@ void R_Viewport_InitOrtho(r_viewport_t *v, const matrix4x4_t *cameramatrix, int 
 	m[13] = - (top + bottom)/(top - bottom);
 	m[14] = - (zFar + zNear)/(zFar - zNear);
 	m[15] = 1;
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		m[10] = -1/(zFar - zNear);
-		m[14] = -zNear/(zFar-zNear);
-		break;
-	}
 	v->screentodepth[0] = -farclip / (farclip - nearclip);
 	v->screentodepth[1] = farclip * nearclip / (farclip - nearclip);
 
@@ -1127,27 +940,6 @@ void R_Viewport_InitRectSideView(r_viewport_t *v, const matrix4x4_t *cameramatri
 	Matrix4x4_FromArrayFloatGL(&basematrix, rectviewmatrix[side]);
 	Matrix4x4_Invert_Full(&tempmatrix, &v->cameramatrix);
 	Matrix4x4_Concat(&v->viewmatrix, &basematrix, &tempmatrix);
-
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL20:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL11:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		break;
-	case RENDERPATH_D3D9:
-		m[5] *= -1;
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	}
-
 	if (nearplane)
 		R_Viewport_ApplyNearClipPlaneFloatGL(v, m, nearplane[0], nearplane[1], nearplane[2], nearplane[3]);
 
@@ -1182,26 +974,6 @@ void R_SetViewport(const r_viewport_t *v)
 			qglMatrixMode(GL_MODELVIEW);CHECKGLERROR
 		}
 #endif
-		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		{
-			D3DVIEWPORT9 d3dviewport;
-			d3dviewport.X = gl_viewport.x;
-			d3dviewport.Y = gl_viewport.y;
-			d3dviewport.Width = gl_viewport.width;
-			d3dviewport.Height = gl_viewport.height;
-			d3dviewport.MinZ = gl_state.depthrange[0];
-			d3dviewport.MaxZ = gl_state.depthrange[1];
-			IDirect3DDevice9_SetViewport(vid_d3d9dev, &d3dviewport);
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_Viewport(v->x, v->y, v->width, v->height);
@@ -1390,10 +1162,6 @@ int R_Mesh_CreateFramebufferObject(rtexture_t *depthtexture, rtexture_t *colorte
 			return temp;
 		}
 		return 0;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		return 1;
 	case RENDERPATH_SOFT:
 		return 1;
 	}
@@ -1417,46 +1185,10 @@ void R_Mesh_DestroyFramebufferObject(int fbo)
 			qglDeleteFramebuffers(1, (GLuint*)&fbo);
 		}
 		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		break;
 	case RENDERPATH_SOFT:
 		break;
 	}
 }
-
-#ifdef SUPPORTD3D
-void R_Mesh_SetRenderTargetsD3D9(IDirect3DSurface9 *depthsurface, IDirect3DSurface9 *colorsurface0, IDirect3DSurface9 *colorsurface1, IDirect3DSurface9 *colorsurface2, IDirect3DSurface9 *colorsurface3)
-{
-	gl_state.framebufferobject = depthsurface != gl_state.d3drt_backbufferdepthsurface || colorsurface0 != gl_state.d3drt_backbuffercolorsurface;
-	if (gl_state.d3drt_depthsurface != depthsurface)
-	{
-		gl_state.d3drt_depthsurface = depthsurface;
-		IDirect3DDevice9_SetDepthStencilSurface(vid_d3d9dev, gl_state.d3drt_depthsurface);
-	}
-	if (gl_state.d3drt_colorsurfaces[0] != colorsurface0)
-	{
-		gl_state.d3drt_colorsurfaces[0] = colorsurface0;
-		IDirect3DDevice9_SetRenderTarget(vid_d3d9dev, 0, gl_state.d3drt_colorsurfaces[0]);
-	}
-	if (gl_state.d3drt_colorsurfaces[1] != colorsurface1)
-	{
-		gl_state.d3drt_colorsurfaces[1] = colorsurface1;
-		IDirect3DDevice9_SetRenderTarget(vid_d3d9dev, 1, gl_state.d3drt_colorsurfaces[1]);
-	}
-	if (gl_state.d3drt_colorsurfaces[2] != colorsurface2)
-	{
-		gl_state.d3drt_colorsurfaces[2] = colorsurface2;
-		IDirect3DDevice9_SetRenderTarget(vid_d3d9dev, 2, gl_state.d3drt_colorsurfaces[2]);
-	}
-	if (gl_state.d3drt_colorsurfaces[3] != colorsurface3)
-	{
-		gl_state.d3drt_colorsurfaces[3] = colorsurface3;
-		IDirect3DDevice9_SetRenderTarget(vid_d3d9dev, 3, gl_state.d3drt_colorsurfaces[3]);
-	}
-}
-#endif
 
 void R_Mesh_SetRenderTargets(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture, rtexture_t *colortexture2, rtexture_t *colortexture3, rtexture_t *colortexture4)
 {
@@ -1485,41 +1217,6 @@ void R_Mesh_SetRenderTargets(int fbo, rtexture_t *depthtexture, rtexture_t *colo
 			qglBindFramebuffer(GL_FRAMEBUFFER, gl_state.framebufferobject ? gl_state.framebufferobject : gl_state.defaultframebufferobject);
 		}
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		// set up the new render targets, a NULL depthtexture intentionally binds nothing
-		// TODO: optimize: keep surface pointer around in rtexture_t until texture is freed or lost
-		if (fbo)
-		{
-			IDirect3DSurface9 *surfaces[5];
-			for (i = 0;i < 5;i++)
-			{
-				surfaces[i] = NULL;
-				if (textures[i])
-				{
-					if (textures[i]->d3dsurface)
-						surfaces[i] = (IDirect3DSurface9 *)textures[i]->d3dsurface;
-					else
-						IDirect3DTexture9_GetSurfaceLevel((IDirect3DTexture9 *)textures[i]->d3dtexture, 0, &surfaces[i]);
-				}
-			}
-			// set the render targets for real
-			R_Mesh_SetRenderTargetsD3D9(surfaces[4], surfaces[0], surfaces[1], surfaces[2], surfaces[3]);
-			// release the texture surface levels (they won't be lost while bound...)
-			for (i = 0;i < 5;i++)
-				if (textures[i] && !textures[i]->d3dsurface)
-					IDirect3DSurface9_Release(surfaces[i]);
-		}
-		else
-			R_Mesh_SetRenderTargetsD3D9(gl_state.d3drt_backbufferdepthsurface, gl_state.d3drt_backbuffercolorsurface, NULL, NULL, NULL);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		if (fbo)
 		{
@@ -1537,35 +1234,6 @@ void R_Mesh_SetRenderTargets(int fbo, rtexture_t *depthtexture, rtexture_t *colo
 		break;
 	}
 }
-
-#ifdef SUPPORTD3D
-static int d3dcmpforglfunc(int f)
-{
-	switch(f)
-	{
-	case GL_NEVER: return D3DCMP_NEVER;
-	case GL_LESS: return D3DCMP_LESS;
-	case GL_EQUAL: return D3DCMP_EQUAL;
-	case GL_LEQUAL: return D3DCMP_LESSEQUAL;
-	case GL_GREATER: return D3DCMP_GREATER;
-	case GL_NOTEQUAL: return D3DCMP_NOTEQUAL;
-	case GL_GEQUAL: return D3DCMP_GREATEREQUAL;
-	case GL_ALWAYS: return D3DCMP_ALWAYS;
-	default: Con_DPrintf("Unknown GL_DepthFunc\n");return D3DCMP_ALWAYS;
-	}
-}
-
-static int d3dstencilopforglfunc(int f)
-{
-	switch(f)
-	{
-	case GL_KEEP: return D3DSTENCILOP_KEEP;
-	case GL_INCR: return D3DSTENCILOP_INCR; // note: GL_INCR is clamped, D3DSTENCILOP_INCR wraps
-	case GL_DECR: return D3DSTENCILOP_DECR; // note: GL_DECR is clamped, D3DSTENCILOP_DECR wraps
-	default: Con_DPrintf("Unknown GL_StencilFunc\n");return D3DSTENCILOP_KEEP;
-	}
-}
-#endif
 
 static void GL_Backend_ResetState(void)
 {
@@ -1593,25 +1261,6 @@ static void GL_Backend_ResetState(void)
 
 	switch(vid.renderpath)
 	{
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		{
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_COLORWRITEENABLE, gl_state.colormask);
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CULLMODE, D3DCULL_NONE);
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_ZFUNC, d3dcmpforglfunc(gl_state.depthfunc));
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_ZENABLE, gl_state.depthtest);
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_ZWRITEENABLE, gl_state.depthmask);
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_SLOPESCALEDEPTHBIAS, gl_state.polygonoffset[0]);
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_DEPTHBIAS, gl_state.polygonoffset[1] * (1.0f / 16777216.0f));
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GLES1:
@@ -1767,10 +1416,6 @@ void GL_ActiveTexture(unsigned int num)
 				CHECKGLERROR
 			}
 			break;
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
-			break;
 		case RENDERPATH_SOFT:
 			break;
 		}
@@ -1795,10 +1440,6 @@ void GL_ClientActiveTexture(unsigned int num)
 				CHECKGLERROR
 			}
 #endif
-			break;
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
 			break;
 		case RENDERPATH_SOFT:
 			break;
@@ -1846,46 +1487,6 @@ void GL_BlendFunc(int blendfunc1, int blendfunc2)
 				}
 			}
 			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			{
-				int i;
-				int glblendfunc[2];
-				D3DBLEND d3dblendfunc[2];
-				glblendfunc[0] = gl_state.blendfunc1;
-				glblendfunc[1] = gl_state.blendfunc2;
-				for (i = 0;i < 2;i++)
-				{
-					switch(glblendfunc[i])
-					{
-					case GL_ZERO: d3dblendfunc[i] = D3DBLEND_ZERO;break;
-					case GL_ONE: d3dblendfunc[i] = D3DBLEND_ONE;break;
-					case GL_SRC_COLOR: d3dblendfunc[i] = D3DBLEND_SRCCOLOR;break;
-					case GL_ONE_MINUS_SRC_COLOR: d3dblendfunc[i] = D3DBLEND_INVSRCCOLOR;break;
-					case GL_SRC_ALPHA: d3dblendfunc[i] = D3DBLEND_SRCALPHA;break;
-					case GL_ONE_MINUS_SRC_ALPHA: d3dblendfunc[i] = D3DBLEND_INVSRCALPHA;break;
-					case GL_DST_ALPHA: d3dblendfunc[i] = D3DBLEND_DESTALPHA;break;
-					case GL_ONE_MINUS_DST_ALPHA: d3dblendfunc[i] = D3DBLEND_INVDESTALPHA;break;
-					case GL_DST_COLOR: d3dblendfunc[i] = D3DBLEND_DESTCOLOR;break;
-					case GL_ONE_MINUS_DST_COLOR: d3dblendfunc[i] = D3DBLEND_INVDESTCOLOR;break;
-					}
-				}
-				IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_SRCBLEND, d3dblendfunc[0]);
-				IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_DESTBLEND, d3dblendfunc[1]);
-				if (gl_state.blend != blendenable)
-				{
-					gl_state.blend = blendenable;
-					IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_ALPHABLENDENABLE, gl_state.blend);
-				}
-			}
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_BlendFunc(gl_state.blendfunc1, gl_state.blendfunc2);
 			break;
@@ -1907,17 +1508,6 @@ void GL_DepthMask(int state)
 		case RENDERPATH_GLES2:
 			CHECKGLERROR
 			qglDepthMask(gl_state.depthmask);CHECKGLERROR
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_ZWRITEENABLE, gl_state.depthmask);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_DepthMask(gl_state.depthmask);
@@ -1948,17 +1538,6 @@ void GL_DepthTest(int state)
 				qglDisable(GL_DEPTH_TEST);CHECKGLERROR
 			}
 			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_ZENABLE, gl_state.depthtest);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_DepthTest(gl_state.depthtest);
 			break;
@@ -1980,17 +1559,6 @@ void GL_DepthFunc(int state)
 		case RENDERPATH_GLES2:
 			CHECKGLERROR
 			qglDepthFunc(gl_state.depthfunc);CHECKGLERROR
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_ZFUNC, d3dcmpforglfunc(gl_state.depthfunc));
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_DepthFunc(gl_state.depthfunc);
@@ -2017,26 +1585,6 @@ void GL_DepthRange(float nearfrac, float farfrac)
 #else
 			qglDepthRange(gl_state.depthrange[0], gl_state.depthrange[1]);
 #endif
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			{
-				D3DVIEWPORT9 d3dviewport;
-				d3dviewport.X = gl_viewport.x;
-				d3dviewport.Y = gl_viewport.y;
-				d3dviewport.Width = gl_viewport.width;
-				d3dviewport.Height = gl_viewport.height;
-				d3dviewport.MinZ = gl_state.depthrange[0];
-				d3dviewport.MaxZ = gl_state.depthrange[1];
-				IDirect3DDevice9_SetViewport(vid_d3d9dev, &d3dviewport);
-			}
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_DepthRange(gl_state.depthrange[0], gl_state.depthrange[1]);
@@ -2086,29 +1634,6 @@ void R_SetStencilSeparate(qboolean enable, int writemask, int frontfail, int fro
 #endif
 		}
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_TWOSIDEDSTENCILMODE, true);
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILENABLE, enable);
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILWRITEMASK, writemask);
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILFAIL, d3dstencilopforglfunc(frontfail));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILZFAIL, d3dstencilopforglfunc(frontzfail));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILPASS, d3dstencilopforglfunc(frontzpass));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILFUNC, d3dcmpforglfunc(frontcompare));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CCW_STENCILFAIL, d3dstencilopforglfunc(backfail));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CCW_STENCILZFAIL, d3dstencilopforglfunc(backzfail));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CCW_STENCILPASS, d3dstencilopforglfunc(backzpass));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CCW_STENCILFUNC, d3dcmpforglfunc(backcompare));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILREF, comparereference);
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILMASK, comparemask);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
@@ -2144,26 +1669,6 @@ void R_SetStencil(qboolean enable, int writemask, int fail, int zfail, int zpass
 		qglStencilFunc(compare, comparereference, comparemask);CHECKGLERROR
 		CHECKGLERROR
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		if (vid.support.ati_separate_stencil)
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_TWOSIDEDSTENCILMODE, true);
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILENABLE, enable);
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILWRITEMASK, writemask);
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILFAIL, d3dstencilopforglfunc(fail));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILZFAIL, d3dstencilopforglfunc(zfail));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILPASS, d3dstencilopforglfunc(zpass));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILFUNC, d3dcmpforglfunc(compare));
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILREF, comparereference);
-		IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_STENCILMASK, comparemask);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
@@ -2184,18 +1689,6 @@ void GL_PolygonOffset(float planeoffset, float depthoffset)
 		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
 			qglPolygonOffset(gl_state.polygonoffset[0], gl_state.polygonoffset[1]);
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_SLOPESCALEDEPTHBIAS, gl_state.polygonoffset[0]);
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_DEPTHBIAS, gl_state.polygonoffset[1] * (1.0f / 16777216.0f));
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_PolygonOffset(gl_state.polygonoffset[0], gl_state.polygonoffset[1]);
@@ -2223,17 +1716,6 @@ void GL_SetMirrorState(qboolean state)
 		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
 			qglCullFace(gl_state.cullface);CHECKGLERROR
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CULLMODE, gl_state.cullface == GL_FRONT ? D3DCULL_CCW : D3DCULL_CW);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_CullFace(gl_state.cullface);
@@ -2283,35 +1765,6 @@ void GL_CullFace(int state)
 			}
 		}
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		if (gl_state.cullface != state)
-		{
-			gl_state.cullface = state;
-			switch(gl_state.cullface)
-			{
-			case GL_NONE:
-				gl_state.cullfaceenable = false;
-				IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CULLMODE, D3DCULL_NONE);
-				break;
-			case GL_FRONT:
-				gl_state.cullfaceenable = true;
-				IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CULLMODE, D3DCULL_CCW);
-				break;
-			case GL_BACK:
-				gl_state.cullfaceenable = true;
-				IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_CULLMODE, D3DCULL_CW);
-				break;
-			}
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		if (gl_state.cullface != state)
 		{
@@ -2346,9 +1799,6 @@ void GL_AlphaTest(int state)
 			}
 #endif
 			break;
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
 		case RENDERPATH_SOFT:
 		case RENDERPATH_GL20:
 		case RENDERPATH_GLES2:
@@ -2368,9 +1818,6 @@ void GL_AlphaToCoverage(qboolean state)
 		case RENDERPATH_GL13:
 		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
 		case RENDERPATH_SOFT:
 			break;
 		case RENDERPATH_GL20:
@@ -2410,17 +1857,6 @@ void GL_ColorMask(int r, int g, int b, int a)
 			CHECKGLERROR
 			qglColorMask((GLboolean)r, (GLboolean)g, (GLboolean)b, (GLboolean)a);CHECKGLERROR
 			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_COLORWRITEENABLE, state);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_ColorMask(r, g, b, a);
 			break;
@@ -2447,11 +1883,6 @@ void GL_Color(float cr, float cg, float cb, float ca)
 			CHECKGLERROR
 #endif
 			break;
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
-			// no equivalent in D3D
-			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_Color4f(cr, cg, cb, ca);
 			break;
@@ -2475,24 +1906,6 @@ void GL_Scissor (int x, int y, int width, int height)
 		CHECKGLERROR
 		qglScissor(x, y,width,height);
 		CHECKGLERROR
-		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		{
-			RECT d3drect;
-			d3drect.left = x;
-			d3drect.top = y;
-			d3drect.right = x + width;
-			d3drect.bottom = y + height;
-			IDirect3DDevice9_SetScissorRect(vid_d3d9dev, &d3drect);
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_Scissor(x, y, width, height);
@@ -2518,17 +1931,6 @@ void GL_ScissorTest(int state)
 			else
 				qglDisable(GL_SCISSOR_TEST);
 			CHECKGLERROR
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_SCISSORTESTENABLE, gl_state.scissortest);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_ScissorTest(gl_state.scissortest);
@@ -2575,17 +1977,6 @@ void GL_Clear(int mask, const float *colorvalue, float depthvalue, int stencilva
 		}
 		qglClear(mask);CHECKGLERROR
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DDevice9_Clear(vid_d3d9dev, 0, NULL, ((mask & GL_COLOR_BUFFER_BIT) ? D3DCLEAR_TARGET : 0) | ((mask & GL_STENCIL_BUFFER_BIT) ? D3DCLEAR_STENCIL : 0) | ((mask & GL_DEPTH_BUFFER_BIT) ? D3DCLEAR_ZBUFFER : 0), D3DCOLOR_COLORVALUE(colorvalue[0], colorvalue[1], colorvalue[2], colorvalue[3]), depthvalue, stencilvalue);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		if (mask & GL_COLOR_BUFFER_BIT)
 			DPSOFTRAST_ClearColor(colorvalue[0], colorvalue[1], colorvalue[2], colorvalue[3]);
@@ -2629,48 +2020,6 @@ void GL_ReadPixelsBGRA(int x, int y, int width, int height, unsigned char *outpi
 		qglReadPixels(x, y, width, height, GL_BGRA, GL_UNSIGNED_BYTE, outpixels);CHECKGLERROR
 #endif
 			break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		{
-			// LordHavoc: we can't directly download the backbuffer because it may be
-			// multisampled, and it may not be lockable, so we blit it to a lockable
-			// surface of the same dimensions (but without multisample) to resolve the
-			// multisample buffer to a normal image, and then lock that...
-			IDirect3DSurface9 *stretchsurface = NULL;
-			if (!FAILED(IDirect3DDevice9_CreateRenderTarget(vid_d3d9dev, vid.width, vid.height, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, TRUE, &stretchsurface, NULL)))
-			{
-				D3DLOCKED_RECT lockedrect;
-				if (!FAILED(IDirect3DDevice9_StretchRect(vid_d3d9dev, gl_state.d3drt_backbuffercolorsurface, NULL, stretchsurface, NULL, D3DTEXF_POINT)))
-				{
-					if (!FAILED(IDirect3DSurface9_LockRect(stretchsurface, &lockedrect, NULL, D3DLOCK_READONLY)))
-					{
-						int line;
-						unsigned char *row = (unsigned char *)lockedrect.pBits + x * 4 + lockedrect.Pitch * (vid.height - 1 - y);
-						for (line = 0;line < height;line++, row -= lockedrect.Pitch)
-							memcpy(outpixels + line * width * 4, row, width * 4);
-						IDirect3DSurface9_UnlockRect(stretchsurface);
-					}
-				}
-				IDirect3DSurface9_Release(stretchsurface);
-			}
-			// code scraps
-			//IDirect3DSurface9 *syssurface = NULL;
-			//if (!FAILED(IDirect3DDevice9_CreateRenderTarget(vid_d3d9dev, vid.width, vid.height, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &stretchsurface, NULL)))
-			//if (!FAILED(IDirect3DDevice9_CreateOffscreenPlainSurface(vid_d3d9dev, vid.width, vid.height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &syssurface, NULL)))
-			//IDirect3DDevice9_GetRenderTargetData(vid_d3d9dev, gl_state.d3drt_backbuffercolorsurface, syssurface);
-			//if (!FAILED(IDirect3DDevice9_GetFrontBufferData(vid_d3d9dev, 0, syssurface)))
-			//if (!FAILED(IDirect3DSurface9_LockRect(syssurface, &lockedrect, NULL, D3DLOCK_READONLY)))
-			//IDirect3DSurface9_UnlockRect(syssurface);
-			//IDirect3DSurface9_Release(syssurface);
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_GetPixelsBGRA(x, y, width, height, outpixels);
 		break;
@@ -2831,10 +2180,6 @@ void R_Mesh_Draw(int firstvertex, int numvertices, int firsttriangle, int numtri
 			element3i_indexbuffer = NULL;
 			element3s_indexbuffer = NULL;
 		}
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 		break;
 	case RENDERPATH_SOFT:
 		break;
@@ -3229,40 +2574,6 @@ void R_Mesh_Draw(int firstvertex, int numvertices, int firsttriangle, int numtri
 				CHECKGLERROR
 			}
 			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			if (gl_state.d3dvertexbuffer && ((element3s && element3s_indexbuffer) || (element3i && element3i_indexbuffer)))
-			{
-				if (element3s_indexbuffer)
-				{
-					IDirect3DDevice9_SetIndices(vid_d3d9dev, (IDirect3DIndexBuffer9 *)element3s_indexbuffer->devicebuffer);
-					IDirect3DDevice9_DrawIndexedPrimitive(vid_d3d9dev, D3DPT_TRIANGLELIST, 0, firstvertex, numvertices, element3s_bufferoffset>>1, numtriangles);
-				}
-				else if (element3i_indexbuffer)
-				{
-					IDirect3DDevice9_SetIndices(vid_d3d9dev, (IDirect3DIndexBuffer9 *)element3i_indexbuffer->devicebuffer);
-					IDirect3DDevice9_DrawIndexedPrimitive(vid_d3d9dev, D3DPT_TRIANGLELIST, 0, firstvertex, numvertices, element3i_bufferoffset>>2, numtriangles);
-				}
-				else
-					IDirect3DDevice9_DrawPrimitive(vid_d3d9dev, D3DPT_TRIANGLELIST, firstvertex, numvertices);
-			}
-			else
-			{
-				if (element3s)
-					IDirect3DDevice9_DrawIndexedPrimitiveUP(vid_d3d9dev, D3DPT_TRIANGLELIST, firstvertex, numvertices, numtriangles, element3s, D3DFMT_INDEX16, gl_state.d3dvertexdata, gl_state.d3dvertexsize);
-				else if (element3i)
-					IDirect3DDevice9_DrawIndexedPrimitiveUP(vid_d3d9dev, D3DPT_TRIANGLELIST, firstvertex, numvertices, numtriangles, element3i, D3DFMT_INDEX32, gl_state.d3dvertexdata, gl_state.d3dvertexsize);
-				else
-					IDirect3DDevice9_DrawPrimitiveUP(vid_d3d9dev, D3DPT_TRIANGLELIST, numvertices, (void *)gl_state.d3dvertexdata, gl_state.d3dvertexsize);
-			}
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_DrawTriangles(firstvertex, numvertices, numtriangles, element3i, element3s);
 			break;
@@ -3385,64 +2696,6 @@ void R_Mesh_UpdateMeshBuffer(r_meshbuffer_t *buffer, const void *data, size_t si
 		if (buffer->isuniformbuffer)
 			GL_BindUBO(0);
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		{
-			int result;
-			void *datapointer = NULL;
-			if (buffer->isindexbuffer)
-			{
-				IDirect3DIndexBuffer9 *d3d9indexbuffer = (IDirect3DIndexBuffer9 *)buffer->devicebuffer;
-				if (offset+size > buffer->size || !buffer->devicebuffer)
-				{
-					if (buffer->devicebuffer)
-						IDirect3DIndexBuffer9_Release((IDirect3DIndexBuffer9*)buffer->devicebuffer);
-					buffer->devicebuffer = NULL;
-					if (FAILED(result = IDirect3DDevice9_CreateIndexBuffer(vid_d3d9dev, (unsigned int)(offset+size), buffer->isdynamic ? D3DUSAGE_WRITEONLY | D3DUSAGE_DYNAMIC : 0, buffer->isindex16 ? D3DFMT_INDEX16 : D3DFMT_INDEX32, buffer->isdynamic ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED, &d3d9indexbuffer, NULL)))
-						Sys_Error("IDirect3DDevice9_CreateIndexBuffer(%p, %d, %x, %x, %x, %p, NULL) returned %x\n", vid_d3d9dev, (int)size, buffer->isdynamic ? (int)D3DUSAGE_DYNAMIC : 0, buffer->isindex16 ? (int)D3DFMT_INDEX16 : (int)D3DFMT_INDEX32, buffer->isdynamic ? (int)D3DPOOL_DEFAULT : (int)D3DPOOL_MANAGED, &d3d9indexbuffer, (int)result);
-					buffer->devicebuffer = (void *)d3d9indexbuffer;
-					buffer->size = offset+size;
-				}
-				if (!FAILED(IDirect3DIndexBuffer9_Lock(d3d9indexbuffer, (unsigned int)offset, (unsigned int)size, &datapointer, buffer->isdynamic ? D3DLOCK_DISCARD : 0)))
-				{
-					if (data)
-						memcpy(datapointer, data, size);
-					else
-						memset(datapointer, 0, size);
-					IDirect3DIndexBuffer9_Unlock(d3d9indexbuffer);
-				}
-			}
-			else
-			{
-				IDirect3DVertexBuffer9 *d3d9vertexbuffer = (IDirect3DVertexBuffer9 *)buffer->devicebuffer;
-				if (offset+size > buffer->size || !buffer->devicebuffer)
-				{
-					if (buffer->devicebuffer)
-						IDirect3DVertexBuffer9_Release((IDirect3DVertexBuffer9*)buffer->devicebuffer);
-					buffer->devicebuffer = NULL;
-					if (FAILED(result = IDirect3DDevice9_CreateVertexBuffer(vid_d3d9dev, (unsigned int)(offset+size), buffer->isdynamic ? D3DUSAGE_WRITEONLY | D3DUSAGE_DYNAMIC : 0, 0, buffer->isdynamic ? D3DPOOL_DEFAULT : D3DPOOL_MANAGED, &d3d9vertexbuffer, NULL)))
-						Sys_Error("IDirect3DDevice9_CreateVertexBuffer(%p, %d, %x, %x, %x, %p, NULL) returned %x\n", vid_d3d9dev, (int)size, buffer->isdynamic ? (int)D3DUSAGE_DYNAMIC : 0, 0, buffer->isdynamic ? (int)D3DPOOL_DEFAULT : (int)D3DPOOL_MANAGED, &d3d9vertexbuffer, (int)result);
-					buffer->devicebuffer = (void *)d3d9vertexbuffer;
-					buffer->size = offset+size;
-				}
-				if (!FAILED(IDirect3DVertexBuffer9_Lock(d3d9vertexbuffer, (unsigned int)offset, (unsigned int)size, &datapointer, buffer->isdynamic ? D3DLOCK_DISCARD : 0)))
-				{
-					if (data)
-						memcpy(datapointer, data, size);
-					else
-						memset(datapointer, 0, size);
-					IDirect3DVertexBuffer9_Unlock(d3d9vertexbuffer);
-				}
-			}
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -3467,26 +2720,6 @@ void R_Mesh_DestroyMeshBuffer(r_meshbuffer_t *buffer)
 		if (gl_state.elementbufferobject == buffer->bufferobject)
 			gl_state.elementbufferobject = 0;
 		qglDeleteBuffersARB(1, (GLuint *)&buffer->bufferobject);
-		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		if (gl_state.d3dvertexbuffer == (void *)buffer)
-			gl_state.d3dvertexbuffer = NULL;
-		if (buffer->devicebuffer)
-		{
-			if (buffer->isindexbuffer)
-				IDirect3DIndexBuffer9_Release((IDirect3DIndexBuffer9 *)buffer->devicebuffer);
-			else
-				IDirect3DVertexBuffer9_Release((IDirect3DVertexBuffer9 *)buffer->devicebuffer);
-			buffer->devicebuffer = NULL;
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_SOFT:
 		break;
@@ -3583,9 +2816,6 @@ void R_Mesh_VertexPointer(int components, int gltype, size_t stride, const void 
 			qglVertexAttribPointer(GLSLATTRIB_POSITION, components, gltype & ~0x80000000, (gltype & 0x80000000) == 0, (GLsizei)stride, bufferobject ? (void *)bufferoffset : pointer);CHECKGLERROR
 		}
 		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -3679,9 +2909,6 @@ void R_Mesh_ColorPointer(int components, int gltype, size_t stride, const void *
 			}
 		}
 		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -3772,9 +2999,6 @@ void R_Mesh_TexCoordPointer(unsigned int unitnum, int components, int gltype, si
 			}
 		}
 		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -3807,48 +3031,11 @@ void R_Mesh_CopyToTexture(rtexture_t *tex, int tx, int ty, int sx, int sy, int w
 		GL_ActiveTexture(0);CHECKGLERROR
 		qglCopyTexSubImage2D(GL_TEXTURE_2D, 0, tx, ty, sx, sy, width, height);CHECKGLERROR
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		{
-			IDirect3DSurface9 *currentsurface = NULL;
-			IDirect3DSurface9 *texturesurface = NULL;
-			RECT sourcerect;
-			RECT destrect;
-			sourcerect.left = sx;
-			sourcerect.top = sy;
-			sourcerect.right = sx + width;
-			sourcerect.bottom = sy + height;
-			destrect.left = tx;
-			destrect.top = ty;
-			destrect.right = tx + width;
-			destrect.bottom = ty + height;
-			if (!FAILED(IDirect3DTexture9_GetSurfaceLevel(((IDirect3DTexture9 *)tex->d3dtexture), 0, &texturesurface)))
-			{
-				if (!FAILED(IDirect3DDevice9_GetRenderTarget(vid_d3d9dev, 0, &currentsurface)))
-				{
-					IDirect3DDevice9_StretchRect(vid_d3d9dev, currentsurface, &sourcerect, texturesurface, &destrect, D3DTEXF_NONE);
-					IDirect3DSurface9_Release(currentsurface);
-				}
-				IDirect3DSurface9_Release(texturesurface);
-			}
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_CopyRectangleToTexture(tex->texnum, 0, tx, ty, sx, sy, width, height);
 		break;
 	}
 }
-
-#ifdef SUPPORTD3D
-int d3drswrap[16] = {D3DRS_WRAP0, D3DRS_WRAP1, D3DRS_WRAP2, D3DRS_WRAP3, D3DRS_WRAP4, D3DRS_WRAP5, D3DRS_WRAP6, D3DRS_WRAP7, D3DRS_WRAP8, D3DRS_WRAP9, D3DRS_WRAP10, D3DRS_WRAP11, D3DRS_WRAP12, D3DRS_WRAP13, D3DRS_WRAP14, D3DRS_WRAP15};
-#endif
 
 void R_Mesh_ClearBindingsForTexture(int texnum)
 {
@@ -3982,43 +3169,6 @@ void R_Mesh_TexBind(unsigned int unitnum, rtexture_t *tex)
 			qglBindTexture(GL_TEXTURE_CUBE_MAP, unit->tcubemap);CHECKGLERROR
 		}
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		{
-			extern cvar_t gl_texture_anisotropy;
-			if (!tex)
-			{
-				tex = r_texture_white;
-				// not initialized enough yet...
-				if (!tex)
-					return;
-			}
-			// upload texture if needed
-			R_GetTexture(tex);
-			if (unit->texture == tex)
-				return;
-			unit->texture = tex;
-			IDirect3DDevice9_SetTexture(vid_d3d9dev, unitnum, (IDirect3DBaseTexture9*)tex->d3dtexture);
-			//IDirect3DDevice9_SetRenderState(vid_d3d9dev, d3drswrap[unitnum], (tex->flags & TEXF_CLAMP) ? (D3DWRAPCOORD_0 | D3DWRAPCOORD_1 | D3DWRAPCOORD_2) : 0);
-			IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_ADDRESSU, tex->d3daddressu);
-			IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_ADDRESSV, tex->d3daddressv);
-			if (tex->d3daddressw)
-				IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_ADDRESSW,  tex->d3daddressw);
-			IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_MAGFILTER, tex->d3dmagfilter);
-			IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_MINFILTER, tex->d3dminfilter);
-			IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_MIPFILTER, tex->d3dmipfilter);
-			IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_MIPMAPLODBIAS, tex->d3dmipmaplodbias);
-			IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_MAXMIPLEVEL, tex->d3dmaxmiplevelfilter);
-			IDirect3DDevice9_SetSamplerState(vid_d3d9dev, unitnum, D3DSAMP_MAXANISOTROPY, gl_texture_anisotropy.integer);
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		if (!tex)
 		{
@@ -4079,10 +3229,6 @@ void R_Mesh_TexMatrix(unsigned int unitnum, const matrix4x4_t *matrix)
 			}
 		}
 #endif
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 		break;
 	case RENDERPATH_SOFT:
 		break;
@@ -4168,10 +3314,6 @@ void R_Mesh_TexCombine(unsigned int unitnum, int combinergb, int combinealpha, i
 			qglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, unit->combine);CHECKGLERROR
 		}
 		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		break;
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -4192,9 +3334,6 @@ void R_Mesh_ResetTextureState(void)
 	{
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 		break;
 	case RENDERPATH_GL11:
@@ -4207,92 +3346,6 @@ void R_Mesh_ResetTextureState(void)
 		}
 		break;
 	}
-}
-
-
-
-#ifdef SUPPORTD3D
-//#define r_vertex3f_d3d9fvf (D3DFVF_XYZ)
-//#define r_vertexgeneric_d3d9fvf (D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1)
-//#define r_vertexmesh_d3d9fvf (D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX5 | D3DFVF_TEXCOORDSIZE1(3) | D3DFVF_TEXCOORDSIZE2(3) | D3DFVF_TEXCOORDSIZE3(3))
-
-D3DVERTEXELEMENT9 r_vertex3f_d3d9elements[] =
-{
-	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
-	D3DDECL_END()
-};
-
-D3DVERTEXELEMENT9 r_vertexgeneric_d3d9elements[] =
-{
-	{0, (int)((size_t)&((r_vertexgeneric_t *)0)->vertex3f  ), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
-	{0, (int)((size_t)&((r_vertexgeneric_t *)0)->color4f   ), D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0},
-	{0, (int)((size_t)&((r_vertexgeneric_t *)0)->texcoord2f), D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0},
-	D3DDECL_END()
-};
-
-D3DVERTEXELEMENT9 r_vertexmesh_d3d9elements[] =
-{
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->vertex3f          ), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->color4f           ), D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR, 0},
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->texcoordtexture2f ), D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0},
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->svector3f         ), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 1},
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->tvector3f         ), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 2},
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->normal3f          ), D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 3},
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->texcoordlightmap2f), D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 4},
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->skeletalindex4ub  ), D3DDECLTYPE_UBYTE4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 6},
-	{0, (int)((size_t)&((r_vertexmesh_t *)0)->skeletalweight4ub ), D3DDECLTYPE_UBYTE4N, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 7},
-	D3DDECL_END()
-};
-
-IDirect3DVertexDeclaration9 *r_vertex3f_d3d9decl;
-IDirect3DVertexDeclaration9 *r_vertexgeneric_d3d9decl;
-IDirect3DVertexDeclaration9 *r_vertexmesh_d3d9decl;
-#endif
-
-static void R_Mesh_InitVertexDeclarations(void)
-{
-#ifdef SUPPORTD3D
-	r_vertex3f_d3d9decl = NULL;
-	r_vertexgeneric_d3d9decl = NULL;
-	r_vertexmesh_d3d9decl = NULL;
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL20:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL11:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		break;
-	case RENDERPATH_D3D9:
-		IDirect3DDevice9_CreateVertexDeclaration(vid_d3d9dev, r_vertex3f_d3d9elements, &r_vertex3f_d3d9decl);
-		IDirect3DDevice9_CreateVertexDeclaration(vid_d3d9dev, r_vertexgeneric_d3d9elements, &r_vertexgeneric_d3d9decl);
-		IDirect3DDevice9_CreateVertexDeclaration(vid_d3d9dev, r_vertexmesh_d3d9elements, &r_vertexmesh_d3d9decl);
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_SOFT:
-		break;
-	}
-#endif
-}
-
-static void R_Mesh_DestroyVertexDeclarations(void)
-{
-#ifdef SUPPORTD3D
-	if (r_vertex3f_d3d9decl)
-		IDirect3DVertexDeclaration9_Release(r_vertex3f_d3d9decl);
-	r_vertex3f_d3d9decl = NULL;
-	if (r_vertexgeneric_d3d9decl)
-		IDirect3DVertexDeclaration9_Release(r_vertexgeneric_d3d9decl);
-	r_vertexgeneric_d3d9decl = NULL;
-	if (r_vertexmesh_d3d9decl)
-		IDirect3DVertexDeclaration9_Release(r_vertexmesh_d3d9decl);
-	r_vertexmesh_d3d9decl = NULL;
-#endif
 }
 
 void R_Mesh_PrepareVertices_Vertex3f(int numvertices, const float *vertex3f, const r_meshbuffer_t *vertexbuffer, int bufferoffset)
@@ -4363,24 +3416,6 @@ void R_Mesh_PrepareVertices_Vertex3f(int numvertices, const float *vertex3f, con
 			R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), NULL, NULL, 0);
 			R_Mesh_TexCoordPointer(0, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
 		}
-		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DDevice9_SetVertexDeclaration(vid_d3d9dev, r_vertex3f_d3d9decl);
-		if (vertexbuffer)
-			IDirect3DDevice9_SetStreamSource(vid_d3d9dev, 0, (IDirect3DVertexBuffer9*)vertexbuffer->devicebuffer, bufferoffset, sizeof(float[3]));
-		else
-			IDirect3DDevice9_SetStreamSource(vid_d3d9dev, 0, NULL, 0, 0);
-		gl_state.d3dvertexbuffer = (void *)vertexbuffer;
-		gl_state.d3dvertexdata = (void *)vertex3f;
-		gl_state.d3dvertexsize = sizeof(float[3]);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_SetVertexPointer(vertex3f, sizeof(float[3]));
@@ -4477,10 +3512,6 @@ void R_Mesh_PrepareVertices_Generic_Arrays(int numvertices, const float *vertex3
 				R_Mesh_TexCoordPointer(2, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
 			return;
 		}
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_SetVertexPointer(vertex3f, sizeof(float[3]));
@@ -4582,24 +3613,6 @@ void R_Mesh_PrepareVertices_Generic(int numvertices, const r_vertexgeneric_t *ve
 			R_Mesh_ColorPointer(      4, GL_FLOAT        , sizeof(*vertex), vertex->color4f           , NULL, 0);
 			R_Mesh_TexCoordPointer(0, 2, GL_FLOAT        , sizeof(*vertex), vertex->texcoord2f        , NULL, 0);
 		}
-		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DDevice9_SetVertexDeclaration(vid_d3d9dev, r_vertexgeneric_d3d9decl);
-		if (vertexbuffer)
-			IDirect3DDevice9_SetStreamSource(vid_d3d9dev, 0, (IDirect3DVertexBuffer9*)vertexbuffer->devicebuffer, bufferoffset, sizeof(*vertex));
-		else
-			IDirect3DDevice9_SetStreamSource(vid_d3d9dev, 0, NULL, 0, 0);
-		gl_state.d3dvertexbuffer = (void *)vertexbuffer;
-		gl_state.d3dvertexdata = (void *)vertex;
-		gl_state.d3dvertexsize = sizeof(*vertex);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_SetVertexPointer(vertex->vertex3f, sizeof(*vertex));
@@ -4708,10 +3721,6 @@ void R_Mesh_PrepareVertices_Mesh_Arrays(int numvertices, const float *vertex3f, 
 				R_Mesh_TexCoordPointer(2, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
 			return;
 		}
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_SetVertexPointer(vertex3f, sizeof(float[3]));
@@ -4825,24 +3834,6 @@ void R_Mesh_PrepareVertices_Mesh(int numvertices, const r_vertexmesh_t *vertex, 
 			R_Mesh_TexCoordPointer(0, 2, GL_FLOAT        , sizeof(*vertex), vertex->texcoordtexture2f , NULL, 0);
 		}
 		break;
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		IDirect3DDevice9_SetVertexDeclaration(vid_d3d9dev, r_vertexmesh_d3d9decl);
-		if (vertexbuffer)
-			IDirect3DDevice9_SetStreamSource(vid_d3d9dev, 0, (IDirect3DVertexBuffer9*)vertexbuffer->devicebuffer, bufferoffset, sizeof(*vertex));
-		else
-			IDirect3DDevice9_SetStreamSource(vid_d3d9dev, 0, NULL, 0, 0);
-		gl_state.d3dvertexbuffer = (void *)vertexbuffer;
-		gl_state.d3dvertexdata = (void *)vertex;
-		gl_state.d3dvertexsize = sizeof(*vertex);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		DPSOFTRAST_SetVertexPointer(vertex->vertex3f, sizeof(*vertex));
 		DPSOFTRAST_SetColorPointer(vertex->color4f, sizeof(*vertex));
@@ -4868,17 +3859,6 @@ void GL_BlendEquationSubtract(qboolean negated)
 		case RENDERPATH_GLES2:
 			qglBlendEquationEXT(GL_FUNC_REVERSE_SUBTRACT);
 			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_BLENDOP, D3DBLENDOP_SUBTRACT);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_BlendSubtract(true);
 			break;
@@ -4894,17 +3874,6 @@ void GL_BlendEquationSubtract(qboolean negated)
 		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
 			qglBlendEquationEXT(GL_FUNC_ADD);
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			IDirect3DDevice9_SetRenderState(vid_d3d9dev, D3DRS_BLENDOP, D3DBLENDOP_ADD);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
 		case RENDERPATH_SOFT:
 			DPSOFTRAST_BlendSubtract(false);

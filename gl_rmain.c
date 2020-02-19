@@ -30,11 +30,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "dpsoftrast.h"
 #include "random.h"
 
-#ifdef SUPPORTD3D
-#include <d3d9.h>
-extern LPDIRECT3DDEVICE9 vid_d3d9dev;
-#endif
-
 #ifdef WIN32
 // Enable NVIDIA High Performance Graphics while using Integrated Graphics.
 #ifdef __cplusplus
@@ -1412,474 +1407,6 @@ static void R_SetupShader_SetPermutationGLSL(unsigned int mode, unsigned int per
 	CHECKGLERROR
 }
 
-#ifdef SUPPORTD3D
-
-#ifdef SUPPORTD3D
-#include <d3d9.h>
-extern LPDIRECT3DDEVICE9 vid_d3d9dev;
-extern D3DCAPS9 vid_d3d9caps;
-#endif
-
-struct r_hlsl_permutation_s;
-typedef struct r_hlsl_permutation_s
-{
-	/// hash lookup data
-	struct r_hlsl_permutation_s *hashnext;
-	unsigned int mode;
-	unsigned int permutation;
-
-	/// indicates if we have tried compiling this permutation already
-	qboolean compiled;
-	/// NULL if compilation failed
-	IDirect3DVertexShader9 *vertexshader;
-	IDirect3DPixelShader9 *pixelshader;
-}
-r_hlsl_permutation_t;
-
-typedef enum D3DVSREGISTER_e
-{
-	D3DVSREGISTER_TexMatrix = 0, // float4x4
-	D3DVSREGISTER_BackgroundTexMatrix = 4, // float4x4
-	D3DVSREGISTER_ModelViewProjectionMatrix = 8, // float4x4
-	D3DVSREGISTER_ModelViewMatrix = 12, // float4x4
-	D3DVSREGISTER_ShadowMapMatrix = 16, // float4x4
-	D3DVSREGISTER_ModelToLight = 20, // float4x4
-	D3DVSREGISTER_EyePosition = 24,
-	D3DVSREGISTER_FogPlane = 25,
-	D3DVSREGISTER_LightDir = 26,
-	D3DVSREGISTER_LightPosition = 27,
-}
-D3DVSREGISTER_t;
-
-typedef enum D3DPSREGISTER_e
-{
-	D3DPSREGISTER_Alpha = 0,
-	D3DPSREGISTER_BloomBlur_Parameters = 1,
-	D3DPSREGISTER_ClientTime = 2,
-	D3DPSREGISTER_Color_Ambient = 3,
-	D3DPSREGISTER_Color_Diffuse = 4,
-	D3DPSREGISTER_Color_Specular = 5,
-	D3DPSREGISTER_Color_Glow = 6,
-	D3DPSREGISTER_Color_Pants = 7,
-	D3DPSREGISTER_Color_Shirt = 8,
-	D3DPSREGISTER_DeferredColor_Ambient = 9,
-	D3DPSREGISTER_DeferredColor_Diffuse = 10,
-	D3DPSREGISTER_DeferredColor_Specular = 11,
-	D3DPSREGISTER_DeferredMod_Diffuse = 12,
-	D3DPSREGISTER_DeferredMod_Specular = 13,
-	D3DPSREGISTER_DistortScaleRefractReflect = 14,
-	D3DPSREGISTER_EyePosition = 15, // unused
-	D3DPSREGISTER_FogColor = 16,
-	D3DPSREGISTER_FogHeightFade = 17,
-	D3DPSREGISTER_FogPlane = 18,
-	D3DPSREGISTER_FogPlaneViewDist = 19,
-	D3DPSREGISTER_FogRangeRecip = 20,
-	D3DPSREGISTER_LightColor = 21,
-	D3DPSREGISTER_LightDir = 22, // unused
-	D3DPSREGISTER_LightPosition = 23,
-	D3DPSREGISTER_OffsetMapping_ScaleSteps = 24,
-	D3DPSREGISTER_PixelSize = 25,
-	D3DPSREGISTER_ReflectColor = 26,
-	D3DPSREGISTER_ReflectFactor = 27,
-	D3DPSREGISTER_ReflectOffset = 28,
-	D3DPSREGISTER_RefractColor = 29,
-	D3DPSREGISTER_Saturation = 30,
-	D3DPSREGISTER_ScreenCenterRefractReflect = 31,
-	D3DPSREGISTER_ScreenScaleRefractReflect = 32,
-	D3DPSREGISTER_ScreenToDepth = 33,
-	D3DPSREGISTER_ShadowMap_Parameters = 34,
-	D3DPSREGISTER_ShadowMap_TextureScale = 35,
-	D3DPSREGISTER_SpecularPower = 36,
-	D3DPSREGISTER_UserVec1 = 37,
-	D3DPSREGISTER_UserVec2 = 38,
-	D3DPSREGISTER_UserVec3 = 39,
-	D3DPSREGISTER_UserVec4 = 40,
-	D3DPSREGISTER_ViewTintColor = 41,
-	D3DPSREGISTER_PixelToScreenTexCoord = 42,
-	D3DPSREGISTER_BloomColorSubtract = 43,
-	D3DPSREGISTER_ViewToLight = 44, // float4x4
-	D3DPSREGISTER_ModelToReflectCube = 48, // float4x4
-	D3DPSREGISTER_NormalmapScrollBlend = 52,
-	D3DPSREGISTER_OffsetMapping_LodDistance = 53,
-	D3DPSREGISTER_OffsetMapping_Bias = 54,
-	// next at 54
-}
-D3DPSREGISTER_t;
-
-/// information about each possible shader permutation
-r_hlsl_permutation_t *r_hlsl_permutationhash[SHADERMODE_COUNT][SHADERPERMUTATION_HASHSIZE];
-/// currently selected permutation
-r_hlsl_permutation_t *r_hlsl_permutation;
-/// storage for permutations linked in the hash table
-memexpandablearray_t r_hlsl_permutationarray;
-
-static r_hlsl_permutation_t *R_HLSL_FindPermutation(unsigned int mode, unsigned int permutation)
-{
-	//unsigned int hashdepth = 0;
-	unsigned int hashindex = (permutation * 0x1021) & (SHADERPERMUTATION_HASHSIZE - 1);
-	r_hlsl_permutation_t *p;
-	for (p = r_hlsl_permutationhash[mode][hashindex];p;p = p->hashnext)
-	{
-		if (p->mode == mode && p->permutation == permutation)
-		{
-			//if (hashdepth > 10)
-			//	Con_Printf("R_HLSL_FindPermutation: Warning: %i:%i has hashdepth %i\n", mode, permutation, hashdepth);
-			return p;
-		}
-		//hashdepth++;
-	}
-	p = (r_hlsl_permutation_t*)Mem_ExpandableArray_AllocRecord(&r_hlsl_permutationarray);
-	p->mode = mode;
-	p->permutation = permutation;
-	p->hashnext = r_hlsl_permutationhash[mode][hashindex];
-	r_hlsl_permutationhash[mode][hashindex] = p;
-	//if (hashdepth > 10)
-	//	Con_Printf("R_HLSL_FindPermutation: Warning: %i:%i has hashdepth %i\n", mode, permutation, hashdepth);
-	return p;
-}
-
-#include <d3dx9.h>
-//#include <d3dx9shader.h>
-//#include <d3dx9mesh.h>
-
-static void R_HLSL_CacheShader(r_hlsl_permutation_t *p, const char *cachename, const char *vertstring, const char *fragstring)
-{
-	DWORD *vsbin = NULL;
-	DWORD *psbin = NULL;
-	fs_offset_t vsbinsize;
-	fs_offset_t psbinsize;
-//	IDirect3DVertexShader9 *vs = NULL;
-//	IDirect3DPixelShader9 *ps = NULL;
-	ID3DXBuffer *vslog = NULL;
-	ID3DXBuffer *vsbuffer = NULL;
-	ID3DXConstantTable *vsconstanttable = NULL;
-	ID3DXBuffer *pslog = NULL;
-	ID3DXBuffer *psbuffer = NULL;
-	ID3DXConstantTable *psconstanttable = NULL;
-	int vsresult = 0;
-	int psresult = 0;
-	char temp[MAX_INPUTLINE];
-	const char *vsversion = "vs_3_0", *psversion = "ps_3_0";
-	char vabuf[1024];
-	qboolean debugshader = gl_paranoid.integer != 0;
-	if (p->permutation & SHADERPERMUTATION_OFFSETMAPPING) {vsversion = "vs_3_0";psversion = "ps_3_0";}
-	if (p->permutation & SHADERPERMUTATION_OFFSETMAPPING_RELIEFMAPPING) {vsversion = "vs_3_0";psversion = "ps_3_0";}
-	if (!debugshader)
-	{
-		vsbin = (DWORD *)FS_LoadFile(va(vabuf, sizeof(vabuf), "%s.vsbin", cachename), r_main_mempool, true, &vsbinsize);
-		psbin = (DWORD *)FS_LoadFile(va(vabuf, sizeof(vabuf), "%s.psbin", cachename), r_main_mempool, true, &psbinsize);
-	}
-	if ((!vsbin && vertstring) || (!psbin && fragstring))
-	{
-		const char* dllnames_d3dx9 [] =
-		{
-			"d3dx9_43.dll",
-			"d3dx9_42.dll",
-			"d3dx9_41.dll",
-			"d3dx9_40.dll",
-			"d3dx9_39.dll",
-			"d3dx9_38.dll",
-			"d3dx9_37.dll",
-			"d3dx9_36.dll",
-			"d3dx9_35.dll",
-			"d3dx9_34.dll",
-			"d3dx9_33.dll",
-			"d3dx9_32.dll",
-			"d3dx9_31.dll",
-			"d3dx9_30.dll",
-			"d3dx9_29.dll",
-			"d3dx9_28.dll",
-			"d3dx9_27.dll",
-			"d3dx9_26.dll",
-			"d3dx9_25.dll",
-			"d3dx9_24.dll",
-			NULL
-		};
-		dllhandle_t d3dx9_dll = NULL;
-		HRESULT (WINAPI *qD3DXCompileShaderFromFileA)(LPCSTR pSrcFile, CONST D3DXMACRO* pDefines, LPD3DXINCLUDE pInclude, LPCSTR pFunctionName, LPCSTR pProfile, DWORD Flags, LPD3DXBUFFER* ppShader, LPD3DXBUFFER* ppErrorMsgs, LPD3DXCONSTANTTABLE* ppConstantTable);
-		HRESULT (WINAPI *qD3DXPreprocessShader)(LPCSTR pSrcData, UINT SrcDataSize, CONST D3DXMACRO* pDefines, LPD3DXINCLUDE pInclude, LPD3DXBUFFER* ppShaderText, LPD3DXBUFFER* ppErrorMsgs);
-		HRESULT (WINAPI *qD3DXCompileShader)(LPCSTR pSrcData, UINT SrcDataLen, CONST D3DXMACRO* pDefines, LPD3DXINCLUDE pInclude, LPCSTR pFunctionName, LPCSTR pProfile, DWORD Flags, LPD3DXBUFFER* ppShader, LPD3DXBUFFER* ppErrorMsgs, LPD3DXCONSTANTTABLE* ppConstantTable);
-		dllfunction_t d3dx9_dllfuncs[] =
-		{
-			{"D3DXCompileShaderFromFileA",	(void **) &qD3DXCompileShaderFromFileA},
-			{"D3DXPreprocessShader",		(void **) &qD3DXPreprocessShader},
-			{"D3DXCompileShader",			(void **) &qD3DXCompileShader},
-			{NULL, NULL}
-		};
-		// LordHavoc: the June 2010 SDK lacks these macros to make ID3DXBuffer usable in C, and to make it work in both C and C++ the macros are needed...
-#ifndef ID3DXBuffer_GetBufferPointer
-#if !defined(__cplusplus) || defined(CINTERFACE)
-#define ID3DXBuffer_GetBufferPointer(p)   (p)->lpVtbl->GetBufferPointer(p)
-#define ID3DXBuffer_GetBufferSize(p)      (p)->lpVtbl->GetBufferSize(p)
-#define ID3DXBuffer_Release(p)            (p)->lpVtbl->Release(p)
-#else
-#define ID3DXBuffer_GetBufferPointer(p)   (p)->GetBufferPointer()
-#define ID3DXBuffer_GetBufferSize(p)      (p)->GetBufferSize()
-#define ID3DXBuffer_Release(p)            (p)->Release()
-#endif
-#endif
-		if (Sys_LoadLibrary(dllnames_d3dx9, &d3dx9_dll, d3dx9_dllfuncs))
-		{
-			DWORD shaderflags = 0;
-			if (debugshader)
-				shaderflags = D3DXSHADER_DEBUG | D3DXSHADER_SKIPOPTIMIZATION;
-			vsbin = (DWORD *)Mem_Realloc(tempmempool, vsbin, 0);
-			psbin = (DWORD *)Mem_Realloc(tempmempool, psbin, 0);
-			if (vertstring && vertstring[0])
-			{
-				if (debugshader)
-				{
-					FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_vs.fx", cachename), vertstring, strlen(vertstring));
-					vsresult = qD3DXCompileShaderFromFileA(va(vabuf, sizeof(vabuf), "%s/%s_vs.fx", fs_gamedir, cachename), NULL, NULL, "main", vsversion, shaderflags, &vsbuffer, &vslog, &vsconstanttable);
-				}
-				else
-					vsresult = qD3DXCompileShader(vertstring, (unsigned int)strlen(vertstring), NULL, NULL, "main", vsversion, shaderflags, &vsbuffer, &vslog, &vsconstanttable);
-				if (vsbuffer)
-				{
-					vsbinsize = ID3DXBuffer_GetBufferSize(vsbuffer);
-					vsbin = (DWORD *)Mem_Alloc(tempmempool, vsbinsize);
-					memcpy(vsbin, ID3DXBuffer_GetBufferPointer(vsbuffer), vsbinsize);
-					ID3DXBuffer_Release(vsbuffer);
-				}
-				if (vslog)
-				{
-					strlcpy(temp, (const char *)ID3DXBuffer_GetBufferPointer(vslog), min(sizeof(temp), ID3DXBuffer_GetBufferSize(vslog)));
-					Con_DPrintf("HLSL vertex shader compile output for %s follows:\n%s\n", cachename, temp);
-					ID3DXBuffer_Release(vslog);
-				}
-			}
-			if (fragstring && fragstring[0])
-			{
-				if (debugshader)
-				{
-					FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_ps.fx", cachename), fragstring, strlen(fragstring));
-					psresult = qD3DXCompileShaderFromFileA(va(vabuf, sizeof(vabuf), "%s/%s_ps.fx", fs_gamedir, cachename), NULL, NULL, "main", psversion, shaderflags, &psbuffer, &pslog, &psconstanttable);
-				}
-				else
-					psresult = qD3DXCompileShader(fragstring, (unsigned int)strlen(fragstring), NULL, NULL, "main", psversion, shaderflags, &psbuffer, &pslog, &psconstanttable);
-				if (psbuffer)
-				{
-					psbinsize = ID3DXBuffer_GetBufferSize(psbuffer);
-					psbin = (DWORD *)Mem_Alloc(tempmempool, psbinsize);
-					memcpy(psbin, ID3DXBuffer_GetBufferPointer(psbuffer), psbinsize);
-					ID3DXBuffer_Release(psbuffer);
-				}
-				if (pslog)
-				{
-					strlcpy(temp, (const char *)ID3DXBuffer_GetBufferPointer(pslog), min(sizeof(temp), ID3DXBuffer_GetBufferSize(pslog)));
-					Con_DPrintf("HLSL pixel shader compile output for %s follows:\n%s\n", cachename, temp);
-					ID3DXBuffer_Release(pslog);
-				}
-			}
-			Sys_UnloadLibrary(&d3dx9_dll);
-		}
-		else
-			Con_DPrintf("Unable to compile shader - D3DXCompileShader function not found\n");
-	}
-	if (vsbin && psbin)
-	{
-		vsresult = IDirect3DDevice9_CreateVertexShader(vid_d3d9dev, vsbin, &p->vertexshader);
-		if (FAILED(vsresult))
-			Con_DPrintf("HLSL CreateVertexShader failed for %s (hresult = %8x)\n", cachename, vsresult);
-		psresult = IDirect3DDevice9_CreatePixelShader(vid_d3d9dev, psbin, &p->pixelshader);
-		if (FAILED(psresult))
-			Con_DPrintf("HLSL CreatePixelShader failed for %s (hresult = %8x)\n", cachename, psresult);
-	}
-	// free the shader data
-	vsbin = (DWORD *)Mem_Realloc(tempmempool, vsbin, 0);
-	psbin = (DWORD *)Mem_Realloc(tempmempool, psbin, 0);
-}
-
-static void R_HLSL_CompilePermutation(r_hlsl_permutation_t *p, unsigned int mode, unsigned int permutation)
-{
-	int i;
-	shadermodeinfo_t *modeinfo = &shadermodeinfo[SHADERLANGUAGE_HLSL][mode];
-	int vertstring_length = 0;
-	int geomstring_length = 0;
-	int fragstring_length = 0;
-	char *t;
-	char *sourcestring;
-	char *vertstring, *geomstring, *fragstring;
-	char permutationname[256];
-	char cachename[256];
-	int vertstrings_count = 0;
-	int geomstrings_count = 0;
-	int fragstrings_count = 0;
-	const char *vertstrings_list[32+5+SHADERSTATICPARMS_COUNT+1];
-	const char *geomstrings_list[32+5+SHADERSTATICPARMS_COUNT+1];
-	const char *fragstrings_list[32+5+SHADERSTATICPARMS_COUNT+1];
-
-	if (p->compiled)
-		return;
-	p->compiled = true;
-	p->vertexshader = NULL;
-	p->pixelshader = NULL;
-
-	permutationname[0] = 0;
-	cachename[0] = 0;
-	sourcestring = ShaderModeInfo_GetShaderText(modeinfo, true, false);
-
-	strlcat(permutationname, modeinfo->filename, sizeof(permutationname));
-	strlcat(cachename, "hlsl/", sizeof(cachename));
-
-	// define HLSL so that the shader can tell apart the HLSL compiler and the Cg compiler
-	vertstrings_count = 0;
-	geomstrings_count = 0;
-	fragstrings_count = 0;
-	vertstrings_list[vertstrings_count++] = "#define HLSL\n";
-	geomstrings_list[geomstrings_count++] = "#define HLSL\n";
-	fragstrings_list[fragstrings_count++] = "#define HLSL\n";
-
-	// the first pretext is which type of shader to compile as
-	// (later these will all be bound together as a program object)
-	vertstrings_list[vertstrings_count++] = "#define VERTEX_SHADER\n";
-	geomstrings_list[geomstrings_count++] = "#define GEOMETRY_SHADER\n";
-	fragstrings_list[fragstrings_count++] = "#define FRAGMENT_SHADER\n";
-
-	// the second pretext is the mode (for example a light source)
-	vertstrings_list[vertstrings_count++] = modeinfo->pretext;
-	geomstrings_list[geomstrings_count++] = modeinfo->pretext;
-	fragstrings_list[fragstrings_count++] = modeinfo->pretext;
-	strlcat(permutationname, modeinfo->name, sizeof(permutationname));
-	strlcat(cachename, modeinfo->name, sizeof(cachename));
-
-	// now add all the permutation pretexts
-	for (i = 0;i < SHADERPERMUTATION_COUNT;i++)
-	{
-		if (permutation & (1<<i))
-		{
-			vertstrings_list[vertstrings_count++] = shaderpermutationinfo[i].pretext;
-			geomstrings_list[geomstrings_count++] = shaderpermutationinfo[i].pretext;
-			fragstrings_list[fragstrings_count++] = shaderpermutationinfo[i].pretext;
-			strlcat(permutationname, shaderpermutationinfo[i].name, sizeof(permutationname));
-			strlcat(cachename, shaderpermutationinfo[i].name, sizeof(cachename));
-		}
-		else
-		{
-			// keep line numbers correct
-			vertstrings_list[vertstrings_count++] = "\n";
-			geomstrings_list[geomstrings_count++] = "\n";
-			fragstrings_list[fragstrings_count++] = "\n";
-		}
-	}
-
-	// add static parms
-	R_CompileShader_AddStaticParms(mode, permutation);
-	memcpy(vertstrings_list + vertstrings_count, shaderstaticparmstrings_list, sizeof(*vertstrings_list) * shaderstaticparms_count);
-	vertstrings_count += shaderstaticparms_count;
-	memcpy(geomstrings_list + geomstrings_count, shaderstaticparmstrings_list, sizeof(*vertstrings_list) * shaderstaticparms_count);
-	geomstrings_count += shaderstaticparms_count;
-	memcpy(fragstrings_list + fragstrings_count, shaderstaticparmstrings_list, sizeof(*vertstrings_list) * shaderstaticparms_count);
-	fragstrings_count += shaderstaticparms_count;
-
-	// replace spaces in the cachename with _ characters
-	for (i = 0;cachename[i];i++)
-		if (cachename[i] == ' ')
-			cachename[i] = '_';
-
-	// now append the shader text itself
-	vertstrings_list[vertstrings_count++] = sourcestring;
-	geomstrings_list[geomstrings_count++] = sourcestring;
-	fragstrings_list[fragstrings_count++] = sourcestring;
-
-	vertstring_length = 0;
-	for (i = 0;i < vertstrings_count;i++)
-		vertstring_length += (int)strlen(vertstrings_list[i]);
-	vertstring = t = (char *)Mem_Alloc(tempmempool, vertstring_length + 1);
-	for (i = 0;i < vertstrings_count;t += (int)strlen(vertstrings_list[i]), i++)
-		memcpy(t, vertstrings_list[i], strlen(vertstrings_list[i]));
-
-	geomstring_length = 0;
-	for (i = 0;i < geomstrings_count;i++)
-		geomstring_length += (int)strlen(geomstrings_list[i]);
-	geomstring = t = (char *)Mem_Alloc(tempmempool, geomstring_length + 1);
-	for (i = 0;i < geomstrings_count;t += (int)strlen(geomstrings_list[i]), i++)
-		memcpy(t, geomstrings_list[i], strlen(geomstrings_list[i]));
-
-	fragstring_length = 0;
-	for (i = 0;i < fragstrings_count;i++)
-		fragstring_length += (int)strlen(fragstrings_list[i]);
-	fragstring = t = (char *)Mem_Alloc(tempmempool, fragstring_length + 1);
-	for (i = 0;i < fragstrings_count;t += (int)strlen(fragstrings_list[i]), i++)
-		memcpy(t, fragstrings_list[i], strlen(fragstrings_list[i]));
-
-	// try to load the cached shader, or generate one
-	R_HLSL_CacheShader(p, cachename, vertstring, fragstring);
-
-	if ((p->vertexshader || !vertstring[0]) && (p->pixelshader || !fragstring[0]))
-		Con_DPrintf("^5HLSL shader %s compiled.\n", permutationname);
-	else
-		Con_Printf("^1HLSL shader %s failed!  some features may not work properly.\n", permutationname);
-
-	// free the strings
-	if (vertstring)
-		Mem_Free(vertstring);
-	if (geomstring)
-		Mem_Free(geomstring);
-	if (fragstring)
-		Mem_Free(fragstring);
-	if (sourcestring)
-		Mem_Free(sourcestring);
-}
-
-static inline void hlslVSSetParameter16f(D3DVSREGISTER_t r, const float *a) {IDirect3DDevice9_SetVertexShaderConstantF(vid_d3d9dev, r, a, 4);}
-static inline void hlslVSSetParameter4fv(D3DVSREGISTER_t r, const float *a) {IDirect3DDevice9_SetVertexShaderConstantF(vid_d3d9dev, r, a, 1);}
-static inline void hlslVSSetParameter4f(D3DVSREGISTER_t r, float x, float y, float z, float w) {float temp[4];Vector4Set(temp, x, y, z, w);IDirect3DDevice9_SetVertexShaderConstantF(vid_d3d9dev, r, temp, 1);}
-static inline void hlslVSSetParameter3f(D3DVSREGISTER_t r, float x, float y, float z) {float temp[4];Vector4Set(temp, x, y, z, 0);IDirect3DDevice9_SetVertexShaderConstantF(vid_d3d9dev, r, temp, 1);}
-static inline void hlslVSSetParameter2f(D3DVSREGISTER_t r, float x, float y) {float temp[4];Vector4Set(temp, x, y, 0, 0);IDirect3DDevice9_SetVertexShaderConstantF(vid_d3d9dev, r, temp, 1);}
-static inline void hlslVSSetParameter1f(D3DVSREGISTER_t r, float x) {float temp[4];Vector4Set(temp, x, 0, 0, 0);IDirect3DDevice9_SetVertexShaderConstantF(vid_d3d9dev, r, temp, 1);}
-
-static inline void hlslPSSetParameter16f(D3DPSREGISTER_t r, const float *a) {IDirect3DDevice9_SetPixelShaderConstantF(vid_d3d9dev, r, a, 4);}
-static inline void hlslPSSetParameter4fv(D3DPSREGISTER_t r, const float *a) {IDirect3DDevice9_SetPixelShaderConstantF(vid_d3d9dev, r, a, 1);}
-static inline void hlslPSSetParameter4f(D3DPSREGISTER_t r, float x, float y, float z, float w) {float temp[4];Vector4Set(temp, x, y, z, w);IDirect3DDevice9_SetPixelShaderConstantF(vid_d3d9dev, r, temp, 1);}
-static inline void hlslPSSetParameter3f(D3DPSREGISTER_t r, float x, float y, float z) {float temp[4];Vector4Set(temp, x, y, z, 0);IDirect3DDevice9_SetPixelShaderConstantF(vid_d3d9dev, r, temp, 1);}
-static inline void hlslPSSetParameter2f(D3DPSREGISTER_t r, float x, float y) {float temp[4];Vector4Set(temp, x, y, 0, 0);IDirect3DDevice9_SetPixelShaderConstantF(vid_d3d9dev, r, temp, 1);}
-static inline void hlslPSSetParameter1f(D3DPSREGISTER_t r, float x) {float temp[4];Vector4Set(temp, x, 0, 0, 0);IDirect3DDevice9_SetPixelShaderConstantF(vid_d3d9dev, r, temp, 1);}
-
-void R_SetupShader_SetPermutationHLSL(unsigned int mode, unsigned int permutation)
-{
-	r_hlsl_permutation_t *perm = R_HLSL_FindPermutation(mode, permutation);
-	if (r_hlsl_permutation != perm)
-	{
-		r_hlsl_permutation = perm;
-		if (!r_hlsl_permutation->vertexshader && !r_hlsl_permutation->pixelshader)
-		{
-			if (!r_hlsl_permutation->compiled)
-				R_HLSL_CompilePermutation(perm, mode, permutation);
-			if (!r_hlsl_permutation->vertexshader && !r_hlsl_permutation->pixelshader)
-			{
-				// remove features until we find a valid permutation
-				int i;
-				for (i = 0;i < SHADERPERMUTATION_COUNT;i++)
-				{
-					// reduce i more quickly whenever it would not remove any bits
-					int j = 1<<(SHADERPERMUTATION_COUNT-1-i);
-					if (!(permutation & j))
-						continue;
-					permutation -= j;
-					r_hlsl_permutation = R_HLSL_FindPermutation(mode, permutation);
-					if (!r_hlsl_permutation->compiled)
-						R_HLSL_CompilePermutation(perm, mode, permutation);
-					if (r_hlsl_permutation->vertexshader || r_hlsl_permutation->pixelshader)
-						break;
-				}
-				if (i >= SHADERPERMUTATION_COUNT)
-				{
-					//Con_Printf("Could not find a working HLSL shader for permutation %s %s\n", shadermodeinfo[mode].filename, shadermodeinfo[mode].pretext);
-					r_hlsl_permutation = R_HLSL_FindPermutation(mode, permutation);
-					return; // no bit left to clear, entire mode is broken
-				}
-			}
-		}
-		IDirect3DDevice9_SetVertexShader(vid_d3d9dev, r_hlsl_permutation->vertexshader);
-		IDirect3DDevice9_SetPixelShader(vid_d3d9dev, r_hlsl_permutation->pixelshader);
-	}
-	hlslVSSetParameter16f(D3DVSREGISTER_ModelViewProjectionMatrix, gl_modelviewprojection16f);
-	hlslVSSetParameter16f(D3DVSREGISTER_ModelViewMatrix, gl_modelview16f);
-	hlslPSSetParameter1f(D3DPSREGISTER_ClientTime, cl.time);
-}
-#endif
-
 static void R_SetupShader_SetPermutationSoft(unsigned int mode, unsigned int permutation)
 {
 	DPSOFTRAST_SetShader(mode, permutation, r_shadow_glossexact.integer);
@@ -1893,33 +1420,6 @@ void R_GLSL_Restart_f(void)
 	unsigned int i, limit;
 	switch(vid.renderpath)
 	{
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		{
-			r_hlsl_permutation_t *p;
-			r_hlsl_permutation = NULL;
-			limit = (unsigned int)Mem_ExpandableArray_IndexRange(&r_hlsl_permutationarray);
-			for (i = 0;i < limit;i++)
-			{
-				if ((p = (r_hlsl_permutation_t*)Mem_ExpandableArray_RecordAtIndex(&r_hlsl_permutationarray, i)))
-				{
-					if (p->vertexshader)
-						IDirect3DVertexShader9_Release(p->vertexshader);
-					if (p->pixelshader)
-						IDirect3DPixelShader9_Release(p->pixelshader);
-					Mem_ExpandableArray_FreeRecord(&r_hlsl_permutationarray, (void*)p);
-				}
-			}
-			memset(r_hlsl_permutationhash, 0, sizeof(r_hlsl_permutationhash));
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
 		{
@@ -2013,21 +1513,6 @@ void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemod
 		GL_AlphaToCoverage(false);
 	switch (vid.renderpath)
 	{
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		R_SetupShader_SetPermutationHLSL(SHADERMODE_GENERIC, permutation);
-		R_Mesh_TexBind(GL20TU_FIRST , first );
-		R_Mesh_TexBind(GL20TU_SECOND, second);
-		if (permutation & SHADERPERMUTATION_GAMMARAMPS)
-			R_Mesh_TexBind(r_glsl_permutation->tex_Texture_GammaRamps, r_texture_gammaramps);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
 		R_SetupShader_SetPermutationGLSL(SHADERMODE_GENERIC, permutation);
@@ -2082,17 +1567,6 @@ void R_SetupShader_DepthOrShadow(qboolean notrippy, qboolean depthrgb, qboolean 
 		GL_AlphaToCoverage(false);
 	switch (vid.renderpath)
 	{
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		R_SetupShader_SetPermutationHLSL(SHADERMODE_DEPTH_OR_SHADOW, permutation);
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
 		R_SetupShader_SetPermutationGLSL(SHADERMODE_DEPTH_OR_SHADOW, permutation);
@@ -2583,165 +2057,6 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 		permutation |= SHADERPERMUTATION_FOGALPHAHACK;
 	switch(vid.renderpath)
 	{
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		RSurf_PrepareVerticesForBatch(BATCHNEED_VERTEXMESH_VERTEX | BATCHNEED_VERTEXMESH_NORMAL | BATCHNEED_VERTEXMESH_VECTOR | (rsurface.modellightmapcolor4f ? BATCHNEED_VERTEXMESH_VERTEXCOLOR : 0) | BATCHNEED_VERTEXMESH_TEXCOORD | (rsurface.uselightmaptexture ? BATCHNEED_VERTEXMESH_LIGHTMAP : 0) | BATCHNEED_ALLOWMULTIDRAW, texturenumsurfaces, texturesurfacelist);
-		R_Mesh_PrepareVertices_Mesh(rsurface.batchnumvertices, rsurface.batchvertexmesh, rsurface.batchvertexmesh_vertexbuffer, rsurface.batchvertexmesh_bufferoffset);
-		R_SetupShader_SetPermutationHLSL(mode, permutation);
-		Matrix4x4_ToArrayFloatGL(&rsurface.matrix, m16f);hlslPSSetParameter16f(D3DPSREGISTER_ModelToReflectCube, m16f);
-		if (mode == SHADERMODE_LIGHTSOURCE)
-		{
-			Matrix4x4_ToArrayFloatGL(&rsurface.entitytolight, m16f);hlslVSSetParameter16f(D3DVSREGISTER_ModelToLight, m16f);
-			hlslVSSetParameter3f(D3DVSREGISTER_LightPosition, rsurface.entitylightorigin[0], rsurface.entitylightorigin[1], rsurface.entitylightorigin[2]);
-		}
-		else
-		{
-			if (mode == SHADERMODE_LIGHTDIRECTION)
-			{
-				hlslVSSetParameter3f(D3DVSREGISTER_LightDir, rsurface.modellight_lightdir[0], rsurface.modellight_lightdir[1], rsurface.modellight_lightdir[2]);
-			}
-		}
-		Matrix4x4_ToArrayFloatGL(&rsurface.texture->currenttexmatrix, m16f);hlslVSSetParameter16f(D3DVSREGISTER_TexMatrix, m16f);
-		Matrix4x4_ToArrayFloatGL(&rsurface.texture->currentbackgroundtexmatrix, m16f);hlslVSSetParameter16f(D3DVSREGISTER_BackgroundTexMatrix, m16f);
-		Matrix4x4_ToArrayFloatGL(&r_shadow_shadowmapmatrix, m16f);hlslVSSetParameter16f(D3DVSREGISTER_ShadowMapMatrix, m16f);
-		hlslVSSetParameter3f(D3DVSREGISTER_EyePosition, rsurface.localvieworigin[0], rsurface.localvieworigin[1], rsurface.localvieworigin[2]);
-		hlslVSSetParameter4f(D3DVSREGISTER_FogPlane, rsurface.fogplane[0], rsurface.fogplane[1], rsurface.fogplane[2], rsurface.fogplane[3]);
-
-		if (mode == SHADERMODE_LIGHTSOURCE)
-		{
-			hlslPSSetParameter3f(D3DPSREGISTER_LightPosition, rsurface.entitylightorigin[0], rsurface.entitylightorigin[1], rsurface.entitylightorigin[2]);
-			hlslPSSetParameter3f(D3DPSREGISTER_LightColor, lightcolorbase[0], lightcolorbase[1], lightcolorbase[2]);
-			hlslPSSetParameter3f(D3DPSREGISTER_Color_Ambient, colormod[0] * ambientscale, colormod[1] * ambientscale, colormod[2] * ambientscale);
-			hlslPSSetParameter3f(D3DPSREGISTER_Color_Diffuse, colormod[0] * diffusescale, colormod[1] * diffusescale, colormod[2] * diffusescale);
-			hlslPSSetParameter3f(D3DPSREGISTER_Color_Specular, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale, r_refdef.view.colorscale * specularscale);
-
-			// additive passes are only darkened by fog, not tinted
-			hlslPSSetParameter3f(D3DPSREGISTER_FogColor, 0, 0, 0);
-			hlslPSSetParameter1f(D3DPSREGISTER_SpecularPower, rsurface.texture->specularpower * (r_shadow_glossexact.integer ? 0.25f : 1.0f) - 1.0f);
-		}
-		else
-		{
-			if (mode == SHADERMODE_FLATCOLOR)
-			{
-				hlslPSSetParameter3f(D3DPSREGISTER_Color_Ambient, colormod[0], colormod[1], colormod[2]);
-			}
-			else if (mode == SHADERMODE_LIGHTDIRECTION)
-			{
-				hlslPSSetParameter3f(D3DPSREGISTER_Color_Ambient, (r_refdef.scene.ambient + rsurface.modellight_ambient[0] * r_refdef.lightmapintensity) * colormod[0], (r_refdef.scene.ambient + rsurface.modellight_ambient[1] * r_refdef.lightmapintensity) * colormod[1], (r_refdef.scene.ambient + rsurface.modellight_ambient[2] * r_refdef.lightmapintensity) * colormod[2]);
-				hlslPSSetParameter3f(D3DPSREGISTER_Color_Diffuse, r_refdef.lightmapintensity * colormod[0], r_refdef.lightmapintensity * colormod[1], r_refdef.lightmapintensity * colormod[2]);
-				hlslPSSetParameter3f(D3DPSREGISTER_Color_Specular, r_refdef.lightmapintensity * r_refdef.view.colorscale * specularscale, r_refdef.lightmapintensity * r_refdef.view.colorscale * specularscale, r_refdef.lightmapintensity * r_refdef.view.colorscale * specularscale);
-				hlslPSSetParameter3f(D3DPSREGISTER_DeferredMod_Diffuse, colormod[0], colormod[1], colormod[2]);
-				hlslPSSetParameter3f(D3DPSREGISTER_DeferredMod_Specular, specularscale, specularscale, specularscale);
-				hlslPSSetParameter3f(D3DPSREGISTER_LightColor, rsurface.modellight_diffuse[0], rsurface.modellight_diffuse[1], rsurface.modellight_diffuse[2]);
-				hlslPSSetParameter3f(D3DPSREGISTER_LightDir, rsurface.modellight_lightdir[0], rsurface.modellight_lightdir[1], rsurface.modellight_lightdir[2]);
-			}
-			else
-			{
-				hlslPSSetParameter3f(D3DPSREGISTER_Color_Ambient, r_refdef.scene.ambient * colormod[0], r_refdef.scene.ambient * colormod[1], r_refdef.scene.ambient * colormod[2]);
-				hlslPSSetParameter3f(D3DPSREGISTER_Color_Diffuse, rsurface.texture->lightmapcolor[0], rsurface.texture->lightmapcolor[1], rsurface.texture->lightmapcolor[2]);
-				hlslPSSetParameter3f(D3DPSREGISTER_Color_Specular, r_refdef.lightmapintensity * r_refdef.view.colorscale * specularscale, r_refdef.lightmapintensity * r_refdef.view.colorscale * specularscale, r_refdef.lightmapintensity * r_refdef.view.colorscale * specularscale);
-				hlslPSSetParameter3f(D3DPSREGISTER_DeferredMod_Diffuse, colormod[0] * diffusescale, colormod[1] * diffusescale, colormod[2] * diffusescale);
-				hlslPSSetParameter3f(D3DPSREGISTER_DeferredMod_Specular, specularscale, specularscale, specularscale);
-			}
-			// additive passes are only darkened by fog, not tinted
-			if(blendfuncflags & BLENDFUNC_ALLOWS_FOG_HACK0)
-				hlslPSSetParameter3f(D3DPSREGISTER_FogColor, 0, 0, 0);
-			else
-				hlslPSSetParameter3f(D3DPSREGISTER_FogColor, r_refdef.fogcolor[0], r_refdef.fogcolor[1], r_refdef.fogcolor[2]);
-			hlslPSSetParameter4f(D3DPSREGISTER_DistortScaleRefractReflect, r_water_refractdistort.value * rsurface.texture->refractfactor, r_water_refractdistort.value * rsurface.texture->refractfactor, r_water_reflectdistort.value * rsurface.texture->reflectfactor, r_water_reflectdistort.value * rsurface.texture->reflectfactor);
-			hlslPSSetParameter4f(D3DPSREGISTER_ScreenScaleRefractReflect, r_fb.water.screenscale[0], r_fb.water.screenscale[1], r_fb.water.screenscale[0], r_fb.water.screenscale[1]);
-			hlslPSSetParameter4f(D3DPSREGISTER_ScreenCenterRefractReflect, r_fb.water.screencenter[0], r_fb.water.screencenter[1], r_fb.water.screencenter[0], r_fb.water.screencenter[1]);
-			hlslPSSetParameter4f(D3DPSREGISTER_RefractColor, rsurface.texture->refractcolor4f[0], rsurface.texture->refractcolor4f[1], rsurface.texture->refractcolor4f[2], rsurface.texture->refractcolor4f[3] * rsurface.texture->lightmapcolor[3]);
-			hlslPSSetParameter4f(D3DPSREGISTER_ReflectColor, rsurface.texture->reflectcolor4f[0], rsurface.texture->reflectcolor4f[1], rsurface.texture->reflectcolor4f[2], rsurface.texture->reflectcolor4f[3] * rsurface.texture->lightmapcolor[3]);
-			hlslPSSetParameter1f(D3DPSREGISTER_ReflectFactor, rsurface.texture->reflectmax - rsurface.texture->reflectmin);
-			hlslPSSetParameter1f(D3DPSREGISTER_ReflectOffset, rsurface.texture->reflectmin);
-			hlslPSSetParameter1f(D3DPSREGISTER_SpecularPower, (rsurface.texture->specularpower - 1.0f) * (r_shadow_glossexact.integer ? 0.25f : 1.0f));
-			if (mode == SHADERMODE_WATER)
-				hlslPSSetParameter2f(D3DPSREGISTER_NormalmapScrollBlend, rsurface.texture->r_water_waterscroll[0], rsurface.texture->r_water_waterscroll[1]);
-		}
-		if (permutation & SHADERPERMUTATION_SHADOWMAPORTHO)
-		{
-			hlslPSSetParameter4f(D3DPSREGISTER_ShadowMap_TextureScale, r_shadow_modelshadowmap_texturescale[0], r_shadow_modelshadowmap_texturescale[1], r_shadow_modelshadowmap_texturescale[2], r_shadow_modelshadowmap_texturescale[3]);
-			hlslPSSetParameter4f(D3DPSREGISTER_ShadowMap_Parameters, r_shadow_modelshadowmap_parameters[0], r_shadow_modelshadowmap_parameters[1], r_shadow_modelshadowmap_parameters[2], r_shadow_modelshadowmap_parameters[3]);
-		}
-		else
-		{
-			hlslPSSetParameter4f(D3DPSREGISTER_ShadowMap_TextureScale, r_shadow_lightshadowmap_texturescale[0], r_shadow_lightshadowmap_texturescale[1], r_shadow_lightshadowmap_texturescale[2], r_shadow_lightshadowmap_texturescale[3]);
-			hlslPSSetParameter4f(D3DPSREGISTER_ShadowMap_Parameters, r_shadow_lightshadowmap_parameters[0], r_shadow_lightshadowmap_parameters[1], r_shadow_lightshadowmap_parameters[2], r_shadow_lightshadowmap_parameters[3]);
-		}
-		hlslPSSetParameter3f(D3DPSREGISTER_Color_Glow, rsurface.glowmod[0], rsurface.glowmod[1], rsurface.glowmod[2]);
-		hlslPSSetParameter1f(D3DPSREGISTER_Alpha, rsurface.texture->lightmapcolor[3] * ((rsurface.texture->basematerialflags & MATERIALFLAG_WATERSHADER && r_fb.water.enabled && !r_refdef.view.isoverlay) ? rsurface.texture->r_water_wateralpha : 1));
-		hlslPSSetParameter3f(D3DPSREGISTER_EyePosition, rsurface.localvieworigin[0], rsurface.localvieworigin[1], rsurface.localvieworigin[2]);
-		if (rsurface.texture->pantstexture)
-			hlslPSSetParameter3f(D3DPSREGISTER_Color_Pants, rsurface.colormap_pantscolor[0], rsurface.colormap_pantscolor[1], rsurface.colormap_pantscolor[2]);
-		else
-			hlslPSSetParameter3f(D3DPSREGISTER_Color_Pants, 0, 0, 0);
-		if (rsurface.texture->shirttexture)
-			hlslPSSetParameter3f(D3DPSREGISTER_Color_Shirt, rsurface.colormap_shirtcolor[0], rsurface.colormap_shirtcolor[1], rsurface.colormap_shirtcolor[2]);
-		else
-			hlslPSSetParameter3f(D3DPSREGISTER_Color_Shirt, 0, 0, 0);
-		hlslPSSetParameter4f(D3DPSREGISTER_FogPlane, rsurface.fogplane[0], rsurface.fogplane[1], rsurface.fogplane[2], rsurface.fogplane[3]);
-		hlslPSSetParameter1f(D3DPSREGISTER_FogPlaneViewDist, rsurface.fogplaneviewdist);
-		hlslPSSetParameter1f(D3DPSREGISTER_FogRangeRecip, rsurface.fograngerecip);
-		hlslPSSetParameter1f(D3DPSREGISTER_FogHeightFade, rsurface.fogheightfade);
-		hlslPSSetParameter4f(D3DPSREGISTER_OffsetMapping_ScaleSteps,
-				r_glsl_offsetmapping_scale.value*rsurface.texture->offsetscale,
-				max(1, (permutation & SHADERPERMUTATION_OFFSETMAPPING_RELIEFMAPPING) ? r_glsl_offsetmapping_reliefmapping_steps.integer : r_glsl_offsetmapping_steps.integer),
-				1.0 / max(1, (permutation & SHADERPERMUTATION_OFFSETMAPPING_RELIEFMAPPING) ? r_glsl_offsetmapping_reliefmapping_steps.integer : r_glsl_offsetmapping_steps.integer),
-				max(1, r_glsl_offsetmapping_reliefmapping_refinesteps.integer)
-			);
-		hlslPSSetParameter1f(D3DPSREGISTER_OffsetMapping_LodDistance, r_glsl_offsetmapping_lod_distance.integer * r_refdef.view.quality);
-		hlslPSSetParameter1f(D3DPSREGISTER_OffsetMapping_Bias, rsurface.texture->offsetbias);
-		hlslPSSetParameter2f(D3DPSREGISTER_ScreenToDepth, r_refdef.view.viewport.screentodepth[0], r_refdef.view.viewport.screentodepth[1]);
-		hlslPSSetParameter2f(D3DPSREGISTER_PixelToScreenTexCoord, 1.0f/vid.width, 1.0/vid.height);
-
-		R_Mesh_TexBind(GL20TU_NORMAL            , rsurface.texture->nmaptexture                       );
-		R_Mesh_TexBind(GL20TU_COLOR             , rsurface.texture->basetexture                       );
-		R_Mesh_TexBind(GL20TU_GLOSS             , rsurface.texture->glosstexture                      );
-		R_Mesh_TexBind(GL20TU_GLOW              , rsurface.texture->glowtexture                       );
-		if (permutation & SHADERPERMUTATION_VERTEXTEXTUREBLEND) R_Mesh_TexBind(GL20TU_SECONDARY_NORMAL  , rsurface.texture->backgroundnmaptexture             );
-		if (permutation & SHADERPERMUTATION_VERTEXTEXTUREBLEND) R_Mesh_TexBind(GL20TU_SECONDARY_COLOR   , rsurface.texture->backgroundbasetexture             );
-		if (permutation & SHADERPERMUTATION_VERTEXTEXTUREBLEND) R_Mesh_TexBind(GL20TU_SECONDARY_GLOSS   , rsurface.texture->backgroundglosstexture            );
-		if (permutation & SHADERPERMUTATION_VERTEXTEXTUREBLEND) R_Mesh_TexBind(GL20TU_SECONDARY_GLOW    , rsurface.texture->backgroundglowtexture             );
-		if (permutation & SHADERPERMUTATION_COLORMAPPING) R_Mesh_TexBind(GL20TU_PANTS             , rsurface.texture->pantstexture                      );
-		if (permutation & SHADERPERMUTATION_COLORMAPPING) R_Mesh_TexBind(GL20TU_SHIRT             , rsurface.texture->shirttexture                      );
-		if (permutation & SHADERPERMUTATION_REFLECTCUBE) R_Mesh_TexBind(GL20TU_REFLECTMASK       , rsurface.texture->reflectmasktexture                );
-		if (permutation & SHADERPERMUTATION_REFLECTCUBE) R_Mesh_TexBind(GL20TU_REFLECTCUBE       , rsurface.texture->reflectcubetexture ? rsurface.texture->reflectcubetexture : r_texture_whitecube);
-		if (permutation & SHADERPERMUTATION_FOGHEIGHTTEXTURE) R_Mesh_TexBind(GL20TU_FOGHEIGHTTEXTURE  , r_texture_fogheighttexture                          );
-		if (permutation & (SHADERPERMUTATION_FOGINSIDE | SHADERPERMUTATION_FOGOUTSIDE)) R_Mesh_TexBind(GL20TU_FOGMASK           , r_texture_fogattenuation                            );
-		R_Mesh_TexBind(GL20TU_LIGHTMAP          , rsurface.lightmaptexture ? rsurface.lightmaptexture : r_texture_white);
-		R_Mesh_TexBind(GL20TU_DELUXEMAP         , rsurface.deluxemaptexture ? rsurface.deluxemaptexture : r_texture_blanknormalmap);
-		if (rsurface.rtlight                                  ) R_Mesh_TexBind(GL20TU_ATTENUATION       , r_shadow_attenuationgradienttexture                 );
-		if (rsurfacepass == RSURFPASS_BACKGROUND)
-		{
-			R_Mesh_TexBind(GL20TU_REFRACTION        , waterplane->texture_refraction ? waterplane->texture_refraction : r_texture_black);
-			if(mode == SHADERMODE_GENERIC) R_Mesh_TexBind(GL20TU_FIRST             , waterplane->texture_camera ? waterplane->texture_camera : r_texture_black);
-			R_Mesh_TexBind(GL20TU_REFLECTION        , waterplane->texture_reflection ? waterplane->texture_reflection : r_texture_black);
-		}
-		else
-		{
-			if (permutation & SHADERPERMUTATION_REFLECTION        ) R_Mesh_TexBind(GL20TU_REFLECTION        , waterplane->texture_reflection ? waterplane->texture_reflection : r_texture_black);
-		}
-//		if (rsurfacepass == RSURFPASS_DEFERREDLIGHT           ) R_Mesh_TexBind(GL20TU_SCREENNORMALMAP   , r_shadow_prepassgeometrynormalmaptexture            );
-		if (permutation & SHADERPERMUTATION_DEFERREDLIGHTMAP  ) R_Mesh_TexBind(GL20TU_SCREENDIFFUSE     , r_shadow_prepasslightingdiffusetexture              );
-		if (permutation & SHADERPERMUTATION_DEFERREDLIGHTMAP  ) R_Mesh_TexBind(GL20TU_SCREENSPECULAR    , r_shadow_prepasslightingspeculartexture             );
-		if (rsurface.rtlight || (r_shadow_usingshadowmaportho && !(rsurface.ent_flags & RENDER_NOSELFSHADOW)))
-		{
-			R_Mesh_TexBind(GL20TU_SHADOWMAP2D, r_shadow_shadowmap2ddepthtexture);
-			if (rsurface.rtlight)
-			{
-				if (permutation & SHADERPERMUTATION_CUBEFILTER        ) R_Mesh_TexBind(GL20TU_CUBE              , rsurface.rtlight->currentcubemap                    );
-				if (permutation & SHADERPERMUTATION_SHADOWMAPVSDCT    ) R_Mesh_TexBind(GL20TU_CUBEPROJECTION    , r_shadow_shadowmapvsdcttexture                      );
-			}
-		}
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
 		if (!vid.useinterleavedarrays)
@@ -3113,33 +2428,6 @@ void R_SetupShader_DeferredLight(const rtlight_t *rtlight)
 	Matrix4x4_ToArrayFloatGL(&viewtolight, viewtolight16f);
 	switch(vid.renderpath)
 	{
-	case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-		R_SetupShader_SetPermutationHLSL(mode, permutation);
-		hlslPSSetParameter3f(D3DPSREGISTER_LightPosition, viewlightorigin[0], viewlightorigin[1], viewlightorigin[2]);
-		hlslPSSetParameter16f(D3DPSREGISTER_ViewToLight, viewtolight16f);
-		hlslPSSetParameter3f(D3DPSREGISTER_DeferredColor_Ambient , lightcolorbase[0] * ambientscale , lightcolorbase[1] * ambientscale , lightcolorbase[2] * ambientscale );
-		hlslPSSetParameter3f(D3DPSREGISTER_DeferredColor_Diffuse , lightcolorbase[0] * diffusescale , lightcolorbase[1] * diffusescale , lightcolorbase[2] * diffusescale );
-		hlslPSSetParameter3f(D3DPSREGISTER_DeferredColor_Specular, lightcolorbase[0] * specularscale, lightcolorbase[1] * specularscale, lightcolorbase[2] * specularscale);
-		hlslPSSetParameter4f(D3DPSREGISTER_ShadowMap_TextureScale, r_shadow_lightshadowmap_texturescale[0], r_shadow_lightshadowmap_texturescale[1], r_shadow_lightshadowmap_texturescale[2], r_shadow_lightshadowmap_texturescale[3]);
-		hlslPSSetParameter4f(D3DPSREGISTER_ShadowMap_Parameters, r_shadow_lightshadowmap_parameters[0], r_shadow_lightshadowmap_parameters[1], r_shadow_lightshadowmap_parameters[2], r_shadow_lightshadowmap_parameters[3]);
-		hlslPSSetParameter1f(D3DPSREGISTER_SpecularPower, (r_shadow_gloss.integer == 2 ? r_shadow_gloss2exponent.value : r_shadow_glossexponent.value) * (r_shadow_glossexact.integer ? 0.25f : 1.0f) - 1.0f);
-		hlslPSSetParameter2f(D3DPSREGISTER_ScreenToDepth, r_refdef.view.viewport.screentodepth[0], r_refdef.view.viewport.screentodepth[1]);
-		hlslPSSetParameter2f(D3DPSREGISTER_PixelToScreenTexCoord, 1.0f/vid.width, 1.0/vid.height);
-
-		R_Mesh_TexBind(GL20TU_ATTENUATION        , r_shadow_attenuationgradienttexture                 );
-		R_Mesh_TexBind(GL20TU_SCREENNORMALMAP    , r_shadow_prepassgeometrynormalmaptexture            );
-		R_Mesh_TexBind(GL20TU_CUBE               , rsurface.rtlight->currentcubemap                    );
-		R_Mesh_TexBind(GL20TU_SHADOWMAP2D        , r_shadow_shadowmap2ddepthtexture                    );
-		R_Mesh_TexBind(GL20TU_CUBEPROJECTION     , r_shadow_shadowmapvsdcttexture                      );
-#endif
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
 		R_SetupShader_SetPermutationGLSL(mode, permutation);
@@ -4065,9 +3353,6 @@ static void gl_main_start(void)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		Cvar_SetValueQuick(&r_textureunits, vid.texunits);
@@ -4135,11 +3420,6 @@ static void gl_main_start(void)
 	r_glsl_permutation = NULL;
 	memset(r_glsl_permutationhash, 0, sizeof(r_glsl_permutationhash));
 	Mem_ExpandableArray_NewArray(&r_glsl_permutationarray, r_main_mempool, sizeof(r_glsl_permutation_t), 256);
-#ifdef SUPPORTD3D
-	r_hlsl_permutation = NULL;
-	memset(r_hlsl_permutationhash, 0, sizeof(r_hlsl_permutationhash));
-	Mem_ExpandableArray_NewArray(&r_hlsl_permutationarray, r_main_mempool, sizeof(r_hlsl_permutation_t), 256);
-#endif
 	memset(&r_svbsp, 0, sizeof (r_svbsp));
 
 	memset(r_texture_cubemaps, 0, sizeof(r_texture_cubemaps));
@@ -4189,15 +3469,6 @@ static void gl_main_shutdown(void)
 			qglDeleteQueriesARB(r_maxqueries, r_queries);
 #endif
 		break;
-	case RENDERPATH_D3D9:
-		//Con_DPrintf("FIXME D3D9 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -4235,11 +3506,6 @@ static void gl_main_shutdown(void)
 	r_glsl_permutation = NULL;
 	memset(r_glsl_permutationhash, 0, sizeof(r_glsl_permutationhash));
 	Mem_ExpandableArray_FreeArray(&r_glsl_permutationarray);
-#ifdef SUPPORTD3D
-	r_hlsl_permutation = NULL;
-	memset(r_hlsl_permutationhash, 0, sizeof(r_hlsl_permutationhash));
-	Mem_ExpandableArray_FreeArray(&r_hlsl_permutationarray);
-#endif
 }
 
 static void gl_main_newmap(void)
@@ -5057,9 +4323,6 @@ void R_AnimCache_CacheVisibleEntities(void)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_GLES2:
 		break;
 	case RENDERPATH_GL11:
@@ -5453,28 +4716,9 @@ static void R_View_SetFrustum(const int *scissor)
 		// flipped x coordinates (because x points left here)
 		fpx =  1.0 - 2.0 * (scissor[0]              - r_refdef.view.viewport.x) / (double) (r_refdef.view.viewport.width);
 		fnx =  1.0 - 2.0 * (scissor[0] + scissor[2] - r_refdef.view.viewport.x) / (double) (r_refdef.view.viewport.width);
-
-		// D3D Y coordinate is top to bottom, OpenGL is bottom to top, fix the D3D one
-		switch(vid.renderpath)
-		{
-			case RENDERPATH_D3D9:
-			case RENDERPATH_D3D10:
-			case RENDERPATH_D3D11:
-				// non-flipped y coordinates
-				fny = -1.0 + 2.0 * (vid.height - scissor[1] - scissor[3] - r_refdef.view.viewport.y) / (double) (r_refdef.view.viewport.height);
-				fpy = -1.0 + 2.0 * (vid.height - scissor[1]              - r_refdef.view.viewport.y) / (double) (r_refdef.view.viewport.height);
-				break;
-			case RENDERPATH_SOFT:
-			case RENDERPATH_GL11:
-			case RENDERPATH_GL13:
-			case RENDERPATH_GL20:
-			case RENDERPATH_GLES1:
-			case RENDERPATH_GLES2:
-				// non-flipped y coordinates
-				fny = -1.0 + 2.0 * (scissor[1]              - r_refdef.view.viewport.y) / (double) (r_refdef.view.viewport.height);
-				fpy = -1.0 + 2.0 * (scissor[1] + scissor[3] - r_refdef.view.viewport.y) / (double) (r_refdef.view.viewport.height);
-				break;
-		}
+		// non-flipped y coordinates
+		fny = -1.0 + 2.0 * (scissor[1]              - r_refdef.view.viewport.y) / (double) (r_refdef.view.viewport.height);
+		fpy = -1.0 + 2.0 * (scissor[1] + scissor[3] - r_refdef.view.viewport.y) / (double) (r_refdef.view.viewport.height);
 	}
 
 	// we can't trust r_refdef.view.forward and friends in reflected scenes
@@ -5729,18 +4973,6 @@ void R_EntityMatrix(const matrix4x4_t *matrix)
 		CHECKGLERROR
 		switch(vid.renderpath)
 		{
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			hlslVSSetParameter16f(D3DVSREGISTER_ModelViewProjectionMatrix, gl_modelviewprojection16f);
-			hlslVSSetParameter16f(D3DVSREGISTER_ModelViewMatrix, gl_modelview16f);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 shader %s:%i\n", __FILE__, __LINE__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 shader %s:%i\n", __FILE__, __LINE__);
-			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
 		case RENDERPATH_GLES1:
@@ -5793,9 +5025,6 @@ void R_ResetViewRendering2D_Common(int fbo, rtexture_t *depthtexture, rtexture_t
 	case RENDERPATH_GLES2:
 		qglEnable(GL_POLYGON_OFFSET_FILL);CHECKGLERROR
 		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -5838,9 +5067,6 @@ void R_ResetViewRendering3D(int fbo, rtexture_t *depthtexture, rtexture_t *color
 	case RENDERPATH_GLES2:
 		qglEnable(GL_POLYGON_OFFSET_FILL);CHECKGLERROR
 		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 		break;
 	}
@@ -5879,9 +5105,6 @@ static void R_Water_StartFrame(void)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		break;
@@ -6386,9 +5609,6 @@ static void R_Bloom_StartFrame(void)
 	case RENDERPATH_GL13:
 	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 		r_fb.usedepthtextures = false;
 		break;
 	case RENDERPATH_SOFT:
@@ -6418,9 +5638,6 @@ static void R_Bloom_StartFrame(void)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		break;
@@ -6583,17 +5800,6 @@ static void R_Bloom_StartFrame(void)
 	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		for (i = 0;i < 4;i++)
-		{
-			r_fb.screentexcoord2f[i*2+0] += 0.5f / (float)r_fb.screentexturewidth;
-			r_fb.screentexcoord2f[i*2+1] += 0.5f / (float)r_fb.screentextureheight;
-			r_fb.bloomtexcoord2f[i*2+0] += 0.5f / (float)r_fb.bloomtexturewidth;
-			r_fb.bloomtexcoord2f[i*2+1] += 0.5f / (float)r_fb.bloomtextureheight;
-		}
-		break;
 	}
 
 	R_Viewport_InitOrtho(&r_fb.bloomviewport, &identitymatrix, 0, 0, r_fb.bloomwidth, r_fb.bloomheight, 0, 0, 1, 1, -10, 100, NULL);
@@ -6628,23 +5834,7 @@ static void R_Bloom_MakeTexture(void)
 	GL_DepthTest(false);
 	GL_BlendFunc(GL_ONE, GL_ZERO);
 	GL_Color(colorscale, colorscale, colorscale, 1);
-	// D3D has upside down Y coords, the easiest way to flip this is to flip the screen vertices rather than the texcoords, so we just use a different array for that...
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-	case RENDERPATH_SOFT:
-		R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f, NULL, r_fb.screentexcoord2f);
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		R_Mesh_PrepareVertices_Generic_Arrays(4, r_d3dscreenvertex3f, NULL, r_fb.screentexcoord2f);
-		break;
-	}
+	R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f, NULL, r_fb.screentexcoord2f);
 	// TODO: do boxfilter scale-down in shader?
 	R_SetupShader_Generic(r_fb.colortexture, NULL, GL_MODULATE, 1, false, true, true);
 	R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
@@ -6756,9 +5946,6 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 	switch (vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		permutation =
@@ -6830,11 +6017,6 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 					case RENDERPATH_GLES2:
 					case RENDERPATH_SOFT:
 						R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f, NULL, r_fb.screentexcoord2f);
-						break;
-					case RENDERPATH_D3D9:
-					case RENDERPATH_D3D10:
-					case RENDERPATH_D3D11:
-						R_Mesh_PrepareVertices_Generic_Arrays(4, r_d3dscreenvertex3f, NULL, r_fb.screentexcoord2f);
 						break;
 					}
 					R_SetupShader_Generic(r_fb.ghosttexture, NULL, GL_MODULATE, 1, false, true, true);
@@ -6909,31 +6091,6 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 			if (r_glsl_permutation->loc_Saturation              >= 0) qglUniform1f(r_glsl_permutation->loc_Saturation        , r_glsl_saturation.value);
 			if (r_glsl_permutation->loc_PixelToScreenTexCoord   >= 0) qglUniform2f(r_glsl_permutation->loc_PixelToScreenTexCoord, 1.0f/vid.width, 1.0f/vid.height);
 			if (r_glsl_permutation->loc_BloomColorSubtract      >= 0) qglUniform4f(r_glsl_permutation->loc_BloomColorSubtract   , r_bloom_colorsubtract.value, r_bloom_colorsubtract.value, r_bloom_colorsubtract.value, 0.0f);
-			break;
-		case RENDERPATH_D3D9:
-#ifdef SUPPORTD3D
-			// D3D has upside down Y coords, the easiest way to flip this is to flip the screen vertices rather than the texcoords, so we just use a different array for that...
-			R_Mesh_PrepareVertices_Mesh_Arrays(4, r_d3dscreenvertex3f, NULL, NULL, NULL, NULL, r_fb.screentexcoord2f, r_fb.bloomtexcoord2f);
-			R_SetupShader_SetPermutationHLSL(SHADERMODE_POSTPROCESS, permutation);
-			R_Mesh_TexBind(GL20TU_FIRST     , r_fb.colortexture);
-			R_Mesh_TexBind(GL20TU_SECOND    , r_fb.bloomtexture[r_fb.bloomindex]);
-			R_Mesh_TexBind(GL20TU_GAMMARAMPS, r_texture_gammaramps       );
-			hlslPSSetParameter4f(D3DPSREGISTER_ViewTintColor        , r_refdef.viewblend[0], r_refdef.viewblend[1], r_refdef.viewblend[2], r_refdef.viewblend[3]);
-			hlslPSSetParameter2f(D3DPSREGISTER_PixelSize            , 1.0/r_fb.screentexturewidth, 1.0/r_fb.screentextureheight);
-			hlslPSSetParameter4f(D3DPSREGISTER_UserVec1             , uservecs[0][0], uservecs[0][1], uservecs[0][2], uservecs[0][3]);
-			hlslPSSetParameter4f(D3DPSREGISTER_UserVec2             , uservecs[1][0], uservecs[1][1], uservecs[1][2], uservecs[1][3]);
-			hlslPSSetParameter4f(D3DPSREGISTER_UserVec3             , uservecs[2][0], uservecs[2][1], uservecs[2][2], uservecs[2][3]);
-			hlslPSSetParameter4f(D3DPSREGISTER_UserVec4             , uservecs[3][0], uservecs[3][1], uservecs[3][2], uservecs[3][3]);
-			hlslPSSetParameter1f(D3DPSREGISTER_Saturation           , r_glsl_saturation.value);
-			hlslPSSetParameter2f(D3DPSREGISTER_PixelToScreenTexCoord, 1.0f/vid.width, 1.0/vid.height);
-			hlslPSSetParameter4f(D3DPSREGISTER_BloomColorSubtract   , r_bloom_colorsubtract.value, r_bloom_colorsubtract.value, r_bloom_colorsubtract.value, 0.0f);
-#endif
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
 		case RENDERPATH_SOFT:
 			R_Mesh_PrepareVertices_Mesh_Arrays(4, r_screenvertex3f, NULL, NULL, NULL, NULL, r_fb.screentexcoord2f, r_fb.bloomtexcoord2f);
@@ -7109,9 +6266,6 @@ void R_UpdateVariables(void)
 	case RENDERPATH_GL20:
 		r_gpuskeletal = vid.support.arb_uniform_buffer_object && r_glsl_skeletal.integer && !r_showsurfaces.integer
 				&& r_shadows.integer <= 0 && !r_refdef.scene.rtdlightshadows && !r_refdef.scene.rtworldshadows; // FIXME add r_showsurfaces support to GLSL skeletal!
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		if(v_glslgamma.integer && !vid_gammatables_trivial)
@@ -11205,9 +10359,6 @@ static void R_DrawWorldTextureSurfaceList(int texturenumsurfaces, const msurface
 	switch (vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		R_DrawTextureSurfaceList_GL20(texturenumsurfaces, texturesurfacelist, writedepth, prepass);
@@ -11235,9 +10386,6 @@ static void R_DrawModelTextureSurfaceList(int texturenumsurfaces, const msurface
 	switch (vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		R_DrawTextureSurfaceList_GL20(texturenumsurfaces, texturesurfacelist, writedepth, prepass);
@@ -11273,9 +10421,6 @@ static void R_DrawSurface_TransparentCallback(const entity_render_t *ent, const 
 		switch (vid.renderpath)
 		{
 		case RENDERPATH_GL20:
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
 		case RENDERPATH_SOFT:
 		case RENDERPATH_GLES2:
 			RSurf_ActiveModelEntity(ent, true, true, false);
@@ -12650,9 +11795,6 @@ void R_DrawModelSurfaces(entity_render_t *ent, qboolean skysurfaces, qboolean wr
 		switch (vid.renderpath)
 		{
 		case RENDERPATH_GL20:
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
 		case RENDERPATH_SOFT:
 		case RENDERPATH_GLES2:
 			RSurf_ActiveModelEntity(ent, model->wantnormals, model->wanttangents, false);
@@ -12669,9 +11811,6 @@ void R_DrawModelSurfaces(entity_render_t *ent, qboolean skysurfaces, qboolean wr
 		switch (vid.renderpath)
 		{
 		case RENDERPATH_GL20:
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
 		case RENDERPATH_SOFT:
 		case RENDERPATH_GLES2:
 			RSurf_ActiveModelEntity(ent, true, true, false);

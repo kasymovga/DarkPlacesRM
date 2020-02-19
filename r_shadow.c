@@ -141,11 +141,6 @@ demonstrated by the game Doom3.
 #include "image.h"
 #include "dpsoftrast.h"
 
-#ifdef SUPPORTD3D
-#include <d3d9.h>
-extern LPDIRECT3DDEVICE9 vid_d3d9dev;
-#endif
-
 static void R_Shadow_EditLights_Init(void);
 
 typedef enum r_shadow_rendermode_e
@@ -498,9 +493,6 @@ static void R_Shadow_SetShadowMode(void)
 				r_shadow_shadowmapsampler = false;
 			r_shadow_shadowmode = R_SHADOW_SHADOWMODE_SHADOWMAP2D;
 			break;
-		case RENDERPATH_D3D9:
-		case RENDERPATH_D3D10:
-		case RENDERPATH_D3D11:
 		case RENDERPATH_SOFT:
 			r_shadow_shadowmapsampler = false;
 			r_shadow_shadowmappcf = 1;
@@ -631,9 +623,6 @@ static void r_shadow_start(void)
 	case RENDERPATH_GL13:
 	case RENDERPATH_GLES1:
 	case RENDERPATH_SOFT:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 		break;
 	}
 }
@@ -2057,9 +2046,6 @@ void R_Shadow_RenderMode_Begin(void)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		r_shadow_lightingrendermode = R_SHADOW_RENDERMODE_LIGHT_GLSL;
@@ -2226,24 +2212,8 @@ void R_Shadow_ClearShadowMapTexture(void)
 		GL_ColorMask(1, 1, 1, 1);
 	else
 		GL_ColorMask(0, 0, 0, 0);
-	switch (vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		GL_CullFace(r_refdef.view.cullface_back);
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		// we invert the cull mode because we flip the projection matrix
-		// NOTE: this actually does nothing because the DrawShadowMap code sets it to doublesided...
-		GL_CullFace(r_refdef.view.cullface_front);
-		break;
-	}
+
+	GL_CullFace(r_refdef.view.cullface_back);
 	Vector4Set(clearcolor, 1, 1, 1, 1);
 	if (r_shadow_shadowmap2ddepthbuffer)
 		GL_Clear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT, clearcolor, 1.0f, 0);
@@ -2312,25 +2282,8 @@ static void R_Shadow_RenderMode_ShadowMap(int side, int size, int x, int y)
 		GL_ColorMask(1,1,1,1);
 	else
 		GL_ColorMask(0,0,0,0);
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		GL_CullFace(r_refdef.view.cullface_back);
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-		// we invert the cull mode because we flip the projection matrix
-		// NOTE: this actually does nothing because the DrawShadowMap code sets it to doublesided...
-		GL_CullFace(r_refdef.view.cullface_front);
-		break;
-	}
 
+	GL_CullFace(r_refdef.view.cullface_back);
 	// used in R_Q1BSP_DrawShadowMap code to check surfacesides[]
 	r_shadow_shadowmapside = side;
 }
@@ -5316,9 +5269,6 @@ void R_Shadow_PrepareLights(int fbo, rtexture_t *depthtexture, rtexture_t *color
 	switch (vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
 	case RENDERPATH_SOFT:
 #ifndef USE_GLES2
 		if (!r_shadow_deferred.integer || r_shadow_shadowmode == R_SHADOW_SHADOWMODE_STENCIL || !vid.support.ext_framebuffer_object || vid.maxdrawbuffers < 2)
@@ -5710,32 +5660,6 @@ static void R_Shadow_DrawModelShadowMaps(void)
 	Matrix4x4_AdjustOrigin(&scalematrix, 0, size, -0.5f * bias);
 	Matrix4x4_Concat(&texmatrix, &scalematrix, &shadowmatrix);
 	Matrix4x4_Concat(&r_shadow_shadowmapmatrix, &texmatrix, &invmvpmatrix);
-
-	switch (vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		break;
-	case RENDERPATH_D3D9:
-	case RENDERPATH_D3D10:
-	case RENDERPATH_D3D11:
-#ifdef MATRIX4x4_OPENGLORIENTATION
-		r_shadow_shadowmapmatrix.m[0][0]	*= -1.0f;
-		r_shadow_shadowmapmatrix.m[0][1]	*= -1.0f;
-		r_shadow_shadowmapmatrix.m[0][2]	*= -1.0f;
-		r_shadow_shadowmapmatrix.m[0][3]	*= -1.0f;
-#else
-		r_shadow_shadowmapmatrix.m[0][0]	*= -1.0f;
-		r_shadow_shadowmapmatrix.m[1][0]	*= -1.0f;
-		r_shadow_shadowmapmatrix.m[2][0]	*= -1.0f;
-		r_shadow_shadowmapmatrix.m[3][0]	*= -1.0f;
-#endif
-		break;
-	}
 }
 
 void R_Shadow_DrawModelShadows(void)
@@ -5905,15 +5829,6 @@ static void R_BeginCoronaQuery(rtlight_t *rtlight, float scale, qboolean usequer
 			CHECKGLERROR
 #endif
 			break;
-		case RENDERPATH_D3D9:
-			Con_DPrintf("FIXME D3D9 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
 		case RENDERPATH_SOFT:
 			//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			break;
@@ -5969,15 +5884,6 @@ static void R_DrawCorona(rtlight_t *rtlight, float cscale, float scale)
 #else
 			return;
 #endif
-		case RENDERPATH_D3D9:
-			Con_DPrintf("FIXME D3D9 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			return;
-		case RENDERPATH_D3D10:
-			Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			return;
-		case RENDERPATH_D3D11:
-			Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			return;
 		case RENDERPATH_SOFT:
 			//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 			return;
@@ -6063,16 +5969,6 @@ void R_Shadow_DrawCoronas(void)
 			R_SetupShader_Generic_NoTexture(false, false);
 		}
 #endif
-		break;
-	case RENDERPATH_D3D9:
-		usequery = false;
-		//Con_DPrintf("FIXME D3D9 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D10:
-		Con_DPrintf("FIXME D3D10 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
-	case RENDERPATH_D3D11:
-		Con_DPrintf("FIXME D3D11 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_SOFT:
 		usequery = false;
