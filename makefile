@@ -104,7 +104,6 @@ endif
 
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
-	DEFAULT_SNDAPI=ALSA
 	OBJ_CD=$(OBJ_LINUXCD)
 
 	OBJ_ICON=
@@ -142,7 +141,6 @@ endif
 
 # Mac OS X configuration
 ifeq ($(DP_MAKE_TARGET), macosx)
-	DEFAULT_SNDAPI=COREAUDIO
 	OBJ_CD=$(OBJ_MACOSXCD)
 
 	OBJ_ICON=
@@ -186,7 +184,6 @@ endif
 
 # SunOS configuration (Solaris)
 ifeq ($(DP_MAKE_TARGET), sunos)
-	DEFAULT_SNDAPI=BSD
 	OBJ_CD=$(OBJ_SUNOSCD)
 
 	OBJ_ICON=
@@ -226,11 +223,6 @@ endif
 
 # BSD configuration
 ifeq ($(DP_MAKE_TARGET), bsd)
-ifeq ($(DP_ARCH),FreeBSD)
-	DEFAULT_SNDAPI=OSS
-else
-	DEFAULT_SNDAPI=BSD
-endif
 	OBJ_CD=$(OBJ_BSDCD)
 
 	OBJ_ICON=
@@ -282,7 +274,6 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	CC=$(TARGET)-gcc
 	WINDRES=$(TARGET)-windres
 
-	DEFAULT_SNDAPI=WIN
 	OBJ_CD=$(OBJ_WINCD)
 
 	OBJ_ICON=darkplaces.o
@@ -396,53 +387,6 @@ endif
 ifeq ($(DP_LINK_CRYPTO_RIJNDAEL), dlopen)
 	LIB_CRYPTO_RIJNDAEL=
 	CFLAGS_CRYPTO_RIJNDAEL=
-endif
-
-##### Sound configuration #####
-
-ifndef DP_SOUND_API
-	DP_SOUND_API=$(DEFAULT_SNDAPI)
-endif
-
-# NULL: no sound
-ifeq ($(DP_SOUND_API), NULL)
-	OBJ_SOUND=$(OBJ_SND_NULL)
-	LIB_SOUND=$(LIB_SND_NULL)
-endif
-
-# OSS: Open Sound System
-ifeq ($(DP_SOUND_API), OSS)
-	OBJ_SOUND=$(OBJ_SND_OSS)
-	LIB_SOUND=$(LIB_SND_OSS)
-endif
-
-# ALSA: Advanced Linux Sound Architecture
-ifeq ($(DP_SOUND_API), ALSA)
-	OBJ_SOUND=$(OBJ_SND_ALSA)
-	LIB_SOUND=$(LIB_SND_ALSA)
-endif
-
-# COREAUDIO: Core Audio
-ifeq ($(DP_SOUND_API), COREAUDIO)
-	OBJ_SOUND=$(OBJ_SND_COREAUDIO)
-	LIB_SOUND=$(LIB_SND_COREAUDIO)
-endif
-
-# BSD: BSD / Sun audio API
-ifeq ($(DP_SOUND_API), BSD)
-	OBJ_SOUND=$(OBJ_SND_BSD)
-	LIB_SOUND=$(LIB_SND_BSD)
-endif
-
-# WIN: DirectX and Win32 WAVE output
-ifeq ($(DP_SOUND_API), WIN)
-	OBJ_SOUND=$(OBJ_SND_WIN)
-	LIB_SOUND=$(LIB_SND_WIN)
-endif
-
-ifeq ($(DP_SOUND_API),3DRAS)
-	OBJ_SOUND=$(OBJ_SND_3DRAS)
-	LIB_SOUND=$(LIB_SND_3DRAS)
 endif
 
 ##### Extra CFLAGS #####
