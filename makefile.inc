@@ -229,23 +229,16 @@ LDFLAGS_RELEASE=$(OPTIM_RELEASE) -DSVNREVISION=`{ test -d .svn && svnversion; } 
 
 ##### UNIX specific variables #####
 
-OBJ_GLX= builddate.c sys_linux.o vid_glx.o thread_pthread.o keysym2ucs.o $(OBJ_MENU) $(OBJ_SOUND) $(OBJ_CD) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
-
 LDFLAGS_UNIXCOMMON=-lm $(LIB_ODE) $(LIB_Z) $(LIB_JPEG) $(LIB_PNG) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) $(LIB_LIBMICROHTTPD)
-LDFLAGS_UNIXCL=-L$(UNIX_X11LIBPATH) -lX11 -lXpm -lXext -lXxf86vm -pthread $(LIB_SOUND) $(LIB_OGGVORBIS)
-LDFLAGS_UNIXCL_PRELOAD=-lz -ljpeg -lpng -logg -ltheora -lvorbis -lvorbisenc -lvorbisfile -lcurl
 LDFLAGS_UNIXSV_PRELOAD=-lz -ljpeg -lpng -lcurl
 LDFLAGS_UNIXSDL_PRELOAD=-lz -ljpeg -lpng -logg -ltheora -lvorbis -lvorbisenc -lvorbisfile -lcurl
 CFLAGS_UNIX_PRELOAD=-DPREFER_PRELOAD
 
 LDFLAGS_UNIXSDL=$(SDLCONFIG_LIBS) $(LIB_OGGVORBIS)
-EXE_UNIXCL=darkplaces-rm-glx
 EXE_UNIXSV=darkplaces-rm-dedicated
 EXE_UNIXSDL=darkplaces-rm-sdl
-EXE_UNIXCLNEXUIZ=nexuiz-dprm-glx
 EXE_UNIXSVNEXUIZ=nexuiz-dprm-dedicated
 EXE_UNIXSDLNEXUIZ=nexuiz-dprm-sdl
-EXE_UNIXCLREXUIZ=rexuiz-glx
 EXE_UNIXSVREXUIZ=rexuiz-dedicated
 EXE_UNIXSDLREXUIZ=rexuiz-sdl
 
@@ -257,7 +250,6 @@ CMD_UNIXMKDIR=mkdir -p
 ##### Linux specific variables #####
 
 # Link
-LDFLAGS_LINUXCL=$(LDFLAGS_UNIXCOMMON) -lrt -ldl $(LDFLAGS_UNIXCL)
 LDFLAGS_LINUXSV=$(LDFLAGS_UNIXCOMMON) -lrt -ldl -pthread
 LDFLAGS_LINUXSDL=$(LDFLAGS_UNIXCOMMON) -lrt -ldl $(LDFLAGS_UNIXSDL)
 
@@ -271,13 +263,6 @@ OBJ_MACOSXCD=$(OBJ_NOCD)
 LDFLAGS_MACOSXCL=$(LDFLAGS_UNIXCOMMON) $(LIB_OGGVORBIS) -ldl -framework IOKit -framework Carbon $(LIB_SOUND)
 LDFLAGS_MACOSXSV=$(LDFLAGS_UNIXCOMMON) -ldl
 LDFLAGS_MACOSXSDL=$(LDFLAGS_UNIXCOMMON) $(LIB_OGGVORBIS) -ldl -framework IOKit $(SDLCONFIG_STATICLIBS) ../../../SDLMain.m
-
-OBJ_AGL= builddate.c sys_linux.o vid_agl.o thread_null.o $(OBJ_MENU) $(OBJ_SOUND) $(OBJ_CD) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
-
-EXE_MACOSXCL=darkplaces-rm-agl
-EXE_MACOSXCLNEXUIZ=nexuiz-dprm-agl
-EXE_MACOSXCLREXUIZ=rexuiz-agl
-
 
 ##### SunOS specific variables #####
 
@@ -303,20 +288,14 @@ LDFLAGS_BSDSDL=$(LDFLAGS_UNIXCOMMON) $(LDFLAGS_UNIXSDL)
 
 WINDRES ?= windres
 
-OBJ_WGL= builddate.c sys_win.o vid_wgl.o thread_null.o $(OBJ_MENU) $(OBJ_SND_WIN) $(OBJ_WINCD) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
-
 # Link
 # see LDFLAGS_WINCOMMON in makefile
-LDFLAGS_WINCL=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) -mwindows -lwinmm -luser32 -lgdi32 -ldxguid -ldinput -lcomctl32 -lws2_32 $(LDFLAGS_D3D) $(LIB_Z) $(LIB_JPEG) $(LIB_PNG) $(LIB_OGGVORBIS) $(LIB_LIBMICROHTTPD)
 LDFLAGS_WINSV=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) -mconsole -lwinmm -lws2_32 $(LIB_Z) $(LIB_JPEG) $(LIB_PNG) $(LIB_LIBMICROHTTPD)
 LDFLAGS_WINSDL=$(LDFLAGS_WINCOMMON) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) $(SDLCONFIG_LIBS) -lwinmm -lws2_32 $(LIB_Z) $(LIB_JPEG) $(LIB_PNG) $(LIB_OGGVORBIS) $(LIB_LIBMICROHTTPD)
-EXE_WINCL=darkplaces-rm-wgl
 EXE_WINSV=darkplaces-rm-dedicated
 EXE_WINSDL=darkplaces-rm-sdl
-EXE_WINCLNEXUIZ=nexuiz-dprm
 EXE_WINSVNEXUIZ=nexuiz-dprm-dedicated
 EXE_WINSDLNEXUIZ=nexuiz-dprm-sdl
-EXE_WINCLREXUIZ=rexuiz
 EXE_WINSVREXUIZ=rexuiz-dedicated
 EXE_WINSDLREXUIZ=rexuiz-sdl
 
@@ -334,7 +313,6 @@ endif
 
 .PHONY : clean clean-profile help \
 	 debug profile release \
-	 cl-debug cl-profile cl-release \
 	 sv-debug sv-profile sv-release \
 	 sdl-debug sdl-profile sdl-release
 
@@ -356,13 +334,6 @@ help:
 	@echo "* $(MAKE) nexuiz               : make client and server binaries with nexuiz icon"
 	@echo "                                 (release versions)"
 	@echo "* $(MAKE) rexuiz               : make client and server binaries with rexuiz icon"
-	@echo "                                 (release versions)"
-	@echo "* $(MAKE) cl-debug             : make client (debug version)"
-	@echo "* $(MAKE) cl-profile           : make client (profile version)"
-	@echo "* $(MAKE) cl-release           : make client (release version)"
-	@echo "* $(MAKE) cl-release-profile   : make client (release version)"
-	@echo "* $(MAKE) cl-nexuiz            : make client with nexuiz icon (release version)"
-	@echo "* $(MAKE) cl-rexuiz            : make client with rexuiz icon (release version)"
 	@echo
 	@echo "* $(MAKE) sv-debug             : make dedicated server (debug version)"
 	@echo "* $(MAKE) sv-profile           : make dedicated server (profile version)"
@@ -398,36 +369,6 @@ nexuiz :
 
 rexuiz :
 	$(MAKE) $(TARGETS_REXUIZ)
-
-cl-debug :
-	$(MAKE) bin-debug \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_CL)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1
-
-cl-profile :
-	$(MAKE) bin-profile \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_CL)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1
-
-cl-release :
-	$(MAKE) bin-release \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_CL)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1
-
-cl-release-profile :
-	$(MAKE) bin-release-profile \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_CL)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1
-
-cl-nexuiz :
-	$(MAKE) bin-release \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_CLNEXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1 ISNEXUIZ=1
-
-cl-rexuiz :
-	$(MAKE) bin-release \
-		DP_MAKE_TARGET=$(DP_MAKE_TARGET) DP_SOUND_API=$(DP_SOUND_API) \
-		EXE='$(EXE_CLREXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' LDFLAGS_COMMON='$(LDFLAGS_CL)' LEVEL=1 ISNEXUIZ=1
 
 sv-debug :
 	$(MAKE) bin-debug \
@@ -563,10 +504,6 @@ world.o: world.c
 	$(CHECKLEVEL2)
 	$(DO_CC) $(CFLAGS_ODE)
 
-vid_glx.o: vid_glx.c
-	$(CHECKLEVEL2)
-	$(DO_CC) -I/usr/X11R6/include
-
 keysym2ucs.o: keysym2ucs.c
 	$(CHECKLEVEL2)
 	$(DO_CC) -I/usr/X11R6/include
@@ -595,10 +532,6 @@ rexuiz.o: %.o : %.rc
 	$(CHECKLEVEL2)
 	$(DO_CC)
 
-$(EXE_CL): $(OBJ_CL) $(OBJ_ICON)
-	$(CHECKLEVEL2)
-	$(DO_LD)
-
 $(EXE_SV): $(OBJ_SV) $(OBJ_ICON)
 	$(CHECKLEVEL2)
 	$(DO_LD)
@@ -607,19 +540,11 @@ $(EXE_SDL): $(OBJ_SDL) $(OBJ_ICON)
 	$(CHECKLEVEL2)
 	$(DO_LD)
 
-$(EXE_CLNEXUIZ): $(OBJ_CL) $(OBJ_ICON_NEXUIZ)
-	$(CHECKLEVEL2)
-	$(DO_LD)
-
 $(EXE_SVNEXUIZ): $(OBJ_SV) $(OBJ_ICON_NEXUIZ)
 	$(CHECKLEVEL2)
 	$(DO_LD)
 
 $(EXE_SDLNEXUIZ): $(OBJ_SDL) $(OBJ_ICON_NEXUIZ)
-	$(CHECKLEVEL2)
-	$(DO_LD)
-
-$(EXE_CLREXUIZ): $(OBJ_CL) $(OBJ_ICON_REXUIZ)
 	$(CHECKLEVEL2)
 	$(DO_LD)
 
@@ -632,13 +557,10 @@ $(EXE_SDLREXUIZ): $(OBJ_SDL) $(OBJ_ICON_REXUIZ)
 	$(DO_LD)
 
 clean:
-	-$(CMD_RM) $(EXE_CL)
 	-$(CMD_RM) $(EXE_SV)
 	-$(CMD_RM) $(EXE_SDL)
-	-$(CMD_RM) $(EXE_CLNEXUIZ)
 	-$(CMD_RM) $(EXE_SVNEXUIZ)
 	-$(CMD_RM) $(EXE_SDLNEXUIZ)
-	-$(CMD_RM) $(EXE_CLREXUIZ)
 	-$(CMD_RM) $(EXE_SVREXUIZ)
 	-$(CMD_RM) $(EXE_SDLREXUIZ)
 	-$(CMD_RM) *.o
@@ -651,28 +573,11 @@ clean-profile: clean
 	-$(CMD_RM) *.gcno
 
 install:
-	if test -e $(EXE_CL); then $(INSTALL) $(EXE_CL) "$(PREFIX)/bin"; fi
 	if test -e $(EXE_SDL); then $(INSTALL) $(EXE_SDL) "$(PREFIX)/bin"; fi
 	if test -e $(EXE_SV); then $(INSTALL) $(EXE_SV) "$(PREFIX)/bin"; fi
-	if test -e $(EXE_CLNEXUIZ); then \
-		$(INSTALL) $(EXE_CLNEXUIZ) "$(PREFIX)/bin"; \
-		./nex-makedesktop.sh "Nexuiz (DPRM-GLX)" "$(PREFIX)/bin/$(EXE_CLNEXUIZ)" > "$(PREFIX)/share/applications/$(EXE_CLNEXUIZ).desktop"; \
-	fi
 	if test -e $(EXE_SDLNEXUIZ); then \
 		$(INSTALL) $(EXE_SDLNEXUIZ) "$(PREFIX)/bin"; \
 		./nex-makedesktop.sh "Nexuiz (DPRM-SDL)" "$(PREFIX)/bin/$(EXE_SDLNEXUIZ)" > "$(PREFIX)/share/applications/$(EXE_SDLNEXUIZ).desktop"; \
 	fi
 	if test -e $(EXE_SVNEXUIZ); then $(INSTALL) $(EXE_SVNEXUIZ) "$(PREFIX)/bin"; fi
-	if test -e $(EXE_CLNEXUIZ) || test -e $(EXE_SDLNEXUIZ); then \
-		$(INSTALLICON) nexuiz.xpm "$(PREFIX)/share/pixmaps/nexuiz-dprm.xpm"; \
-		$(INSTALLICON) nexuiz16x16.png "$(PREFIX)/share/icons/hicolor/16x16/apps/nexuiz-dprm.png"; \
-		$(INSTALLICON) nexuiz24x24.png "$(PREFIX)/share/icons/hicolor/24x24/apps/nexuiz-dprm.png"; \
-		$(INSTALLICON) nexuiz32x32.png "$(PREFIX)/share/icons/hicolor/32x32/apps/nexuiz-dprm.png"; \
-		$(INSTALLICON) nexuiz48x48.png "$(PREFIX)/share/icons/hicolor/48x48/apps/nexuiz-dprm.png"; \
-		$(INSTALLICON) nexuiz256x256.png "$(PREFIX)/share/icons/hicolor/256x256/apps/nexuiz-dprm.png"; \
-		if test $(INSTALL_UPDATEICONCACHE) -ne 0; then \
-			gtk-update-icon-cache -f -t "$(PREFIX)/share/icons/hicolor" || true; \
-			gtk-update-icon-cache-3.0 -f -t "$(PREFIX)/share/icons/hicolor" || true; \
-		fi \
-	fi
 
