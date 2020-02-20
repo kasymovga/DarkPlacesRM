@@ -493,11 +493,6 @@ static void R_Shadow_SetShadowMode(void)
 				r_shadow_shadowmapsampler = false;
 			r_shadow_shadowmode = R_SHADOW_SHADOWMODE_SHADOWMAP2D;
 			break;
-		case RENDERPATH_SOFT:
-			r_shadow_shadowmapsampler = false;
-			r_shadow_shadowmappcf = 1;
-			r_shadow_shadowmode = R_SHADOW_SHADOWMODE_SHADOWMAP2D;
-			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
 		case RENDERPATH_GLES1:
@@ -622,7 +617,6 @@ static void r_shadow_start(void)
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GLES1:
-	case RENDERPATH_SOFT:
 		break;
 	}
 }
@@ -2046,7 +2040,6 @@ void R_Shadow_RenderMode_Begin(void)
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
 	case RENDERPATH_GLES2:
 		r_shadow_lightingrendermode = R_SHADOW_RENDERMODE_LIGHT_GLSL;
 		break;
@@ -2245,10 +2238,9 @@ static void R_Shadow_SetShadowmapParametersForLight(qboolean noselfshadowpass)
 
 static void R_Shadow_RenderMode_ShadowMap(int side, int size, int x, int y)
 {
-	float nearclip, farclip, bias;
+	float nearclip, farclip;
 	r_viewport_t viewport;
 	int flipped;
-	float clearcolor[4];
 
 	if (r_shadow_rendermode != R_SHADOW_RENDERMODE_SHADOWMAP2D)
 	{
@@ -2268,7 +2260,6 @@ static void R_Shadow_RenderMode_ShadowMap(int side, int size, int x, int y)
 
 	nearclip = r_shadow_shadowmapping_nearclip.value / rsurface.rtlight->radius;
 	farclip = 1.0f;
-	bias = r_shadow_shadowmapping_bias.value * nearclip * (1024.0f / size);// * rsurface.rtlight->radius;
 
 	R_Viewport_InitRectSideView(&viewport, &rsurface.rtlight->matrix_lighttoworld, side, size, r_shadow_shadowmapborder, nearclip, farclip, NULL, x, y);
 	R_SetViewport(&viewport);
@@ -2277,7 +2268,6 @@ static void R_Shadow_RenderMode_ShadowMap(int side, int size, int x, int y)
 	r_refdef.view.cullface_front = flipped ? r_shadow_cullface_back : r_shadow_cullface_front;
 	r_refdef.view.cullface_back = flipped ? r_shadow_cullface_front : r_shadow_cullface_back;
 
-	Vector4Set(clearcolor, 1,1,1,1);
 	if (r_shadow_shadowmap2ddepthbuffer)
 		GL_ColorMask(1,1,1,1);
 	else
@@ -4837,7 +4827,7 @@ static void R_Shadow_DrawLightShadowMaps(rtlight_t *rtlight)
 {
 	int i;
 	int numsurfaces;
-	unsigned char *shadowtrispvs, *lighttrispvs, *surfacesides;
+	unsigned char *shadowtrispvs, *surfacesides;
 	int numlightentities;
 	int numlightentities_noselfshadow;
 	int numshadowentities;
@@ -4885,7 +4875,6 @@ static void R_Shadow_DrawLightShadowMaps(rtlight_t *rtlight)
 	shadowentities = rtlight->cached_shadowentities;
 	shadowentities_noselfshadow = rtlight->cached_shadowentities_noselfshadow;
 	shadowtrispvs = rtlight->cached_shadowtrispvs;
-	lighttrispvs = rtlight->cached_lighttrispvs;
 	surfacelist = rtlight->cached_surfacelist;
 
 	// make this the active rtlight for rendering purposes
@@ -5050,19 +5039,10 @@ static void R_Shadow_DrawLight(rtlight_t *rtlight)
 
 	if (castshadows && r_shadow_shadowmode == R_SHADOW_SHADOWMODE_SHADOWMAP2D)
 	{
-		float borderbias;
-		int size;
-		float shadowmapoffsetnoselfshadow = 0;
 		matrix4x4_t radiustolight = rtlight->matrix_worldtolight;
 		Matrix4x4_Abs(&radiustolight);
 
-		size = rtlight->shadowmapatlassidesize;
-		borderbias = r_shadow_shadowmapborder / (float)(size - r_shadow_shadowmapborder);
-
-		//Con_Printf("distance %f lodlinear %i size %i\n", distance, lodlinear, size);
-
-		if (rtlight->cached_numshadowentities_noselfshadow)
-			shadowmapoffsetnoselfshadow = rtlight->shadowmapatlassidesize * 2;
+		//Con_Printf("distance %f lodlinear %i size %i\n", distance, lodlinear, (int)rtlight->shadowmapatlassidesize);
 
 		// render lighting using the depth texture as shadowmap
 		// draw lighting in the unmasked areas
@@ -5269,7 +5249,6 @@ void R_Shadow_PrepareLights(int fbo, rtexture_t *depthtexture, rtexture_t *color
 	switch (vid.renderpath)
 	{
 	case RENDERPATH_GL20:
-	case RENDERPATH_SOFT:
 #ifndef USE_GLES2
 		if (!r_shadow_deferred.integer || r_shadow_shadowmode == R_SHADOW_SHADOWMODE_STENCIL || !vid.support.ext_framebuffer_object || vid.maxdrawbuffers < 2)
 		{
@@ -5803,36 +5782,23 @@ static void R_BeginCoronaQuery(rtlight_t *rtlight, float scale, qboolean usequer
 		rtlight->corona_queryindex_visiblepixels = r_queries[r_numqueries++];
 		// we count potential samples in the middle of the screen, we count actual samples at the light location, this allows counting potential samples of off-screen lights
 		VectorMA(r_refdef.view.origin, zdist, r_refdef.view.forward, centerorigin);
-
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
-			CHECKGLERROR
-			// NOTE: GL_DEPTH_TEST must be enabled or ATI won't count samples, so use GL_DepthFunc instead
-			qglBeginQueryARB(GL_SAMPLES_PASSED_ARB, rtlight->corona_queryindex_allpixels);
-			GL_DepthFunc(GL_ALWAYS);
-			R_CalcSprite_Vertex3f(vertex3f, centerorigin, r_refdef.view.right, r_refdef.view.up, scale, -scale, -scale, scale);
-			R_Mesh_PrepareVertices_Vertex3f(4, vertex3f, NULL, 0);
-			R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
-			qglEndQueryARB(GL_SAMPLES_PASSED_ARB);
-			GL_DepthFunc(GL_LEQUAL);
-			qglBeginQueryARB(GL_SAMPLES_PASSED_ARB, rtlight->corona_queryindex_visiblepixels);
-			R_CalcSprite_Vertex3f(vertex3f, rtlight->shadoworigin, r_refdef.view.right, r_refdef.view.up, scale, -scale, -scale, scale);
-			R_Mesh_PrepareVertices_Vertex3f(4, vertex3f, NULL, 0);
-			R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
-			qglEndQueryARB(GL_SAMPLES_PASSED_ARB);
-			CHECKGLERROR
+		CHECKGLERROR
+		// NOTE: GL_DEPTH_TEST must be enabled or ATI won't count samples, so use GL_DepthFunc instead
+		qglBeginQueryARB(GL_SAMPLES_PASSED_ARB, rtlight->corona_queryindex_allpixels);
+		GL_DepthFunc(GL_ALWAYS);
+		R_CalcSprite_Vertex3f(vertex3f, centerorigin, r_refdef.view.right, r_refdef.view.up, scale, -scale, -scale, scale);
+		R_Mesh_PrepareVertices_Vertex3f(4, vertex3f, NULL, 0);
+		R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
+		qglEndQueryARB(GL_SAMPLES_PASSED_ARB);
+		GL_DepthFunc(GL_LEQUAL);
+		qglBeginQueryARB(GL_SAMPLES_PASSED_ARB, rtlight->corona_queryindex_visiblepixels);
+		R_CalcSprite_Vertex3f(vertex3f, rtlight->shadoworigin, r_refdef.view.right, r_refdef.view.up, scale, -scale, -scale, scale);
+		R_Mesh_PrepareVertices_Vertex3f(4, vertex3f, NULL, 0);
+		R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
+		qglEndQueryARB(GL_SAMPLES_PASSED_ARB);
+		CHECKGLERROR
 #endif
-			break;
-		case RENDERPATH_SOFT:
-			//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			break;
-		}
 	}
 	rtlight->corona_visibility = bound(0, (zdist - 32) / 32, 1);
 }
@@ -5848,48 +5814,34 @@ static void R_DrawCorona(rtlight_t *rtlight, float cscale, float scale)
 	// now we have to check the query result
 	if (rtlight->corona_queryindex_visiblepixels)
 	{
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
-			CHECKGLERROR
-			// See if we can use the GPU-side method to prevent implicit sync
-			if (vid.support.arb_query_buffer_object) {
+		CHECKGLERROR
+		// See if we can use the GPU-side method to prevent implicit sync
+		if (vid.support.arb_query_buffer_object) {
 #define BUFFER_OFFSET(i)    ((GLint *)((unsigned char*)NULL + (i)))
-				if (!r_shadow_occlusion_buf) {
-					qglGenBuffersARB(1, &r_shadow_occlusion_buf);
-					qglBindBufferARB(GL_QUERY_BUFFER_ARB, r_shadow_occlusion_buf);
-					qglBufferDataARB(GL_QUERY_BUFFER_ARB, 8, NULL, GL_DYNAMIC_COPY);
-				} else {
-					qglBindBufferARB(GL_QUERY_BUFFER_ARB, r_shadow_occlusion_buf);
-				}
-				qglGetQueryObjectivARB(rtlight->corona_queryindex_visiblepixels, GL_QUERY_RESULT_ARB, BUFFER_OFFSET(0));
-				qglGetQueryObjectivARB(rtlight->corona_queryindex_allpixels, GL_QUERY_RESULT_ARB, BUFFER_OFFSET(4));
-				qglBindBufferBase(GL_UNIFORM_BUFFER, 0, r_shadow_occlusion_buf);
-				occlude = MATERIALFLAG_OCCLUDE;
+			if (!r_shadow_occlusion_buf) {
+				qglGenBuffersARB(1, &r_shadow_occlusion_buf);
+				qglBindBufferARB(GL_QUERY_BUFFER_ARB, r_shadow_occlusion_buf);
+				qglBufferDataARB(GL_QUERY_BUFFER_ARB, 8, NULL, GL_DYNAMIC_COPY);
 			} else {
-				qglGetQueryObjectivARB(rtlight->corona_queryindex_visiblepixels, GL_QUERY_RESULT_ARB, &visiblepixels);
-				qglGetQueryObjectivARB(rtlight->corona_queryindex_allpixels, GL_QUERY_RESULT_ARB, &allpixels); 
-				if (visiblepixels < 1 || allpixels < 1)
-					return;
-				rtlight->corona_visibility *= bound(0, (float)visiblepixels / (float)allpixels, 1);
+				qglBindBufferARB(GL_QUERY_BUFFER_ARB, r_shadow_occlusion_buf);
 			}
-			cscale *= rtlight->corona_visibility;
-			CHECKGLERROR
-			break;
-#else
-			return;
-#endif
-		case RENDERPATH_SOFT:
-			//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			return;
-		default:
-			return;
+			qglGetQueryObjectivARB(rtlight->corona_queryindex_visiblepixels, GL_QUERY_RESULT_ARB, BUFFER_OFFSET(0));
+			qglGetQueryObjectivARB(rtlight->corona_queryindex_allpixels, GL_QUERY_RESULT_ARB, BUFFER_OFFSET(4));
+			qglBindBufferBase(GL_UNIFORM_BUFFER, 0, r_shadow_occlusion_buf);
+			occlude = MATERIALFLAG_OCCLUDE;
+		} else {
+			qglGetQueryObjectivARB(rtlight->corona_queryindex_visiblepixels, GL_QUERY_RESULT_ARB, &visiblepixels);
+			qglGetQueryObjectivARB(rtlight->corona_queryindex_allpixels, GL_QUERY_RESULT_ARB, &allpixels); 
+			if (visiblepixels < 1 || allpixels < 1)
+				return;
+			rtlight->corona_visibility *= bound(0, (float)visiblepixels / (float)allpixels, 1);
 		}
+		cscale *= rtlight->corona_visibility;
+		CHECKGLERROR
+#else
+		return;
+#endif
 	}
 	else
 	{
@@ -5936,45 +5888,32 @@ void R_Shadow_DrawCoronas(void)
 	// use GL_ARB_occlusion_query if available
 	// otherwise use raytraces
 	r_numqueries = 0;
-	switch (vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		usequery = vid.support.arb_occlusion_query && r_coronas_occlusionquery.integer;
+	usequery = vid.support.arb_occlusion_query && r_coronas_occlusionquery.integer;
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
-		if (usequery)
+	if (usequery)
+	{
+		GL_ColorMask(0,0,0,0);
+		if (r_maxqueries < ((unsigned int)range + r_refdef.scene.numlights) * 2)
+		if (r_maxqueries < MAX_OCCLUSION_QUERIES)
 		{
-			GL_ColorMask(0,0,0,0);
-			if (r_maxqueries < ((unsigned int)range + r_refdef.scene.numlights) * 2)
-			if (r_maxqueries < MAX_OCCLUSION_QUERIES)
-			{
-				i = r_maxqueries;
-				r_maxqueries = ((unsigned int)range + r_refdef.scene.numlights) * 4;
-				r_maxqueries = min(r_maxqueries, MAX_OCCLUSION_QUERIES);
-				CHECKGLERROR
-				qglGenQueriesARB(r_maxqueries - i, r_queries + i);
-				CHECKGLERROR
-			}
-			RSurf_ActiveWorldEntity();
-			GL_BlendFunc(GL_ONE, GL_ZERO);
-			GL_CullFace(GL_NONE);
-			GL_DepthMask(false);
-			GL_DepthRange(0, 1);
-			GL_PolygonOffset(0, 0);
-			GL_DepthTest(true);
-			R_Mesh_ResetTextureState();
-			R_SetupShader_Generic_NoTexture(false, false);
+			i = r_maxqueries;
+			r_maxqueries = ((unsigned int)range + r_refdef.scene.numlights) * 4;
+			r_maxqueries = min(r_maxqueries, MAX_OCCLUSION_QUERIES);
+			CHECKGLERROR
+			qglGenQueriesARB(r_maxqueries - i, r_queries + i);
+			CHECKGLERROR
 		}
-#endif
-		break;
-	case RENDERPATH_SOFT:
-		usequery = false;
-		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
+		RSurf_ActiveWorldEntity();
+		GL_BlendFunc(GL_ONE, GL_ZERO);
+		GL_CullFace(GL_NONE);
+		GL_DepthMask(false);
+		GL_DepthRange(0, 1);
+		GL_PolygonOffset(0, 0);
+		GL_DepthTest(true);
+		R_Mesh_ResetTextureState();
+		R_SetupShader_Generic_NoTexture(false, false);
 	}
+#endif
 	for (lightindex = 0;lightindex < range;lightindex++)
 	{
 		light = (dlight_t *) Mem_ExpandableArray_RecordAtIndex(&r_shadow_worldlightsarray, lightindex);

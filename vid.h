@@ -33,7 +33,6 @@ typedef enum renderpath_e
 	RENDERPATH_GL11,
 	RENDERPATH_GL13,
 	RENDERPATH_GL20,
-	RENDERPATH_SOFT,
 	RENDERPATH_GLES1,
 	RENDERPATH_GLES2
 }
@@ -177,10 +176,6 @@ extern qboolean vid_activewindow;
 extern cvar_t vid_hardwaregammasupported;
 extern qboolean vid_usinghwgamma;
 extern qboolean vid_supportrefreshrate;
-
-extern cvar_t vid_soft;
-extern cvar_t vid_soft_threads;
-extern cvar_t vid_soft_interlace;
 
 extern cvar_t vid_fullscreen;
 extern cvar_t vid_width;

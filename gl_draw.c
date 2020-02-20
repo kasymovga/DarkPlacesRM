@@ -1996,9 +1996,6 @@ void DrawQ_LineLoop (drawqueuemesh_t *mesh, int flags)
 		}
 #endif
 		break;
-	case RENDERPATH_SOFT:
-		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		//Con_DPrintf("FIXME GLES2 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
@@ -2034,9 +2031,6 @@ void DrawQ_Line (float width, float x1, float y1, float x2, float y2, float r, f
 		CHECKGLERROR
 #endif
 		break;
-	case RENDERPATH_SOFT:
-		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		//Con_DPrintf("FIXME GLES2 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
@@ -2065,9 +2059,6 @@ void DrawQ_Lines (float width, int numlines, int flags, qboolean hasalpha)
 		CHECKGLERROR
 		qglDrawArrays(GL_LINES, 0, numlines*2);
 		CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		break;
 	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
@@ -2125,7 +2116,6 @@ void R_DrawGamma(void)
 			return;
 		break;
 	case RENDERPATH_GLES1:
-	case RENDERPATH_SOFT:
 		return;
 	}
 	// all the blends ignore depth

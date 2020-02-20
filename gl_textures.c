@@ -40,8 +40,6 @@ cvar_t r_texture_dds_swdecode = {0, "r_texture_dds_swdecode", "0", "0: don't sof
 qboolean	gl_filter_force = false;
 int		gl_filter_min = GL_LINEAR_MIPMAP_LINEAR;
 int		gl_filter_mag = GL_LINEAR;
-DPSOFTRAST_TEXTURE_FILTER dpsoftrast_filter_mipmap = DPSOFTRAST_TEXTURE_FILTER_LINEAR_MIPMAP_TRIANGLE;
-DPSOFTRAST_TEXTURE_FILTER dpsoftrast_filter_nomipmap = DPSOFTRAST_TEXTURE_FILTER_LINEAR;
 
 static mempool_t *texturemempool;
 static memexpandablearray_t texturearray;
@@ -354,30 +352,16 @@ void R_FreeTexture(rtexture_t *rt)
 
 	R_Mesh_ClearBindingsForTexture(glt->texnum);
 
-	switch(vid.renderpath)
+	if (glt->texnum)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		if (glt->texnum)
-		{
-			CHECKGLERROR
-			qglDeleteTextures(1, (GLuint *)&glt->texnum);CHECKGLERROR
-		}
-		if (glt->renderbuffernum)
-		{
-			CHECKGLERROR
-			qglDeleteRenderbuffers(1, (GLuint *)&glt->renderbuffernum);CHECKGLERROR
-		}
-		break;
-	case RENDERPATH_SOFT:
-		if (glt->texnum)
-			DPSOFTRAST_Texture_Free(glt->texnum);
-		break;
+		CHECKGLERROR
+		qglDeleteTextures(1, (GLuint *)&glt->texnum);CHECKGLERROR
 	}
-
+	if (glt->renderbuffernum)
+	{
+		CHECKGLERROR
+		qglDeleteRenderbuffers(1, (GLuint *)&glt->renderbuffernum);CHECKGLERROR
+	}
 	if (glt->inputtexels)
 		Mem_Free(glt->inputtexels);
 	Mem_ExpandableArray_FreeRecord(&texturearray, glt);
@@ -423,18 +407,17 @@ typedef struct glmode_s
 {
 	const char *name;
 	int minification, magnification;
-	DPSOFTRAST_TEXTURE_FILTER dpsoftrastfilter_mipmap, dpsoftrastfilter_nomipmap;
 }
 glmode_t;
 
 static glmode_t modes[6] =
 {
-	{"GL_NEAREST", GL_NEAREST, GL_NEAREST, DPSOFTRAST_TEXTURE_FILTER_NEAREST, DPSOFTRAST_TEXTURE_FILTER_NEAREST},
-	{"GL_LINEAR", GL_LINEAR, GL_LINEAR, DPSOFTRAST_TEXTURE_FILTER_LINEAR, DPSOFTRAST_TEXTURE_FILTER_LINEAR},
-	{"GL_NEAREST_MIPMAP_NEAREST", GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST, DPSOFTRAST_TEXTURE_FILTER_NEAREST_MIPMAP_TRIANGLE, DPSOFTRAST_TEXTURE_FILTER_NEAREST},
-	{"GL_LINEAR_MIPMAP_NEAREST", GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR, DPSOFTRAST_TEXTURE_FILTER_LINEAR_MIPMAP_TRIANGLE, DPSOFTRAST_TEXTURE_FILTER_LINEAR},
-	{"GL_NEAREST_MIPMAP_LINEAR", GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST, DPSOFTRAST_TEXTURE_FILTER_NEAREST_MIPMAP_TRIANGLE, DPSOFTRAST_TEXTURE_FILTER_NEAREST},
-	{"GL_LINEAR_MIPMAP_LINEAR", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, DPSOFTRAST_TEXTURE_FILTER_LINEAR_MIPMAP_TRIANGLE, DPSOFTRAST_TEXTURE_FILTER_LINEAR}
+	{"GL_NEAREST", GL_NEAREST, GL_NEAREST},
+	{"GL_LINEAR", GL_LINEAR, GL_LINEAR},
+	{"GL_NEAREST_MIPMAP_NEAREST", GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST},
+	{"GL_LINEAR_MIPMAP_NEAREST", GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR},
+	{"GL_NEAREST_MIPMAP_LINEAR", GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST},
+	{"GL_LINEAR_MIPMAP_LINEAR", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR}
 };
 
 static void GL_TextureMode_f (void)
@@ -472,50 +455,31 @@ static void GL_TextureMode_f (void)
 	gl_filter_mag = modes[i].magnification;
 	gl_filter_force = ((Cmd_Argc() > 2) && !strcasecmp(Cmd_Argv(2), "force"));
 
-	dpsoftrast_filter_mipmap = modes[i].dpsoftrastfilter_mipmap;
-	dpsoftrast_filter_nomipmap = modes[i].dpsoftrastfilter_nomipmap;
-
-	switch(vid.renderpath)
+	// change all the existing mipmap texture objects
+	// FIXME: force renderer(/client/something?) restart instead?
+	CHECKGLERROR
+	GL_ActiveTexture(0);
+	for (pool = gltexturepoolchain;pool;pool = pool->next)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		// change all the existing mipmap texture objects
-		// FIXME: force renderer(/client/something?) restart instead?
-		CHECKGLERROR
-		GL_ActiveTexture(0);
-		for (pool = gltexturepoolchain;pool;pool = pool->next)
+		for (glt = pool->gltchain;glt;glt = glt->chain)
 		{
-			for (glt = pool->gltchain;glt;glt = glt->chain)
+			// only update already uploaded images
+			if (glt->texnum && (gl_filter_force || !(glt->flags & (TEXF_FORCENEAREST | TEXF_FORCELINEAR))))
 			{
-				// only update already uploaded images
-				if (glt->texnum && (gl_filter_force || !(glt->flags & (TEXF_FORCENEAREST | TEXF_FORCELINEAR))))
+				oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
+				qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
+				if (glt->flags & TEXF_MIPMAP)
 				{
-					oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
-					qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
-					if (glt->flags & TEXF_MIPMAP)
-					{
-						qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MIN_FILTER, gl_filter_min);CHECKGLERROR
-					}
-					else
-					{
-						qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MIN_FILTER, gl_filter_mag);CHECKGLERROR
-					}
-					qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MAG_FILTER, gl_filter_mag);CHECKGLERROR
-					qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
+					qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MIN_FILTER, gl_filter_min);CHECKGLERROR
 				}
+				else
+				{
+					qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MIN_FILTER, gl_filter_mag);CHECKGLERROR
+				}
+				qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MAG_FILTER, gl_filter_mag);CHECKGLERROR
+				qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
 			}
 		}
-		break;
-	case RENDERPATH_SOFT:
-		// change all the existing texture objects
-		for (pool = gltexturepoolchain;pool;pool = pool->next)
-			for (glt = pool->gltchain;glt;glt = glt->chain)
-				if (glt->texnum && (gl_filter_force || !(glt->flags & (TEXF_FORCENEAREST | TEXF_FORCELINEAR))))
-					DPSOFTRAST_Texture_Filter(glt->texnum, (glt->flags & TEXF_MIPMAP) ? dpsoftrast_filter_mipmap : dpsoftrast_filter_nomipmap);
-		break;
 	}
 }
 
@@ -655,22 +619,10 @@ static void R_TextureStats_f(void)
 
 static void r_textures_start(void)
 {
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		// LordHavoc: allow any alignment
-		CHECKGLERROR
-		qglPixelStorei(GL_UNPACK_ALIGNMENT, 1);CHECKGLERROR
-		qglPixelStorei(GL_PACK_ALIGNMENT, 1);CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		break;
-	}
-
+	// LordHavoc: allow any alignment
+	CHECKGLERROR
+	qglPixelStorei(GL_UNPACK_ALIGNMENT, 1);CHECKGLERROR
+	qglPixelStorei(GL_PACK_ALIGNMENT, 1);CHECKGLERROR
 	texturemempool = Mem_AllocPool("texture management", 0, NULL);
 	Mem_ExpandableArray_NewArray(&texturearray, texturemempool, sizeof(gltexture_t), 512);
 
@@ -728,17 +680,6 @@ static void r_textures_devicerestored(void)
 		glt = (gltexture_t *) Mem_ExpandableArray_RecordAtIndex(&texturearray, i);
 		if (!glt || !(glt->flags & TEXF_RENDERTARGET))
 			continue;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			break;
-		case RENDERPATH_SOFT:
-			break;
-		}
 	}
 }
 
@@ -810,34 +751,23 @@ void R_Textures_Frame (void)
 
 		Cvar_SetValueQuick(&gl_texture_anisotropy, old_aniso);
 
-		switch(vid.renderpath)
+		CHECKGLERROR
+		GL_ActiveTexture(0);
+		for (pool = gltexturepoolchain;pool;pool = pool->next)
 		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			CHECKGLERROR
-			GL_ActiveTexture(0);
-			for (pool = gltexturepoolchain;pool;pool = pool->next)
+			for (glt = pool->gltchain;glt;glt = glt->chain)
 			{
-				for (glt = pool->gltchain;glt;glt = glt->chain)
+				// only update already uploaded images
+				if (glt->texnum && (glt->flags & TEXF_MIPMAP) == TEXF_MIPMAP)
 				{
-					// only update already uploaded images
-					if (glt->texnum && (glt->flags & TEXF_MIPMAP) == TEXF_MIPMAP)
-					{
-						oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
+					oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
 
-						qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
-						qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MAX_ANISOTROPY_EXT, old_aniso);CHECKGLERROR
+					qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
+					qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MAX_ANISOTROPY_EXT, old_aniso);CHECKGLERROR
 
-						qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
-					}
+					qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
 				}
 			}
-			break;
-		case RENDERPATH_SOFT:
-			break;
 		}
 	}
 #endif
@@ -954,6 +884,7 @@ static void GL_SetupTextureParameters(int flags, textype_t textype, int texturet
 
 static void R_UploadPartialTexture(gltexture_t *glt, const unsigned char *data, int fragx, int fragy, int fragz, int fragwidth, int fragheight, int fragdepth)
 {
+	int oldbindtexnum;
 	if (data == NULL)
 		Sys_Error("R_UploadPartialTexture \"%s\": partial update with NULL pixels", glt->identifier);
 
@@ -970,29 +901,13 @@ static void R_UploadPartialTexture(gltexture_t *glt, const unsigned char *data, 
 		Sys_Error("R_UploadPartialTexture \"%s\": partial update not supported with stretched or special textures", glt->identifier);
 
 	// update a portion of the image
-
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		{
-			int oldbindtexnum;
-			CHECKGLERROR
-			// we need to restore the texture binding after finishing the upload
-			GL_ActiveTexture(0);
-			oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
-			qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
-			qglTexSubImage2D(GL_TEXTURE_2D, 0, fragx, fragy, fragwidth, fragheight, glt->glformat, glt->gltype, data);CHECKGLERROR
-			qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
-		}
-		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_Texture_UpdatePartial(glt->texnum, 0, data, fragx, fragy, fragwidth, fragheight);
-		break;
-	}
+	CHECKGLERROR
+	// we need to restore the texture binding after finishing the upload
+	GL_ActiveTexture(0);
+	oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
+	qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
+	qglTexSubImage2D(GL_TEXTURE_2D, 0, fragx, fragy, fragwidth, fragheight, glt->glformat, glt->gltype, data);CHECKGLERROR
+	qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
 }
 
 static void R_UploadFullTexture(gltexture_t *glt, const unsigned char *data)
@@ -1063,156 +978,95 @@ static void R_UploadFullTexture(gltexture_t *glt, const unsigned char *data)
 	}
 
 	// do the appropriate upload type...
-	switch(vid.renderpath)
+	if (glt->texnum) // not renderbuffers
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		if (glt->texnum) // not renderbuffers
-		{
-			CHECKGLERROR
+		CHECKGLERROR
 
-			// we need to restore the texture binding after finishing the upload
-			GL_ActiveTexture(0);
-			oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
-			qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
+		// we need to restore the texture binding after finishing the upload
+		GL_ActiveTexture(0);
+		oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
+		qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
 
 #ifndef USE_GLES2
 #ifdef GL_TEXTURE_COMPRESSION_HINT_ARB
-			if (qglGetCompressedTexImageARB)
-			{
-				if (gl_texturecompression.integer >= 2)
-					qglHint(GL_TEXTURE_COMPRESSION_HINT_ARB, GL_NICEST);
-				else
-					qglHint(GL_TEXTURE_COMPRESSION_HINT_ARB, GL_FASTEST);
-				CHECKGLERROR
-			}
-#endif
-#endif
-			switch(glt->texturetype)
-			{
-			case GLTEXTURETYPE_2D:
-				qglTexImage2D(GL_TEXTURE_2D, mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
-				if (glt->flags & TEXF_MIPMAP)
-				{
-					while (width > 1 || height > 1 || depth > 1)
-					{
-						R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
-						Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, 1, 1, 1);
-						prevbuffer = resizebuffer;
-						qglTexImage2D(GL_TEXTURE_2D, mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
-					}
-				}
-				break;
-			case GLTEXTURETYPE_3D:
-#ifndef USE_GLES2
-				qglTexImage3D(GL_TEXTURE_3D, mip++, glt->glinternalformat, width, height, depth, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
-				if (glt->flags & TEXF_MIPMAP)
-				{
-					while (width > 1 || height > 1 || depth > 1)
-					{
-						R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
-						Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, 1, 1, 1);
-						prevbuffer = resizebuffer;
-						qglTexImage3D(GL_TEXTURE_3D, mip++, glt->glinternalformat, width, height, depth, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
-					}
-				}
-#endif
-				break;
-			case GLTEXTURETYPE_CUBEMAP:
-				// convert and upload each side in turn,
-				// from a continuous block of input texels
-				texturebuffer = (unsigned char *)prevbuffer;
-				for (i = 0;i < 6;i++)
-				{
-					prevbuffer = texturebuffer;
-					texturebuffer += glt->inputwidth * glt->inputheight * glt->inputdepth * glt->textype->inputbytesperpixel;
-					if (glt->inputwidth != width || glt->inputheight != height || glt->inputdepth != depth)
-					{
-						R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
-						Image_Resample32(prevbuffer, glt->inputwidth, glt->inputheight, glt->inputdepth, resizebuffer, width, height, depth, r_lerpimages.integer);
-						prevbuffer = resizebuffer;
-					}
-					// picmip/max_size
-					while (width > glt->tilewidth || height > glt->tileheight || depth > glt->tiledepth)
-					{
-						R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
-						Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, glt->tilewidth, glt->tileheight, glt->tiledepth);
-						prevbuffer = resizebuffer;
-					}
-					mip = 0;
-					qglTexImage2D(cubemapside[i], mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
-					if (glt->flags & TEXF_MIPMAP)
-					{
-						while (width > 1 || height > 1 || depth > 1)
-						{
-							R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
-							Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, 1, 1, 1);
-							prevbuffer = resizebuffer;
-							qglTexImage2D(cubemapside[i], mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
-						}
-					}
-				}
-				break;
-			}
-			GL_SetupTextureParameters(glt->flags, glt->textype->textype, glt->texturetype);
-			qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
+		if (qglGetCompressedTexImageARB)
+		{
+			if (gl_texturecompression.integer >= 2)
+				qglHint(GL_TEXTURE_COMPRESSION_HINT_ARB, GL_NICEST);
+			else
+				qglHint(GL_TEXTURE_COMPRESSION_HINT_ARB, GL_FASTEST);
+			CHECKGLERROR
 		}
-		break;
-	case RENDERPATH_SOFT:
+#endif
+#endif
 		switch(glt->texturetype)
 		{
 		case GLTEXTURETYPE_2D:
-			DPSOFTRAST_Texture_UpdateFull(glt->texnum, prevbuffer);
+			qglTexImage2D(GL_TEXTURE_2D, mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
+			if (glt->flags & TEXF_MIPMAP)
+			{
+				while (width > 1 || height > 1 || depth > 1)
+				{
+					R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
+					Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, 1, 1, 1);
+					prevbuffer = resizebuffer;
+					qglTexImage2D(GL_TEXTURE_2D, mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
+				}
+			}
 			break;
 		case GLTEXTURETYPE_3D:
-			DPSOFTRAST_Texture_UpdateFull(glt->texnum, prevbuffer);
+#ifndef USE_GLES2
+			qglTexImage3D(GL_TEXTURE_3D, mip++, glt->glinternalformat, width, height, depth, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
+			if (glt->flags & TEXF_MIPMAP)
+			{
+				while (width > 1 || height > 1 || depth > 1)
+				{
+					R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
+					Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, 1, 1, 1);
+					prevbuffer = resizebuffer;
+					qglTexImage3D(GL_TEXTURE_3D, mip++, glt->glinternalformat, width, height, depth, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
+				}
+			}
+#endif
 			break;
 		case GLTEXTURETYPE_CUBEMAP:
-			if (glt->inputwidth != width || glt->inputheight != height || glt->inputdepth != depth)
+			// convert and upload each side in turn,
+			// from a continuous block of input texels
+			texturebuffer = (unsigned char *)prevbuffer;
+			for (i = 0;i < 6;i++)
 			{
-				unsigned char *combinedbuffer = (unsigned char *)Mem_Alloc(tempmempool, glt->tilewidth*glt->tileheight*glt->tiledepth*glt->sides*glt->bytesperpixel);
-				// convert and upload each side in turn,
-				// from a continuous block of input texels
-				// copy the results into combinedbuffer
-				texturebuffer = (unsigned char *)prevbuffer;
-				for (i = 0;i < 6;i++)
+				prevbuffer = texturebuffer;
+				texturebuffer += glt->inputwidth * glt->inputheight * glt->inputdepth * glt->textype->inputbytesperpixel;
+				if (glt->inputwidth != width || glt->inputheight != height || glt->inputdepth != depth)
 				{
-					prevbuffer = texturebuffer;
-					texturebuffer += glt->inputwidth * glt->inputheight * glt->inputdepth * glt->textype->inputbytesperpixel;
-					if (glt->inputwidth != width || glt->inputheight != height || glt->inputdepth != depth)
-					{
-						R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
-						Image_Resample32(prevbuffer, glt->inputwidth, glt->inputheight, glt->inputdepth, resizebuffer, width, height, depth, r_lerpimages.integer);
-						prevbuffer = resizebuffer;
-					}
-					// picmip/max_size
-					while (width > glt->tilewidth || height > glt->tileheight || depth > glt->tiledepth)
-					{
-						R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
-						Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, glt->tilewidth, glt->tileheight, glt->tiledepth);
-						prevbuffer = resizebuffer;
-					}
-					memcpy(combinedbuffer + i*glt->tilewidth*glt->tileheight*glt->tiledepth*glt->bytesperpixel, prevbuffer, glt->tilewidth*glt->tileheight*glt->tiledepth*glt->bytesperpixel);
+					R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
+					Image_Resample32(prevbuffer, glt->inputwidth, glt->inputheight, glt->inputdepth, resizebuffer, width, height, depth, r_lerpimages.integer);
+					prevbuffer = resizebuffer;
 				}
-				DPSOFTRAST_Texture_UpdateFull(glt->texnum, combinedbuffer);
-				Mem_Free(combinedbuffer);
+				// picmip/max_size
+				while (width > glt->tilewidth || height > glt->tileheight || depth > glt->tiledepth)
+				{
+					R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
+					Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, glt->tilewidth, glt->tileheight, glt->tiledepth);
+					prevbuffer = resizebuffer;
+				}
+				mip = 0;
+				qglTexImage2D(cubemapside[i], mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
+				if (glt->flags & TEXF_MIPMAP)
+				{
+					while (width > 1 || height > 1 || depth > 1)
+					{
+						R_MakeResizeBufferBigger(width * height * depth * glt->sides * glt->bytesperpixel);
+						Image_MipReduce32(prevbuffer, resizebuffer, &width, &height, &depth, 1, 1, 1);
+						prevbuffer = resizebuffer;
+						qglTexImage2D(cubemapside[i], mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
+					}
+				}
 			}
-			else
-				DPSOFTRAST_Texture_UpdateFull(glt->texnum, prevbuffer);
 			break;
 		}
-		if (glt->flags & TEXF_FORCELINEAR)
-			DPSOFTRAST_Texture_Filter(glt->texnum, DPSOFTRAST_TEXTURE_FILTER_LINEAR);
-		else if (glt->flags & TEXF_FORCENEAREST)
-			DPSOFTRAST_Texture_Filter(glt->texnum, DPSOFTRAST_TEXTURE_FILTER_NEAREST);
-		else if (glt->flags & TEXF_MIPMAP)
-			DPSOFTRAST_Texture_Filter(glt->texnum, dpsoftrast_filter_mipmap);
-		else
-			DPSOFTRAST_Texture_Filter(glt->texnum, dpsoftrast_filter_nomipmap);
-		break;
+		GL_SetupTextureParameters(glt->flags, glt->textype->textype, glt->texturetype);
+		qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
 	}
 }
 
@@ -1425,45 +1279,8 @@ static rtexture_t *R_SetupTexture(rtexturepool_t *rtexturepool, const char *iden
 
 	// upload the texture
 	// data may be NULL (blank texture for dynamic rendering)
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
-		qglGenTextures(1, (GLuint *)&glt->texnum);CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		{
-			int tflags = 0;
-			switch(textype)
-			{
-			case TEXTYPE_PALETTE: tflags = DPSOFTRAST_TEXTURE_FORMAT_BGRA8;break;
-			case TEXTYPE_RGBA: tflags = DPSOFTRAST_TEXTURE_FORMAT_RGBA8;break;
-			case TEXTYPE_BGRA: tflags = DPSOFTRAST_TEXTURE_FORMAT_BGRA8;break;
-			case TEXTYPE_COLORBUFFER: tflags = DPSOFTRAST_TEXTURE_FORMAT_BGRA8;break;
-			case TEXTYPE_COLORBUFFER16F: tflags = DPSOFTRAST_TEXTURE_FORMAT_RGBA16F;break;
-			case TEXTYPE_COLORBUFFER32F: tflags = DPSOFTRAST_TEXTURE_FORMAT_RGBA32F;break;
-			case TEXTYPE_SHADOWMAP16_COMP:
-			case TEXTYPE_SHADOWMAP16_RAW:
-			case TEXTYPE_SHADOWMAP24_COMP:
-			case TEXTYPE_SHADOWMAP24_RAW: tflags = DPSOFTRAST_TEXTURE_FORMAT_DEPTH;break;
-			case TEXTYPE_DEPTHBUFFER16:
-			case TEXTYPE_DEPTHBUFFER24:
-			case TEXTYPE_DEPTHBUFFER24STENCIL8: tflags = DPSOFTRAST_TEXTURE_FORMAT_DEPTH;break;
-			case TEXTYPE_ALPHA: tflags = DPSOFTRAST_TEXTURE_FORMAT_ALPHA8;break;
-			default: Sys_Error("R_LoadTexture: unsupported texture type %i when picking DPSOFTRAST_TEXTURE_FLAGS", (int)textype);
-			}
-			if (glt->miplevels > 1) tflags |= DPSOFTRAST_TEXTURE_FLAG_MIPMAP;
-			if (flags & TEXF_ALPHA) tflags |= DPSOFTRAST_TEXTURE_FLAG_USEALPHA;
-			if (glt->sides == 6) tflags |= DPSOFTRAST_TEXTURE_FLAG_CUBEMAP;
-			if (glt->flags & TEXF_CLAMP) tflags |= DPSOFTRAST_TEXTURE_FLAG_CLAMPTOEDGE;
-			glt->texnum = DPSOFTRAST_Texture_New(tflags, glt->tilewidth, glt->tileheight, glt->tiledepth);
-		}
-		break;
-	}
+	CHECKGLERROR
+	qglGenTextures(1, (GLuint *)&glt->texnum);CHECKGLERROR
 
 	R_UploadFullTexture(glt, data);
 	if ((glt->flags & TEXF_ALLOWUPDATES) && gl_nopartialtextureupdates.integer)
@@ -1543,38 +1360,12 @@ rtexture_t *R_LoadTextureRenderBuffer(rtexturepool_t *rtexturepool, const char *
 
 	// upload the texture
 	// data may be NULL (blank texture for dynamic rendering)
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
-		qglGenRenderbuffers(1, (GLuint *)&glt->renderbuffernum);CHECKGLERROR
-		qglBindRenderbuffer(GL_RENDERBUFFER, glt->renderbuffernum);CHECKGLERROR
-		qglRenderbufferStorage(GL_RENDERBUFFER, glt->glinternalformat, glt->tilewidth, glt->tileheight);CHECKGLERROR
-		// note we can query the renderbuffer for info with glGetRenderbufferParameteriv for GL_WIDTH, GL_HEIGHt, GL_RED_SIZE, GL_GREEN_SIZE, GL_BLUE_SIZE, GL_GL_ALPHA_SIZE, GL_DEPTH_SIZE, GL_STENCIL_SIZE, GL_INTERNAL_FORMAT
-		qglBindRenderbuffer(GL_RENDERBUFFER, 0);CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		{
-			int tflags = 0;
-			switch(textype)
-			{
-			case TEXTYPE_COLORBUFFER: tflags = DPSOFTRAST_TEXTURE_FORMAT_BGRA8 | DPSOFTRAST_TEXTURE_FLAG_USEALPHA | DPSOFTRAST_TEXTURE_FLAG_CLAMPTOEDGE;break;
-			case TEXTYPE_COLORBUFFER16F: tflags = DPSOFTRAST_TEXTURE_FORMAT_RGBA16F | DPSOFTRAST_TEXTURE_FLAG_USEALPHA | DPSOFTRAST_TEXTURE_FLAG_CLAMPTOEDGE;break;
-			case TEXTYPE_COLORBUFFER32F: tflags = DPSOFTRAST_TEXTURE_FORMAT_RGBA32F | DPSOFTRAST_TEXTURE_FLAG_USEALPHA | DPSOFTRAST_TEXTURE_FLAG_CLAMPTOEDGE;break;
-			case TEXTYPE_DEPTHBUFFER16:
-			case TEXTYPE_DEPTHBUFFER24:
-			case TEXTYPE_DEPTHBUFFER24STENCIL8: tflags = DPSOFTRAST_TEXTURE_FORMAT_DEPTH | DPSOFTRAST_TEXTURE_FLAG_CLAMPTOEDGE;break;
-			default: Sys_Error("R_LoadTextureRenderbuffer: unsupported texture type %i when picking DPSOFTRAST_TEXTURE_FLAGS", (int)textype);
-			}
-			glt->texnum = DPSOFTRAST_Texture_New(tflags, glt->tilewidth, glt->tileheight, glt->tiledepth);
-		}
-		break;
-	}
-
+	CHECKGLERROR
+	qglGenRenderbuffers(1, (GLuint *)&glt->renderbuffernum);CHECKGLERROR
+	qglBindRenderbuffer(GL_RENDERBUFFER, glt->renderbuffernum);CHECKGLERROR
+	qglRenderbufferStorage(GL_RENDERBUFFER, glt->glinternalformat, glt->tilewidth, glt->tileheight);CHECKGLERROR
+	// note we can query the renderbuffer for info with glGetRenderbufferParameteriv for GL_WIDTH, GL_HEIGHt, GL_RED_SIZE, GL_GREEN_SIZE, GL_BLUE_SIZE, GL_GL_ALPHA_SIZE, GL_DEPTH_SIZE, GL_STENCIL_SIZE, GL_INTERNAL_FORMAT
+	qglBindRenderbuffer(GL_RENDERBUFFER, 0);CHECKGLERROR
 	return (rtexture_t *)glt;
 }
 
@@ -2354,24 +2145,11 @@ rtexture_t *R_LoadTextureDDSFile(rtexturepool_t *rtexturepool, const char *filen
 	CL_KeepaliveMessage(false);
 
 	// create the texture object
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
-		GL_ActiveTexture(0);
-		oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
-		qglGenTextures(1, (GLuint *)&glt->texnum);CHECKGLERROR
-		qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		glt->texnum = DPSOFTRAST_Texture_New(((glt->flags & TEXF_CLAMP) ? DPSOFTRAST_TEXTURE_FLAG_CLAMPTOEDGE : 0) | (dds_miplevels > 1 ? DPSOFTRAST_TEXTURE_FLAG_MIPMAP : 0), glt->tilewidth, glt->tileheight, glt->tiledepth);
-		break;
-	}
-
+	CHECKGLERROR
+	GL_ActiveTexture(0);
+	oldbindtexnum = R_Mesh_TexBound(0, gltexturetypeenums[glt->texturetype]);
+	qglGenTextures(1, (GLuint *)&glt->texnum);CHECKGLERROR
+	qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
 	// upload the texture
 	// we need to restore the texture binding after finishing the upload
 	mipcomplete = false;
@@ -2397,30 +2175,13 @@ rtexture_t *R_LoadTextureDDSFile(rtexturepool_t *rtexturepool, const char *filen
 				Image_Resample32(mippixels, mipwidth, mipheight, 1, upload_mippixels, upload_mipwidth, upload_mipheight, 1, r_lerpimages.integer);
 			}
 		}
-		switch(vid.renderpath)
+		if (bytesperblock)
 		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			if (bytesperblock)
-			{
-				qglCompressedTexImage2DARB(GL_TEXTURE_2D, mip, glt->glinternalformat, upload_mipwidth, upload_mipheight, 0, mipsize, upload_mippixels);CHECKGLERROR
-			}
-			else
-			{
-				qglTexImage2D(GL_TEXTURE_2D, mip, glt->glinternalformat, upload_mipwidth, upload_mipheight, 0, glt->glformat, glt->gltype, upload_mippixels);CHECKGLERROR
-			}
-			break;
-		case RENDERPATH_SOFT:
-			if (bytesperblock)
-				Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-			else
-				DPSOFTRAST_Texture_UpdateFull(glt->texnum, upload_mippixels);
-			// DPSOFTRAST calculates its own mipmaps
-			mip = dds_miplevels;
-			break;
+			qglCompressedTexImage2DARB(GL_TEXTURE_2D, mip, glt->glinternalformat, upload_mipwidth, upload_mipheight, 0, mipsize, upload_mippixels);CHECKGLERROR
+		}
+		else
+		{
+			qglTexImage2D(GL_TEXTURE_2D, mip, glt->glinternalformat, upload_mipwidth, upload_mipheight, 0, glt->glformat, glt->gltype, upload_mippixels);CHECKGLERROR
 		}
 		if(upload_mippixels != mippixels)
 			Mem_Free(upload_mippixels);
@@ -2437,35 +2198,15 @@ rtexture_t *R_LoadTextureDDSFile(rtexturepool_t *rtexturepool, const char *filen
 	}
 
 	// after upload we have to set some parameters...
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
 #ifdef GL_TEXTURE_MAX_LEVEL
-		if (dds_miplevels >= 1 && !mipcomplete)
-		{
-			// need to set GL_TEXTURE_MAX_LEVEL
-			qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MAX_LEVEL, dds_miplevels - 1);CHECKGLERROR
-		}
-#endif
-		GL_SetupTextureParameters(glt->flags, glt->textype->textype, glt->texturetype);
-		qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		if (glt->flags & TEXF_FORCELINEAR)
-			DPSOFTRAST_Texture_Filter(glt->texnum, DPSOFTRAST_TEXTURE_FILTER_LINEAR);
-		else if (glt->flags & TEXF_FORCENEAREST)
-			DPSOFTRAST_Texture_Filter(glt->texnum, DPSOFTRAST_TEXTURE_FILTER_NEAREST);
-		else if (glt->flags & TEXF_MIPMAP)
-			DPSOFTRAST_Texture_Filter(glt->texnum, dpsoftrast_filter_mipmap);
-		else
-			DPSOFTRAST_Texture_Filter(glt->texnum, dpsoftrast_filter_nomipmap);
-		break;
+	if (dds_miplevels >= 1 && !mipcomplete)
+	{
+		// need to set GL_TEXTURE_MAX_LEVEL
+		qglTexParameteri(gltexturetypeenums[glt->texturetype], GL_TEXTURE_MAX_LEVEL, dds_miplevels - 1);CHECKGLERROR
 	}
-
+#endif
+	GL_SetupTextureParameters(glt->flags, glt->textype->textype, glt->texturetype);
+	qglBindTexture(gltexturetypeenums[glt->texturetype], oldbindtexnum);CHECKGLERROR
 	Mem_Free(dds);
 	if(force_swdecode)
 		Mem_Free((unsigned char *) mippixels_start);

@@ -116,7 +116,6 @@ OBJ_COMMON= \
 	csprogs.o \
 	curves.o \
 	cvar.o \
-	dpsoftrast.o \
 	dpvsimpledecode.o \
 	filematch.o \
 	fractalnoise.o \
@@ -579,10 +578,6 @@ crypto.o: crypto.c
 mod_skeletal_animatevertices_sse.o: mod_skeletal_animatevertices_sse.c
 	$(CHECKLEVEL2)
 	$(DO_CC) $(CFLAGS_SSE)
-
-dpsoftrast.o: dpsoftrast.c
-	$(CHECKLEVEL2)
-	$(DO_CC) $(CFLAGS_SSE2)
 
 darkplaces.o: %.o : %.rc
 	$(CHECKLEVEL2)

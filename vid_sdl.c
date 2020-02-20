@@ -22,7 +22,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "image.h"
-#include "dpsoftrast.h"
 #include "utf8lib.h"
 
 #ifndef __IPHONEOS__
@@ -2597,66 +2596,6 @@ extern cvar_t gl_info_version;
 extern cvar_t gl_info_platform;
 extern cvar_t gl_info_driver;
 
-static qboolean VID_InitModeSoft(viddef_mode_t *mode)
-{
-	int windowflags = SDL_WINDOW_SHOWN;
-	win_half_width = mode->width>>1;
-	win_half_height = mode->height>>1;
-
-	if(vid_resizable.integer)
-		windowflags |= SDL_WINDOW_RESIZABLE;
-
-	VID_OutputVersion();
-
-	vid_isfullscreen = false;
-	if (mode->fullscreen) {
-		if (vid_desktopfullscreen.integer || sys_first_run.integer)
-			windowflags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-		else
-			windowflags |= SDL_WINDOW_FULLSCREEN;
-
-		vid_isfullscreen = true;
-	}
-
-	video_bpp = mode->bitsperpixel;
-	window_flags = windowflags;
-	window = SDL_CreateWindow(gamename, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, mode->width, mode->height, windowflags);
-	if (window == NULL)
-	{
-		Con_Printf("Failed to set video mode to %ix%i: %s\n", mode->width, mode->height, SDL_GetError());
-		VID_Shutdown();
-		return false;
-	}
-	VID_SetIcon();
-	SDL_GetWindowSize(window, &mode->width, &mode->height);
-	// create a framebuffer using our specific color format, we let the SDL blit function convert it in VID_Finish
-	vid_softsurface = SDL_CreateRGBSurface(SDL_SWSURFACE, mode->width, mode->height, 32, 0x00FF0000, 0x0000FF00, 0x00000000FF, 0xFF000000);
-	if (vid_softsurface == NULL)
-	{
-		Con_Printf("Failed to setup software rasterizer framebuffer %ix%ix32bpp: %s\n", mode->width, mode->height, SDL_GetError());
-		VID_Shutdown();
-		return false;
-	}
-	SDL_SetSurfaceBlendMode(vid_softsurface, SDL_BLENDMODE_NONE);
-	vid.softpixels = (unsigned int *)vid_softsurface->pixels;
-	vid.softdepthpixels = (unsigned int *)calloc(1, mode->width * mode->height * 4);
-	if (DPSOFTRAST_Init(mode->width, mode->height, vid_soft_threads.integer, vid_soft_interlace.integer, (unsigned int *)vid_softsurface->pixels, (unsigned int *)vid.softdepthpixels) < 0)
-	{
-		Con_Printf("Failed to initialize software rasterizer\n");
-		VID_Shutdown();
-		return false;
-	}
-
-	VID_Soft_SharedSetup();
-
-	vid_hidden = false;
-	vid_activewindow = false;
-	vid_hasfocus = true;
-	vid_usingmouse = false;
-	vid_usinghidecursor = false;
-	return true;
-}
-
 qboolean VID_InitMode(viddef_mode_t *mode)
 {
 	// GAME_STEELSTORM specific
@@ -2666,12 +2605,7 @@ qboolean VID_InitMode(viddef_mode_t *mode)
 	if (!SDL_WasInit(SDL_INIT_VIDEO) && SDL_InitSubSystem(SDL_INIT_VIDEO) < 0)
 		Sys_Error ("Failed to init SDL video subsystem: %s", SDL_GetError());
 
-#ifdef SSE_POSSIBLE
-	if (vid_soft.integer)
-		return VID_InitModeSoft(mode);
-	else
-#endif
-		return VID_InitModeGL(mode);
+	return VID_InitModeGL(mode);
 }
 
 void VID_Shutdown (void)
@@ -2715,40 +2649,23 @@ void VID_Finish (void)
 
 	if (!vid_hidden)
 	{
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			CHECKGLERROR
-			if (r_speeds.integer == 2 || gl_finish.integer)
-				GL_Finish();
+		CHECKGLERROR
+		if (r_speeds.integer == 2 || gl_finish.integer)
+			GL_Finish();
 
+		{
+			qboolean vid_usevsync;
+			vid_usevsync = (vid_vsync.integer && !cls.timedemo);
+			if (vid_usingvsync != vid_usevsync)
 			{
-				qboolean vid_usevsync;
-				vid_usevsync = (vid_vsync.integer && !cls.timedemo);
-				if (vid_usingvsync != vid_usevsync)
-				{
-					vid_usingvsync = vid_usevsync;
-					if (SDL_GL_SetSwapInterval(vid_usevsync != 0) >= 0)
-						Con_DPrintf("Vsync %s\n", vid_usevsync ? "activated" : "deactivated");
-					else
-						Con_DPrintf("ERROR: can't %s vsync\n", vid_usevsync ? "activate" : "deactivate");
-				}
+				vid_usingvsync = vid_usevsync;
+				if (SDL_GL_SetSwapInterval(vid_usevsync != 0) >= 0)
+					Con_DPrintf("Vsync %s\n", vid_usevsync ? "activated" : "deactivated");
+				else
+					Con_DPrintf("ERROR: can't %s vsync\n", vid_usevsync ? "activate" : "deactivate");
 			}
-			SDL_GL_SwapWindow(window);
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_Finish();
-			{
-				SDL_Surface *screen = SDL_GetWindowSurface(window);
-				SDL_BlitSurface(vid_softsurface, NULL, screen, NULL);
-				SDL_UpdateWindowSurface(window);
-			}
-			break;
 		}
+		SDL_GL_SwapWindow(window);
 	}
 }
 

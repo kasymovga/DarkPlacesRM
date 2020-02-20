@@ -334,8 +334,6 @@ static void GL_VBOStats_f(void)
 
 static void GL_Backend_ResetState(void);
 
-static void R_Mesh_DestroyVertexDeclarations(void);
-
 static void R_Mesh_SetUseVBO(void)
 {
 	switch(vid.renderpath)
@@ -348,12 +346,6 @@ static void R_Mesh_SetUseVBO(void)
 		gl_state.usevbo_staticindex = (vid.support.arb_vertex_buffer_object && (gl_vbo.integer == 1 || gl_vbo.integer == 3)) || vid.forcevbo;
 		gl_state.usevbo_dynamicvertex = (vid.support.arb_vertex_buffer_object && gl_vbo_dynamicvertex.integer && gl_vbo.integer) || vid.forcevbo;
 		gl_state.usevbo_dynamicindex = (vid.support.arb_vertex_buffer_object && gl_vbo_dynamicindex.integer && gl_vbo.integer) || vid.forcevbo;
-		break;
-	case RENDERPATH_SOFT:
-		gl_state.usevbo_staticvertex = false;
-		gl_state.usevbo_staticindex = false;
-		gl_state.usevbo_dynamicvertex = false;
-		gl_state.usevbo_dynamicindex = false;
 		break;
 	case RENDERPATH_GLES2:
 		gl_state.usevbo_staticvertex = (vid.support.arb_vertex_buffer_object && gl_vbo.integer) || vid.forcevbo;
@@ -376,21 +368,8 @@ static void gl_backend_start(void)
 	CHECKGLERROR
 
 	GL_Backend_ResetState();
-
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		// fetch current fbo here (default fbo is not 0 on some GLES devices)
-		if (vid.support.ext_framebuffer_object)
-			qglGetIntegerv(GL_FRAMEBUFFER_BINDING, &gl_state.defaultframebufferobject);
-		break;
-	case RENDERPATH_SOFT:
-		break;
-	}
+	if (vid.support.ext_framebuffer_object)
+		qglGetIntegerv(GL_FRAMEBUFFER_BINDING, &gl_state.defaultframebufferobject);
 }
 
 static void gl_backend_shutdown(void)
@@ -490,19 +469,7 @@ void R_Viewport_TransformToScreen(const r_viewport_t *v, const vec4_t in, vec4_t
 
 void GL_Finish(void)
 {
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		qglFinish();
-		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_Finish();
-		break;
-	}
+	qglFinish();
 }
 
 static int bboxedges[12][2] =
@@ -975,9 +942,6 @@ void R_SetViewport(const r_viewport_t *v)
 		}
 #endif
 		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_Viewport(v->x, v->y, v->width, v->height);
-		break;
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
 		CHECKGLERROR
@@ -1030,163 +994,141 @@ static void GL_BindUBO(int bufferobject)
 static const GLuint drawbuffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
 int R_Mesh_CreateFramebufferObject(rtexture_t *depthtexture, rtexture_t *colortexture, rtexture_t *colortexture2, rtexture_t *colortexture3, rtexture_t *colortexture4)
 {
-	switch(vid.renderpath)
+	if (vid.support.arb_framebuffer_object)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		if (vid.support.arb_framebuffer_object)
-		{
-			int temp;
-			GLuint status;
-			qglGenFramebuffers(1, (GLuint*)&temp);CHECKGLERROR
-			R_Mesh_SetRenderTargets(temp, NULL, NULL, NULL, NULL, NULL);
-			// GL_ARB_framebuffer_object (GL3-class hardware) - depth stencil attachment
+		int temp;
+		GLuint status;
+		qglGenFramebuffers(1, (GLuint*)&temp);CHECKGLERROR
+		R_Mesh_SetRenderTargets(temp, NULL, NULL, NULL, NULL, NULL);
+		// GL_ARB_framebuffer_object (GL3-class hardware) - depth stencil attachment
 #ifdef USE_GLES2
-			// FIXME: separate stencil attachment on GLES
-			if (depthtexture  && depthtexture->texnum ) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , depthtexture->gltexturetypeenum , depthtexture->texnum , 0);CHECKGLERROR
-			if (depthtexture  && depthtexture->renderbuffernum ) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , GL_RENDERBUFFER, depthtexture->renderbuffernum );CHECKGLERROR
+		// FIXME: separate stencil attachment on GLES
+		if (depthtexture  && depthtexture->texnum ) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , depthtexture->gltexturetypeenum , depthtexture->texnum , 0);CHECKGLERROR
+		if (depthtexture  && depthtexture->renderbuffernum ) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , GL_RENDERBUFFER, depthtexture->renderbuffernum );CHECKGLERROR
 #else
-			if (depthtexture  && depthtexture->texnum )
-			{
-				qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , depthtexture->gltexturetypeenum , depthtexture->texnum , 0);CHECKGLERROR
-				if (depthtexture->glisdepthstencil) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT  , depthtexture->gltexturetypeenum , depthtexture->texnum , 0);CHECKGLERROR
-			}
-			if (depthtexture  && depthtexture->renderbuffernum )
-			{
-				qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , GL_RENDERBUFFER, depthtexture->renderbuffernum );CHECKGLERROR
-				if (depthtexture->glisdepthstencil) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT  , GL_RENDERBUFFER, depthtexture->renderbuffernum );CHECKGLERROR
-			}
-#endif
-			if (colortexture  && colortexture->texnum ) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , colortexture->gltexturetypeenum , colortexture->texnum , 0);CHECKGLERROR
-			if (colortexture2 && colortexture2->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , colortexture2->gltexturetypeenum, colortexture2->texnum, 0);CHECKGLERROR
-			if (colortexture3 && colortexture3->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , colortexture3->gltexturetypeenum, colortexture3->texnum, 0);CHECKGLERROR
-			if (colortexture4 && colortexture4->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3 , colortexture4->gltexturetypeenum, colortexture4->texnum, 0);CHECKGLERROR
-			if (colortexture  && colortexture->renderbuffernum ) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_RENDERBUFFER, colortexture->renderbuffernum );CHECKGLERROR
-			if (colortexture2 && colortexture2->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_RENDERBUFFER, colortexture2->renderbuffernum);CHECKGLERROR
-			if (colortexture3 && colortexture3->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , GL_RENDERBUFFER, colortexture3->renderbuffernum);CHECKGLERROR
-			if (colortexture4 && colortexture4->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3 , GL_RENDERBUFFER, colortexture4->renderbuffernum);CHECKGLERROR
-
-#ifndef USE_GLES2
-			if (colortexture4 && qglDrawBuffersARB)
-			{
-				qglDrawBuffersARB(4, drawbuffers);CHECKGLERROR
-				qglReadBuffer(GL_NONE);CHECKGLERROR
-			}
-			else if (colortexture3 && qglDrawBuffersARB)
-			{
-				qglDrawBuffersARB(3, drawbuffers);CHECKGLERROR
-				qglReadBuffer(GL_NONE);CHECKGLERROR
-			}
-			else if (colortexture2 && qglDrawBuffersARB)
-			{
-				qglDrawBuffersARB(2, drawbuffers);CHECKGLERROR
-				qglReadBuffer(GL_NONE);CHECKGLERROR
-			}
-			else if (colortexture && qglDrawBuffer)
-			{
-				qglDrawBuffer(GL_COLOR_ATTACHMENT0);CHECKGLERROR
-				qglReadBuffer(GL_COLOR_ATTACHMENT0);CHECKGLERROR
-			}
-			else if (qglDrawBuffer)
-			{
-				qglDrawBuffer(GL_NONE);CHECKGLERROR
-				qglReadBuffer(GL_NONE);CHECKGLERROR
-			}
-#endif
-			status = qglCheckFramebufferStatus(GL_FRAMEBUFFER);CHECKGLERROR
-			if (status != GL_FRAMEBUFFER_COMPLETE)
-			{
-				Con_Printf("R_Mesh_CreateFramebufferObject: glCheckFramebufferStatus returned %i\n", status);
-				gl_state.framebufferobject = 0; // GL unbinds it for us
-				qglDeleteFramebuffers(1, (GLuint*)&temp);
-				temp = 0;
-			}
-			return temp;
-		}
-		else if (vid.support.ext_framebuffer_object)
+		if (depthtexture  && depthtexture->texnum )
 		{
-			int temp;
-			GLuint status;
-			qglGenFramebuffers(1, (GLuint*)&temp);CHECKGLERROR
-			R_Mesh_SetRenderTargets(temp, NULL, NULL, NULL, NULL, NULL);
-			// GL_EXT_framebuffer_object (GL2-class hardware) - no depth stencil attachment, let it break stencil
-			if (depthtexture  && depthtexture->texnum ) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , depthtexture->gltexturetypeenum , depthtexture->texnum , 0);CHECKGLERROR
-			if (depthtexture  && depthtexture->renderbuffernum ) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , GL_RENDERBUFFER, depthtexture->renderbuffernum );CHECKGLERROR
-			if (colortexture  && colortexture->texnum ) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , colortexture->gltexturetypeenum , colortexture->texnum , 0);CHECKGLERROR
-			if (colortexture2 && colortexture2->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , colortexture2->gltexturetypeenum, colortexture2->texnum, 0);CHECKGLERROR
-			if (colortexture3 && colortexture3->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , colortexture3->gltexturetypeenum, colortexture3->texnum, 0);CHECKGLERROR
-			if (colortexture4 && colortexture4->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3 , colortexture4->gltexturetypeenum, colortexture4->texnum, 0);CHECKGLERROR
-			if (colortexture  && colortexture->renderbuffernum ) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_RENDERBUFFER, colortexture->renderbuffernum );CHECKGLERROR
-			if (colortexture2 && colortexture2->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_RENDERBUFFER, colortexture2->renderbuffernum);CHECKGLERROR
-			if (colortexture3 && colortexture3->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , GL_RENDERBUFFER, colortexture3->renderbuffernum);CHECKGLERROR
-			if (colortexture4 && colortexture4->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3 , GL_RENDERBUFFER, colortexture4->renderbuffernum);CHECKGLERROR
+			qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , depthtexture->gltexturetypeenum , depthtexture->texnum , 0);CHECKGLERROR
+			if (depthtexture->glisdepthstencil) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT  , depthtexture->gltexturetypeenum , depthtexture->texnum , 0);CHECKGLERROR
+		}
+		if (depthtexture  && depthtexture->renderbuffernum )
+		{
+			qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , GL_RENDERBUFFER, depthtexture->renderbuffernum );CHECKGLERROR
+			if (depthtexture->glisdepthstencil) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT  , GL_RENDERBUFFER, depthtexture->renderbuffernum );CHECKGLERROR
+		}
+#endif
+		if (colortexture  && colortexture->texnum ) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , colortexture->gltexturetypeenum , colortexture->texnum , 0);CHECKGLERROR
+		if (colortexture2 && colortexture2->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , colortexture2->gltexturetypeenum, colortexture2->texnum, 0);CHECKGLERROR
+		if (colortexture3 && colortexture3->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , colortexture3->gltexturetypeenum, colortexture3->texnum, 0);CHECKGLERROR
+		if (colortexture4 && colortexture4->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3 , colortexture4->gltexturetypeenum, colortexture4->texnum, 0);CHECKGLERROR
+		if (colortexture  && colortexture->renderbuffernum ) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_RENDERBUFFER, colortexture->renderbuffernum );CHECKGLERROR
+		if (colortexture2 && colortexture2->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_RENDERBUFFER, colortexture2->renderbuffernum);CHECKGLERROR
+		if (colortexture3 && colortexture3->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , GL_RENDERBUFFER, colortexture3->renderbuffernum);CHECKGLERROR
+		if (colortexture4 && colortexture4->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3 , GL_RENDERBUFFER, colortexture4->renderbuffernum);CHECKGLERROR
 
 #ifndef USE_GLES2
-			if (colortexture4 && qglDrawBuffersARB)
-			{
-				qglDrawBuffersARB(4, drawbuffers);CHECKGLERROR
-				qglReadBuffer(GL_NONE);CHECKGLERROR
-			}
-			else if (colortexture3 && qglDrawBuffersARB)
-			{
-				qglDrawBuffersARB(3, drawbuffers);CHECKGLERROR
-				qglReadBuffer(GL_NONE);CHECKGLERROR
-			}
-			else if (colortexture2 && qglDrawBuffersARB)
-			{
-				qglDrawBuffersARB(2, drawbuffers);CHECKGLERROR
-				qglReadBuffer(GL_NONE);CHECKGLERROR
-			}
-			else if (colortexture && qglDrawBuffer)
-			{
-				qglDrawBuffer(GL_COLOR_ATTACHMENT0);CHECKGLERROR
-				qglReadBuffer(GL_COLOR_ATTACHMENT0);CHECKGLERROR
-			}
-			else if (qglDrawBuffer)
-			{
-				qglDrawBuffer(GL_NONE);CHECKGLERROR
-				qglReadBuffer(GL_NONE);CHECKGLERROR
-			}
-#endif
-			status = qglCheckFramebufferStatus(GL_FRAMEBUFFER);CHECKGLERROR
-			if (status != GL_FRAMEBUFFER_COMPLETE)
-			{
-				Con_Printf("R_Mesh_CreateFramebufferObject: glCheckFramebufferStatus returned %i\n", status);
-				gl_state.framebufferobject = 0; // GL unbinds it for us
-				qglDeleteFramebuffers(1, (GLuint*)&temp);
-				temp = 0;
-			}
-			return temp;
+		if (colortexture4 && qglDrawBuffersARB)
+		{
+			qglDrawBuffersARB(4, drawbuffers);CHECKGLERROR
+			qglReadBuffer(GL_NONE);CHECKGLERROR
 		}
-		return 0;
-	case RENDERPATH_SOFT:
-		return 1;
+		else if (colortexture3 && qglDrawBuffersARB)
+		{
+			qglDrawBuffersARB(3, drawbuffers);CHECKGLERROR
+			qglReadBuffer(GL_NONE);CHECKGLERROR
+		}
+		else if (colortexture2 && qglDrawBuffersARB)
+		{
+			qglDrawBuffersARB(2, drawbuffers);CHECKGLERROR
+			qglReadBuffer(GL_NONE);CHECKGLERROR
+		}
+		else if (colortexture && qglDrawBuffer)
+		{
+			qglDrawBuffer(GL_COLOR_ATTACHMENT0);CHECKGLERROR
+			qglReadBuffer(GL_COLOR_ATTACHMENT0);CHECKGLERROR
+		}
+		else if (qglDrawBuffer)
+		{
+			qglDrawBuffer(GL_NONE);CHECKGLERROR
+			qglReadBuffer(GL_NONE);CHECKGLERROR
+		}
+#endif
+		status = qglCheckFramebufferStatus(GL_FRAMEBUFFER);CHECKGLERROR
+		if (status != GL_FRAMEBUFFER_COMPLETE)
+		{
+			Con_Printf("R_Mesh_CreateFramebufferObject: glCheckFramebufferStatus returned %i\n", status);
+			gl_state.framebufferobject = 0; // GL unbinds it for us
+			qglDeleteFramebuffers(1, (GLuint*)&temp);
+			temp = 0;
+		}
+		return temp;
+	}
+	else if (vid.support.ext_framebuffer_object)
+	{
+		int temp;
+		GLuint status;
+		qglGenFramebuffers(1, (GLuint*)&temp);CHECKGLERROR
+		R_Mesh_SetRenderTargets(temp, NULL, NULL, NULL, NULL, NULL);
+		// GL_EXT_framebuffer_object (GL2-class hardware) - no depth stencil attachment, let it break stencil
+		if (depthtexture  && depthtexture->texnum ) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , depthtexture->gltexturetypeenum , depthtexture->texnum , 0);CHECKGLERROR
+		if (depthtexture  && depthtexture->renderbuffernum ) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT  , GL_RENDERBUFFER, depthtexture->renderbuffernum );CHECKGLERROR
+		if (colortexture  && colortexture->texnum ) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , colortexture->gltexturetypeenum , colortexture->texnum , 0);CHECKGLERROR
+		if (colortexture2 && colortexture2->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , colortexture2->gltexturetypeenum, colortexture2->texnum, 0);CHECKGLERROR
+		if (colortexture3 && colortexture3->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , colortexture3->gltexturetypeenum, colortexture3->texnum, 0);CHECKGLERROR
+		if (colortexture4 && colortexture4->texnum) qglFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3 , colortexture4->gltexturetypeenum, colortexture4->texnum, 0);CHECKGLERROR
+		if (colortexture  && colortexture->renderbuffernum ) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 , GL_RENDERBUFFER, colortexture->renderbuffernum );CHECKGLERROR
+		if (colortexture2 && colortexture2->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 , GL_RENDERBUFFER, colortexture2->renderbuffernum);CHECKGLERROR
+		if (colortexture3 && colortexture3->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2 , GL_RENDERBUFFER, colortexture3->renderbuffernum);CHECKGLERROR
+		if (colortexture4 && colortexture4->renderbuffernum) qglFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3 , GL_RENDERBUFFER, colortexture4->renderbuffernum);CHECKGLERROR
+
+#ifndef USE_GLES2
+		if (colortexture4 && qglDrawBuffersARB)
+		{
+			qglDrawBuffersARB(4, drawbuffers);CHECKGLERROR
+			qglReadBuffer(GL_NONE);CHECKGLERROR
+		}
+		else if (colortexture3 && qglDrawBuffersARB)
+		{
+			qglDrawBuffersARB(3, drawbuffers);CHECKGLERROR
+			qglReadBuffer(GL_NONE);CHECKGLERROR
+		}
+		else if (colortexture2 && qglDrawBuffersARB)
+		{
+			qglDrawBuffersARB(2, drawbuffers);CHECKGLERROR
+			qglReadBuffer(GL_NONE);CHECKGLERROR
+		}
+		else if (colortexture && qglDrawBuffer)
+		{
+			qglDrawBuffer(GL_COLOR_ATTACHMENT0);CHECKGLERROR
+			qglReadBuffer(GL_COLOR_ATTACHMENT0);CHECKGLERROR
+		}
+		else if (qglDrawBuffer)
+		{
+			qglDrawBuffer(GL_NONE);CHECKGLERROR
+			qglReadBuffer(GL_NONE);CHECKGLERROR
+		}
+#endif
+		status = qglCheckFramebufferStatus(GL_FRAMEBUFFER);CHECKGLERROR
+		if (status != GL_FRAMEBUFFER_COMPLETE)
+		{
+			Con_Printf("R_Mesh_CreateFramebufferObject: glCheckFramebufferStatus returned %i\n", status);
+			gl_state.framebufferobject = 0; // GL unbinds it for us
+			qglDeleteFramebuffers(1, (GLuint*)&temp);
+			temp = 0;
+		}
+		return temp;
 	}
 	return 0;
 }
 
 void R_Mesh_DestroyFramebufferObject(int fbo)
 {
-	switch(vid.renderpath)
+	if (fbo)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		if (fbo)
-		{
-			// GL clears the binding if we delete something bound
-			if (gl_state.framebufferobject == fbo)
-				gl_state.framebufferobject = 0;
-			qglDeleteFramebuffers(1, (GLuint*)&fbo);
-		}
-		break;
-	case RENDERPATH_SOFT:
-		break;
+		// GL clears the binding if we delete something bound
+		if (gl_state.framebufferobject == fbo)
+			gl_state.framebufferobject = 0;
+		qglDeleteFramebuffers(1, (GLuint*)&fbo);
 	}
 }
 
@@ -1204,34 +1146,10 @@ void R_Mesh_SetRenderTargets(int fbo, rtexture_t *depthtexture, rtexture_t *colo
 				if (gl_state.units[i].texture == textures[j])
 					R_Mesh_TexBind(i, NULL);
 	// set up framebuffer object or render targets for the active rendering API
-	switch(vid.renderpath)
+	if (gl_state.framebufferobject != fbo)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		if (gl_state.framebufferobject != fbo)
-		{
-			gl_state.framebufferobject = fbo;
-			qglBindFramebuffer(GL_FRAMEBUFFER, gl_state.framebufferobject ? gl_state.framebufferobject : gl_state.defaultframebufferobject);
-		}
-		break;
-	case RENDERPATH_SOFT:
-		if (fbo)
-		{
-			int width, height;
-			unsigned int *pointers[5];
-			memset(pointers, 0, sizeof(pointers));
-			for (i = 0;i < 5;i++)
-				pointers[i] = textures[i] ? (unsigned int *)DPSOFTRAST_Texture_GetPixelPointer(textures[i]->texnum, 0) : NULL;
-			width = DPSOFTRAST_Texture_GetWidth(textures[0] ? textures[0]->texnum : textures[4]->texnum, 0);
-			height = DPSOFTRAST_Texture_GetHeight(textures[0] ? textures[0]->texnum : textures[4]->texnum, 0);
-			DPSOFTRAST_SetRenderTargets(width, height, pointers[4], pointers[0], pointers[1], pointers[2], pointers[3]);
-		}
-		else
-			DPSOFTRAST_SetRenderTargets(vid.width, vid.height, vid.softdepthpixels, vid.softpixels, NULL, NULL, NULL);
-		break;
+		gl_state.framebufferobject = fbo;
+		qglBindFramebuffer(GL_FRAMEBUFFER, gl_state.framebufferobject ? gl_state.framebufferobject : gl_state.defaultframebufferobject);
 	}
 }
 
@@ -1337,16 +1255,6 @@ static void GL_Backend_ResetState(void)
 		CHECKGLERROR
 #endif
 		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_ColorMask(1,1,1,1);
-		DPSOFTRAST_BlendFunc(gl_state.blendfunc1, gl_state.blendfunc2);
-		DPSOFTRAST_CullFace(gl_state.cullface);
-		DPSOFTRAST_DepthFunc(gl_state.depthfunc);
-		DPSOFTRAST_DepthMask(gl_state.depthmask);
-		DPSOFTRAST_PolygonOffset(gl_state.polygonoffset[0], gl_state.polygonoffset[1]);
-		DPSOFTRAST_SetRenderTargets(vid.width, vid.height, vid.softdepthpixels, vid.softpixels, NULL, NULL, NULL);
-		DPSOFTRAST_Viewport(0, 0, vid.width, vid.height);
-		break;
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
 		CHECKGLERROR
@@ -1402,22 +1310,11 @@ void GL_ActiveTexture(unsigned int num)
 	if (gl_state.unit != num)
 	{
 		gl_state.unit = num;
-		switch(vid.renderpath)
+		if (qglActiveTexture)
 		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			if (qglActiveTexture)
-			{
-				CHECKGLERROR
-				qglActiveTexture(GL_TEXTURE0 + gl_state.unit);
-				CHECKGLERROR
-			}
-			break;
-		case RENDERPATH_SOFT:
-			break;
+			CHECKGLERROR
+			qglActiveTexture(GL_TEXTURE0 + gl_state.unit);
+			CHECKGLERROR
 		}
 	}
 }
@@ -1441,8 +1338,6 @@ void GL_ClientActiveTexture(unsigned int num)
 			}
 #endif
 			break;
-		case RENDERPATH_SOFT:
-			break;
 		case RENDERPATH_GL20:
 		case RENDERPATH_GLES2:
 			break;
@@ -1458,38 +1353,26 @@ void GL_BlendFunc(int blendfunc1, int blendfunc2)
 		gl_state.blendfunc1 = blendfunc1;
 		gl_state.blendfunc2 = blendfunc2;
 		blendenable = (gl_state.blendfunc1 != GL_ONE || gl_state.blendfunc2 != GL_ZERO);
-		switch(vid.renderpath)
+		CHECKGLERROR
+		if (qglBlendFuncSeparate)
 		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			CHECKGLERROR
-			if (qglBlendFuncSeparate)
+			qglBlendFuncSeparate(gl_state.blendfunc1, gl_state.blendfunc2, GL_ZERO, GL_ONE);CHECKGLERROR // ELUAN: Adreno 225 (and others) compositing workaround
+		}
+		else
+		{
+			qglBlendFunc(gl_state.blendfunc1, gl_state.blendfunc2);CHECKGLERROR
+		}
+		if (gl_state.blend != blendenable)
+		{
+			gl_state.blend = blendenable;
+			if (!gl_state.blend)
 			{
-				qglBlendFuncSeparate(gl_state.blendfunc1, gl_state.blendfunc2, GL_ZERO, GL_ONE);CHECKGLERROR // ELUAN: Adreno 225 (and others) compositing workaround
+				qglDisable(GL_BLEND);CHECKGLERROR
 			}
 			else
 			{
-				qglBlendFunc(gl_state.blendfunc1, gl_state.blendfunc2);CHECKGLERROR
+				qglEnable(GL_BLEND);CHECKGLERROR
 			}
-			if (gl_state.blend != blendenable)
-			{
-				gl_state.blend = blendenable;
-				if (!gl_state.blend)
-				{
-					qglDisable(GL_BLEND);CHECKGLERROR
-				}
-				else
-				{
-					qglEnable(GL_BLEND);CHECKGLERROR
-				}
-			}
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_BlendFunc(gl_state.blendfunc1, gl_state.blendfunc2);
-			break;
 		}
 	}
 }
@@ -1499,20 +1382,8 @@ void GL_DepthMask(int state)
 	if (gl_state.depthmask != state)
 	{
 		gl_state.depthmask = state;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			CHECKGLERROR
-			qglDepthMask(gl_state.depthmask);CHECKGLERROR
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_DepthMask(gl_state.depthmask);
-			break;
-		}
+		CHECKGLERROR
+		qglDepthMask(gl_state.depthmask);CHECKGLERROR
 	}
 }
 
@@ -1521,26 +1392,14 @@ void GL_DepthTest(int state)
 	if (gl_state.depthtest != state)
 	{
 		gl_state.depthtest = state;
-		switch(vid.renderpath)
+		CHECKGLERROR
+		if (gl_state.depthtest)
 		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			CHECKGLERROR
-			if (gl_state.depthtest)
-			{
-				qglEnable(GL_DEPTH_TEST);CHECKGLERROR
-			}
-			else
-			{
-				qglDisable(GL_DEPTH_TEST);CHECKGLERROR
-			}
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_DepthTest(gl_state.depthtest);
-			break;
+			qglEnable(GL_DEPTH_TEST);CHECKGLERROR
+		}
+		else
+		{
+			qglDisable(GL_DEPTH_TEST);CHECKGLERROR
 		}
 	}
 }
@@ -1550,20 +1409,8 @@ void GL_DepthFunc(int state)
 	if (gl_state.depthfunc != state)
 	{
 		gl_state.depthfunc = state;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			CHECKGLERROR
-			qglDepthFunc(gl_state.depthfunc);CHECKGLERROR
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_DepthFunc(gl_state.depthfunc);
-			break;
-		}
+		CHECKGLERROR
+		qglDepthFunc(gl_state.depthfunc);CHECKGLERROR
 	}
 }
 
@@ -1573,106 +1420,70 @@ void GL_DepthRange(float nearfrac, float farfrac)
 	{
 		gl_state.depthrange[0] = nearfrac;
 		gl_state.depthrange[1] = farfrac;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
 #ifdef USE_GLES2
-			qglDepthRangef(gl_state.depthrange[0], gl_state.depthrange[1]);
+		qglDepthRangef(gl_state.depthrange[0], gl_state.depthrange[1]);
 #else
-			qglDepthRange(gl_state.depthrange[0], gl_state.depthrange[1]);
+		qglDepthRange(gl_state.depthrange[0], gl_state.depthrange[1]);
 #endif
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_DepthRange(gl_state.depthrange[0], gl_state.depthrange[1]);
-			break;
-		}
 	}
 }
 
 void R_SetStencilSeparate(qboolean enable, int writemask, int frontfail, int frontzfail, int frontzpass, int backfail, int backzfail, int backzpass, int frontcompare, int backcompare, int comparereference, int comparemask)
 {
-	switch (vid.renderpath)
+	CHECKGLERROR
+	if (enable)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
-		if (enable)
-		{
-			qglEnable(GL_STENCIL_TEST);CHECKGLERROR
-		}
-		else
-		{
-			qglDisable(GL_STENCIL_TEST);CHECKGLERROR
-		}
-		if (vid.support.ati_separate_stencil)
-		{
-			qglStencilMask(writemask);CHECKGLERROR
-			qglStencilOpSeparate(GL_FRONT, frontfail, frontzfail, frontzpass);CHECKGLERROR
-			qglStencilOpSeparate(GL_BACK, backfail, backzfail, backzpass);CHECKGLERROR
-			qglStencilFuncSeparate(GL_FRONT, frontcompare, comparereference, comparereference);CHECKGLERROR
-			qglStencilFuncSeparate(GL_BACK, backcompare, comparereference, comparereference);CHECKGLERROR
-		}
-		else if (vid.support.ext_stencil_two_side)
-		{
+		qglEnable(GL_STENCIL_TEST);CHECKGLERROR
+	}
+	else
+	{
+		qglDisable(GL_STENCIL_TEST);CHECKGLERROR
+	}
+	if (vid.support.ati_separate_stencil)
+	{
+		qglStencilMask(writemask);CHECKGLERROR
+		qglStencilOpSeparate(GL_FRONT, frontfail, frontzfail, frontzpass);CHECKGLERROR
+		qglStencilOpSeparate(GL_BACK, backfail, backzfail, backzpass);CHECKGLERROR
+		qglStencilFuncSeparate(GL_FRONT, frontcompare, comparereference, comparereference);CHECKGLERROR
+		qglStencilFuncSeparate(GL_BACK, backcompare, comparereference, comparereference);CHECKGLERROR
+	}
+	else if (vid.support.ext_stencil_two_side)
+	{
 #if defined(GL_STENCIL_TEST_TWO_SIDE_EXT) && !defined(USE_GLES2)
-			qglEnable(GL_STENCIL_TEST_TWO_SIDE_EXT);CHECKGLERROR
-			qglActiveStencilFaceEXT(GL_FRONT);CHECKGLERROR
-			qglStencilMask(writemask);CHECKGLERROR
-			qglStencilOp(frontfail, frontzfail, frontzpass);CHECKGLERROR
-			qglStencilFunc(frontcompare, comparereference, comparemask);CHECKGLERROR
-			qglActiveStencilFaceEXT(GL_BACK);CHECKGLERROR
-			qglStencilMask(writemask);CHECKGLERROR
-			qglStencilOp(backfail, backzfail, backzpass);CHECKGLERROR
-			qglStencilFunc(backcompare, comparereference, comparemask);CHECKGLERROR
+		qglEnable(GL_STENCIL_TEST_TWO_SIDE_EXT);CHECKGLERROR
+		qglActiveStencilFaceEXT(GL_FRONT);CHECKGLERROR
+		qglStencilMask(writemask);CHECKGLERROR
+		qglStencilOp(frontfail, frontzfail, frontzpass);CHECKGLERROR
+		qglStencilFunc(frontcompare, comparereference, comparemask);CHECKGLERROR
+		qglActiveStencilFaceEXT(GL_BACK);CHECKGLERROR
+		qglStencilMask(writemask);CHECKGLERROR
+		qglStencilOp(backfail, backzfail, backzpass);CHECKGLERROR
+		qglStencilFunc(backcompare, comparereference, comparemask);CHECKGLERROR
 #endif
-		}
-		break;
-	case RENDERPATH_SOFT:
-		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
 	}
 }
 
 void R_SetStencil(qboolean enable, int writemask, int fail, int zfail, int zpass, int compare, int comparereference, int comparemask)
 {
-	switch (vid.renderpath)
+	CHECKGLERROR
+	if (enable)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
-		if (enable)
-		{
-			qglEnable(GL_STENCIL_TEST);CHECKGLERROR
-		}
-		else
-		{
-			qglDisable(GL_STENCIL_TEST);CHECKGLERROR
-		}
-		if (vid.support.ext_stencil_two_side)
-		{
-#ifdef GL_STENCIL_TEST_TWO_SIDE_EXT
-			qglDisable(GL_STENCIL_TEST_TWO_SIDE_EXT);CHECKGLERROR
-#endif
-		}
-		qglStencilMask(writemask);CHECKGLERROR
-		qglStencilOp(fail, zfail, zpass);CHECKGLERROR
-		qglStencilFunc(compare, comparereference, comparemask);CHECKGLERROR
-		CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		//Con_DPrintf("FIXME SOFT %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
-		break;
+		qglEnable(GL_STENCIL_TEST);CHECKGLERROR
 	}
+	else
+	{
+		qglDisable(GL_STENCIL_TEST);CHECKGLERROR
+	}
+	if (vid.support.ext_stencil_two_side)
+	{
+#ifdef GL_STENCIL_TEST_TWO_SIDE_EXT
+		qglDisable(GL_STENCIL_TEST_TWO_SIDE_EXT);CHECKGLERROR
+#endif
+	}
+	qglStencilMask(writemask);CHECKGLERROR
+	qglStencilOp(fail, zfail, zpass);CHECKGLERROR
+	qglStencilFunc(compare, comparereference, comparemask);CHECKGLERROR
+	CHECKGLERROR
 }
 
 void GL_PolygonOffset(float planeoffset, float depthoffset)
@@ -1681,19 +1492,7 @@ void GL_PolygonOffset(float planeoffset, float depthoffset)
 	{
 		gl_state.polygonoffset[0] = planeoffset;
 		gl_state.polygonoffset[1] = depthoffset;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			qglPolygonOffset(gl_state.polygonoffset[0], gl_state.polygonoffset[1]);
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_PolygonOffset(gl_state.polygonoffset[0], gl_state.polygonoffset[1]);
-			break;
-		}
+		qglPolygonOffset(gl_state.polygonoffset[0], gl_state.polygonoffset[1]);
 	}
 }
 
@@ -1708,19 +1507,7 @@ void GL_SetMirrorState(qboolean state)
 			gl_state.cullface = GL_BACK;
 		else
 			return;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			qglCullFace(gl_state.cullface);CHECKGLERROR
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_CullFace(gl_state.cullface);
-			break;
-		}
+		qglCullFace(gl_state.cullface);CHECKGLERROR
 	}
 }
 
@@ -1733,46 +1520,28 @@ void GL_CullFace(int state)
 		else if(state == GL_BACK)
 			state = GL_FRONT;
 	}
+	CHECKGLERROR
 
-	switch(vid.renderpath)
+	if (state != GL_NONE)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
-
-		if (state != GL_NONE)
+		if (!gl_state.cullfaceenable)
 		{
-			if (!gl_state.cullfaceenable)
-			{
-				gl_state.cullfaceenable = true;
-				qglEnable(GL_CULL_FACE);CHECKGLERROR
-			}
-			if (gl_state.cullface != state)
-			{
-				gl_state.cullface = state;
-				qglCullFace(gl_state.cullface);CHECKGLERROR
-			}
+			gl_state.cullfaceenable = true;
+			qglEnable(GL_CULL_FACE);CHECKGLERROR
 		}
-		else
-		{
-			if (gl_state.cullfaceenable)
-			{
-				gl_state.cullfaceenable = false;
-				qglDisable(GL_CULL_FACE);CHECKGLERROR
-			}
-		}
-		break;
-	case RENDERPATH_SOFT:
 		if (gl_state.cullface != state)
 		{
 			gl_state.cullface = state;
-			gl_state.cullfaceenable = state != GL_NONE ? true : false;
-			DPSOFTRAST_CullFace(gl_state.cullface);
+			qglCullFace(gl_state.cullface);CHECKGLERROR
 		}
-		break;
+	}
+	else
+	{
+		if (gl_state.cullfaceenable)
+		{
+			gl_state.cullfaceenable = false;
+			qglDisable(GL_CULL_FACE);CHECKGLERROR
+		}
 	}
 }
 
@@ -1799,7 +1568,6 @@ void GL_AlphaTest(int state)
 			}
 #endif
 			break;
-		case RENDERPATH_SOFT:
 		case RENDERPATH_GL20:
 		case RENDERPATH_GLES2:
 			break;
@@ -1818,7 +1586,6 @@ void GL_AlphaToCoverage(qboolean state)
 		case RENDERPATH_GL13:
 		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
-		case RENDERPATH_SOFT:
 			break;
 		case RENDERPATH_GL20:
 #ifdef GL_SAMPLE_ALPHA_TO_COVERAGE_ARB
@@ -1847,20 +1614,8 @@ void GL_ColorMask(int r, int g, int b, int a)
 	if (gl_state.colormask != state)
 	{
 		gl_state.colormask = state;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			CHECKGLERROR
-			qglColorMask((GLboolean)r, (GLboolean)g, (GLboolean)b, (GLboolean)a);CHECKGLERROR
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_ColorMask(r, g, b, a);
-			break;
-		}
+		CHECKGLERROR
+		qglColorMask((GLboolean)r, (GLboolean)g, (GLboolean)b, (GLboolean)a);CHECKGLERROR
 	}
 }
 
@@ -1883,9 +1638,6 @@ void GL_Color(float cr, float cg, float cb, float ca)
 			CHECKGLERROR
 #endif
 			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_Color4f(cr, cg, cb, ca);
-			break;
 		case RENDERPATH_GL20:
 		case RENDERPATH_GLES2:
 			qglVertexAttrib4f(GLSLATTRIB_COLOR, cr, cg, cb, ca);
@@ -1896,21 +1648,9 @@ void GL_Color(float cr, float cg, float cb, float ca)
 
 void GL_Scissor (int x, int y, int width, int height)
 {
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
-		qglScissor(x, y,width,height);
-		CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_Scissor(x, y, width, height);
-		break;
-	}
+	CHECKGLERROR
+	qglScissor(x, y,width,height);
+	CHECKGLERROR
 }
 
 void GL_ScissorTest(int state)
@@ -1918,24 +1658,12 @@ void GL_ScissorTest(int state)
 	if (gl_state.scissortest != state)
 	{
 		gl_state.scissortest = state;
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			CHECKGLERROR
-			if(gl_state.scissortest)
-				qglEnable(GL_SCISSOR_TEST);
-			else
-				qglDisable(GL_SCISSOR_TEST);
-			CHECKGLERROR
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_ScissorTest(gl_state.scissortest);
-			break;
-		}
+		CHECKGLERROR
+		if(gl_state.scissortest)
+			qglEnable(GL_SCISSOR_TEST);
+		else
+			qglDisable(GL_SCISSOR_TEST);
+		CHECKGLERROR
 	}
 }
 
@@ -1951,79 +1679,50 @@ void GL_Clear(int mask, const float *colorvalue, float depthvalue, int stencilva
 		mask &= ~GL_STENCIL_BUFFER_BIT;
 		stencilvalue = 0;
 	}
-	switch(vid.renderpath)
+	CHECKGLERROR
+	if (mask & GL_COLOR_BUFFER_BIT)
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
-		if (mask & GL_COLOR_BUFFER_BIT)
-		{
-			qglClearColor(colorvalue[0], colorvalue[1], colorvalue[2], colorvalue[3]);CHECKGLERROR
-		}
-		if (mask & GL_DEPTH_BUFFER_BIT)
-		{
-#ifdef USE_GLES2
-			qglClearDepthf(depthvalue);CHECKGLERROR
-#else
-			qglClearDepth(depthvalue);CHECKGLERROR
-#endif
-		}
-		if (mask & GL_STENCIL_BUFFER_BIT)
-		{
-			qglClearStencil(stencilvalue);CHECKGLERROR
-		}
-		qglClear(mask);CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		if (mask & GL_COLOR_BUFFER_BIT)
-			DPSOFTRAST_ClearColor(colorvalue[0], colorvalue[1], colorvalue[2], colorvalue[3]);
-		if (mask & GL_DEPTH_BUFFER_BIT)
-			DPSOFTRAST_ClearDepth(depthvalue);
-		break;
+		qglClearColor(colorvalue[0], colorvalue[1], colorvalue[2], colorvalue[3]);CHECKGLERROR
 	}
+	if (mask & GL_DEPTH_BUFFER_BIT)
+	{
+#ifdef USE_GLES2
+		qglClearDepthf(depthvalue);CHECKGLERROR
+#else
+		qglClearDepth(depthvalue);CHECKGLERROR
+#endif
+	}
+	if (mask & GL_STENCIL_BUFFER_BIT)
+	{
+		qglClearStencil(stencilvalue);CHECKGLERROR
+	}
+	qglClear(mask);CHECKGLERROR
 }
 
 void GL_ReadPixelsBGRA(int x, int y, int width, int height, unsigned char *outpixels)
 {
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		CHECKGLERROR
+	CHECKGLERROR
 #ifndef GL_BGRA
-		{
-			int i;
-			int r;
-		//	int g;
-			int b;
-		//	int a;
-			qglReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, outpixels);CHECKGLERROR
-			for (i = 0;i < width * height * 4;i += 4)
-			{
-				r = outpixels[i+0];
-		//		g = outpixels[i+1];
-				b = outpixels[i+2];
-		//		a = outpixels[i+3];
-				outpixels[i+0] = b;
-		//		outpixels[i+1] = g;
-				outpixels[i+2] = r;
-		//		outpixels[i+3] = a;
-			}
-		}
-#else
-		qglReadPixels(x, y, width, height, GL_BGRA, GL_UNSIGNED_BYTE, outpixels);CHECKGLERROR
-#endif
-			break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_GetPixelsBGRA(x, y, width, height, outpixels);
-		break;
+	int i;
+	int r;
+//	int g;
+	int b;
+//	int a;
+	qglReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, outpixels);CHECKGLERROR
+	for (i = 0;i < width * height * 4;i += 4)
+	{
+		r = outpixels[i+0];
+//		g = outpixels[i+1];
+		b = outpixels[i+2];
+//		a = outpixels[i+3];
+		outpixels[i+0] = b;
+//		outpixels[i+1] = g;
+		outpixels[i+2] = r;
+//		outpixels[i+3] = a;
 	}
+#else
+	qglReadPixels(x, y, width, height, GL_BGRA, GL_UNSIGNED_BYTE, outpixels);CHECKGLERROR
+#endif
 }
 
 // called at beginning of frame
@@ -2167,22 +1866,11 @@ void R_Mesh_Draw(int firstvertex, int numvertices, int firsttriangle, int numtri
 		element3s += firsttriangle * 3;
 	if (element3s_indexbuffer)
 		element3s_bufferoffset += firsttriangle * 3 * sizeof(*element3s);
-	switch(vid.renderpath)
+	// check if the user specified to ignore static index buffers
+	if (!gl_state.usevbo_staticindex || (gl_vbo.integer == 3 && !vid.forcevbo && (element3i_bufferoffset || element3s_bufferoffset)))
 	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		// check if the user specified to ignore static index buffers
-		if (!gl_state.usevbo_staticindex || (gl_vbo.integer == 3 && !vid.forcevbo && (element3i_bufferoffset || element3s_bufferoffset)))
-		{
-			element3i_indexbuffer = NULL;
-			element3s_indexbuffer = NULL;
-		}
-		break;
-	case RENDERPATH_SOFT:
-		break;
+		element3i_indexbuffer = NULL;
+		element3s_indexbuffer = NULL;
 	}
 	// upload a dynamic index buffer if needed
 	if (element3s)
@@ -2574,9 +2262,6 @@ void R_Mesh_Draw(int firstvertex, int numvertices, int firsttriangle, int numtri
 				CHECKGLERROR
 			}
 			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_DrawTriangles(firstvertex, numvertices, numtriangles, element3i, element3s);
-			break;
 		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
 			// GLES does not have glDrawRangeElements so this is a bit shorter than the GL20 path
@@ -2665,65 +2350,43 @@ void R_Mesh_UpdateMeshBuffer(r_meshbuffer_t *buffer, const void *data, size_t si
 	}
 	if (!subdata)
 		buffer->size = size;
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		if (!buffer->bufferobject)
-			qglGenBuffersARB(1, (GLuint *)&buffer->bufferobject);
-		if (buffer->isuniformbuffer)
-			GL_BindUBO(buffer->bufferobject);
-		else if (buffer->isindexbuffer)
-			GL_BindEBO(buffer->bufferobject);
-		else
-			GL_BindVBO(buffer->bufferobject);
+	if (!buffer->bufferobject)
+		qglGenBuffersARB(1, (GLuint *)&buffer->bufferobject);
+	if (buffer->isuniformbuffer)
+		GL_BindUBO(buffer->bufferobject);
+	else if (buffer->isindexbuffer)
+		GL_BindEBO(buffer->bufferobject);
+	else
+		GL_BindVBO(buffer->bufferobject);
 
-		{
-			int buffertype;
-			buffertype = buffer->isindexbuffer ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
+	{
+		int buffertype;
+		buffertype = buffer->isindexbuffer ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
 #ifdef GL_UNIFORM_BUFFER
-			if (buffer->isuniformbuffer)
-				buffertype = GL_UNIFORM_BUFFER;
-#endif
-			if (subdata)
-				qglBufferSubDataARB(buffertype, offset, size, data);
-			else
-				qglBufferDataARB(buffertype, size, data, buffer->isdynamic ? GL_STREAM_DRAW : GL_STATIC_DRAW);
-		}
 		if (buffer->isuniformbuffer)
-			GL_BindUBO(0);
-		break;
-	case RENDERPATH_SOFT:
-		break;
+			buffertype = GL_UNIFORM_BUFFER;
+#endif
+		if (subdata)
+			qglBufferSubDataARB(buffertype, offset, size, data);
+		else
+			qglBufferDataARB(buffertype, size, data, buffer->isdynamic ? GL_STREAM_DRAW : GL_STATIC_DRAW);
 	}
+	if (buffer->isuniformbuffer)
+		GL_BindUBO(0);
 }
 
 void R_Mesh_DestroyMeshBuffer(r_meshbuffer_t *buffer)
 {
 	if (!buffer)
 		return;
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		// GL clears the binding if we delete something bound
-		if (gl_state.uniformbufferobject == buffer->bufferobject)
-			gl_state.uniformbufferobject = 0;
-		if (gl_state.vertexbufferobject == buffer->bufferobject)
-			gl_state.vertexbufferobject = 0;
-		if (gl_state.elementbufferobject == buffer->bufferobject)
-			gl_state.elementbufferobject = 0;
-		qglDeleteBuffersARB(1, (GLuint *)&buffer->bufferobject);
-		break;
-	case RENDERPATH_SOFT:
-		break;
-	}
+	// GL clears the binding if we delete something bound
+	if (gl_state.uniformbufferobject == buffer->bufferobject)
+		gl_state.uniformbufferobject = 0;
+	if (gl_state.vertexbufferobject == buffer->bufferobject)
+		gl_state.vertexbufferobject = 0;
+	if (gl_state.elementbufferobject == buffer->bufferobject)
+		gl_state.elementbufferobject = 0;
+	qglDeleteBuffersARB(1, (GLuint *)&buffer->bufferobject);
 	Mem_ExpandableArray_FreeRecord(&gl_state.meshbufferarray, (void *)buffer);
 }
 
@@ -2816,8 +2479,6 @@ void R_Mesh_VertexPointer(int components, int gltype, size_t stride, const void 
 			qglVertexAttribPointer(GLSLATTRIB_POSITION, components, gltype & ~0x80000000, (gltype & 0x80000000) == 0, (GLsizei)stride, bufferobject ? (void *)bufferoffset : pointer);CHECKGLERROR
 		}
 		break;
-	case RENDERPATH_SOFT:
-		break;
 	}
 }
 
@@ -2909,8 +2570,6 @@ void R_Mesh_ColorPointer(int components, int gltype, size_t stride, const void *
 			}
 		}
 		break;
-	case RENDERPATH_SOFT:
-		break;
 	}
 }
 
@@ -2999,8 +2658,6 @@ void R_Mesh_TexCoordPointer(unsigned int unitnum, int components, int gltype, si
 			}
 		}
 		break;
-	case RENDERPATH_SOFT:
-		break;
 	}
 }
 
@@ -3020,21 +2677,9 @@ int R_Mesh_TexBound(unsigned int unitnum, int id)
 
 void R_Mesh_CopyToTexture(rtexture_t *tex, int tx, int ty, int sx, int sy, int width, int height)
 {
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
-		R_Mesh_TexBind(0, tex);
-		GL_ActiveTexture(0);CHECKGLERROR
-		qglCopyTexSubImage2D(GL_TEXTURE_2D, 0, tx, ty, sx, sy, width, height);CHECKGLERROR
-		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_CopyRectangleToTexture(tex->texnum, 0, tx, ty, sx, sy, width, height);
-		break;
-	}
+	R_Mesh_TexBind(0, tex);
+	GL_ActiveTexture(0);CHECKGLERROR
+	qglCopyTexSubImage2D(GL_TEXTURE_2D, 0, tx, ty, sx, sy, width, height);CHECKGLERROR
 }
 
 void R_Mesh_ClearBindingsForTexture(int texnum)
@@ -3169,70 +2814,45 @@ void R_Mesh_TexBind(unsigned int unitnum, rtexture_t *tex)
 			qglBindTexture(GL_TEXTURE_CUBE_MAP, unit->tcubemap);CHECKGLERROR
 		}
 		break;
-	case RENDERPATH_SOFT:
-		if (!tex)
-		{
-			tex = r_texture_white;
-			// not initialized enough yet...
-			if (!tex)
-				return;
-		}
-		texnum = R_GetTexture(tex);
-		if (unit->texture == tex)
-			return;
-		unit->texture = tex;
-		DPSOFTRAST_SetTexture(unitnum, texnum);
-		break;
 	}
 }
 
 void R_Mesh_TexMatrix(unsigned int unitnum, const matrix4x4_t *matrix)
 {
-	switch(vid.renderpath)
-	{
-	case RENDERPATH_GL11:
-	case RENDERPATH_GL13:
-	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
-	case RENDERPATH_GLES2:
 #ifdef GL_MODELVIEW
-		if (matrix && matrix->m[3][3])
+	if (matrix && matrix->m[3][3])
+	{
+		gltextureunit_t *unit = gl_state.units + unitnum;
+		// texmatrix specified, check if it is different
+		if (!unit->texmatrixenabled || memcmp(&unit->matrix, matrix, sizeof(matrix4x4_t)))
 		{
-			gltextureunit_t *unit = gl_state.units + unitnum;
-			// texmatrix specified, check if it is different
-			if (!unit->texmatrixenabled || memcmp(&unit->matrix, matrix, sizeof(matrix4x4_t)))
-			{
-				float glmatrix[16];
-				unit->texmatrixenabled = true;
-				unit->matrix = *matrix;
-				CHECKGLERROR
-				Matrix4x4_ToArrayFloatGL(&unit->matrix, glmatrix);
-				GL_ActiveTexture(unitnum);
-				qglMatrixMode(GL_TEXTURE);CHECKGLERROR
-				qglLoadMatrixf(glmatrix);CHECKGLERROR
-				qglMatrixMode(GL_MODELVIEW);CHECKGLERROR
-			}
+			float glmatrix[16];
+			unit->texmatrixenabled = true;
+			unit->matrix = *matrix;
+			CHECKGLERROR
+			Matrix4x4_ToArrayFloatGL(&unit->matrix, glmatrix);
+			GL_ActiveTexture(unitnum);
+			qglMatrixMode(GL_TEXTURE);CHECKGLERROR
+			qglLoadMatrixf(glmatrix);CHECKGLERROR
+			qglMatrixMode(GL_MODELVIEW);CHECKGLERROR
 		}
-		else
-		{
-			// no texmatrix specified, revert to identity
-			gltextureunit_t *unit = gl_state.units + unitnum;
-			if (unit->texmatrixenabled)
-			{
-				unit->texmatrixenabled = false;
-				unit->matrix = identitymatrix;
-				CHECKGLERROR
-				GL_ActiveTexture(unitnum);
-				qglMatrixMode(GL_TEXTURE);CHECKGLERROR
-				qglLoadIdentity();CHECKGLERROR
-				qglMatrixMode(GL_MODELVIEW);CHECKGLERROR
-			}
-		}
-#endif
-		break;
-	case RENDERPATH_SOFT:
-		break;
 	}
+	else
+	{
+		// no texmatrix specified, revert to identity
+		gltextureunit_t *unit = gl_state.units + unitnum;
+		if (unit->texmatrixenabled)
+		{
+			unit->texmatrixenabled = false;
+			unit->matrix = identitymatrix;
+			CHECKGLERROR
+			GL_ActiveTexture(unitnum);
+			qglMatrixMode(GL_TEXTURE);CHECKGLERROR
+			qglLoadIdentity();CHECKGLERROR
+			qglMatrixMode(GL_MODELVIEW);CHECKGLERROR
+		}
+	}
+#endif
 }
 
 void R_Mesh_TexCombine(unsigned int unitnum, int combinergb, int combinealpha, int rgbscale, int alphascale)
@@ -3314,8 +2934,6 @@ void R_Mesh_TexCombine(unsigned int unitnum, int combinergb, int combinealpha, i
 			qglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, unit->combine);CHECKGLERROR
 		}
 		break;
-	case RENDERPATH_SOFT:
-		break;
 	}
 #endif
 }
@@ -3334,7 +2952,6 @@ void R_Mesh_ResetTextureState(void)
 	{
 	case RENDERPATH_GL20:
 	case RENDERPATH_GLES2:
-	case RENDERPATH_SOFT:
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
@@ -3416,15 +3033,6 @@ void R_Mesh_PrepareVertices_Vertex3f(int numvertices, const float *vertex3f, con
 			R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), NULL, NULL, 0);
 			R_Mesh_TexCoordPointer(0, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
 		}
-		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_SetVertexPointer(vertex3f, sizeof(float[3]));
-		DPSOFTRAST_SetColorPointer(NULL, 0);
-		DPSOFTRAST_SetTexCoordPointer(0, 2, sizeof(float[2]), NULL);
-		DPSOFTRAST_SetTexCoordPointer(1, 2, sizeof(float[2]), NULL);
-		DPSOFTRAST_SetTexCoordPointer(2, 2, sizeof(float[2]), NULL);
-		DPSOFTRAST_SetTexCoordPointer(3, 2, sizeof(float[2]), NULL);
-		DPSOFTRAST_SetTexCoordPointer(4, 2, sizeof(float[2]), NULL);
 		break;
 	}
 }
@@ -3513,15 +3121,6 @@ void R_Mesh_PrepareVertices_Generic_Arrays(int numvertices, const float *vertex3
 			return;
 		}
 		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_SetVertexPointer(vertex3f, sizeof(float[3]));
-		DPSOFTRAST_SetColorPointer(color4f, sizeof(float[4]));
-		DPSOFTRAST_SetTexCoordPointer(0, 2, sizeof(float[2]), texcoord2f);
-		DPSOFTRAST_SetTexCoordPointer(1, 2, sizeof(float[2]), NULL);
-		DPSOFTRAST_SetTexCoordPointer(2, 2, sizeof(float[2]), NULL);
-		DPSOFTRAST_SetTexCoordPointer(3, 2, sizeof(float[2]), NULL);
-		DPSOFTRAST_SetTexCoordPointer(4, 2, sizeof(float[2]), NULL);
-		return;
 	}
 
 	// no quick path for this case, convert to vertex structs
@@ -3613,15 +3212,6 @@ void R_Mesh_PrepareVertices_Generic(int numvertices, const r_vertexgeneric_t *ve
 			R_Mesh_ColorPointer(      4, GL_FLOAT        , sizeof(*vertex), vertex->color4f           , NULL, 0);
 			R_Mesh_TexCoordPointer(0, 2, GL_FLOAT        , sizeof(*vertex), vertex->texcoord2f        , NULL, 0);
 		}
-		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_SetVertexPointer(vertex->vertex3f, sizeof(*vertex));
-		DPSOFTRAST_SetColorPointer(vertex->color4f, sizeof(*vertex));
-		DPSOFTRAST_SetTexCoordPointer(0, 2, sizeof(*vertex), vertex->texcoord2f);
-		DPSOFTRAST_SetTexCoordPointer(1, 2, sizeof(*vertex), NULL);
-		DPSOFTRAST_SetTexCoordPointer(2, 2, sizeof(*vertex), NULL);
-		DPSOFTRAST_SetTexCoordPointer(3, 2, sizeof(*vertex), NULL);
-		DPSOFTRAST_SetTexCoordPointer(4, 2, sizeof(*vertex), NULL);
 		break;
 	}
 }
@@ -3722,15 +3312,6 @@ void R_Mesh_PrepareVertices_Mesh_Arrays(int numvertices, const float *vertex3f, 
 			return;
 		}
 		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_SetVertexPointer(vertex3f, sizeof(float[3]));
-		DPSOFTRAST_SetColorPointer(color4f, sizeof(float[4]));
-		DPSOFTRAST_SetTexCoordPointer(0, 2, sizeof(float[2]), texcoordtexture2f);
-		DPSOFTRAST_SetTexCoordPointer(1, 3, sizeof(float[3]), svector3f);
-		DPSOFTRAST_SetTexCoordPointer(2, 3, sizeof(float[3]), tvector3f);
-		DPSOFTRAST_SetTexCoordPointer(3, 3, sizeof(float[3]), normal3f);
-		DPSOFTRAST_SetTexCoordPointer(4, 2, sizeof(float[2]), texcoordlightmap2f);
-		return;
 	}
 
 	vertex = R_Mesh_PrepareVertices_Mesh_Lock(numvertices);
@@ -3834,15 +3415,6 @@ void R_Mesh_PrepareVertices_Mesh(int numvertices, const r_vertexmesh_t *vertex, 
 			R_Mesh_TexCoordPointer(0, 2, GL_FLOAT        , sizeof(*vertex), vertex->texcoordtexture2f , NULL, 0);
 		}
 		break;
-	case RENDERPATH_SOFT:
-		DPSOFTRAST_SetVertexPointer(vertex->vertex3f, sizeof(*vertex));
-		DPSOFTRAST_SetColorPointer(vertex->color4f, sizeof(*vertex));
-		DPSOFTRAST_SetTexCoordPointer(0, 2, sizeof(*vertex), vertex->texcoordtexture2f);
-		DPSOFTRAST_SetTexCoordPointer(1, 3, sizeof(*vertex), vertex->svector3f);
-		DPSOFTRAST_SetTexCoordPointer(2, 3, sizeof(*vertex), vertex->tvector3f);
-		DPSOFTRAST_SetTexCoordPointer(3, 3, sizeof(*vertex), vertex->normal3f);
-		DPSOFTRAST_SetTexCoordPointer(4, 2, sizeof(*vertex), vertex->texcoordlightmap2f);
-		break;
 	}
 }
 
@@ -3850,34 +3422,10 @@ void GL_BlendEquationSubtract(qboolean negated)
 {
 	if(negated)
 	{
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			qglBlendEquationEXT(GL_FUNC_REVERSE_SUBTRACT);
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_BlendSubtract(true);
-			break;
-		}
+		qglBlendEquationEXT(GL_FUNC_REVERSE_SUBTRACT);
 	}
 	else
 	{
-		switch(vid.renderpath)
-		{
-		case RENDERPATH_GL11:
-		case RENDERPATH_GL13:
-		case RENDERPATH_GL20:
-		case RENDERPATH_GLES1:
-		case RENDERPATH_GLES2:
-			qglBlendEquationEXT(GL_FUNC_ADD);
-			break;
-		case RENDERPATH_SOFT:
-			DPSOFTRAST_BlendSubtract(false);
-			break;
-		}
+		qglBlendEquationEXT(GL_FUNC_ADD);
 	}
 }
