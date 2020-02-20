@@ -424,6 +424,7 @@ void R_Shadow_LoadWorldLightsFromMap_LightArghliteTyrlite(void);
 void R_Shadow_EditLights_Reload_f(void);
 void R_Shadow_ValidateCvars(void);
 static void R_Shadow_MakeTextures(void);
+qboolean R_Shadow_PrepareLights_AddSceneLight(rtlight_t *);
 
 #define EDLIGHTSPRSIZE			8
 skinframe_t *r_editlights_sprcursor;
@@ -2557,6 +2558,8 @@ static void R_Shadow_BounceGrid_UpdateSpacing(void)
 	vec3_t size;
 	vec3_t spacing;
 	r_shadow_bouncegrid_settings_t *settings = &r_shadow_bouncegrid_state.settings;
+	maxs[0] = maxs[1] = maxs[2] = 0;
+	mins[0] = mins[1] = mins[2] = 0;
 
 	// get the spacing values
 	spacing[0] = settings->spacing[0];
