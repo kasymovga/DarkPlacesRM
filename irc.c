@@ -37,7 +37,7 @@ static void         (*irc_get_version)                      (unsigned int *high,
 static void         (*irc_set_ctx)                          (void *session, void *ctx);
 static void*        (*irc_get_ctx)                          (void *session);
 static int          (*irc_errno)                            (void *session);
-// static const char*  (*irc_strerror)                         (int ircerrno);
+static const char*  (*irc_strerror)                         (int ircerrno);
 static void         (*irc_option_set)                       (void *session, unsigned int option);
 static void         (*irc_option_reset)                     (void *session, unsigned int option);
 
@@ -1047,4 +1047,8 @@ Unload the libircclient DLL.
 */
 void IRC_CloseLibrary(void) {
     Sys_UnloadLibrary(&irc_dll);
+}
+
+const char *IRC_ErrorString(int n) {
+	return irc_strerror(n);
 }

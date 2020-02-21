@@ -57,7 +57,6 @@ void IRC_Cmd_Connect_f(void);
 void IRC_Cmd_Raw_f(void);
 void IRC_Cmd_Quit_f(void);
 void IRC_Cmd_Terminate_f(void);
-
-const char*  (*irc_strerror)                         (int ircerrno);
+const char *IRC_ErrorString(int);
 
 #endif

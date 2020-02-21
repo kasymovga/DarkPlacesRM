@@ -7790,7 +7790,7 @@ void VM_IRC_SendRaw(prvm_prog_t *prog) {
 
 void VM_IRC_StrError(prvm_prog_t *prog) {
     VM_SAFEPARMCOUNT(1, VM_IRC_StrError);
-    PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, irc_strerror((int)PRVM_G_FLOAT(OFS_PARM0)));
+    PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, IRC_ErrorString((int)PRVM_G_FLOAT(OFS_PARM0)));
 }
 
 void VM_IRC_JoinChannel(prvm_prog_t *prog) {
