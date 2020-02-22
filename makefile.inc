@@ -28,11 +28,8 @@ CPUOPTIMIZATIONS?=-fno-math-errno -ffinite-math-only -fno-rounding-math -fno-sig
 SDL_CONFIG?=sdl2-config
 SDLCONFIG_LINUXCFLAGS?=-DSDL_INPUT_LINUXEV
 SDLCONFIG_UNIXCFLAGS?=`$(SDL_CONFIG) --cflags`
-SDLCONFIG_UNIXCFLAGS_X11?=
 SDLCONFIG_UNIXLIBS?=`$(SDL_CONFIG) --libs`
-SDLCONFIG_UNIXLIBS_X11?=-lX11
 SDLCONFIG_UNIXSTATICLIBS?=`$(SDL_CONFIG) --static-libs`
-SDLCONFIG_UNIXSTATICLIBS_X11?=-lX11
 SDLCONFIG_MACOSXCFLAGS=-I/Library/Frameworks/SDL2.framework/Headers -I$(HOME)/Library/Frameworks/SDL2.framework/Headers
 SDLCONFIG_MACOSXLIBS=-F$(HOME)/Library/Frameworks/ -framework SDL2 -framework Cocoa $(SDLCONFIG_MACOSXCFLAGS)
 SDLCONFIG_MACOSXSTATICLIBS=-F$(HOME)/Library/Frameworks/ -framework SDL2 -framework Cocoa $(SDLCONFIG_MACOSXCFLAGS)
@@ -477,10 +474,6 @@ prvm_cmds.o: prvm_cmds.c
 world.o: world.c
 	$(CHECKLEVEL2)
 	$(DO_CC) $(CFLAGS_ODE)
-
-keysym2ucs.o: keysym2ucs.c
-	$(CHECKLEVEL2)
-	$(DO_CC) -I/usr/X11R6/include
 
 crypto.o: crypto.c
 	$(CHECKLEVEL2)
