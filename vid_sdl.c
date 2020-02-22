@@ -2238,9 +2238,6 @@ static void VID_SetIcon(void)
 	unsigned short palenc[256]; // store color id by char
 	char *xpm;
 	char **idata, *data;
-	if (icon)
-		SDL_FreeSurface(icon);
-
 	icon = NULL;
 	// only use non-XPM icon support in SDL v1.3 and higher
 	// SDL v1.2 does not support "smooth" transparency, and thus is better
@@ -2336,18 +2333,6 @@ static void VID_SetIcon(void)
 							// casting to the safest possible datatypes ^^
 							data[j * width + i] = palenc[((unsigned char*)idata[colors+j+1])[i]];
 						}
-					}
-
-					if(icon != NULL)
-					{
-						// SDL_FreeSurface should free the data too
-						// but for completeness' sake...
-						if(icon->flags & SDL_PREALLOC)
-						{
-							free(icon->pixels);
-							icon->pixels = NULL; // safety
-						}
-						SDL_FreeSurface(icon);
 					}
 
 					icon = SDL_CreateRGBSurface(0, width, height, 8, 0,0,0,0);// rmask, gmask, bmask, amask); no mask needed
