@@ -442,6 +442,15 @@ extern cvar_t sessionid;
 # define LINK_TO_LIBVORBIS 1
 # define DP_MOBILETOUCH	1
 # define DP_FREETYPE_STATIC 1
+#elif defined(__EMSCRIPTEN__) /* must come first because it also defines MACOSX */
+# define DP_OS_NAME		"Web"
+# define DP_OS_STR		"Web"
+# define USE_GLES2		1
+# define LINK_TO_ZLIB	1
+# define LINK_TO_LIBPNG 1
+# define LINK_TO_LIBJPEG 1
+# define LINK_TO_LIBVORBIS 1
+# define DP_FREETYPE_STATIC 1
 #elif defined(__linux__)
 # define DP_OS_NAME		"Linux"
 # define DP_OS_STR		"linux"

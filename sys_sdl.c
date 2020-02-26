@@ -113,6 +113,7 @@ void Sys_PrintToTerminal(const char *text)
 
 char *Sys_ConsoleInput(void)
 {
+#ifndef __EMSCRIPTEN__
 //	if (cls.state == ca_dedicated)
 	{
 		static char text[MAX_INPUTLINE];
@@ -168,6 +169,7 @@ char *Sys_ConsoleInput(void)
 		}
 #endif
 	}
+#endif
 	return NULL;
 }
 

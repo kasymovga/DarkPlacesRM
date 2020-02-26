@@ -37,6 +37,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "geoip.h"
 #include "random.h"
 #include "net_httpserver.h"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 /*
 
@@ -674,28 +677,40 @@ Runs all active servers
 ==================
 */
 static void Host_Init(void);
+#ifdef __EMSCRIPTEN__
+static void Host_Main_Loop(void)
+#else
 void Host_Main(void)
+#endif
 {
-	double time1 = 0;
-	double time2 = 0;
-	double time3 = 0;
-	double cl_timer = 0, sv_timer = 0;
-	double clframetime, deltacleantime, olddirtytime, dirtytime;
-	double wait;
-	int pass1, pass2, pass3, i;
-	char vabuf[1024];
-	qboolean playing;
+	static double time1 = 0;
+	static double time2 = 0;
+	static double time3 = 0;
+	static double cl_timer = 0, sv_timer = 0;
+	static double clframetime, deltacleantime, olddirtytime, dirtytime;
+	static double wait;
+	static int pass1, pass2, pass3, i;
+	static char vabuf[1024];
+	static qboolean playing;
 
+#ifndef __EMSCRIPTEN__
 	Host_Init();
-
-	realtime = 0;
 	host_dirtytime = Sys_DirtyTime();
+#endif
+
+#ifndef __EMSCRIPTEN__
 	for (;;)
 	{
+#endif
 		if (setjmp(host_abortframe))
 		{
 			SCR_ClearLoadingScreen(false);
+#ifndef __EMSCRIPTEN__
 			continue;			// something bad happened, or the server disconnected
+#else
+			emscripten_cancel_main_loop();
+			return;
+#endif
 		}
 
 		olddirtytime = host_dirtytime;
@@ -829,7 +844,11 @@ void Host_Main(void)
 			if (!svs.threaded)
 				svs.perf_acc_sleeptime += delta;
 //			R_TimeReport("sleep");
+#ifdef __EMSCRIPTEN__
+			return;
+#else
 			continue;
+#endif
 		}
 
 		// limit the frametime steps to no more than 100ms each
@@ -1088,8 +1107,20 @@ void Host_Main(void)
         IRC_Frame();
 
 		host_framecount++;
+#ifndef __EMSCRIPTEN__
 	}
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+void Host_Main(void)
+{
+	Host_Init();
+	realtime = 0;
+	host_dirtytime = Sys_DirtyTime();
+	emscripten_set_main_loop(Host_Main_Loop, 0, 0);
+}
+#endif
 
 //============================================================================
 
@@ -1495,5 +1526,8 @@ void Host_Shutdown(void)
 	Con_Shutdown();
 	Memory_Shutdown();
 	Net_HttpServerShutdown();
+#ifdef __EMSCRIPTEN__
+	emscripten_cancel_main_loop();
+#endif
 }
 

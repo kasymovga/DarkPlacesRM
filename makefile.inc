@@ -401,6 +401,11 @@ sdl-rexuiz :
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) \
 		EXE='$(EXE_SDLREXUIZ)' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1 ISNEXUIZ=1
 
+html-rexuiz :
+	$(MAKE) bin-release-nostrip \
+		DP_MAKE_TARGET=$(DP_MAKE_TARGET) \
+		EXE='rexuiz.html' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1 ISNEXUIZ=1
+
 sdl2-debug :
 	$(MAKE) sdl-debug
 
@@ -449,6 +454,16 @@ bin-release :
 		CFLAGS='$(CFLAGS_COMMON) $(CFLAGS_SDL) $(CFLAGS_FEATURES) $(CFLAGS_EXTRA) $(CFLAGS_RELEASE) $(OPTIM_RELEASE)'\
 		LDFLAGS='$(LDFLAGS_RELEASE) $(LDFLAGS_COMMON)' LEVEL=2
 	$(STRIP) $(EXE)
+
+bin-release-nostrip :
+	$(CHECKLEVEL1)
+	@echo
+	@echo '========== $(EXE) (release) =========='
+	$(MAKE) prepare BUILD_DIR=build-obj/release/$(EXE)
+	$(MAKE) -C build-obj/release/$(EXE) $(EXE) \
+		DP_MAKE_TARGET=$(DP_MAKE_TARGET) \
+		CFLAGS='$(CFLAGS_COMMON) $(CFLAGS_SDL) $(CFLAGS_FEATURES) $(CFLAGS_EXTRA) $(CFLAGS_RELEASE) $(OPTIM_RELEASE)'\
+		LDFLAGS='$(LDFLAGS_RELEASE) $(LDFLAGS_COMMON)' LEVEL=2
 
 bin-release-profile :
 	$(CHECKLEVEL1)
@@ -522,6 +537,10 @@ $(EXE_SVREXUIZ): $(OBJ_SV) $(OBJ_ICON_REXUIZ)
 $(EXE_SDLREXUIZ): $(OBJ_SDL) $(OBJ_ICON_REXUIZ)
 	$(CHECKLEVEL2)
 	$(DO_LD)
+
+rexuiz.html: $(OBJ_SDL) $(OBJ_ICON_REXUIZ)
+	$(CHECKLEVEL2)
+	$(DO_LD) --preload-file ../../../webassets@/
 
 clean:
 	-$(CMD_RM) $(EXE_SV)

@@ -237,7 +237,13 @@ cvar_t r_test = {0, "r_test", "0", "internal development use only, leave it alon
 
 cvar_t r_batch_multidraw = {CVAR_SAVE, "r_batch_multidraw", "1", "issue multiple glDrawElements calls when rendering a batch of surfaces with the same texture (otherwise the index data is copied to make it one draw)"};
 cvar_t r_batch_multidraw_mintriangles = {CVAR_SAVE, "r_batch_multidraw_mintriangles", "0", "minimum number of triangles to activate multidraw path (copying small groups of triangles may be faster)"};
-cvar_t r_batch_debugdynamicvertexpath = {CVAR_SAVE, "r_batch_debugdynamicvertexpath", "0", "force the dynamic batching code path for debugging purposes"};
+cvar_t r_batch_debugdynamicvertexpath = {CVAR_SAVE, "r_batch_debugdynamicvertexpath",
+#ifdef __EMSCRIPTEN__
+"1",
+#else
+"0",
+#endif
+"force the dynamic batching code path for debugging purposes"};
 cvar_t r_batch_dynamicbuffer = {CVAR_SAVE, "r_batch_dynamicbuffer", "0", "use vertex/index buffers for drawing dynamic and copytriangles batches"};
 
 cvar_t r_glsl_saturation = {CVAR_SAVE, "r_glsl_saturation", "1", "saturation multiplier (only working in glsl!)"};
