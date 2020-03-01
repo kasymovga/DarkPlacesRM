@@ -1792,7 +1792,7 @@ void wrapglGetVertexAttribiv(GLuint index, GLenum pname, GLint *params) {PRECALL
 void wrapglGetVertexAttribPointerv(GLuint index, GLenum pname, GLvoid **pointer) {PRECALL;glGetVertexAttribPointerv(index, pname, pointer);POSTCALL;}
 #endif
 
-void GLES_Init(void)
+static void GLES_Init(void)
 {
 #ifndef qglClear
 	qglIsBufferARB = wrapglIsBuffer;
