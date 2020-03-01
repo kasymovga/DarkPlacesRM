@@ -185,7 +185,11 @@ static int MapKey( unsigned int sdlkey )
 	case SDLK_F6:                 return K_F6;
 	case SDLK_F7:                 return K_F7;
 	case SDLK_F8:                 return K_F8;
+#ifdef __EMSCRIPTEN__
+	case SDLK_F9:                 return K_ESCAPE;
+#else
 	case SDLK_F9:                 return K_F9;
+#endif
 	case SDLK_F10:                return K_F10;
 	case SDLK_F11:                return K_F11;
 	case SDLK_F12:                return K_F12;
@@ -412,7 +416,11 @@ static int MapScancode( unsigned int sdlscancode )
 	case SDL_SCANCODE_F6:                 return K_F6;
 	case SDL_SCANCODE_F7:                 return K_F7;
 	case SDL_SCANCODE_F8:                 return K_F8;
+#ifdef __EMSCRIPTEN__
+	case SDL_SCANCODE_F9:                 return K_ESCAPE;
+#else
 	case SDL_SCANCODE_F9:                 return K_F9;
+#endif
 	case SDL_SCANCODE_F10:                return K_F10;
 	case SDL_SCANCODE_F11:                return K_F11;
 	case SDL_SCANCODE_F12:                return K_F12;
