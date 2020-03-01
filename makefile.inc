@@ -403,6 +403,7 @@ sdl-rexuiz :
 
 html-rexuiz :
 	$(MAKE) bin-release-nostrip \
+		CC='emcc -s USE_SDL=2 -s USE_OGG=1 -s USE_VORBIS=1 -s USE_ZLIB=1 -s USE_LIBPNG=1 -s USE_LIBJPEG=1 -s USE_FREETYPE=1 -s DISABLE_DEPRECATED_FIND_EVENT_TARGET_BEHAVIOR=0 -s TOTAL_MEMORY=1610612736' DP_FS_BASEDIR=/ \
 		DP_MAKE_TARGET=$(DP_MAKE_TARGET) \
 		EXE='rexuiz.html' CFLAGS_FEATURES='$(CFLAGS_CLIENT)' CFLAGS_SDL='$(SDLCONFIG_CFLAGS)' LDFLAGS_COMMON='$(LDFLAGS_SDL)' LEVEL=1 ISNEXUIZ=1
 
@@ -540,7 +541,7 @@ $(EXE_SDLREXUIZ): $(OBJ_SDL) $(OBJ_ICON_REXUIZ)
 
 rexuiz.html: $(OBJ_SDL) $(OBJ_ICON_REXUIZ)
 	$(CHECKLEVEL2)
-	$(DO_LD) --preload-file ../../../webassets@/
+	$(DO_LD) --shell-file ../../../rexuiz-in.html --preload-file ../../../webassets@/
 
 clean:
 	-$(CMD_RM) $(EXE_SV)
