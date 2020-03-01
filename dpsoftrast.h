@@ -68,7 +68,6 @@ glsl_attrib;
 typedef enum shaderlanguage_e
 {
 	SHADERLANGUAGE_GLSL,
-	SHADERLANGUAGE_HLSL,
 	SHADERLANGUAGE_COUNT
 }
 shaderlanguage_t;

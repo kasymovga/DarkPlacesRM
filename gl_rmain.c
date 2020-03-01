@@ -627,12 +627,6 @@ static const char *builtinshaderstrings[] =
 0
 };
 
-const char *builtinhlslshaderstrings[] =
-{
-#include "shader_hlsl.h"
-0
-};
-
 //=======================================================================================================================================================
 
 typedef struct shaderpermutationinfo_s
@@ -714,26 +708,6 @@ shadermodeinfo_t shadermodeinfo[SHADERLANGUAGE_COUNT][SHADERMODE_COUNT] =
 		{"combined", "glsl", builtinshaderstrings, "#define MODE_WATER\n", " water"},
 		{"combined", "glsl", builtinshaderstrings, "#define MODE_DEFERREDGEOMETRY\n", " deferredgeometry"},
 		{"combined", "glsl", builtinshaderstrings, "#define MODE_DEFERREDLIGHTSOURCE\n", " deferredlightsource"},
-	},
-	// SHADERLANGUAGE_HLSL
-	{
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_GENERIC\n", " generic"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_POSTPROCESS\n", " postprocess"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_DEPTH_OR_SHADOW\n", " depth/shadow"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_FLATCOLOR\n", " flatcolor"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_VERTEXCOLOR\n", " vertexcolor"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_LIGHTMAP\n", " lightmap"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_FAKELIGHT\n", " fakelight"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_LIGHTDIRECTIONMAP_MODELSPACE\n", " lightdirectionmap_modelspace"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_LIGHTDIRECTIONMAP_TANGENTSPACE\n", " lightdirectionmap_tangentspace"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_LIGHTDIRECTIONMAP_FORCED_LIGHTMAP\n", " lightdirectionmap_forced_lightmap"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_LIGHTDIRECTIONMAP_FORCED_VERTEXCOLOR\n", " lightdirectionmap_forced_vertexcolor"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_LIGHTDIRECTION\n", " lightdirection"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_LIGHTSOURCE\n", " lightsource"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_REFRACTION\n", " refraction"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_WATER\n", " water"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_DEFERREDGEOMETRY\n", " deferredgeometry"},
-		{"combined", "hlsl", builtinhlslshaderstrings, "#define MODE_DEFERREDLIGHTSOURCE\n", " deferredlightsource"},
 	},
 };
 
