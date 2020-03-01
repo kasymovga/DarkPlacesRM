@@ -1350,6 +1350,15 @@ void Sys_SendKeyEvents( void )
 					Key_Event(keycode, unicode, isdown);
 				break;
 			case SDL_MOUSEBUTTONDOWN:
+#ifdef __EMSCRIPTEN__
+				{
+					int flags = SDL_GetWindowFlags(window);
+					if (!(flags & SDL_WINDOW_FULLSCREEN)) {
+						Con_Printf("Restore fullscreen...\n");
+						SDL_SetWindowFullscreen(window, flags | SDL_WINDOW_FULLSCREEN);
+					}
+				}
+#endif
 			case SDL_MOUSEBUTTONUP:
 #ifdef DEBUGSDLEVENTS
 				if (event.type == SDL_MOUSEBUTTONDOWN)
