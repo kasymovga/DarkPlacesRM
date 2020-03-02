@@ -46,8 +46,6 @@ LIB_SND_NULL=
 
 # CD objects
 OBJ_CD_COMMON=cd_shared.o
-OBJ_NOCD=cd_null.o
-
 
 ###### Common objects and flags #####
 
@@ -161,8 +159,8 @@ endif
 # note that builddate.c is very intentionally not compiled to a .o before
 # being linked, because it should be recompiled every time an executable is
 # built to give the executable a proper date string
-OBJ_SV= builddate.c sys_linux.o vid_null.o $(OBJ_SV_THREAD) $(OBJ_SND_NULL) $(OBJ_COMMON) $(OBJ_NOCD)
-OBJ_SDL= builddate.c sys_sdl.o vid_sdl.o thread_sdl.o $(OBJ_MENU) $(OBJ_SND_COMMON) snd_sdl.o $(OBJ_SDLCD) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
+OBJ_SV= builddate.c sys_linux.o vid_null.o $(OBJ_SV_THREAD) $(OBJ_SND_NULL) $(OBJ_COMMON)
+OBJ_SDL= builddate.c sys_sdl.o vid_sdl.o thread_sdl.o $(OBJ_MENU) $(OBJ_SND_COMMON) snd_sdl.o $(OBJ_CD_COMMON) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
 
 
 # Compilation
@@ -229,17 +227,11 @@ LDFLAGS_LINUXSDL=$(LDFLAGS_UNIXCOMMON) -lrt -ldl $(LDFLAGS_UNIXSDL)
 
 ##### Mac OS X specific variables #####
 
-# No CD support available
-OBJ_MACOSXCD=$(OBJ_NOCD)
-
 # Link
 LDFLAGS_MACOSXSV=$(LDFLAGS_UNIXCOMMON) -ldl
 LDFLAGS_MACOSXSDL=$(LDFLAGS_UNIXCOMMON) $(LIB_OGGVORBIS) -ldl -framework IOKit $(SDLCONFIG_STATICLIBS)
 
 ##### SunOS specific variables #####
-
-# No CD support available
-OBJ_SUNOSCD=$(OBJ_NOCD)
 
 CFLAGS_SUNOS=-I/usr/lib/oss/include -DBSD_COMP -DSUNOS
 

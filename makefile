@@ -73,18 +73,7 @@ TARGETS_NEXUIZ=sv-nexuiz sdl-nexuiz
 TARGETS_REXUIZ=sv-rexuiz sdl-rexuiz
 
 ###### Optional features #####
-DP_CDDA?=enabled
-ifeq ($(DP_CDDA), enabled)
-	OBJ_SDLCD=$(OBJ_CD_COMMON) cd_sdl.o
-	OBJ_LINUXCD=$(OBJ_CD_COMMON) cd_linux.o
-	OBJ_BSDCD=$(OBJ_CD_COMMON) cd_bsd.o
-	OBJ_WINCD=$(OBJ_CD_COMMON) cd_win.o
-else
-	OBJ_SDLCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
-	OBJ_LINUXCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
-	OBJ_BSDCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
-	OBJ_WINCD=$(OBJ_CD_COMMON) $(OBJ_NOCD)
-endif
+OBJ_SDLCD=$(OBJ_CD_COMMON)
 
 DP_VIDEO_CAPTURE?=enabled
 ifeq ($(DP_VIDEO_CAPTURE), enabled)
@@ -97,8 +86,6 @@ endif
 
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
-	OBJ_CD=$(OBJ_LINUXCD)
-
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
 	OBJ_ICON_REXUIZ=
@@ -134,8 +121,6 @@ endif
 
 # Mac OS X configuration
 ifeq ($(DP_MAKE_TARGET), macosx)
-	OBJ_CD=$(OBJ_MACOSXCD)
-
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
 	OBJ_ICON_REXUIZ=
@@ -177,8 +162,6 @@ endif
 
 # SunOS configuration (Solaris)
 ifeq ($(DP_MAKE_TARGET), sunos)
-	OBJ_CD=$(OBJ_SUNOSCD)
-
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
 	OBJ_ICON_REXUIZ=
@@ -216,8 +199,6 @@ endif
 
 # BSD configuration
 ifeq ($(DP_MAKE_TARGET), bsd)
-	OBJ_CD=$(OBJ_BSDCD)
-
 	OBJ_ICON=
 	OBJ_ICON_NEXUIZ=
 	OBJ_ICON_REXUIZ=
@@ -266,8 +247,6 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	TARGET=$(MINGWARCH)-w64-mingw32
 	CC=$(TARGET)-gcc
 	WINDRES=$(TARGET)-windres
-
-	OBJ_CD=$(OBJ_WINCD)
 
 	OBJ_ICON=darkplaces.o
 	OBJ_ICON_NEXUIZ=nexuiz.o
