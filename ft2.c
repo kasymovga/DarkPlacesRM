@@ -42,7 +42,7 @@ cvar_t r_font_compress = {CVAR_SAVE, "r_font_compress", "0", "use texture compre
 cvar_t r_font_nonpoweroftwo = {CVAR_SAVE, "r_font_nonpoweroftwo", "1", "use nonpoweroftwo textures for font (saves memory, potentially slower)"};
 cvar_t developer_font = {CVAR_SAVE, "developer_font", "0", "prints debug messages about fonts"};
 
-#ifndef DP_FREETYPE_STATIC
+#ifndef LINK_TO_FREETYPE
 
 /*
 ================================================================================
@@ -326,7 +326,7 @@ void Font_CloseLibrary (void)
 		qFT_Done_FreeType(font_ft2lib);
 		font_ft2lib = NULL;
 	}
-#ifndef DP_FREETYPE_STATIC
+#ifndef LINK_TO_FREETYPE
 	Sys_UnloadLibrary (&ft2_dll);
 #endif
 	pp.buf = NULL;
@@ -341,7 +341,7 @@ Try to load the FreeType2 DLL
 */
 qboolean Font_OpenLibrary (void)
 {
-#ifndef DP_FREETYPE_STATIC
+#ifndef LINK_TO_FREETYPE
 	const char* dllnames [] =
 	{
 #if defined(WIN32)
@@ -361,7 +361,7 @@ qboolean Font_OpenLibrary (void)
 	if (r_font_disable_freetype.integer)
 		return false;
 
-#ifndef DP_FREETYPE_STATIC
+#ifndef LINK_TO_FREETYPE
 	// Already loaded?
 	if (ft2_dll)
 		return true;
@@ -445,7 +445,7 @@ Implementation of a more or less lazy font loading and rendering code.
 
 ft2_font_t *Font_Alloc(void)
 {
-#ifndef DP_FREETYPE_STATIC
+#ifndef LINK_TO_FREETYPE
 	if (!ft2_dll)
 #else
 	if (r_font_disable_freetype.integer)
@@ -1161,7 +1161,7 @@ void Font_UnloadFont(ft2_font_t *font)
 			font->font_maps[i] = NULL;
 		}
 	}
-#ifndef DP_FREETYPE_STATIC
+#ifndef LINK_TO_FREETYPE
 	if (ft2_dll)
 #else
 	if (!r_font_disable_freetype.integer)

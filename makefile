@@ -91,6 +91,7 @@ DP_LINK_ODE?=dlopen
 DP_LINK_CRYPTO?=dlopen
 DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 DP_LINK_OGGVORBIS?=dlopen
+DP_LINK_FREETYPE?=shared
 
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
@@ -325,6 +326,17 @@ ifeq ($(DP_LINK_CRYPTO_RIJNDAEL), dlopen)
 	LIB_CRYPTO_RIJNDAEL=
 	CFLAGS_CRYPTO_RIJNDAEL=
 endif
+
+#freetype
+ifeq ($(DP_LINK_FREETYPE), shared)
+	LIB_FREETYPE=`pkg-config --libs freetype2`
+	CFLAGS_FREETYPE=-DLINK_TO_FREETYPE `pkg-config --cflags freetype2`
+endif
+ifeq ($(DP_LINK_FREETYPE), dlopen)
+	LIB_FREETYPE=
+	CFLAGS_FREETYPE=
+endif
+
 
 ##### Extra CFLAGS #####
 

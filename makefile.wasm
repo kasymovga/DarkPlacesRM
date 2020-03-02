@@ -7,6 +7,7 @@ html-rexuiz :
 		DP_LINK_PNG=shared \
 		DP_LINK_JPEG=shared \
 		DP_LINK_OGGVORBIS=shared \
+		DP_LINK_FREETYPE=shared \
 		DP_VIDEO_CAPTURE=disabled \
 		LIB_OGGVORBIS=' -s USE_OGG=1 -s USE_VORBIS=1' \
 		CFLAGS_LIBPNG='-s USE_LIBPNG=1 -DLINK_TO_LIBPNG' \
