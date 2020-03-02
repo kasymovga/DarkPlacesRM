@@ -84,6 +84,14 @@ else
 	OBJ_VIDEO_CAPTURE=
 endif
 
+DP_LINK_ZLIB?=dlopen
+DP_LINK_JPEG?=dlopen
+DP_LINK_PNG?=dlopen
+DP_LINK_ODE?=dlopen
+DP_LINK_CRYPTO?=dlopen
+DP_LINK_CRYPTO_RIJNDAEL?=dlopen
+DP_LINK_OGGVORBIS?=dlopen
+
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
 	OBJ_ICON=
@@ -103,14 +111,6 @@ ifeq ($(DP_MAKE_TARGET), linux)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
 	EXE_SVREXUIZ=$(EXE_UNIXSVREXUIZ)
 	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
-
-	DP_LINK_ZLIB?=dlopen
-	DP_LINK_JPEG?=dlopen
-	DP_LINK_PNG?=dlopen
-	DP_LINK_ODE?=dlopen
-	DP_LINK_CRYPTO?=dlopen
-	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
-	DP_LINK_OGGVORBIS?=dlopen
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
@@ -142,13 +142,6 @@ ifeq ($(DP_MAKE_TARGET), macosx)
 	ifeq ($(word 2, $(filter -arch, $(CC))), -arch)
 		CFLAGS_MAKEDEP=
 	endif
-
-	DP_LINK_ZLIB?=dlopen
-	DP_LINK_JPEG?=dlopen
-	DP_LINK_PNG?=dlopen
-	DP_LINK_ODE?=dlopen
-	DP_LINK_CRYPTO?=dlopen
-	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 
 	# we don't build the CL by default because it uses deprecated
 	# and not-implemented-in-64bit Carbon
@@ -182,14 +175,6 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	EXE_SVREXUIZ=$(EXE_UNIXSVREXUIZ)
 	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
 
-	DP_LINK_ZLIB?=dlopen
-	DP_LINK_JPEG?=dlopen
-	DP_LINK_PNG?=dlopen
-	DP_LINK_ODE?=dlopen
-	DP_LINK_CRYPTO?=dlopen
-	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
-	DP_LINK_OGGVORBIS?=dlopen
-
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
 	#LIB_JPEG=-ljpeg
@@ -216,14 +201,6 @@ ifeq ($(DP_MAKE_TARGET), bsd)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
 	EXE_SVREXUIZ=$(EXE_UNIXSVREXUIZ)
 	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
-
-	DP_LINK_ZLIB?=dlopen
-	DP_LINK_JPEG?=dlopen
-	DP_LINK_PNG?=dlopen
-	DP_LINK_ODE?=dlopen
-	DP_LINK_CRYPTO?=dlopen
-	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
-	DP_LINK_OGGVORBIS?=dlopen
 
 	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
 	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
@@ -276,14 +253,6 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 		CPUOPTIMIZATIONS=
 		LDFLAGS_WINCOMMON=
 	endif
-
-	DP_LINK_ZLIB?=dlopen
-	DP_LINK_JPEG?=dlopen
-	DP_LINK_PNG?=dlopen
-	DP_LINK_ODE?=dlopen
-	DP_LINK_CRYPTO?=dlopen
-	DP_LINK_CRYPTO_RIJNDAEL?=dlopen
-	DP_LINK_OGGVORBIS?=dlopen
 endif
 
 ifeq ($(DP_LIBMICROHTTPD),yes)
