@@ -91,7 +91,7 @@ DP_LINK_ODE?=dlopen
 DP_LINK_CRYPTO?=dlopen
 DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 DP_LINK_OGGVORBIS?=dlopen
-DP_LINK_FREETYPE?=shared
+DP_LINK_FREETYPE?=dlopen
 
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
