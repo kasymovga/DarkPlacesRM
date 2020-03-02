@@ -209,16 +209,7 @@ ifeq ($(DP_MAKE_TARGET), bsd)
 	LIB_JPEG=""
 endif
 
-# Win32 configuration
-ifeq ($(D3D), 1)
-	CFLAGS_D3D=-DSUPPORTD3D -DSUPPORTDIRECTX
-	CFLAGS_WARNINGS=-Wall
-	LDFLAGS_D3D=-ld3d9
-else
-	CFLAGS_D3D=
-	CFLAGS_WARNINGS=-Wall -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes -Wno-misleading-indentation
-	LDFLAGS_D3D=
-endif
+CFLAGS_WARNINGS=-Wall -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes -Wno-misleading-indentation
 
 ifeq ($(DP_MAKE_TARGET), mingw)
 	TARGET=$(MINGWARCH)-w64-mingw32
