@@ -375,18 +375,6 @@ endif
 endif
 
 CFLAGS_LIBJPEG+=-DJPEG_LIB_VERSION="${DP_JPEG_VERSION}"
-
-CFLAGS_PRELOAD=
-ifneq ($(DP_MAKE_TARGET), mingw)
-ifdef DP_PRELOAD_DEPENDENCIES
-# DP_PRELOAD_DEPENDENCIES: when set, link against the libraries needed using -l
-# dynamically so they won't get loaded at runtime using dlopen
-	LDFLAGS_SV+=$(LDFLAGS_UNIXSV_PRELOAD)
-	LDFLAGS_SDL+=$(LDFLAGS_UNIXSDL_PRELOAD)
-	CFLAGS_PRELOAD=$(CFLAGS_UNIX_PRELOAD)
-endif
-endif
-
 CFLAGS_NET=
 # Systems without IPv6 support should uncomment this:
 #CFLAGS_NET+=-DNOSUPPORTIPV6

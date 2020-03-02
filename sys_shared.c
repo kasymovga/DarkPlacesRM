@@ -121,21 +121,6 @@ qboolean Sys_LoadLibrary (const char** dllnames, dllhandle_t* handle, const dllf
 	if (handle == NULL)
 		return false;
 
-#ifndef WIN32
-#ifdef PREFER_PRELOAD
-	dllhandle = dlopen(NULL, RTLD_LAZY | RTLD_GLOBAL);
-	if(Sys_LoadLibraryFunctions(dllhandle, fcts, false, false))
-	{
-		Con_DPrintf ("All of %s's functions were already linked in! Not loading dynamically...\n", dllnames[0]);
-		*handle = dllhandle;
-		return true;
-	}
-	else
-		Sys_UnloadLibrary(&dllhandle);
-notfound:
-#endif
-#endif
-
 	// Initializations
 	for (func = fcts; func && func->name != NULL; func++)
 		*func->funcvariable = NULL;
