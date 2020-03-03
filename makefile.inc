@@ -214,6 +214,11 @@ CMD_UNIXCP=cp -f
 CMD_UNIXMKDIR=mkdir -p
 
 
+##### Android specific variables #####
+
+# Link
+LDFLAGS_ANDROIDSDL=$(LDFLAGS_UNIXCOMMON) $(LDFLAGS_UNIXSDL)
+
 ##### Linux specific variables #####
 
 # Link
