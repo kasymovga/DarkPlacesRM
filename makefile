@@ -281,20 +281,20 @@ endif
 # ogg and vorbis
 ifeq ($(DP_LINK_OGGVORBIS), static)
 ifeq ($(DP_VIDEO_CAPTURE), enabled)
-	LIB_OGGVORBIS += `pkg-config --static --libs vorbis vorbisfile theora vorbisenc`
-	CFLAGS_OGGVORBIS += `pkg-config --cflags vorbis vorbisfile theora vorbisenc` -DLINK_TO_LIBVORBIS
+	LIB_OGGVORBIS += `pkg-config --static --libs ogg vorbis vorbisfile theora vorbisenc theoraenc`
+	CFLAGS_OGGVORBIS += `pkg-config --cflags ogg vorbis vorbisfile theora vorbisenc theoraenc` -DLINK_TO_LIBVORBIS
 else
-	LIB_OGGVORBIS=`pkg-config --static --libs vorbis vorbisfile`
-	CFLAGS_OGGVORBIS=`pkg-config --cflags vorbis vorbisfile` -DLINK_TO_LIBVORBIS
+	LIB_OGGVORBIS=`pkg-config --static --libs ogg vorbis vorbisfile`
+	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile` -DLINK_TO_LIBVORBIS
 endif
 endif
 ifeq ($(DP_LINK_OGGVORBIS), shared)
 ifeq ($(DP_VIDEO_CAPTURE), enabled)
-	LIB_OGGVORBIS += `pkg-config --libs vorbis vorbisfile theora vorbisenc`
-	CFLAGS_OGGVORBIS += `pkg-config --cflags vorbis vorbisfile theora vorbisenc` -DLINK_TO_LIBVORBIS
+	LIB_OGGVORBIS += `pkg-config --libs ogg vorbis vorbisfile theora vorbisenc theoraenc`
+	CFLAGS_OGGVORBIS += `pkg-config --cflags ogg vorbis vorbisfile theora vorbisenc theoraenc` -DLINK_TO_LIBVORBIS
 else
-	LIB_OGGVORBIS=`pkg-config --libs vorbis vorbisfile`
-	CFLAGS_OGGVORBIS=`pkg-config --cflags vorbis vorbisfile` -DLINK_TO_LIBVORBIS
+	LIB_OGGVORBIS=`pkg-config --libs ogg vorbis vorbisfile`
+	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile` -DLINK_TO_LIBVORBIS
 endif
 endif
 
