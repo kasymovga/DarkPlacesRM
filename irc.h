@@ -1,4 +1,4 @@
-
+#ifndef __ANDROID__
 /*
 Copyright (C) 2014  Andrew "Akari" Alexeyew
 
@@ -60,3 +60,4 @@ void IRC_Cmd_Terminate_f(void);
 const char *IRC_ErrorString(int);
 
 #endif
+#endif // ifndef __ANDROID__

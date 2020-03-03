@@ -7726,6 +7726,7 @@ void VM_GeoIP_LookUp(prvm_prog_t *prog) {
 	}
 }
 
+#ifndef __ANDROID__
 /*
  *
  *  IRC stuff
@@ -7882,3 +7883,4 @@ void VM_IRC_CTCPReply(prvm_prog_t *prog) {
     VM_SAFEPARMCOUNT(3, VM_IRC_CTCPReply);
     PRVM_G_INT(OFS_RETURN) = IRC_CTCPReply((int)PRVM_G_FLOAT(OFS_PARM0), (const char*)PRVM_G_STRING(OFS_PARM1), (const char*)PRVM_G_STRING(OFS_PARM2));
 }
+#endif // ifndef __ANDROID__

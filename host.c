@@ -1103,9 +1103,9 @@ void Host_Main(void)
 				svs.perf_acc_lost += sv_timer;
 			sv_timer = 0;
 		}
-
+#ifndef __ANDROID__
         IRC_Frame();
-
+#endif
 		host_framecount++;
 #ifndef __EMSCRIPTEN__
 	}
@@ -1328,8 +1328,9 @@ static void Host_Init (void)
 	Host_InitCommands();
 	Host_InitLocal();
 	Host_ServerOptions();
-
+#ifndef __ANDROID__
 	IRC_Init();
+#endif
 	Thread_Init();
 	Net_HttpServerInit();
 	GeoIP_Init();
@@ -1492,8 +1493,9 @@ void Host_Shutdown(void)
 	// AK hmm, no PRVM_Shutdown(); yet
 
 	CL_Video_Shutdown();
-
+#ifndef __ANDROID__
     IRC_Shutdown();
+#endif
     GeoIP_Shutdown();
 	Host_SaveConfig();
 

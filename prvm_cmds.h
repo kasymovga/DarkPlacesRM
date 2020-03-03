@@ -511,6 +511,7 @@ void VM_net_sendpacket(prvm_prog_t *prog);
 void VM_GeoIP_LookUp(prvm_prog_t *prog);
 
 // irc
+#ifndef __ANDROID__
 void VM_IRC_CreateSession(prvm_prog_t *prog);
 void VM_IRC_ConnectSession(prvm_prog_t *prog);
 void VM_IRC_SessionIsConnected(prvm_prog_t *prog);
@@ -533,5 +534,6 @@ void VM_IRC_UserMode(prvm_prog_t *prog);
 void VM_IRC_MaskMatches(prvm_prog_t *prog);
 void VM_IRC_CTCPRequest(prvm_prog_t *prog);
 void VM_IRC_CTCPReply(prvm_prog_t *prog);
+#endif
 
 #endif

@@ -1,3 +1,4 @@
+#ifndef __ANDROID__
 
 /*
 Copyright (C) 2014  Andrew "Akari" Alexeyew
@@ -1052,3 +1053,4 @@ void IRC_CloseLibrary(void) {
 const char *IRC_ErrorString(int n) {
 	return irc_strerror(n);
 }
+#endif // ifndef __ANDROID__

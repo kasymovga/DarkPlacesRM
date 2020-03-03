@@ -227,7 +227,9 @@ const char *vm_sv_extensions =
 "TENEBRAE_GFX_DLIGHTS "
 "TW_SV_STEPCONTROL "
 "ZQ_PAUSE "
+#ifndef __ANDROID__
 "DP_RM_IRC "
+#endif
 "DP_RM_CALLFUNCTIONEX "
 "DP_RM_GLOBALACCESS "
 "DP_RM_ALTCSPROGS "
@@ -3746,6 +3748,7 @@ NULL,							// #546
 NULL,							// #547
 NULL,							// #548
 NULL,							// #549
+#ifndef __ANDROID__
 VM_IRC_CreateSession,			// #550 float(void) IRC_CreateSession = #550; (DP_RM_IRC)
 VM_IRC_ConnectSession,			// #551 float(float handle, string server, float port, string password, string nick, string username, string realname) IRC_ConnectSession = #551; (DP_RM_IRC)
 VM_IRC_SessionExists,			// #552 float(float handle) IRC_SessionExists = #552; (DP_RM_IRC)
@@ -3768,6 +3771,30 @@ VM_IRC_UserMode,				// #568 float(float handle, string mode) IRC_UserMode = #568
 VM_IRC_MaskMatches,				// #569 float(string mask, string pattern) IRC_MaskMatches = #569; (DP_RM_IRC)
 VM_IRC_CTCPRequest,				// #570 float(float handle, string targ, string msg) IRC_CTCPRequest = #570; (DP_RM_IRC)
 VM_IRC_CTCPReply,				// #571 float(float handle, string targ, string msg) IRC_CTCPReply = #571; (DP_RM_IRC)
+#else
+NULL,							// #550
+NULL,							// #551
+NULL,							// #552
+NULL,							// #553
+NULL,							// #554
+NULL,							// #555
+NULL,							// #556
+NULL,							// #557
+NULL,							// #558
+NULL,							// #559
+NULL,							// #560
+NULL,							// #561
+NULL,							// #562
+NULL,							// #563
+NULL,							// #564
+NULL,							// #565
+NULL,							// #566
+NULL,							// #567
+NULL,							// #568
+NULL,							// #569
+NULL,							// #570
+NULL,							// #571
+#endif
 NULL,							// #572
 NULL,							// #573
 NULL,							// #574
