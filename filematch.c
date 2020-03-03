@@ -193,7 +193,7 @@ void listdirectory(stringlist_t *list, const char *basepath, const char *path)
 	DIR *dir;
 	struct dirent *ent;
 	dpsnprintf(fullpath, sizeof(fullpath), "%s%s", basepath, path);
-#ifdef __ANDROID__
+#ifdef 0
 	// SDL currently does not support listing assets, so we have to emulate
 	// it. We're using relative paths for assets, so that will do.
 	if (basepath[0] != '/')
