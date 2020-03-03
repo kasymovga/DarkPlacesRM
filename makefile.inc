@@ -26,13 +26,12 @@ CPUOPTIMIZATIONS?=-fno-math-errno -ffinite-math-only -fno-rounding-math -fno-sig
 # NOTE: *never* *ever* use the -ffast-math or -funsafe-math-optimizations flag
 
 SDL_CONFIG?=sdl2-config
-SDLCONFIG_LINUXCFLAGS?=-DSDL_INPUT_LINUXEV
-SDLCONFIG_UNIXCFLAGS?=`$(SDL_CONFIG) --cflags`
-SDLCONFIG_UNIXLIBS?=`$(SDL_CONFIG) --libs`
-SDLCONFIG_UNIXSTATICLIBS?=`$(SDL_CONFIG) --static-libs`
-SDLCONFIG_MACOSXCFLAGS=-I/Library/Frameworks/SDL2.framework/Headers -I$(HOME)/Library/Frameworks/SDL2.framework/Headers
-SDLCONFIG_MACOSXLIBS=-F$(HOME)/Library/Frameworks/ -framework SDL2 -framework Cocoa $(SDLCONFIG_MACOSXCFLAGS)
-SDLCONFIG_MACOSXSTATICLIBS=-F$(HOME)/Library/Frameworks/ -framework SDL2 -framework Cocoa $(SDLCONFIG_MACOSXCFLAGS)
+SDLCONFIG_CFLAGS?=`$(SDL_CONFIG) --cflags`
+ifeq ($(DP_SDL_STATIC),yes)
+SDLCONFIG_LIBS?=`$(SDL_CONFIG) --static-libs`
+else
+SDLCONFIG_LIBS?=`$(SDL_CONFIG) --libs`
+endif
 STRIP?=strip
 
 
@@ -230,7 +229,7 @@ LDFLAGS_LINUXSDL=$(LDFLAGS_UNIXCOMMON) -lrt -ldl $(LDFLAGS_UNIXSDL)
 
 # Link
 LDFLAGS_MACOSXSV=$(LDFLAGS_UNIXCOMMON) -ldl
-LDFLAGS_MACOSXSDL=$(LDFLAGS_UNIXCOMMON) $(LDFLAGS_COMMONCL) -ldl -framework IOKit $(SDLCONFIG_STATICLIBS)
+LDFLAGS_MACOSXSDL=$(LDFLAGS_UNIXCOMMON) $(LDFLAGS_COMMONCL) -ldl -framework IOKit $(SDLCONFIG_LIBS)
 
 ##### SunOS specific variables #####
 
