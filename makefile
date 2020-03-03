@@ -223,30 +223,34 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 	endif
 endif
 
-ifeq ($(DP_LIBMICROHTTPD),yes)
+ifeq ($(DP_LIBMICROHTTPD),static)
+	CFLAGS_LIBMICROHTTPD=-DUSE_LIBMICROHTTPD `pkg-config --cflags libmicrohttpd`
+	LIB_LIBMICROHTTPD=`pkg-config --static --libs libmicrohttpd`
+endif
+ifeq ($(DP_LIBMICROHTTPD),shared)
 	CFLAGS_LIBMICROHTTPD=-DUSE_LIBMICROHTTPD `pkg-config --cflags libmicrohttpd`
 	LIB_LIBMICROHTTPD=`pkg-config --libs libmicrohttpd`
 endif
 
 # set these to "" if you want to use dynamic loading instead
 # zlib
+ifeq ($(DP_LINK_ZLIB), static)
+	CFLAGS_LIBZ=-DLINK_TO_ZLIB `pkg-config --cflags zlib`
+	LIB_Z=-lz `pkg-config --static --libs zlib`
+endif
 ifeq ($(DP_LINK_ZLIB), shared)
 	CFLAGS_LIBZ=-DLINK_TO_ZLIB
-	LIB_Z=-lz
-endif
-ifeq ($(DP_LINK_ZLIB), dlopen)
-	CFLAGS_LIBZ=
-	LIB_Z=
+	LIB_Z=-lz `pkg-config --libs zlib`
 endif
 
 # jpeg
-ifeq ($(DP_LINK_JPEG), shared)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	LIB_JPEG=-ljpeg
+ifeq ($(DP_LINK_JPEG), static)
+	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG `pkg-config --cflags zlib`
+	LIB_JPEG= `pkg-config --static --libs zlib`
 endif
-ifeq ($(DP_LINK_JPEG), dlopen)
-	CFLAGS_LIBJPEG=
-	LIB_JPEG=
+ifeq ($(DP_LINK_JPEG), shared)
+	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG `pkg-config --cflags zlib`
+	LIB_JPEG= `pkg-config --libs zlib`
 endif
 
 # png
@@ -254,9 +258,9 @@ ifeq ($(DP_LINK_PNG), shared)
 	CFLAGS_LIBPNG=`pkg-config --cflags libpng` -DLINK_TO_LIBPNG
 	LIB_PNG=`pkg-config --libs libpng`
 endif
-ifeq ($(DP_LINK_PNG), dlopen)
-	CFLAGS_LIBPNG=
-	LIB_PNG=
+ifeq ($(DP_LINK_PNG), static)
+	CFLAGS_LIBPNG=`pkg-config --cflags libpng` -DLINK_TO_LIBPNG
+	LIB_PNG=`pkg-config --static --libs libpng`
 endif
 
 # ode
@@ -265,12 +269,25 @@ ifeq ($(DP_LINK_ODE), shared)
 	LIB_ODE=`$(ODE_CONFIG) --libs`
 	CFLAGS_ODE=`$(ODE_CONFIG) --cflags` -DUSEODE -DLINK_TO_LIBODE
 endif
+ifeq ($(DP_LINK_ODE), static)
+	ODE_CONFIG?=ode-config
+	LIB_ODE=`$(ODE_CONFIG) --static --libs`
+	CFLAGS_ODE=`$(ODE_CONFIG) --cflags` -DUSEODE -DLINK_TO_LIBODE
+endif
 ifeq ($(DP_LINK_ODE), dlopen)
-	LIB_ODE=
-	CFLAGS_ODE=-DUSEODE
+	CFLAGS_ODE= -DUSEODE
 endif
 
 # ogg and vorbis
+ifeq ($(DP_LINK_OGGVORBIS), static)
+ifeq ($(DP_VIDEO_CAPTURE), enabled)
+	LIB_OGGVORBIS += `pkg-config --static --libs vorbis vorbisfile theora vorbisenc`
+	CFLAGS_OGGVORBIS += `pkg-config --cflags vorbis vorbisfile theora vorbisenc` -DLINK_TO_LIBVORBIS
+else
+	LIB_OGGVORBIS=`pkg-config --static --libs vorbis vorbisfile`
+	CFLAGS_OGGVORBIS=`pkg-config --cflags vorbis vorbisfile` -DLINK_TO_LIBVORBIS
+endif
+endif
 ifeq ($(DP_LINK_OGGVORBIS), shared)
 ifeq ($(DP_VIDEO_CAPTURE), enabled)
 	LIB_OGGVORBIS += `pkg-config --libs vorbis vorbisfile theora vorbisenc`
@@ -280,27 +297,24 @@ else
 	CFLAGS_OGGVORBIS=`pkg-config --cflags vorbis vorbisfile` -DLINK_TO_LIBVORBIS
 endif
 endif
-ifeq ($(DP_LINK_OGGVORBIS), dlopen)
-	LIB_OGGVORBIS=
-	CFLAGS_OGGVORBIS=
-endif
 
 # d0_blind_id
 ifeq ($(DP_LINK_CRYPTO), shared)
 	LIB_CRYPTO=-ld0_blind_id
 	CFLAGS_CRYPTO=-DLINK_TO_CRYPTO
 endif
-ifeq ($(DP_LINK_CRYPTO), dlopen)
-	LIB_CRYPTO=
-	CFLAGS_CRYPTO=
+ifeq ($(DP_LINK_CRYPTO), static)
+	LIB_CRYPTO=-ld0_blind_id
+	CFLAGS_CRYPTO=-DLINK_TO_CRYPTO
 endif
+
 ifeq ($(DP_LINK_CRYPTO_RIJNDAEL), shared)
 	LIB_CRYPTO_RIJNDAEL=-ld0_rijndael
 	CFLAGS_CRYPTO_RIJNDAEL=-DLINK_TO_CRYPTO_RIJNDAEL
 endif
-ifeq ($(DP_LINK_CRYPTO_RIJNDAEL), dlopen)
-	LIB_CRYPTO_RIJNDAEL=
-	CFLAGS_CRYPTO_RIJNDAEL=
+ifeq ($(DP_LINK_CRYPTO_RIJNDAEL), static)
+	LIB_CRYPTO_RIJNDAEL=-ld0_rijndael
+	CFLAGS_CRYPTO_RIJNDAEL=-DLINK_TO_CRYPTO_RIJNDAEL
 endif
 
 #freetype
@@ -308,9 +322,9 @@ ifeq ($(DP_LINK_FREETYPE), shared)
 	LIB_FREETYPE=`pkg-config --libs freetype2`
 	CFLAGS_FREETYPE=-DLINK_TO_FREETYPE `pkg-config --cflags freetype2`
 endif
-ifeq ($(DP_LINK_FREETYPE), dlopen)
-	LIB_FREETYPE=
-	CFLAGS_FREETYPE=
+ifeq ($(DP_LINK_FREETYPE), static)
+	LIB_FREETYPE=`pkg-config --static --libs freetype2`
+	CFLAGS_FREETYPE=-DLINK_TO_FREETYPE `pkg-config --cflags freetype2`
 endif
 
 
