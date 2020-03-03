@@ -162,12 +162,6 @@ ifeq ($(DP_MAKE_TARGET), sunos)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
 	EXE_SVREXUIZ=$(EXE_UNIXSVREXUIZ)
 	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
-
-	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	#LIB_JPEG=-ljpeg
-	CFLAGS_LIBJPEG=""
-	LIB_JPEG=""
 endif
 
 # BSD configuration
@@ -185,12 +179,6 @@ ifeq ($(DP_MAKE_TARGET), bsd)
 	EXE_SDLNEXUIZ=$(EXE_UNIXSDLNEXUIZ)
 	EXE_SVREXUIZ=$(EXE_UNIXSVREXUIZ)
 	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
-
-	# libjpeg dependency (set these to "" if you want to use dynamic loading instead)
-	#CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG
-	#LIB_JPEG=-ljpeg
-	CFLAGS_LIBJPEG=""
-	LIB_JPEG=""
 endif
 
 CFLAGS_WARNINGS=-Wall -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes -Wno-misleading-indentation
@@ -245,12 +233,12 @@ endif
 
 # jpeg
 ifeq ($(DP_LINK_JPEG), static)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG `pkg-config --cflags zlib`
-	LIB_JPEG= `pkg-config --static --libs zlib`
+	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG `pkg-config --cflags libjpeg`
+	LIB_JPEG= `pkg-config --static --libs libjpeg`
 endif
 ifeq ($(DP_LINK_JPEG), shared)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG `pkg-config --cflags zlib`
-	LIB_JPEG= `pkg-config --libs zlib`
+	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG `pkg-config --cflags libjpeg`
+	LIB_JPEG= `pkg-config --libs libjpeg`
 endif
 
 # png
