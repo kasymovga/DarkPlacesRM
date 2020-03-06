@@ -74,9 +74,7 @@ extern int r_stereo_side;
 typedef struct scr_touchscreenarea_s
 {
 	const char *pic;
-	const char *text;
 	float rect[4];
-	float textheight;
 	float active;
 	float activealpha;
 	float inactivealpha;

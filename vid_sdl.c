@@ -78,9 +78,6 @@ static qboolean vid_hasfocus = false;
 static qboolean vid_isfullscreen;
 static qboolean vid_usingvsync = false;
 static SDL_Joystick *vid_sdljoystick = NULL;
-// GAME_STEELSTORM specific
-static cvar_t *steelstorm_showing_map = NULL; // detect but do not create the cvar
-static cvar_t *steelstorm_showing_mousecursor = NULL; // detect but do not create the cvar
 
 static int win_half_width = 50;
 static int win_half_height = 50;
@@ -615,7 +612,6 @@ qboolean VID_ShowingKeyboard(void)
 
 void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecursor)
 {
-#ifndef DP_MOBILETOUCH
 #ifdef MACOSX
 	if(relative)
 		if(vid_usingmouse && (vid_usingnoaccel != !!apple_mouse_noaccel.integer))
@@ -689,7 +685,6 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 		vid_usinghidecursor = hidecursor;
 		SDL_ShowCursor( hidecursor ? SDL_DISABLE : SDL_ENABLE);
 	}
-#endif
 }
 
 // multitouch[10][] represents the mouse pointer
@@ -698,22 +693,78 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 // multitouch[][2]: Y
 // X and Y coordinates are 0-1.
 #define MAXFINGERS 11
-float multitouch[MAXFINGERS][3];
+static float multitouch[MAXFINGERS][3];
+struct touchscreen_area {
+	int dest, corner, x, y, width, height;
+	char image[64], cmd[32];
+};
+static struct touchscreen_area touchscreen_areas[126];
+int touchscreen_areas_count;
 
 // this one stores how many areas this finger has touched
 int multitouchs[MAXFINGERS];
 
+static void VID_TouchScreenInit(void) {
+	const char *cfg_path = "dptouchscreen.cfg";
+	char *cfg = (char*)FS_LoadFile(cfg_path, tempmempool, false, NULL);
+	char *line;
+	char *nl;
+	const char *tok;
+	touchscreen_areas_count = 0;
+	int line_num = 0;
+	while (cfg && touchscreen_areas_count < 126) {
+		line_num++;
+		nl = strchr(cfg, '\n');
+		if (nl) {
+			line = cfg;
+			nl[0] = '\0';
+			cfg = &nl[1];
+		} else {
+			line = cfg;
+			cfg = NULL;
+		}
+		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		if (tok[0] == '/') continue; //Commentary
+		touchscreen_areas[touchscreen_areas_count].dest = atoi(tok);
+		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		touchscreen_areas[touchscreen_areas_count].corner = atoi(tok);
+		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		touchscreen_areas[touchscreen_areas_count].x = atoi(tok);
+		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		touchscreen_areas[touchscreen_areas_count].y = atoi(tok);
+		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		touchscreen_areas[touchscreen_areas_count].width = atoi(tok);
+		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		touchscreen_areas[touchscreen_areas_count].height = atoi(tok);
+		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		strlcpy(touchscreen_areas[touchscreen_areas_count].image, tok, sizeof(touchscreen_areas[touchscreen_areas_count].image));
+		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		strlcpy(touchscreen_areas[touchscreen_areas_count].cmd, tok, sizeof(touchscreen_areas[touchscreen_areas_count].cmd));
+		touchscreen_areas_count++;
+	}
+}
+
 // modified heavily by ELUAN
-static qboolean VID_TouchscreenArea(int corner, float px, float py, float pwidth, float pheight, const char *icon, float textheight, const char *text, float *resultmove, qboolean *resultbutton, keynum_t key, const char *typedtext, float deadzone, float oversizepixels_x, float oversizepixels_y, qboolean iamexclusive)
+static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, float pwidth, float pheight, const char *icon, const char *command, qboolean *resultbutton)
 {
 	int finger;
 	float fx, fy, fwidth, fheight;
-	float overfx, overfy, overfwidth, overfheight;
 	float rel[3];
 	float sqsum;
 	qboolean button = false;
+	qboolean check_dest = false;
 	VectorClear(rel);
-	if (pwidth > 0 && pheight > 0)
+	if (key_consoleactive & KEY_CONSOLEACTIVE_USER) {
+		check_dest = dest & 1;
+	} else {
+		if (key_dest == key_console)
+			check_dest = (dest & 1);
+		else if (key_dest == key_game)
+			check_dest = (dest & 2);
+		else
+			check_dest = (dest & 4);
+	}
+	if (check_dest)
 	{
 		if (corner & 1) px += vid_conwidth.value;
 		if (corner & 2) py += vid_conheight.value;
@@ -724,29 +775,9 @@ static qboolean VID_TouchscreenArea(int corner, float px, float py, float pwidth
 		fy = py / vid_conheight.value;
 		fwidth = pwidth / vid_conwidth.value;
 		fheight = pheight / vid_conheight.value;
-
-		// try to prevent oversizepixels_* from interfering with the iamexclusive cvar by not letting we start controlling from too far of the actual touch area (areas without resultbuttons should NEVER have the oversizepixels_* parameters set to anything other than 0)
-		if (resultbutton)
-			if (!(*resultbutton))
-			{
-				oversizepixels_x *= 0.2;
-				oversizepixels_y *= 0.2;
-			}
-
-		oversizepixels_x /= vid_conwidth.value;
-		oversizepixels_y /= vid_conheight.value;
-
-		overfx = fx - oversizepixels_x;
-		overfy = fy - oversizepixels_y;
-		overfwidth = fwidth + 2*oversizepixels_x;
-		overfheight = fheight + 2*oversizepixels_y;
-
 		for (finger = 0;finger < MAXFINGERS;finger++)
 		{
-			if (multitouchs[finger] && iamexclusive) // for this to work correctly, you must call touch areas in order of highest to lowest priority
-				continue;
-
-			if (multitouch[finger][0] && multitouch[finger][1] >= overfx && multitouch[finger][2] >= overfy && multitouch[finger][1] < overfx + overfwidth && multitouch[finger][2] < overfy + overfheight)
+			if (multitouch[finger][0] && multitouch[finger][1] >= fx && multitouch[finger][2] >= fy && multitouch[finger][1] < fx + fwidth && multitouch[finger][2] < fy + fheight)
 			{
 				multitouchs[finger]++;
 
@@ -755,13 +786,7 @@ static qboolean VID_TouchscreenArea(int corner, float px, float py, float pwidth
 				rel[2] = 0;
 
 				sqsum = rel[0]*rel[0] + rel[1]*rel[1];
-				// 2d deadzone
-				if (sqsum < deadzone*deadzone)
-				{
-					rel[0] = 0;
-					rel[1] = 0;
-				}
-				else if (sqsum > 1)
+				if (sqsum > 1)
 				{
 					// ignore the third component
 					Vector2Normalize2(rel, rel);
@@ -773,8 +798,6 @@ static qboolean VID_TouchscreenArea(int corner, float px, float py, float pwidth
 		if (scr_numtouchscreenareas < 128)
 		{
 			scr_touchscreenareas[scr_numtouchscreenareas].pic = icon;
-			scr_touchscreenareas[scr_numtouchscreenareas].text = text;
-			scr_touchscreenareas[scr_numtouchscreenareas].textheight = textheight;
 			scr_touchscreenareas[scr_numtouchscreenareas].rect[0] = px;
 			scr_touchscreenareas[scr_numtouchscreenareas].rect[1] = py;
 			scr_touchscreenareas[scr_numtouchscreenareas].rect[2] = pwidth;
@@ -786,153 +809,47 @@ static qboolean VID_TouchscreenArea(int corner, float px, float py, float pwidth
 			scr_numtouchscreenareas++;
 		}
 	}
-	if (resultmove)
-	{
-		if (button)
-			VectorCopy(rel, resultmove);
-		else
-			VectorClear(resultmove);
-	}
-	if (resultbutton)
-	{
+	if (command[0] == '*') {
+		if (!strcmp(command, "*move")) {
+			if (button) {
+				cl.cmd.forwardmove -= rel[1] * cl_forwardspeed.value;
+				cl.cmd.sidemove += rel[0] * cl_sidespeed.value;
+			}
+		} else if (!strcmp(command, "*aim")) {
+			if (button) {
+				cl.viewangles[0] += rel[1] * cl_pitchspeed.value * cl.realframetime;
+				cl.viewangles[1] -= rel[0] * cl_yawspeed.value * cl.realframetime;
+			}
+		} else if (!strcmp(command, "*click")) {
+			if (*resultbutton != button) {
+				Key_Event(K_MOUSE1, 0, button);
+			}
+		} else if (!strcmp(command, "*menu")) {
+			if (*resultbutton != button) {
+				Key_Event(K_ESCAPE, 0, button);
+			}
+		} else if (!strcmp(command, "*keyboard")) {
+			if (button)
+				VID_ShowKeyboard(true);
+		}
+	} else {
 		if (*resultbutton != button)
 		{
-			if ((int)key > 0)
-				Key_Event(key, 0, button);
-			if (typedtext && typedtext[0] && !*resultbutton)
-			{
-				// FIXME: implement UTF8 support - nothing actually specifies a UTF8 string here yet, but should support it...
-				int i;
-				for (i = 0;typedtext[i];i++)
-				{
-					Key_Event(K_TEXT, typedtext[i], true);
-					Key_Event(K_TEXT, typedtext[i], false);
+			if (command) {
+				if (command[0] == '+' && !button) {
+					char minus_command[64];
+					strlcpy(minus_command, command, 64);
+					minus_command[0] = '-';
+					Cbuf_AddText(minus_command);
+				} else if (button) {
+					Cbuf_AddText(command);
 				}
+				Cbuf_AddText("\n");
 			}
 		}
-		*resultbutton = button;
 	}
+	*resultbutton = button;
 	return button;
-}
-
-// ELUAN:
-// not reentrant, but we only need one mouse cursor anyway...
-static void VID_TouchscreenCursor(float px, float py, float pwidth, float pheight, qboolean *resultbutton, keynum_t key)
-{
-	int finger;
-	float fx, fy, fwidth, fheight;
-	qboolean button = false;
-	static int cursorfinger = -1;
-	static int cursorfreemovement = false;
-	static int canclick = false;
-	static int clickxy[2];
-	static int relclickxy[2];
-	static double clickrealtime = 0;
-
-	if (steelstorm_showing_mousecursor && steelstorm_showing_mousecursor->integer)
-	if (pwidth > 0 && pheight > 0)
-	{
-		fx = px / vid_conwidth.value;
-		fy = py / vid_conheight.value;
-		fwidth = pwidth / vid_conwidth.value;
-		fheight = pheight / vid_conheight.value;
-		for (finger = 0;finger < MAXFINGERS;finger++)
-		{
-			if (multitouch[finger][0] && multitouch[finger][1] >= fx && multitouch[finger][2] >= fy && multitouch[finger][1] < fx + fwidth && multitouch[finger][2] < fy + fheight)
-			{
-				if (cursorfinger == -1)
-				{
-					clickxy[0] =  multitouch[finger][1] * vid_width.value - 0.5f * pwidth;
-					clickxy[1] =  multitouch[finger][2] * vid_height.value - 0.5f * pheight;
-					relclickxy[0] =  (multitouch[finger][1] - fx) * vid_width.value - 0.5f * pwidth;
-					relclickxy[1] =  (multitouch[finger][2] - fy) * vid_height.value - 0.5f * pheight;
-				}
-				cursorfinger = finger;
-				button = true;
-				canclick = true;
-				cursorfreemovement = false;
-				break;
-			}
-		}
-		if (scr_numtouchscreenareas < 128)
-		{
-			if (clickrealtime + 1 > realtime)
-			{
-				scr_touchscreenareas[scr_numtouchscreenareas].pic = "gfx/gui/touch_puck_cur_click.tga";
-			}
-			else if (button)
-			{
-				scr_touchscreenareas[scr_numtouchscreenareas].pic = "gfx/gui/touch_puck_cur_touch.tga";
-			}
-			else
-			{
-				switch ((int)realtime * 10 % 20)
-				{
-				case 0:
-					scr_touchscreenareas[scr_numtouchscreenareas].pic = "gfx/gui/touch_puck_cur_touch.tga";
-					break;
-				default:
-					scr_touchscreenareas[scr_numtouchscreenareas].pic = "gfx/gui/touch_puck_cur_idle.tga";
-				}
-			}
-			scr_touchscreenareas[scr_numtouchscreenareas].text = "";
-			scr_touchscreenareas[scr_numtouchscreenareas].textheight = 0;
-			scr_touchscreenareas[scr_numtouchscreenareas].rect[0] = px;
-			scr_touchscreenareas[scr_numtouchscreenareas].rect[1] = py;
-			scr_touchscreenareas[scr_numtouchscreenareas].rect[2] = pwidth;
-			scr_touchscreenareas[scr_numtouchscreenareas].rect[3] = pheight;
-			scr_touchscreenareas[scr_numtouchscreenareas].active = button;
-			scr_touchscreenareas[scr_numtouchscreenareas].activealpha = 1.0f;
-			scr_touchscreenareas[scr_numtouchscreenareas].inactivealpha = 1.0f;
-			scr_numtouchscreenareas++;
-		}
-	}
-
-	if (cursorfinger != -1)
-	{
-		if (multitouch[cursorfinger][0])
-		{
-			if (multitouch[cursorfinger][1] * vid_width.value - 0.5f * pwidth < clickxy[0] - 1 ||
-				multitouch[cursorfinger][1] * vid_width.value - 0.5f * pwidth > clickxy[0] + 1 ||
-				multitouch[cursorfinger][2] * vid_height.value - 0.5f * pheight< clickxy[1] - 1 ||
-				multitouch[cursorfinger][2] * vid_height.value - 0.5f * pheight> clickxy[1] + 1) // finger drifted more than the allowed amount
-			{
-				cursorfreemovement = true;
-			}
-			if (cursorfreemovement)
-			{
-				// in_windowmouse_x* is in screen resolution coordinates, not console resolution
-				in_windowmouse_x = multitouch[cursorfinger][1] * vid_width.value - 0.5f * pwidth - relclickxy[0];
-				in_windowmouse_y = multitouch[cursorfinger][2] * vid_height.value - 0.5f * pheight - relclickxy[1];
-			}
-		}
-		else
-		{
-			cursorfinger = -1;
-		}
-	}
-
-	if (resultbutton)
-	{
-		if (/**resultbutton != button && */(int)key > 0)
-		{
-			if (!button && !cursorfreemovement && canclick)
-			{
-				Key_Event(key, 0, true);
-				canclick = false;
-				clickrealtime = realtime;
-			}
-
-			// SS:BR can't qc can't cope with presses and releases on the same frame
-			if (clickrealtime && clickrealtime + 0.1 < realtime)
-			{
-				Key_Event(key, 0, false);
-				clickrealtime = 0;
-			}
-		}
-
-		*resultbutton = button;
-	}
 }
 
 void VID_BuildJoyState(vid_joystate_t *joystate)
@@ -956,156 +873,12 @@ void VID_BuildJoyState(vid_joystate_t *joystate)
 	VID_Shared_BuildJoyState_Finish(joystate);
 }
 
-// clear every touch screen area, except the one with button[skip]
-#define Vid_ClearAllTouchscreenAreas(skip) \
-	if (skip != 0) \
-		VID_TouchscreenCursor(0, 0, 0, 0, &buttons[0], K_MOUSE1); \
-	if (skip != 1) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, move, &buttons[1], K_MOUSE4, NULL, 0, 0, 0, false); \
-	if (skip != 2) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, aim,  &buttons[2], K_MOUSE5, NULL, 0, 0, 0, false); \
-	if (skip != 3) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[3], K_SHIFT, NULL, 0, 0, 0, false); \
-	if (skip != 4) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[4], K_MOUSE2, NULL, 0, 0, 0, false); \
-	if (skip != 9) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[9], K_MOUSE3, NULL, 0, 0, 0, false); \
-	if (skip != 10) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[10], (keynum_t)'m', NULL, 0, 0, 0, false); \
-	if (skip != 11) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[11], (keynum_t)'b', NULL, 0, 0, 0, false); \
-	if (skip != 12) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[12], (keynum_t)'q', NULL, 0, 0, 0, false); \
-	if (skip != 13) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[13], (keynum_t)'`', NULL, 0, 0, 0, false); \
-	if (skip != 14) \
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[14], K_ESCAPE, NULL, 0, 0, 0, false); \
-	if (skip != 15) \
-		VID_TouchscreenArea( 0,  0,  0,  0,  0, NULL                         , 0.0f, NULL, NULL, &buttons[15], K_SPACE, NULL, 0, 0, 0, false); \
-
 /////////////////////
 // Movement handling
 ////
-
-static void IN_Move_TouchScreen_SteelStorm(void)
-{
-	// ELUAN
-	int i, numfingers;
-	float xscale, yscale;
-	float move[3], aim[3];
-	static qboolean oldbuttons[128];
-	static qboolean buttons[128];
-	keydest_t keydest = (key_consoleactive & KEY_CONSOLEACTIVE_USER) ? key_console : key_dest;
-	memcpy(oldbuttons, buttons, sizeof(oldbuttons));
-	memset(multitouchs, 0, sizeof(multitouchs));
-
-	for (i = 0, numfingers = 0; i < MAXFINGERS - 1; i++)
-		if (multitouch[i][0])
-			numfingers++;
-
-	/*
-	Enable this to use a mouse as a touch device (it may conflict with the iamexclusive parameter if a finger is also reported as a mouse at the same location
-	if (numfingers == 1)
-	{
-		multitouch[MAXFINGERS-1][0] = SDL_GetMouseState(&x, &y) ? 11 : 0;
-		multitouch[MAXFINGERS-1][1] = (float)x / vid.width;
-		multitouch[MAXFINGERS-1][2] = (float)y / vid.height;
-	}
-	else
-	{
-		// disable it so it doesn't get stuck, because SDL seems to stop updating it if there are more than 1 finger on screen
-		multitouch[MAXFINGERS-1][0] = 0;
-	}*/
-
-	// TODO: make touchscreen areas controlled by a config file or the VMs. THIS IS A MESS!
-	// TODO: can't just clear buttons[] when entering a new keydest, some keys would remain pressed
-	// SS:BR menuqc has many peculiarities, including that it can't accept more than one command per frame and pressing and releasing on the same frame
-
-	// Tuned for the SGS3, use it's value as a base. CLEAN THIS.
-	xscale = vid_touchscreen_density.value / 2.0f;
-	yscale = vid_touchscreen_density.value / 2.0f;
-	switch(keydest)
-	{
-	case key_console:
-		Vid_ClearAllTouchscreenAreas(14);
-		VID_TouchscreenArea( 0,   0, 160,  64,  64, "gfx/gui/touch_menu_button.tga"         , 0.0f, NULL, NULL, &buttons[14], K_ESCAPE, NULL, 0, 0, 0, false);
-		break;
-	case key_game:
-		if (steelstorm_showing_map && steelstorm_showing_map->integer) // FIXME: another hack to be removed when touchscreen areas go to QC
-		{
-			VID_TouchscreenArea( 0,   0,   0, vid_conwidth.value, vid_conheight.value, NULL                         , 0.0f, NULL, NULL, &buttons[10], (keynum_t)'m', NULL, 0, 0, 0, false);
-			Vid_ClearAllTouchscreenAreas(10);
-		}
-		else if (steelstorm_showing_mousecursor && steelstorm_showing_mousecursor->integer)
-		{
-			// in_windowmouse_x* is in screen resolution coordinates, not console resolution
-			VID_TouchscreenCursor((float)in_windowmouse_x/vid_width.value*vid_conwidth.value, (float)in_windowmouse_y/vid_height.value*vid_conheight.value, 192*xscale, 192*yscale, &buttons[0], K_MOUSE1);
-			Vid_ClearAllTouchscreenAreas(0);
-		}
-		else
-		{
-			VID_TouchscreenCursor(0, 0, 0, 0, &buttons[0], K_MOUSE1);
-
-			VID_TouchscreenArea( 2,16*xscale,-240*yscale, 224*xscale, 224*yscale, "gfx/gui/touch_l_thumb_dpad.tga", 0.0f, NULL, move, &buttons[1], (keynum_t)0, NULL, 0.15, 112*xscale, 112*yscale, false);
-
-			VID_TouchscreenArea( 3,-240*xscale,-160*yscale, 224*xscale, 128*yscale, "gfx/gui/touch_r_thumb_turn_n_shoot.tga"    , 0.0f, NULL, NULL,  0, (keynum_t)0, NULL, 0, 56*xscale, 0, false);
-			VID_TouchscreenArea( 3,-240*xscale,-256*yscale, 224*xscale, 224*yscale, NULL    , 0.0f, NULL, aim,  &buttons[2], (keynum_t)0, NULL, 0.2, 56*xscale, 0, false);
-
-			VID_TouchscreenArea( 2, (vid_conwidth.value / 2) - 128,-80,  256,  80, NULL, 0.0f, NULL, NULL, &buttons[3], K_SHIFT, NULL, 0, 0, 0, true);
-
-			VID_TouchscreenArea( 3,-240*xscale,-256*yscale, 224*xscale,  64*yscale, "gfx/gui/touch_secondary_slide.tga", 0.0f, NULL, NULL, &buttons[4], K_MOUSE2, NULL, 0, 56*xscale, 0, false);
-			VID_TouchscreenArea( 3,-240*xscale,-256*yscale, 224*xscale,  160*yscale, NULL , 0.0f, NULL, NULL, &buttons[9], K_MOUSE3, NULL, 0.2, 56*xscale, 0, false);
-
-			VID_TouchscreenArea( 1,-100,   0, 100, 100, NULL                         , 0.0f, NULL, NULL, &buttons[10], (keynum_t)'m', NULL, 0, 0, 0, true);
-			VID_TouchscreenArea( 1,-100, 120, 100, 100, NULL                         , 0.0f, NULL, NULL, &buttons[11], (keynum_t)'b', NULL, 0, 0, 0, true);
-			VID_TouchscreenArea( 0,   0,   0,  64,  64, NULL                         , 0.0f, NULL, NULL, &buttons[12], (keynum_t)'q', NULL, 0, 0, 0, true);
-			if (developer.integer)
-				VID_TouchscreenArea( 0,   0,  96,  64,  64, NULL                         , 0.0f, NULL, NULL, &buttons[13], (keynum_t)'`', NULL, 0, 0, 0, true);
-			else
-				VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[13], (keynum_t)'`', NULL, 0, 0, 0, false);
-			VID_TouchscreenArea( 0,   0, 160,  64,  64, "gfx/gui/touch_menu_button.tga"         , 0.0f, NULL, NULL, &buttons[14], K_ESCAPE, NULL, 0, 0, 0, true);
-			switch(cl.activeweapon)
-			{
-			case 14:
-				VID_TouchscreenArea( 2,  16*xscale,-320*yscale, 224*xscale, 64*yscale, "gfx/gui/touch_booster.tga" , 0.0f, NULL, NULL, &buttons[15], K_SPACE, NULL, 0, 0, 0, true);
-				break;
-			case 12:
-				VID_TouchscreenArea( 2,  16*xscale,-320*yscale, 224*xscale, 64*yscale, "gfx/gui/touch_shockwave.tga" , 0.0f, NULL, NULL, &buttons[15], K_SPACE, NULL, 0, 0, 0, true);
-				break;
-			default:
-				VID_TouchscreenArea( 0,  0,  0,  0,  0, NULL , 0.0f, NULL, NULL, &buttons[15], K_SPACE, NULL, 0, 0, 0, false);
-			}
-		}
-		break;
-	default:
-		if (!steelstorm_showing_mousecursor || !steelstorm_showing_mousecursor->integer)
-		{
-			Vid_ClearAllTouchscreenAreas(14);
-			// this way we can skip cutscenes
-			VID_TouchscreenArea( 0,   0,   0, vid_conwidth.value, vid_conheight.value, NULL                         , 0.0f, NULL, NULL, &buttons[14], K_ESCAPE, NULL, 0, 0, 0, false);
-		}
-		else
-		{
-			// in_windowmouse_x* is in screen resolution coordinates, not console resolution
-			VID_TouchscreenCursor((float)in_windowmouse_x/vid_width.value*vid_conwidth.value, (float)in_windowmouse_y/vid_height.value*vid_conheight.value, 192*xscale, 192*yscale, &buttons[0], K_MOUSE1);
-			Vid_ClearAllTouchscreenAreas(0);
-		}
-		break;
-	}
-
-	if (VID_ShowingKeyboard() && (float)in_windowmouse_y > vid_height.value / 2 - 10)
-		in_windowmouse_y = 128;
-
-	cl.cmd.forwardmove -= move[1] * cl_forwardspeed.value;
-	cl.cmd.sidemove += move[0] * cl_sidespeed.value;
-	cl.viewangles[0] += aim[1] * cl_pitchspeed.value * cl.realframetime;
-	cl.viewangles[1] -= aim[0] * cl_yawspeed.value * cl.realframetime;
-}
-
 static void IN_Move_TouchScreen_Quake(void)
 {
-	int x, y;
-	float move[3], aim[3], click[3];
+	int x, y, n = 0, p = 0;
 	static qboolean oldbuttons[128];
 	static qboolean buttons[128];
 	keydest_t keydest = (key_consoleactive & KEY_CONSOLEACTIVE_USER) ? key_console : key_dest;
@@ -1118,57 +891,20 @@ static void IN_Move_TouchScreen_Quake(void)
 	multitouch[MAXFINGERS-1][2] = y * 32768 / vid.height;
 
 	// top of screen is toggleconsole and K_ESCAPE
-	switch(keydest)
-	{
-	case key_console:
-		VID_TouchscreenArea( 0,   0,   0,  64,  64, NULL                         , 0.0f, NULL, NULL, &buttons[13], (keynum_t)'`', NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,  64,   0,  64,  64, "gfx/touch_menu.tga"         , 0.0f, NULL, NULL, &buttons[14], K_ESCAPE, NULL, 0, 0, 0, true);
-		if (!VID_ShowingKeyboard())
-		{
-			// user entered a command, close the console now
-			Con_ToggleConsole_f();
-		}
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[15], (keynum_t)0, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, move, &buttons[0], K_MOUSE4, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, aim,  &buttons[1], K_MOUSE5, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, click,&buttons[2], K_MOUSE1, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[3], K_SPACE, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[4], K_MOUSE2, NULL, 0, 0, 0, true);
-		break;
-	case key_game:
-		VID_TouchscreenArea( 0,   0,   0,  64,  64, NULL                         , 0.0f, NULL, NULL, &buttons[13], (keynum_t)'`', NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,  64,   0,  64,  64, "gfx/touch_menu.tga"         , 0.0f, NULL, NULL, &buttons[14], K_ESCAPE, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 2,   0,-128, 128, 128, "gfx/touch_movebutton.tga"   , 0.0f, NULL, move, &buttons[0], K_MOUSE4, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 3,-128,-128, 128, 128, "gfx/touch_aimbutton.tga"    , 0.0f, NULL, aim,  &buttons[1], K_MOUSE5, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 2,   0,-160,  64,  32, "gfx/touch_jumpbutton.tga"   , 0.0f, NULL, NULL, &buttons[3], K_SPACE, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 3,-128,-160,  64,  32, "gfx/touch_attackbutton.tga" , 0.0f, NULL, NULL, &buttons[2], K_MOUSE1, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 3, -64,-160,  64,  32, "gfx/touch_attack2button.tga", 0.0f, NULL, NULL, &buttons[4], K_MOUSE2, NULL, 0, 0, 0, true);
-		buttons[15] = false;
-		break;
-	default:
-		VID_TouchscreenArea( 0,   0,   0,  64,  64, NULL                         , 0.0f, NULL, NULL, &buttons[13], (keynum_t)'`', NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,  64,   0,  64,  64, "gfx/touch_menu.tga"         , 0.0f, NULL, NULL, &buttons[14], K_ESCAPE, NULL, 0, 0, 0, true);
-		// in menus, an icon in the corner activates keyboard
-		VID_TouchscreenArea( 2,   0, -32,  32,  32, "gfx/touch_keyboard.tga"     , 0.0f, NULL, NULL, &buttons[15], (keynum_t)0, NULL, 0, 0, 0, true);
-		if (buttons[15])
-			VID_ShowKeyboard(true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, move, &buttons[0], K_MOUSE4, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, aim,  &buttons[1], K_MOUSE5, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea(16, -320,-480,640, 960, NULL                         , 0.0f, NULL, click,&buttons[2], K_MOUSE1, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[3], K_SPACE, NULL, 0, 0, 0, true);
-		VID_TouchscreenArea( 0,   0,   0,   0,   0, NULL                         , 0.0f, NULL, NULL, &buttons[4], K_MOUSE2, NULL, 0, 0, 0, true);
-		if (buttons[2])
-		{
-			in_windowmouse_x = x;
-			in_windowmouse_y = y;
-		}
-		break;
+	in_windowmouse_x = x;
+	in_windowmouse_y = y;
+	for (n = 0; n < touchscreen_areas_count; n++) {
+		p += VID_TouchscreenArea(touchscreen_areas[n].dest, touchscreen_areas[n].corner, touchscreen_areas[n].x, touchscreen_areas[n].y,
+				touchscreen_areas[n].width, touchscreen_areas[n].height, touchscreen_areas[n].image, touchscreen_areas[n].cmd, &buttons[n]);
 	}
+	VID_TouchscreenArea((p ? 0 : 7), 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n++]);
+	VID_TouchscreenArea((p ? 0 : 6), 0,   0,   0, vid_conwidth.integer, vid_conheight.integer, NULL, "*click", &buttons[n]);
 
-	cl.cmd.forwardmove -= move[1] * cl_forwardspeed.value;
-	cl.cmd.sidemove += move[0] * cl_sidespeed.value;
-	cl.viewangles[0] += aim[1] * cl_pitchspeed.value * cl.realframetime;
-	cl.viewangles[1] -= aim[0] * cl_yawspeed.value * cl.realframetime;
+	if (keydest == key_console && !VID_ShowingKeyboard())
+	{
+		// user entered a command, close the console now
+		Con_ToggleConsole_f();
+	}
 }
 
 void IN_Move( void )
@@ -1198,15 +934,7 @@ void IN_Move( void )
 
 	if (vid_touchscreen.integer)
 	{
-		switch(gamemode)
-		{
-		case GAME_STEELSTORM:
-			IN_Move_TouchScreen_SteelStorm();
-			break;
-		default:
-			IN_Move_TouchScreen_Quake();
-			break;
-		}
+		IN_Move_TouchScreen_Quake();
 	}
 	else
 	{
@@ -2598,13 +2326,10 @@ extern cvar_t gl_info_driver;
 
 qboolean VID_InitMode(viddef_mode_t *mode)
 {
-	// GAME_STEELSTORM specific
-	steelstorm_showing_map = Cvar_FindVar("steelstorm_showing_map");
-	steelstorm_showing_mousecursor = Cvar_FindVar("steelstorm_showing_mousecursor");
-
 	if (!SDL_WasInit(SDL_INIT_VIDEO) && SDL_InitSubSystem(SDL_INIT_VIDEO) < 0)
 		Sys_Error ("Failed to init SDL video subsystem: %s", SDL_GetError());
 
+	VID_TouchScreenInit();
 	return VID_InitModeGL(mode);
 }
 

@@ -1443,8 +1443,13 @@ static void VM_CL_getmousepos(prvm_prog_t *prog)
 		VectorSet(PRVM_G_VECTOR(OFS_RETURN), 0, 0, 0);
 	else if (cl.csqc_wantsmousemove)
 		VectorSet(PRVM_G_VECTOR(OFS_RETURN), in_windowmouse_x * vid_conwidth.integer / vid.width, in_windowmouse_y * vid_conheight.integer / vid.height, 0);
-	else
-		VectorSet(PRVM_G_VECTOR(OFS_RETURN), in_mouse_x * vid_conwidth.integer / vid.width, in_mouse_y * vid_conheight.integer / vid.height, 0);
+	else {
+		if (vid_touchscreen.integer && prog->globaloffsets.mouse_pos != -1) {
+			float *mouse_pos = PRVM_gameglobalvector(mouse_pos);
+			VectorSet(PRVM_G_VECTOR(OFS_RETURN), in_windowmouse_x * vid_conwidth.integer / vid.width - mouse_pos[0], in_windowmouse_y * vid_conheight.integer / vid.height - mouse_pos[1], 0);
+		} else
+			VectorSet(PRVM_G_VECTOR(OFS_RETURN), in_mouse_x * vid_conwidth.integer / vid.width, in_mouse_y * vid_conheight.integer / vid.height, 0);
+	}
 }
 
 //#345 float(float framenum) getinputstate (EXT_CSQC)

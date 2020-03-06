@@ -2096,11 +2096,6 @@ static void SCR_DrawTouchscreenOverlay(void)
 		pic = a->pic ? Draw_CachePic(a->pic) : NULL;
 		if (pic && pic->tex != r_texture_notexture)
 			DrawQ_Pic(a->rect[0], a->rect[1], Draw_CachePic(a->pic), a->rect[2], a->rect[3], 1, 1, 1, vid_touchscreen_overlayalpha.value * (0.5f + 0.5f * a->active), 0);
-		if (a->text && a->text[0])
-		{
-			int textwidth = DrawQ_TextWidth(a->text, 0, a->textheight, a->textheight, false, FONT_CHAT);
-			DrawQ_String(a->rect[0] + (a->rect[2] - textwidth) * 0.5f, a->rect[1] + (a->rect[3] - a->textheight) * 0.5f, a->text, 0, a->textheight, a->textheight, 1.0f, 1.0f, 1.0f, vid_touchscreen_overlayalpha.value, 0, NULL, false, FONT_CHAT);
-		}
 	}
 }
 
