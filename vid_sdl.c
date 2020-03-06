@@ -2302,8 +2302,6 @@ static void VID_SetIcon(void)
 			Mem_Free(xpm);
 
 		data = idata[0];
-		Con_Printf("%s\n", data);
-
 		if(sscanf(data, "%i %i %i %i", &width, &height, &colors, &isize) == 4)
 		{
 			if(isize == 1)
