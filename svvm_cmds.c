@@ -240,6 +240,7 @@ const char *vm_sv_extensions =
 "DP_RM_CLIPGROUP "
 "DP_RM_QCSENDPACKET "
 "DP_RM_GEOIP "
+"DP_RM_SETRENDERENTITY "
 //"EXT_CSQC " // not ready yet
 ;
 

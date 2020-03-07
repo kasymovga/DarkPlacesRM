@@ -3159,15 +3159,18 @@ static void VM_CL_SpawnParticleDelayed (prvm_prog_t *prog)
 //CSQC engine entities query
 //====================
 
+// DP_CSQC_QUERYRENDERENTITY
 // float(float entitynum, float whatfld) getentity;
 // vector(float entitynum, float whatfld) getentityvec;
 // querying engine-drawn entity
+// DP_RM_SETRENDERENTITY
+// void(float entitynum, float whatfld, vector v) setentityvec;
 // VorteX: currently it's only tested with whatfld = 1..7
 static void VM_CL_GetEntity (prvm_prog_t *prog)
 {
 	int entnum, fieldnum;
 	vec3_t forward, left, up, org;
-	VM_SAFEPARMCOUNT(2, VM_CL_GetEntityVec);
+	VM_SAFEPARMCOUNTRANGE(2, 3, VM_CL_R_PolygonBegin);
 
 	entnum = PRVM_G_FLOAT(OFS_PARM0);
 	if (entnum < 0 || entnum >= cl.num_entities)
@@ -3182,9 +3185,15 @@ static void VM_CL_GetEntity (prvm_prog_t *prog)
 			PRVM_G_FLOAT(OFS_RETURN) = cl.entities_active[entnum];
 			break;
 		case 1: // origin
-			Matrix4x4_OriginFromMatrix(&cl.entities[entnum].render.matrix, org);
-			VectorCopy(org, PRVM_G_VECTOR(OFS_RETURN));
-			break; 
+			if (prog->argc == 2) {
+				Matrix4x4_OriginFromMatrix(&cl.entities[entnum].render.matrix, org);
+				VectorCopy(org, PRVM_G_VECTOR(OFS_RETURN));
+			} else {
+				VectorCopy(PRVM_G_VECTOR(OFS_PARM2), org);
+				VectorCopy(org, cl.entities[entnum].persistent.oldorigin);
+				VectorCopy(org, cl.entities[entnum].persistent.neworigin);
+			}
+			break;
 		case 2: // forward
 			Matrix4x4_ToVectors(&cl.entities[entnum].render.matrix, forward, left, up, org);
 			VectorCopy(forward, PRVM_G_VECTOR(OFS_RETURN));
