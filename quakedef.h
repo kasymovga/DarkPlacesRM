@@ -435,8 +435,6 @@ extern cvar_t sessionid;
 # define DP_OS_NAME		"iPhoneOS"
 # define DP_OS_STR		"iphoneos"
 # define USE_GLES2		1
-# define LINK_TO_ZLIB	1
-# define LINK_TO_LIBVORBIS 1
 # define DP_MOBILETOUCH	1
 #elif defined(__EMSCRIPTEN__) /* must come first because it also defines MACOSX */
 # define DP_OS_NAME		"Web"
