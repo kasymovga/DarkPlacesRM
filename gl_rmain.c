@@ -313,20 +313,12 @@ static int r_qwskincache_size;
 
 /// vertex coordinates for a quad that covers the screen exactly
 extern const float r_screenvertex3f[12];
-extern const float r_d3dscreenvertex3f[12];
 const float r_screenvertex3f[12] =
 {
 	0, 0, 0,
 	1, 0, 0,
 	1, 1, 0,
 	0, 1, 0
-};
-const float r_d3dscreenvertex3f[12] =
-{
-	0, 1, 0,
-	1, 1, 0,
-	1, 0, 0,
-	0, 0, 0
 };
 
 void R_ModulateColors(float *in, float *out, int verts, float r, float g, float b)

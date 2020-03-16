@@ -170,9 +170,6 @@ typedef struct gltexture_s
 	qboolean dirty; // indicates that R_RealGetTexture should be called
 	qboolean glisdepthstencil; // indicates that FBO attachment has to be GL_DEPTH_STENCIL_ATTACHMENT
 	int gltexturetypeenum; // used by R_Mesh_TexBind
-	// d3d stuff the backend needs
-	void *d3dtexture;
-	void *d3dsurface;
 	// dynamic texture stuff [11/22/2007 Black]
 	updatecallback_t updatecallback;
 	void *updatecallback_data;
@@ -586,7 +583,7 @@ void R_TextureStats_Print(qboolean printeach, qboolean printpool, qboolean print
 		for (glt = pool->gltchain;glt;glt = glt->chain)
 		{
 			glsize = R_CalcTexelDataSize(glt);
-			isloaded = glt->texnum != 0 || glt->renderbuffernum != 0 || glt->d3dtexture || glt->d3dsurface;
+			isloaded = glt->texnum != 0 || glt->renderbuffernum != 0;
 			pooltotal++;
 			pooltotalt += glsize;
 			pooltotalp += glt->inputdatasize;
@@ -2235,7 +2232,7 @@ void R_UpdateTexture(rtexture_t *rt, const unsigned char *data, int x, int y, in
 		Host_Error("R_UpdateTexture: no data supplied");
 	if (glt == NULL)
 		Host_Error("R_UpdateTexture: no texture supplied");
-	if (!glt->texnum && !glt->d3dtexture)
+	if (!glt->texnum)
 	{
 		Con_DPrintf("R_UpdateTexture: texture %p \"%s\" in pool %p has not been uploaded yet\n", (void *)glt, glt->identifier, (void *)glt->pool);
 		return;
