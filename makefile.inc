@@ -144,14 +144,10 @@ OBJ_MENU= \
 	menu.o \
 	mvm_cmds.o
 
-ifeq ($(DP_LIBMICROHTTPD), yes)
 ifeq ($(DP_MAKE_TARGET), mingw)
 	OBJ_SV_THREAD=thread_win.o
 else
 	OBJ_SV_THREAD=thread_pthread.o
-endif
-else
-	OBJ_SV_THREAD=thread_null.o
 endif
 # note that builddate.c is very intentionally not compiled to a .o before
 # being linked, because it should be recompiled every time an executable is
