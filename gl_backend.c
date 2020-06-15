@@ -3075,8 +3075,6 @@ qboolean R_Mesh_PrepareVertices_Generic_Unlock(void)
 
 void R_Mesh_PrepareVertices_Generic_Arrays(int numvertices, const float *vertex3f, const float *color4f, const float *texcoord2f)
 {
-	int i;
-	r_vertexgeneric_t *vertex;
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
@@ -3229,8 +3227,6 @@ qboolean R_Mesh_PrepareVertices_Mesh_Unlock(void)
 
 void R_Mesh_PrepareVertices_Mesh_Arrays(int numvertices, const float *vertex3f, const float *svector3f, const float *tvector3f, const float *normal3f, const float *color4f, const float *texcoordtexture2f, const float *texcoordlightmap2f)
 {
-	int i;
-	r_vertexmesh_t *vertex;
 	switch(vid.renderpath)
 	{
 	case RENDERPATH_GL20:
