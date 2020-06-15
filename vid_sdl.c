@@ -710,8 +710,8 @@ static void VID_TouchScreenInit(void) {
 	char *line;
 	char *nl;
 	const char *tok;
-	touchscreen_areas_count = 0;
 	int line_num = 0;
+	touchscreen_areas_count = 0;
 	while (cfg && touchscreen_areas_count < 126) {
 		line_num++;
 		nl = strchr(cfg, '\n');
