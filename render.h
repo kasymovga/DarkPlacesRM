@@ -313,9 +313,6 @@ typedef struct rsurfacestate_s
 	unsigned char              *modelskeletalweight4ub;
 	const r_meshbuffer_t       *modelskeletalweight4ub_vertexbuffer;
 	int                         modelskeletalweight4ub_bufferoffset;
-	r_vertexmesh_t             *modelvertexmesh;
-	const r_meshbuffer_t       *modelvertexmesh_vertexbuffer;
-	int                         modelvertexmesh_bufferoffset;
 	int                        *modelelement3i;
 	const r_meshbuffer_t       *modelelement3i_indexbuffer;
 	int                         modelelement3i_bufferoffset;
@@ -340,9 +337,6 @@ typedef struct rsurfacestate_s
 	int                         batchnumvertices;
 	int                         batchfirsttriangle;
 	int                         batchnumtriangles;
-	r_vertexmesh_t             *batchvertexmesh;
-	const r_meshbuffer_t       *batchvertexmesh_vertexbuffer;
-	int                         batchvertexmesh_bufferoffset;
 	float                      *batchvertex3f;
 	const r_meshbuffer_t       *batchvertex3f_vertexbuffer;
 	int                         batchvertex3f_bufferoffset;

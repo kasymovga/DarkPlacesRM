@@ -163,7 +163,6 @@ typedef struct surfmesh_s
 	unsigned char *data_skeletalindex4ub;
 	unsigned char *data_skeletalweight4ub;
 	int *data_lightmapoffsets; // index into surface's lightmap samples for vertex lighting
-	r_vertexmesh_t *data_vertexmesh; // interleaved arrays for D3D
 	// vertex buffer object (stores geometry in video memory)
 	r_meshbuffer_t *vbo_vertexbuffer;
 	int vbooffset_vertex3f;
