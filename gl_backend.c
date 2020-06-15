@@ -3103,7 +3103,7 @@ void R_Mesh_PrepareVertices_Generic_Arrays(int numvertices, const float *vertex3
 			R_Mesh_TexCoordPointer(6, 4, GL_UNSIGNED_BYTE, sizeof(unsigned char[4]), NULL              , NULL                     , 0                              );
 			R_Mesh_TexCoordPointer(7, 4, GL_UNSIGNED_BYTE, sizeof(unsigned char[4]), NULL              , NULL                     , 0                              );
 		}
-		else if (!vid.useinterleavedarrays)
+		else
 		{
 			R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, NULL, 0);
 			R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), color4f, NULL, 0);
@@ -3115,45 +3115,20 @@ void R_Mesh_PrepareVertices_Generic_Arrays(int numvertices, const float *vertex3
 			R_Mesh_TexCoordPointer(5, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
 			R_Mesh_TexCoordPointer(6, 4, GL_UNSIGNED_BYTE, sizeof(unsigned char[4]), NULL, NULL, 0);
 			R_Mesh_TexCoordPointer(7, 4, GL_UNSIGNED_BYTE, sizeof(unsigned char[4]), NULL, NULL, 0);
-			return;
 		}
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GLES1:
-		if (!vid.useinterleavedarrays)
-		{
-			R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, NULL, 0);
-			R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), color4f, NULL, 0);
-			R_Mesh_TexCoordPointer(0, 2, GL_FLOAT, sizeof(float[2]), texcoord2f, NULL, 0);
-			if (vid.texunits >= 2)
-				R_Mesh_TexCoordPointer(1, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
-			if (vid.texunits >= 3)
-				R_Mesh_TexCoordPointer(2, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
-			return;
-		}
+		R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, NULL, 0);
+		R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), color4f, NULL, 0);
+		R_Mesh_TexCoordPointer(0, 2, GL_FLOAT, sizeof(float[2]), texcoord2f, NULL, 0);
+		if (vid.texunits >= 2)
+			R_Mesh_TexCoordPointer(1, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
+		if (vid.texunits >= 3)
+			R_Mesh_TexCoordPointer(2, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
 		break;
 	}
-
-	// no quick path for this case, convert to vertex structs
-	vertex = R_Mesh_PrepareVertices_Generic_Lock(numvertices);
-	for (i = 0;i < numvertices;i++)
-		VectorCopy(vertex3f + 3*i, vertex[i].vertex3f);
-	if (color4f)
-	{
-		for (i = 0;i < numvertices;i++)
-			Vector4Copy(color4f + 4*i, vertex[i].color4f);
-	}
-	else
-	{
-		for (i = 0;i < numvertices;i++)
-			Vector4Copy(gl_state.color4f, vertex[i].color4f);
-	}
-	if (texcoord2f)
-		for (i = 0;i < numvertices;i++)
-			Vector2Copy(texcoord2f + 2*i, vertex[i].texcoord2f);
-	R_Mesh_PrepareVertices_Generic_Unlock();
-	R_Mesh_PrepareVertices_Generic(numvertices, vertex, NULL, 0);
 }
 
 void R_Mesh_PrepareVertices_Generic(int numvertices, const r_vertexgeneric_t *vertex, const r_meshbuffer_t *vertexbuffer, int bufferoffset)
@@ -3294,7 +3269,7 @@ void R_Mesh_PrepareVertices_Mesh_Arrays(int numvertices, const float *vertex3f, 
 			R_Mesh_TexCoordPointer(6, 4, GL_UNSIGNED_BYTE, sizeof(unsigned char[4]), NULL              , NULL                     , 0                              );
 			R_Mesh_TexCoordPointer(7, 4, GL_UNSIGNED_BYTE, sizeof(unsigned char[4]), NULL              , NULL                     , 0                              );
 		}
-		else if (!vid.useinterleavedarrays)
+		else
 		{
 			R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, NULL, 0);
 			R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), color4f, NULL, 0);
@@ -3306,56 +3281,20 @@ void R_Mesh_PrepareVertices_Mesh_Arrays(int numvertices, const float *vertex3f, 
 			R_Mesh_TexCoordPointer(5, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
 			R_Mesh_TexCoordPointer(6, 4, GL_UNSIGNED_BYTE, sizeof(unsigned char[4]), NULL, NULL, 0);
 			R_Mesh_TexCoordPointer(7, 4, GL_UNSIGNED_BYTE, sizeof(unsigned char[4]), NULL, NULL, 0);
-			return;
 		}
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GLES1:
-		if (!vid.useinterleavedarrays)
-		{
-			R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, NULL, 0);
-			R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), color4f, NULL, 0);
-			R_Mesh_TexCoordPointer(0, 2, GL_FLOAT, sizeof(float[2]), texcoordtexture2f, NULL, 0);
-			if (vid.texunits >= 2)
-				R_Mesh_TexCoordPointer(1, 2, GL_FLOAT, sizeof(float[2]), texcoordlightmap2f, NULL, 0);
-			if (vid.texunits >= 3)
-				R_Mesh_TexCoordPointer(2, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
-			return;
-		}
+		R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, NULL, 0);
+		R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), color4f, NULL, 0);
+		R_Mesh_TexCoordPointer(0, 2, GL_FLOAT, sizeof(float[2]), texcoordtexture2f, NULL, 0);
+		if (vid.texunits >= 2)
+			R_Mesh_TexCoordPointer(1, 2, GL_FLOAT, sizeof(float[2]), texcoordlightmap2f, NULL, 0);
+		if (vid.texunits >= 3)
+			R_Mesh_TexCoordPointer(2, 2, GL_FLOAT, sizeof(float[2]), NULL, NULL, 0);
 		break;
 	}
-
-	vertex = R_Mesh_PrepareVertices_Mesh_Lock(numvertices);
-	for (i = 0;i < numvertices;i++)
-		VectorCopy(vertex3f + 3*i, vertex[i].vertex3f);
-	if (svector3f)
-		for (i = 0;i < numvertices;i++)
-			VectorCopy(svector3f + 3*i, vertex[i].svector3f);
-	if (tvector3f)
-		for (i = 0;i < numvertices;i++)
-			VectorCopy(tvector3f + 3*i, vertex[i].tvector3f);
-	if (normal3f)
-		for (i = 0;i < numvertices;i++)
-			VectorCopy(normal3f + 3*i, vertex[i].normal3f);
-	if (color4f)
-	{
-		for (i = 0;i < numvertices;i++)
-			Vector4Copy(color4f + 4*i, vertex[i].color4f);
-	}
-	else
-	{
-		for (i = 0;i < numvertices;i++)
-			Vector4Copy(gl_state.color4f, vertex[i].color4f);
-	}
-	if (texcoordtexture2f)
-		for (i = 0;i < numvertices;i++)
-			Vector2Copy(texcoordtexture2f + 2*i, vertex[i].texcoordtexture2f);
-	if (texcoordlightmap2f)
-		for (i = 0;i < numvertices;i++)
-			Vector2Copy(texcoordlightmap2f + 2*i, vertex[i].texcoordlightmap2f);
-	R_Mesh_PrepareVertices_Mesh_Unlock();
-	R_Mesh_PrepareVertices_Mesh(numvertices, vertex, NULL, 0);
 }
 
 void R_Mesh_PrepareVertices_Mesh(int numvertices, const r_vertexmesh_t *vertex, const r_meshbuffer_t *vertexbuffer, int bufferoffset)
