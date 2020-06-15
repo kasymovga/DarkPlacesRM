@@ -29,12 +29,8 @@ typedef struct cachepic_s
 {
 	// size of pic
 	int width, height;
-	// this flag indicates that it should be loaded and unloaded on demand
-	int autoload;
 	// texture flags to upload with
 	int texflags;
-	// texture may be freed after a while
-	int lastusedframe;
 	// renderer texture to use
 	rtexture_t *tex;
 	// used for hash lookups

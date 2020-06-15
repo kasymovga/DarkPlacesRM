@@ -304,8 +304,6 @@ static rtexture_t *draw_generatepic(const char *name, qboolean quiet)
 	return r_texture_notexture;
 }
 
-int draw_frame = 1;
-
 /*
 ================
 Draw_CachePic
@@ -351,9 +349,7 @@ cachepic_t *Draw_CachePic_Flags(const char *path, unsigned int cachepicflags)
 			{
 				if(!(cachepicflags & CACHEPICFLAG_NOTPERSISTENT))
 				{
-					if(pic->tex)
-						pic->autoload = false; // persist it
-					else
+					if (!pic->tex)
 						goto reload; // load it below, and then persist
 				}
 				return pic;
@@ -395,13 +391,9 @@ reload:
 
 	pic->hasalpha = true; // assume alpha unless we know it has none
 	pic->texflags = texflags;
-	pic->autoload = (cachepicflags & CACHEPICFLAG_NOTPERSISTENT);
-	pic->lastusedframe = draw_frame;
-
 	// load a high quality image from disk if possible
 	if (!loaded && r_texture_dds_load.integer != 0 && (pic->tex = R_LoadTextureDDSFile(drawtexturepool, va(vabuf, sizeof(vabuf), "dds/%s.dds", pic->name), vid.sRGB2D, pic->texflags, &ddshasalpha, ddsavgcolor, 0, false)))
 	{
-		// note this loads even if autoload is true, otherwise we can't get the width/height
 		loaded = true;
 		pic->hasalpha = ddshasalpha;
 		pic->width = R_TextureWidth(pic->tex);
@@ -425,18 +417,14 @@ reload:
 
 		pic->width = image_width;
 		pic->height = image_height;
-		if (!pic->autoload)
-		{
-			pic->tex = R_LoadTexture2D(drawtexturepool, pic->name, image_width, image_height, pixels, vid.sRGB2D ? TEXTYPE_SRGB_BGRA : TEXTYPE_BGRA, pic->texflags & (pic->hasalpha ? ~0 : ~TEXF_ALPHA), -1, NULL);
+		pic->tex = R_LoadTexture2D(drawtexturepool, pic->name, image_width, image_height, pixels, vid.sRGB2D ? TEXTYPE_SRGB_BGRA : TEXTYPE_BGRA, pic->texflags & (pic->hasalpha ? ~0 : ~TEXF_ALPHA), -1, NULL);
 #ifndef USE_GLES2
-			if (r_texture_dds_save.integer && qglGetCompressedTexImageARB && pic->tex)
-				R_SaveTextureDDSFile(pic->tex, va(vabuf, sizeof(vabuf), "dds/%s.dds", pic->name), r_texture_dds_save.integer < 2, pic->hasalpha);
+		if (r_texture_dds_save.integer && qglGetCompressedTexImageARB && pic->tex)
+			R_SaveTextureDDSFile(pic->tex, va(vabuf, sizeof(vabuf), "dds/%s.dds", pic->name), r_texture_dds_save.integer < 2, pic->hasalpha);
 #endif
-		}
 	}
 	if (!loaded)
 	{
-		pic->autoload = false;
 		// never compress the fallback images
 		pic->texflags &= ~TEXF_COMPRESS;
 	}
@@ -518,55 +506,11 @@ cachepic_t *Draw_CachePic (const char *path)
 
 rtexture_t *Draw_GetPicTexture(cachepic_t *pic)
 {
-	char vabuf[1024];
-	if (pic->autoload && !pic->tex)
-	{
-		if (pic->tex == NULL && r_texture_dds_load.integer != 0)
-		{
-			qboolean ddshasalpha;
-			float ddsavgcolor[4];
-			pic->tex = R_LoadTextureDDSFile(drawtexturepool, va(vabuf, sizeof(vabuf), "dds/%s.dds", pic->name), vid.sRGB2D, pic->texflags, &ddshasalpha, ddsavgcolor, 0, false);
-		}
-		if (pic->tex == NULL)
-		{
-			pic->tex = loadtextureimage(drawtexturepool, pic->name, false, pic->texflags, true, vid.sRGB2D);
-#ifndef USE_GLES2
-			if (r_texture_dds_save.integer && qglGetCompressedTexImageARB && pic->tex)
-				R_SaveTextureDDSFile(pic->tex, va(vabuf, sizeof(vabuf), "dds/%s.dds", pic->name), r_texture_dds_save.integer < 2, pic->hasalpha);
-#endif
-		}
-		if (pic->tex == NULL && !strncmp(pic->name, "gfx/", 4))
-		{
-			pic->tex = loadtextureimage(drawtexturepool, pic->name+4, false, pic->texflags, true, vid.sRGB2D);
-#ifndef USE_GLES2
-			if (r_texture_dds_save.integer && qglGetCompressedTexImageARB && pic->tex)
-				R_SaveTextureDDSFile(pic->tex, va(vabuf, sizeof(vabuf), "dds/%s.dds", pic->name), r_texture_dds_save.integer < 2, pic->hasalpha);
-#endif
-		}
-		if (pic->tex == NULL)
-			pic->tex = draw_generatepic(pic->name, true);
-	}
-	pic->lastusedframe = draw_frame;
 	return pic->tex;
 }
 
 void Draw_Frame(void)
 {
-	int i;
-	cachepic_t *pic;
-	static double nextpurgetime;
-	if (nextpurgetime > realtime)
-		return;
-	nextpurgetime = realtime + 0.05;
-	for (i = 0, pic = cachepics;i < numcachepics;i++, pic++)
-	{
-		if (pic->autoload && pic->tex && pic->lastusedframe < draw_frame)
-		{
-			R_FreeTexture(pic->tex);
-			pic->tex = NULL;
-		}
-	}
-	draw_frame++;
 }
 
 cachepic_t *Draw_NewPic(const char *picname, int width, int height, int alpha, unsigned char *pixels_bgra)

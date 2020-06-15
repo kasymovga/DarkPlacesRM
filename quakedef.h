@@ -95,7 +95,7 @@ extern char engineversion[128];
 #define	MAX_CUBEMAPS			1024
 #define	MAX_EXPLOSIONS			8
 #define	MAX_DLIGHTS				16
-#define	MAX_CACHED_PICS			1024 // this is 144 bytes each (or 152 on 64bit)
+#define	MAX_CACHED_PICS			4096 // this is 144 bytes each (or 152 on 64bit)
 #define	CACHEPICHASHSIZE		256
 #define	MAX_PARTICLEEFFECTNAME	256
 #define	MAX_PARTICLEEFFECTINFO	1024
