@@ -29,7 +29,7 @@ static dyntexture_t * cl_finddyntexture( const char *name, qboolean warnonfailur
 
 	for( i = 0 ; i < dyntexturecount ; i++ ) {
 		dyntexture = &dyntextures[ i ];
-		if( dyntexture->name && strcmp( dyntexture->name, name ) == 0 ) {
+		if( strcmp( dyntexture->name, name ) == 0 ) {
 			return dyntexture;
 		}
 	}

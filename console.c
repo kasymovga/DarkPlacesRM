@@ -2652,7 +2652,7 @@ static const char **Nicks_CompleteBuildList(int count)
 
 	Nicks_CutMatches(count);
 
-	buf[bpos] = '\0';
+	buf[bpos] = NULL;
 	return buf;
 }
 
