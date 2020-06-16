@@ -33,7 +33,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static cvar_t apple_mouse_noaccel = {CVAR_SAVE, "apple_mouse_noaccel", "1", "disables mouse acceleration while DarkPlaces is active"};
 static qboolean vid_usingnoaccel;
 static double originalMouseSpeed = -1.0;
-io_connect_t IN_GetIOHandle(void)
+static io_connect_t IN_GetIOHandle(void)
 {
 	io_connect_t iohandle = MACH_PORT_NULL;
 	kern_return_t status;
