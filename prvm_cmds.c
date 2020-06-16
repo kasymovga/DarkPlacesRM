@@ -5503,7 +5503,7 @@ void VM_matchpattern(prvm_prog_t *prog)
 
 	// get pattern/rule
 	matchrule = (int)PRVM_G_FLOAT(OFS_PARM2);
-	if (matchrule < 0 && matchrule > 5)
+	if (matchrule < 0 || matchrule > 5)
 	{
 		VM_Warning(prog, "VM_bufstr_find: invalid match rule %i in %s\n", matchrule, prog->name);
 		return;
