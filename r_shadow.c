@@ -6721,10 +6721,7 @@ static void R_Shadow_EditLights_Edit_f(void)
 	VectorCopy(r_shadow_selectedlight->color, color);
 	radius = r_shadow_selectedlight->radius;
 	style = r_shadow_selectedlight->style;
-	if (r_shadow_selectedlight->cubemapname)
-		strlcpy(cubemapname, r_shadow_selectedlight->cubemapname, sizeof(cubemapname));
-	else
-		cubemapname[0] = 0;
+	strlcpy(cubemapname, r_shadow_selectedlight->cubemapname, sizeof(cubemapname));
 	shadows = r_shadow_selectedlight->shadow;
 	corona = r_shadow_selectedlight->corona;
 	coronasizescale = r_shadow_selectedlight->coronasizescale;
@@ -7256,10 +7253,7 @@ static void R_Shadow_EditLights_CopyInfo_f(void)
 	VectorCopy(r_shadow_selectedlight->color, r_shadow_bufferlight.color);
 	r_shadow_bufferlight.radius = r_shadow_selectedlight->radius;
 	r_shadow_bufferlight.style = r_shadow_selectedlight->style;
-	if (r_shadow_selectedlight->cubemapname)
-		strlcpy(r_shadow_bufferlight.cubemapname, r_shadow_selectedlight->cubemapname, sizeof(r_shadow_bufferlight.cubemapname));
-	else
-		r_shadow_bufferlight.cubemapname[0] = 0;
+	strlcpy(r_shadow_bufferlight.cubemapname, r_shadow_selectedlight->cubemapname, sizeof(r_shadow_bufferlight.cubemapname));
 	r_shadow_bufferlight.shadow = r_shadow_selectedlight->shadow;
 	r_shadow_bufferlight.corona = r_shadow_selectedlight->corona;
 	r_shadow_bufferlight.coronasizescale = r_shadow_selectedlight->coronasizescale;
