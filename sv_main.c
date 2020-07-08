@@ -1625,6 +1625,10 @@ qboolean SV_CanSeeBox(int numtraces, vec_t enlarge, vec3_t eye, vec3_t entboxmin
 	return false;
 }
 
+#define CULLTRACEMODE_PLAYER 1
+#define CULLTRACEMODE_EXTRA 2
+#define CULLTRACEMODE_SIMPLE 3
+#define CULLTRACEMODE_NONE 4
 static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 {
 	prvm_prog_t *prog = SVVM_prog;
@@ -1714,16 +1718,22 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 			// or not seen by random tracelines
 			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel && sv.worldmodel->brush.TraceLineOfSight && !r_trippy.integer)
 			{
-				int samples =
-					s->number <= svs.maxclients
+				int culltracemode = PRVM_serveredictfloat(ed, culltracemode);
+				int samples;
+				float enlarge = sv_cullentities_trace_enlarge.value;
+				if (!culltracemode) {
+					culltracemode = s->number <= svs.maxclients ? CULLTRACEMODE_PLAYER :
+							s->specialvisibilityradius ? CULLTRACEMODE_EXTRA : CULLTRACEMODE_SIMPLE;
+				}
+				samples =
+					culltracemode == CULLTRACEMODE_PLAYER
 						? sv_cullentities_trace_samples_players.integer
 						:
-					s->specialvisibilityradius
+					culltracemode == CULLTRACEMODE_EXTRA
 						? sv_cullentities_trace_samples_extra.integer
 						: sv_cullentities_trace_samples.integer;
-				float enlarge = sv_cullentities_trace_enlarge.value;
 
-				if(samples > 0)
+				if(samples > 0 && culltracemode != CULLTRACEMODE_NONE)
 				{
 					int eyeindex;
 					for (eyeindex = 0;eyeindex < sv.writeentitiestoclient_numeyes;eyeindex++)
@@ -1732,7 +1742,7 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 					if(eyeindex < sv.writeentitiestoclient_numeyes)
 						svs.clients[sv.writeentitiestoclient_clientnumber].visibletime[s->number] =
 							realtime + (
-								s->number <= svs.maxclients
+								culltracemode == CULLTRACEMODE_PLAYER
 									? sv_cullentities_trace_delay_players.value
 									: sv_cullentities_trace_delay.value
 							);

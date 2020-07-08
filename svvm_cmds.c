@@ -241,6 +241,7 @@ const char *vm_sv_extensions =
 "DP_RM_QCSENDPACKET "
 "DP_RM_GEOIP "
 "DP_RM_SETRENDERENTITY "
+"DP_RM_CULLTRACEMODE "
 //"EXT_CSQC " // not ready yet
 ;
 
