@@ -495,12 +495,14 @@ static void CL_SetupWorldModel(void)
 		Cvar_SetQuick(&cl_worldbasename, cl.worldbasename);
 		World_SetSize(&cl.world, cl.worldname, cl.worldmodel->normalmins, cl.worldmodel->normalmaxs, prog);
 		InfoString_GetValue(cls.userinfo, "*ip", server_address, sizeof(server_address));
-		dpsnprintf(map_string, 128, "Map: %s: %s", cl.worldbasename, cl.worldmessage);
-		if (strncmp(server_address, "local", 5)) {
-			char server_string[128];
-			dpsnprintf(server_string, 128, "Srv: %s", server_address);
-			DP_Discord_SetStatus(server_string, map_string, server_address);
-		} else
+		if (cl.worldmessage[0])
+			dpsnprintf(map_string, 128, "Map: %s: %s", cl.worldbasename, cl.worldmessage);
+		else
+			dpsnprintf(map_string, 128, "Map: %s", cl.worldbasename);
+
+		if (strncmp(server_address, "local", 5))
+			DP_Discord_SetStatus(server_address, map_string, server_address);
+		else
 			DP_Discord_SetStatus("Local game", map_string, "");
 	}
 	else
