@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "geoip.h"
 #include "random.h"
 #include "net_httpserver.h"
+#include "discord.h"
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -1340,7 +1341,7 @@ static void Host_Init (void)
 	else
 	{
 		Con_DPrintf("Initializing client\n");
-
+		DP_Discord_Init();
 		R_Modules_Init();
 		Palette_Init();
 #ifdef CONFIG_MENU
@@ -1440,7 +1441,10 @@ static void Host_Init (void)
 	//Host_StartVideo();
 
 	if (cls.state != ca_dedicated)
+	{
+		DP_Discord_Start();
 		SV_StartThread();
+	}
 }
 
 
@@ -1528,6 +1532,7 @@ void Host_Shutdown(void)
 	Con_Shutdown();
 	Memory_Shutdown();
 	Net_HttpServerShutdown();
+	DP_Discord_Shutdown();
 #ifdef __EMSCRIPTEN__
 	emscripten_cancel_main_loop();
 #endif

@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "libcurl.h"
 #include "snd_main.h"
 #include "random.h"
+#include "discord.h"
 
 // we need to declare some mouse variables here, because the menu system
 // references them even when on a unix system.
@@ -346,6 +347,7 @@ void CL_Disconnect(void)
 	if (COM_CheckParm("-profilegameonly"))
 		Sys_AllowProfiling(false);
 
+	DP_Discord_SetStatus("Menu", "", "");
 	Curl_Clear_forthismap();
 
 	Con_DPrintf("CL_Disconnect\n");
