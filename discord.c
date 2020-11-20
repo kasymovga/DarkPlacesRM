@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <time.h>
 
-static cvar_t discord_enable = {CVAR_SAVE, "discord_enable","1", "Enable discord support"};
-static cvar_t discord_client_id = {0, "discord_client_id", "418559331265675294", "Discord client id"};
-static cvar_t discord_game_command = {0, "discord_game_command", "", "Discord game command"};
+static cvar_t integration_discord_enable = {CVAR_SAVE, "integration_discord_enable","0", "Enable discord support"};
+static cvar_t integration_discord_client_id = {0, "integration_discord_client_id", "418559331265675294", "Discord client id"};
+static cvar_t integration_discord_game_command = {0, "integration_discord_game_command", "", "Discord game command"};
 
 #define DISCORD_VERSION 2
 #define DISCORD_APPLICATION_MANAGER_VERSION 1
@@ -331,9 +331,9 @@ int *dummy = { 0 };
 
 static time_t discord_start_time;
 void DP_Discord_Init(void) {
-	Cvar_RegisterVariable(&discord_enable);
-	Cvar_RegisterVariable(&discord_client_id);
-	Cvar_RegisterVariable(&discord_game_command);
+	Cvar_RegisterVariable(&integration_discord_enable);
+	Cvar_RegisterVariable(&integration_discord_client_id);
+	Cvar_RegisterVariable(&integration_discord_game_command);
 }
 
 static void DP_Discord_Log(void *data, enum EDiscordLogLevel level, const char *message) {
@@ -392,7 +392,7 @@ static int Discord_Thread(void *dummy) {
 	params.store_version = DISCORD_STORE_MANAGER_VERSION;
 	params.voice_version = DISCORD_VOICE_MANAGER_VERSION;
 	params.achievement_version = DISCORD_ACHIEVEMENT_MANAGER_VERSION;
-	params.client_id = atoll(discord_client_id.string);;
+	params.client_id = atoll(integration_discord_client_id.string);;
 	params.flags = DiscordCreateFlags_NoRequireDiscord;
 	params.event_data = dummy;
 	params.activity_events = &activities_events;
@@ -401,8 +401,8 @@ static int Discord_Thread(void *dummy) {
 	QDiscordCreate(DISCORD_VERSION, &params, &core);
 	if (core) {
 		activity_manager = core->get_activity_manager(core);
-		if (discord_game_command.string[0])
-			activity_manager->register_command(activity_manager, discord_game_command.string);
+		if (integration_discord_game_command.string[0])
+			activity_manager->register_command(activity_manager, integration_discord_game_command.string);
 
 		Discord_SetStatus("Menu", "", "");
 		core->set_log_hook(core, DiscordLogLevel_Warn, dummy, DP_Discord_Log);
@@ -425,7 +425,7 @@ static int Discord_Thread(void *dummy) {
 }
 
 void DP_Discord_Start(void) {
-	if (cls.state == ca_dedicated || discord_thread || !discord_enable.integer)
+	if (cls.state == ca_dedicated || discord_thread || !integration_discord_enable.integer)
 		return;
 
 	if (!Thread_HasThreads()) {
