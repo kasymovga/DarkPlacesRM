@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 #include "cl_video.h"
 #include "random.h"
+#include "discord.h"
 
 const char *svc_strings[128] =
 {
@@ -484,6 +485,7 @@ static void CL_SetupWorldModel(void)
 	// set up csqc world for collision culling
 	if (cl.worldmodel)
 	{
+		char server_address[128], map_string[128];
 		strlcpy(cl.worldname, cl.worldmodel->name, sizeof(cl.worldname));
 		FS_StripExtension(cl.worldname, cl.worldnamenoextension, sizeof(cl.worldnamenoextension));
 		strlcpy(cl.worldbasename, !strncmp(cl.worldnamenoextension, "maps/", 5) ? cl.worldnamenoextension + 5 : cl.worldnamenoextension, sizeof(cl.worldbasename));
@@ -492,6 +494,14 @@ static void CL_SetupWorldModel(void)
 		Cvar_SetQuick(&cl_worldnamenoextension, cl.worldnamenoextension);
 		Cvar_SetQuick(&cl_worldbasename, cl.worldbasename);
 		World_SetSize(&cl.world, cl.worldname, cl.worldmodel->normalmins, cl.worldmodel->normalmaxs, prog);
+		InfoString_GetValue(cls.userinfo, "*ip", server_address, sizeof(server_address));
+		dpsnprintf(map_string, 128, "Map: %s: %s", cl.worldbasename, cl.worldmessage);
+		if (strncmp(server_address, "local", 5)) {
+			char server_string[128];
+			dpsnprintf(server_string, 128, "Srv: %s", server_address);
+			DP_Discord_SetStatus(server_string, map_string, server_address);
+		} else
+			DP_Discord_SetStatus("Local game", map_string, "");
 	}
 	else
 	{

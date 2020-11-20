@@ -56,6 +56,7 @@ OBJ_COMMON= \
 	gl_backend.o \
 	gl_rmain.o \
 	gl_textures.o \
+	discord.o \
 	crypto.o \
 	host.o \
 	irc.o \
