@@ -78,9 +78,6 @@ typedef enum r_stat_e
 	r_stat_bufferdatasize_index16,
 	r_stat_bufferdatasize_index32,
 	r_stat_bufferdatasize_uniform,
-	r_stat_animcache_vertexmesh_count,
-	r_stat_animcache_vertexmesh_vertices,
-	r_stat_animcache_vertexmesh_maxvertices,
 	r_stat_animcache_skeletal_count,
 	r_stat_animcache_skeletal_bones,
 	r_stat_animcache_skeletal_maxbones,
@@ -563,9 +560,6 @@ typedef struct entity_render_s
 	r_meshbuffer_t *animcache_tvector3f_vertexbuffer;
 	int             animcache_tvector3f_bufferoffset;
 	// interleaved arrays for rendering and dynamic vertex buffers for them
-	r_vertexmesh_t *animcache_vertexmesh;
-	r_meshbuffer_t *animcache_vertexmesh_vertexbuffer;
-	int             animcache_vertexmesh_bufferoffset;
 	// gpu-skinning shader needs transforms in a certain format, we have to
 	// upload this to a uniform buffer for the shader to use, and also keep a
 	// backup copy in system memory for the dynamic batch fallback code

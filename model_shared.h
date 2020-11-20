@@ -110,21 +110,6 @@ typedef struct r_vertexgeneric_s
 }
 r_vertexgeneric_t;
 
-typedef struct r_vertexmesh_s
-{
-	// 88 bytes
-	float vertex3f[3];
-	float color4f[4];
-	float texcoordtexture2f[2];
-	float texcoordlightmap2f[2];
-	float svector3f[3];
-	float tvector3f[3];
-	float normal3f[3];
-	unsigned char skeletalindex4ub[4];
-	unsigned char skeletalweight4ub[4];
-}
-r_vertexmesh_t;
-
 typedef struct r_meshbuffer_s
 {
 	int bufferobject; // OpenGL
@@ -163,7 +148,6 @@ typedef struct surfmesh_s
 	unsigned char *data_skeletalindex4ub;
 	unsigned char *data_skeletalweight4ub;
 	int *data_lightmapoffsets; // index into surface's lightmap samples for vertex lighting
-	r_vertexmesh_t *data_vertexmesh; // interleaved arrays for D3D
 	// vertex buffer object (stores geometry in video memory)
 	r_meshbuffer_t *vbo_vertexbuffer;
 	int vbooffset_vertex3f;
@@ -230,7 +214,6 @@ typedef struct shadowmesh_s
 	int element3s_bufferoffset;
 	// vertex/index buffers for rendering
 	// (created by Mod_ShadowMesh_Finish if possible)
-	r_vertexmesh_t *vertexmesh; // usually NULL
 	// used for shadow mapping cubemap side partitioning
 	int sideoffsets[6], sidetotals[6];
 	// used for shadow mesh (NULL on light mesh)
