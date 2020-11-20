@@ -90,7 +90,7 @@ static void mod_shutdown(void)
 	dp_model_t *mod;
 
 	for (i = 0;i < nummodels;i++)
-		if ((mod = (dp_model_t*) Mem_ExpandableArray_RecordAtIndex(&models, i)) && (mod->loaded || mod->mempool))
+		if ((mod = (dp_model_t*) Mem_ExpandableArray_RecordAtIndex(&models, i)) && (mod->loaded || mod->mempool || mod->name[0] == '*'))
 			Mod_UnloadModel(mod);
 
 	Mod_FreeQ3Shaders();
