@@ -5515,14 +5515,11 @@ static void R_Bloom_MakeTexture(void)
 
 	r_refdef.stats[r_stat_bloom]++;
 
-#if 0
-    // this copy is unnecessary since it happens in R_BlendView already
-	if (!r_fb.fbo)
+	if ((r_motionblur.integer || r_damageblur.integer) && !r_fb.fbo)
 	{
 		R_Mesh_CopyToTexture(r_fb.colortexture, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
 		r_refdef.stats[r_stat_bloom_copypixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
 	}
-#endif
 
 	// scale down screen texture to the bloom texture size
 	CHECKGLERROR
