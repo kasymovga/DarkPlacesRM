@@ -346,6 +346,8 @@ static void Discord_UpdateActivityCallback(void* data, enum EDiscordResult resul
 	}
 }
 
+static char discord_game_command[512];
+long long int discord_client_id;
 static void *discord_thread;
 static void *discord_mutex;
 static int discord_shutdown;
@@ -392,7 +394,7 @@ static int Discord_Thread(void *dummy) {
 	params.store_version = DISCORD_STORE_MANAGER_VERSION;
 	params.voice_version = DISCORD_VOICE_MANAGER_VERSION;
 	params.achievement_version = DISCORD_ACHIEVEMENT_MANAGER_VERSION;
-	params.client_id = atoll(integration_discord_client_id.string);;
+	params.client_id = discord_client_id;
 	params.flags = DiscordCreateFlags_NoRequireDiscord;
 	params.event_data = dummy;
 	params.activity_events = &activities_events;
@@ -400,12 +402,14 @@ static int Discord_Thread(void *dummy) {
 	params.user_events = &users_events;
 	QDiscordCreate(DISCORD_VERSION, &params, &core);
 	if (core) {
-		activity_manager = core->get_activity_manager(core);
-		if (integration_discord_game_command.string[0])
-			activity_manager->register_command(activity_manager, integration_discord_game_command.string);
-
-		Discord_SetStatus("Menu", "", "");
 		core->set_log_hook(core, DiscordLogLevel_Warn, dummy, DP_Discord_Log);
+		activity_manager = core->get_activity_manager(core);
+		Discord_SetStatus("Menu", "", "");
+		if (discord_game_command[0]) {
+			if (activity_manager->register_command(activity_manager, discord_game_command) != DiscordResult_Ok) {
+				Con_Printf("Discord register command failed\n");
+			}
+		}
 		for (;!discord_shutdown;) {
 			if (discord_activity_update_required) {
 				discord_activity_update_required = 0;
@@ -436,6 +440,8 @@ void DP_Discord_Start(void) {
 		Con_Printf("Discord dll not loaded\n");
 		return;
 	}
+	strlcpy(discord_game_command, integration_discord_game_command.string, sizeof(discord_game_command));
+	discord_client_id = atoll(integration_discord_client_id.string);
 	discord_mutex = Thread_CreateMutex();
 	discord_thread = Thread_CreateThread(Discord_Thread, NULL);
 	Con_Printf("Discord initialized\n");
