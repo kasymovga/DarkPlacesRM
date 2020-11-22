@@ -56,6 +56,7 @@ typedef struct packfile_s packfile_t;
 extern char fs_gamedir [MAX_OSPATH];
 extern char fs_basedir [MAX_OSPATH];
 extern char fs_userdir [MAX_OSPATH];
+extern char fs_baseexe [MAX_OSPATH];
 
 // list of active game directories (empty if not running a mod)
 #define MAX_GAMEDIRS 16

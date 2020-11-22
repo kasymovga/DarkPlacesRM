@@ -1,9 +1,3 @@
-#ifdef WIN32
-# ifndef DONT_USE_SETDLLDIRECTORY
-#  define _WIN32_WINNT 0x0502
-# endif
-#endif
-
 #include "quakedef.h"
 #include "thread.h"
 
@@ -131,13 +125,6 @@ qboolean Sys_LoadLibrary (const char** dllnames, dllhandle_t* handle, const dllf
 	{
 		Con_DPrintf (" \"%s\"", dllnames[i]);
 #ifdef WIN32
-# ifndef DONT_USE_SETDLLDIRECTORY
-#  ifdef _WIN64
-		SetDllDirectory("bin64");
-#  else
-		SetDllDirectory("bin32");
-#  endif
-# endif
 		dllhandle = LoadLibrary (dllnames[i]);
 		// no need to unset this - we want ALL dlls to be loaded from there, anyway
 #else

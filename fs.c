@@ -26,12 +26,17 @@
 #include <fcntl.h>
 
 #ifdef WIN32
+# ifndef DONT_USE_SETDLLDIRECTORY
+#  define _WIN32_WINNT 0x0502
+# endif
 # include <direct.h>
 # include <io.h>
 # include <shlobj.h>
 # include <sys/stat.h>
 # include <share.h>
 # include <fileapi.h>
+# include <libloaderapi.h>
+# include <winbase.h>
 #else
 # include <pwd.h>
 # include <sys/stat.h>
@@ -360,6 +365,7 @@ const char *const fs_checkgamedir_missing = "missing";
 char fs_userdir[MAX_OSPATH];
 char fs_gamedir[MAX_OSPATH];
 char fs_basedir[MAX_OSPATH];
+char fs_baseexe[MAX_OSPATH];
 static pack_t *fs_selfpack = NULL;
 
 // list of active game directories (empty if not running a mod)
@@ -2013,11 +2019,36 @@ void FS_Init (void)
 {
 	const char *p;
 	int i;
+#ifdef WIN32
+	unsigned int r;
+	wchar_t fs_baseexew[sizeof(fs_baseexe)];
+	wchar_t fs_baseexew_short[sizeof(fs_baseexe)];
+#endif
 
 	*fs_basedir = 0;
 	*fs_userdir = 0;
 	*fs_gamedir = 0;
-
+	*fs_baseexe = 0;
+#ifdef WIN32
+	r = GetModuleFileNameW(NULL, fs_baseexew, sizeof(fs_baseexe));
+	if (r == 0 || r >= sizeof(fs_baseexe)) {
+		fs_baseexe[0] = '\0';
+	} else {
+		r = GetShortPathNameW(fs_baseexew, fs_baseexew_short, sizeof(fs_baseexe));
+		if (r == 0 || r >= sizeof(fs_baseexe)) {
+			fs_baseexe[0] = '\0';
+		} else {
+			strlcpy(fs_baseexe, fs_baseexe, sizeof(fs_baseexe));
+#if _MSC_VER >= 1400
+			wcstombs_s(NULL, fs_baseexe, sizeof(fs_baseexe), fs_baseexew_short, sizeof(fs_baseexe) - 1);
+#else
+			wcstombs(fs_baseexe, fs_baseexew_short, sizeof(fs_baseexe) - 1);
+#endif
+		}
+	}
+#else
+	strlcpy(fs_baseexe, com_argv[0], sizeof(fs_baseexe));
+#endif
 	// -basedir <path>
 	// Overrides the system supplied base directory (under GAMENAME)
 // COMMANDLINEOPTION: Filesystem: -basedir <path> chooses what base directory the game data is in, inside this there should be a data directory for the game (for example id1)
@@ -2065,9 +2096,39 @@ void FS_Init (void)
 				}
 			}
 		}
+#else
+		char *last_slash;
+		strlcpy(fs_basedir, fs_baseexe, sizeof(fs_basedir));
+#ifdef WIN32
+		last_slash = strrchr(fs_basedir, '\\');
+#else
+		last_slash = strrchr(fs_basedir, '/');
+#endif
+		if (last_slash)
+			last_slash[1] = '\0';
+		else
+			fs_basedir[0] = '\0';
 #endif
 	}
-
+#ifdef WIN32
+#ifndef DONT_USE_SETDLLDIRECTORY
+	if (fs_basedir[0]) {
+		char dlldir[sizeof(fs_basedir) + 6];
+# ifdef _WIN64
+		dpsnprintf(dlldir, sizeof(fs_basedir) + 6, "%s\\bin64", fs_basedir);
+# else
+		dpsnprintf(dlldir, sizeof(fs_basedir) + 6, "%s\\bin32", fs_basedir);
+# endif
+		SetDllDirectory(dlldir);
+	} else {
+# ifdef _WIN64
+		SetDllDirectory("bin64");
+# else
+		SetDllDirectory("bin32");
+# endif
+	}
+#endif
+#endif
 	// make sure the appending of a path separator won't create an unterminated string
 	memset(fs_basedir + sizeof(fs_basedir) - 2, 0, 2);
 	// add a path separator to the end of the basedir if it lacks one
