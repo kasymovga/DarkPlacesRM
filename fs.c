@@ -31,6 +31,7 @@
 # include <shlobj.h>
 # include <sys/stat.h>
 # include <share.h>
+# include <fileapi.h>
 #else
 # include <pwd.h>
 # include <sys/stat.h>
@@ -1900,12 +1901,18 @@ static int FS_ChooseUserDir(userdirmode_t userdirmode, char *userdir, size_t use
 */
 			if (qSHGetKnownFolderPath(&qFOLDERID_SavedGames, qKF_FLAG_CREATE | qKF_FLAG_NO_ALIAS, NULL, &savedgamesdirw) == S_OK)
 			{
+				unsigned int r;
+				wchar_t savedgamesdirw_short[sizeof(savedgamesdir)];
 				memset(savedgamesdir, 0, sizeof(savedgamesdir));
+				r = GetShortPathNameW(savedgamesdirw, savedgamesdirw_short, sizeof(savedgamesdir));
 #if _MSC_VER >= 1400
-				wcstombs_s(NULL, savedgamesdir, sizeof(savedgamesdir), savedgamesdirw, sizeof(savedgamesdir)-1);
+				wcstombs_s(NULL, savedgamesdir, sizeof(savedgamesdir), savedgamesdirw_short, sizeof(savedgamesdir) - 1);
 #else
-				wcstombs(savedgamesdir, savedgamesdirw, sizeof(savedgamesdir)-1);
+				wcstombs(savedgamesdir, savedgamesdirw_short, sizeof(savedgamesdir) - 1);
 #endif
+				if (!r || r > sizeof(savedgamesdir))
+					savedgamesdir[0] = '\0';
+
 				qCoTaskMemFree(savedgamesdirw);
 			}
 			qCoUninitialize();
