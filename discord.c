@@ -365,7 +365,7 @@ static void Discord_SetStatus(const char *details, const char *state, const char
 	dpsnprintf(activity.state, sizeof(activity.state), "%s", state);
 	activity.type = DiscordActivityType_Playing;
 	activity.timestamps.start = discord_start_time;
-	strlcpy(activity.assets.large_image, "rexuiz", sizeof(activity.assets.large_image));
+	strlcpy(activity.assets.large_image, "logo", sizeof(activity.assets.large_image));
 	if (party && party[0]) {
 		strlcpy(activity.party.id, party, sizeof(activity.party.id));
 		activity.party.size.current_size = discord_activity_update_party_slots_used;
