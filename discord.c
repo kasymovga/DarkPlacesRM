@@ -3,6 +3,7 @@
 #include "thread.h"
 #include <stdbool.h>
 #include <time.h>
+#include <string.h>
 
 static cvar_t integration_discord_enable = {CVAR_SAVE, "integration_discord_enable","0", "Enable discord support"};
 static cvar_t integration_discord_client_id = {0, "integration_discord_client_id", "418559331265675294", "Discord client id"};
@@ -355,6 +356,8 @@ static int discord_activity_update_required;
 static char discord_activity_update_details[128];
 static char discord_activity_update_state[128];
 static char discord_activity_update_party[128];
+static int discord_activity_update_party_slots;
+static int discord_activity_update_party_slots_used;
 static void Discord_SetStatus(const char *details, const char *state, const char *party) {
 	struct DiscordActivity activity;
 	memset(&activity, 0, sizeof(activity));
@@ -365,8 +368,28 @@ static void Discord_SetStatus(const char *details, const char *state, const char
 	strlcpy(activity.assets.large_image, "rexuiz", sizeof(activity.assets.large_image));
 	if (party && party[0]) {
 		strlcpy(activity.party.id, party, sizeof(activity.party.id));
+		activity.party.size.current_size = discord_activity_update_party_slots_used;
+		activity.party.size.max_size = discord_activity_update_party_slots;
+		dpsnprintf(activity.secrets.join, sizeof(activity.secrets.join), "secret%s", party);
 	}
 	activity_manager->update_activity(activity_manager, &activity, dummy, Discord_UpdateActivityCallback);
+}
+
+static void Discord_Join(void *data, const char *secret) {
+	char connect_string[128];
+	const char *host;
+	if (strncmp(secret, "secret", 6)) {
+		Con_Printf("Discord: bad join request\n");
+		return;
+	}
+	host = &secret[6];
+	dpsnprintf(connect_string, sizeof(connect_string), "\nconnect %s\n", host);
+	Cbuf_AddText(connect_string);
+}
+
+static void Discord_JoinRequest(void *data, struct DiscordUser *user) {
+	Con_Printf("Discord: ask-to-join request\n");
+	activity_manager->send_request_reply(activity_manager, user->id, DiscordActivityJoinRequestReply_Yes, NULL, NULL);
 }
 
 static int Discord_Thread(void *dummy) {
@@ -380,6 +403,8 @@ static int Discord_Thread(void *dummy) {
 	discord_start_time = time(NULL);
 	memset(&users_events, 0, sizeof(users_events));
 	memset(&activities_events, 0, sizeof(activities_events));
+	activities_events.on_activity_join_request = Discord_JoinRequest;
+	activities_events.on_activity_join = Discord_Join;
 	memset(&relationships_events, 0, sizeof(relationships_events));
 	memset(&params, 0, sizeof(struct DiscordCreateParams));
 	params.application_version = DISCORD_APPLICATION_MANAGER_VERSION;
@@ -405,10 +430,14 @@ static int Discord_Thread(void *dummy) {
 		core->set_log_hook(core, DiscordLogLevel_Warn, dummy, DP_Discord_Log);
 		activity_manager = core->get_activity_manager(core);
 		Discord_SetStatus("Menu", "", "");
+		if (!discord_game_command[0]) {
+			strlcpy(discord_game_command, fs_baseexe, sizeof(discord_game_command));
+		}
 		if (discord_game_command[0]) {
 			if (activity_manager->register_command(activity_manager, discord_game_command) != DiscordResult_Ok) {
 				Con_Printf("Discord register command failed\n");
 			}
+		} else {
 		}
 		for (;!discord_shutdown;) {
 			if (discord_activity_update_required) {
@@ -448,10 +477,23 @@ void DP_Discord_Start(void) {
 }
 
 void DP_Discord_SetStatus(const char *details, const char *state, const char *party) {
+	int i;
 	Thread_LockMutex(discord_mutex);
-	strlcpy(discord_activity_update_details, details, sizeof(discord_activity_update_details));
-	strlcpy(discord_activity_update_state, state, sizeof(discord_activity_update_state));
-	strlcpy(discord_activity_update_party, party, sizeof(discord_activity_update_party));
+	if (details[0]) {
+		strlcpy(discord_activity_update_details, details, sizeof(discord_activity_update_details));
+		strlcpy(discord_activity_update_state, state, sizeof(discord_activity_update_state));
+		strlcpy(discord_activity_update_party, party, sizeof(discord_activity_update_party));
+	}
+	if (cls.state == ca_connected) {
+		discord_activity_update_party_slots = cl.maxclients;
+		discord_activity_update_party_slots_used = 1;
+		if (cl.scores)
+			for (i = 0 ; i < cl.maxclients ; i++) {
+				if (cl.scores[i].name[0] && i != cl.playerentity - 1) {
+					discord_activity_update_party_slots_used++;
+				}
+			}
+	}
 	discord_activity_update_required = 1;
 	Thread_UnlockMutex(discord_mutex);
 }

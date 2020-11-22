@@ -4071,6 +4071,7 @@ void CL_ParseServerMessage(void)
 				if (i >= cl.maxclients)
 					Host_Error ("CL_ParseServerMessage: svc_updatename >= cl.maxclients");
 				strlcpy (cl.scores[i].name, MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring)), sizeof (cl.scores[i].name));
+				DP_Discord_SetStatus("", "", "");
 				break;
 
 			case svc_updatefrags:
