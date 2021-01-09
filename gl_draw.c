@@ -359,7 +359,7 @@ cachepic_t *Draw_CachePic_Flags(const char *path, unsigned int cachepicflags)
 
 	if (numcachepics == MAX_CACHED_PICS)
 	{
-		Con_Printf ("Draw_CachePic: numcachepics == MAX_CACHED_PICS\n");
+		Con_Printf ("Draw_CachePic: numcachepics == MAX_CACHED_PICS(%i)\n", (int)MAX_CACHED_PICS);
 		// FIXME: support NULL in callers?
 		return cachepics; // return the first one
 	}
