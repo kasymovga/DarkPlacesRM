@@ -137,7 +137,6 @@ demonstrated by the game Doom3.
 #include "quakedef.h"
 #include "r_shadow.h"
 #include "cl_collision.h"
-#include "portals.h"
 #include "image.h"
 #include "dpsoftrast.h"
 

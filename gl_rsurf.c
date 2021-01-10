@@ -21,7 +21,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "r_shadow.h"
-#include "portals.h"
 #include "csprogs.h"
 #include "image.h"
 
@@ -332,74 +331,6 @@ void R_Stain (const vec3_t origin, float radius, int cr1, int cg1, int cb1, int 
 =============================================================
 */
 
-static void R_DrawPortal_Callback(const entity_render_t *ent, const rtlight_t *rtlight, int numsurfaces, int *surfacelist)
-{
-	// due to the hacky nature of this function's parameters, this is never
-	// called with a batch, so numsurfaces is always 1, and the surfacelist
-	// contains only a leaf number for coloring purposes
-	const mportal_t *portal = (mportal_t *)ent;
-	qboolean isvis;
-	int i, numpoints;
-	float *v;
-	float vertex3f[POLYGONELEMENTS_MAXPOINTS*3];
-	CHECKGLERROR
-	GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	GL_DepthMask(false);
-	GL_DepthRange(0, 1);
-	GL_PolygonOffset(r_refdef.polygonfactor, r_refdef.polygonoffset);
-	GL_DepthTest(true);
-	GL_CullFace(GL_NONE);
-	R_EntityMatrix(&identitymatrix);
-
-	numpoints = min(portal->numpoints, POLYGONELEMENTS_MAXPOINTS);
-
-//	R_Mesh_ResetTextureState();
-
-	isvis = (portal->here->clusterindex >= 0 && portal->past->clusterindex >= 0 && portal->here->clusterindex != portal->past->clusterindex);
-
-	i = surfacelist[0] >> 1;
-	GL_Color(((i & 0x0007) >> 0) * (1.0f / 7.0f) * r_refdef.view.colorscale,
-			 ((i & 0x0038) >> 3) * (1.0f / 7.0f) * r_refdef.view.colorscale,
-			 ((i & 0x01C0) >> 6) * (1.0f / 7.0f) * r_refdef.view.colorscale,
-			 isvis ? 0.125f : 0.03125f);
-	for (i = 0, v = vertex3f;i < numpoints;i++, v += 3)
-		VectorCopy(portal->points[i].position, v);
-	R_Mesh_PrepareVertices_Generic_Arrays(numpoints, vertex3f, NULL, NULL);
-	R_SetupShader_Generic_NoTexture(false, false);
-	R_Mesh_Draw(0, numpoints, 0, numpoints - 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
-}
-
-// LordHavoc: this is just a nice debugging tool, very slow
-void R_DrawPortals(void)
-{
-	int i, leafnum;
-	mportal_t *portal;
-	float center[3], f;
-	dp_model_t *model = r_refdef.scene.worldmodel;
-	if (model == NULL)
-		return;
-	for (leafnum = 0;leafnum < r_refdef.scene.worldmodel->brush.num_leafs;leafnum++)
-	{
-		if (r_refdef.viewcache.world_leafvisible[leafnum])
-		{
-			//for (portalnum = 0, portal = model->brush.data_portals;portalnum < model->brush.num_portals;portalnum++, portal++)
-			for (portal = r_refdef.scene.worldmodel->brush.data_leafs[leafnum].portals;portal;portal = portal->next)
-			{
-				if (portal->numpoints <= POLYGONELEMENTS_MAXPOINTS)
-				if (!R_CullBox(portal->mins, portal->maxs))
-				{
-					VectorClear(center);
-					for (i = 0;i < portal->numpoints;i++)
-						VectorAdd(center, portal->points[i].position, center);
-					f = ixtable[portal->numpoints];
-					VectorScale(center, f, center);
-					R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, center, R_DrawPortal_Callback, (entity_render_t *)portal, leafnum, rsurface.rtlight);
-				}
-			}
-		}
-	}
-}
-
 static void R_View_WorldVisibility_CullSurfaces(void)
 {
 	int surfaceindex;
@@ -496,7 +427,7 @@ void R_View_WorldVisibility(qboolean forcenovis)
 		}
 		// just check if each leaf in the PVS is on screen
 		// (unless portal culling is enabled)
-		else if (!model->brush.data_portals || r_useportalculling.integer < 1 || (r_useportalculling.integer < 2 && !r_novis.integer))
+		else
 		{
 			// pvs method:
 			// simply check if each leaf is in the Potentially Visible Set,
@@ -514,63 +445,6 @@ void R_View_WorldVisibility(qboolean forcenovis)
 					if (leaf->numleafsurfaces)
 						for (i = 0, mark = leaf->firstleafsurface;i < leaf->numleafsurfaces;i++, mark++)
 							r_refdef.viewcache.world_surfacevisible[*mark] = true;
-				}
-			}
-		}
-		// if desired use a recursive portal flow, culling each portal to
-		// frustum and checking if the leaf the portal leads to is in the pvs
-		else
-		{
-			int leafstackpos;
-			mportal_t *p;
-			mleaf_t *leafstack[8192];
-			vec3_t cullmins, cullmaxs;
-			float cullbias = r_nearclip.value * 2.0f; // the nearclip plane can easily end up culling portals in certain perfectly-aligned views, causing view blackouts
-			// simple-frustum portal method:
-			// follows portals leading outward from viewleaf, does not venture
-			// offscreen or into leafs that are not visible, faster than
-			// Quake's RecursiveWorldNode and vastly better in unvised maps,
-			// often culls some surfaces that pvs alone would miss
-			// (such as a room in pvs that is hidden behind a wall, but the
-			//  passage leading to the room is off-screen)
-			leafstack[0] = viewleaf;
-			leafstackpos = 1;
-			while (leafstackpos)
-			{
-				leaf = leafstack[--leafstackpos];
-				if (r_refdef.viewcache.world_leafvisible[leaf - model->brush.data_leafs])
-					continue;
-				if (leaf->clusterindex < 0)
-					continue;
-				r_refdef.stats[r_stat_world_leafs]++;
-				r_refdef.viewcache.world_leafvisible[leaf - model->brush.data_leafs] = true;
-				// mark any surfaces bounding this leaf
-				if (leaf->numleafsurfaces)
-					for (i = 0, mark = leaf->firstleafsurface;i < leaf->numleafsurfaces;i++, mark++)
-						r_refdef.viewcache.world_surfacevisible[*mark] = true;
-				// follow portals into other leafs
-				// the checks are:
-				// the leaf has not been visited yet
-				// and the leaf is visible in the pvs
-				// the portal polygon's bounding box is on the screen
-				for (p = leaf->portals;p;p = p->next)
-				{
-					r_refdef.stats[r_stat_world_portals]++;
-					if (r_refdef.viewcache.world_leafvisible[p->past - model->brush.data_leafs])
-						continue;
-					if (!CHECKPVSBIT(r_refdef.viewcache.world_pvsbits, p->past->clusterindex))
-						continue;
-					cullmins[0] = p->mins[0] - cullbias;
-					cullmins[1] = p->mins[1] - cullbias;
-					cullmins[2] = p->mins[2] - cullbias;
-					cullmaxs[0] = p->maxs[0] + cullbias;
-					cullmaxs[1] = p->maxs[1] + cullbias;
-					cullmaxs[2] = p->maxs[2] + cullbias;
-					if (R_CullBox(cullmins, cullmaxs))
-						continue;
-					if (leafstackpos >= (int)(sizeof(leafstack) / sizeof(leafstack[0])))
-						break;
-					leafstack[leafstackpos++] = p->past;
 				}
 			}
 		}
@@ -739,9 +613,6 @@ static void R_Q1BSP_RecursiveGetLightInfo_BSP(r_q1bsp_getlightinfo_t *info, qboo
 	qboolean svbspinsertoccluder = info->svbsp_insertoccluder;
 	const int *leafsurfaceindices;
 	qboolean addedtris;
-	int i;
-	mportal_t *portal;
-	static float points[128][3];
 	// push the root node onto our nodestack
 	nodestack[nodestackpos++] = info->model->brush.data_nodes;
 	// we'll be done when the nodestack is empty
@@ -835,23 +706,6 @@ static void R_Q1BSP_RecursiveGetLightInfo_BSP(r_q1bsp_getlightinfo_t *info, qboo
 			if (!r_shadow_compilingrtlight && R_CullBoxCustomPlanes(leaf->mins, leaf->maxs, info->numfrustumplanes, info->frustumplanes))
 				continue;
 #endif
-
-			if (svbspactive)
-			{
-				// we can occlusion test the leaf by checking if all of its portals
-				// are occluded (unless the light is in this leaf - but that was
-				// already handled by the caller)
-				for (portal = leaf->portals;portal;portal = portal->next)
-				{
-					for (i = 0;i < portal->numpoints;i++)
-						VectorCopy(portal->points[i].position, points[i]);
-					if (SVBSP_AddPolygon(&r_svbsp, portal->numpoints, points[0], false, NULL, NULL, 0) & 2)
-						break;
-				}
-				if (leaf->portals && portal == NULL)
-					continue; // no portals of this leaf visible
-			}
-
 			// add this leaf to the reduced light bounds
 			info->outmins[0] = min(info->outmins[0], leaf->mins[0]);
 			info->outmins[1] = min(info->outmins[1], leaf->mins[1]);
@@ -1251,26 +1105,7 @@ void R_Q1BSP_GetLightInfo(entity_render_t *ent, vec3_t relativelightorigin, floa
 	else
 		info.pvs = NULL;
 	RSurf_ActiveWorldEntity();
-
-	if (r_shadow_frontsidecasting.integer && r_shadow_compilingrtlight && r_shadow_realtime_world_compileportalculling.integer && info.model->brush.data_portals)
-	{
-		// use portal recursion for exact light volume culling, and exact surface checking
-		Portal_Visibility(info.model, info.relativelightorigin, info.outleaflist, info.outleafpvs, &info.outnumleafs, info.outsurfacelist, info.outsurfacepvs, &info.outnumsurfaces, NULL, 0, true, info.lightmins, info.lightmaxs, info.outmins, info.outmaxs, info.outshadowtrispvs, info.outlighttrispvs, info.visitingleafpvs);
-	}
-	else if (r_shadow_frontsidecasting.integer && r_shadow_realtime_dlight_portalculling.integer && info.model->brush.data_portals)
-	{
-		// use portal recursion for exact light volume culling, but not the expensive exact surface checking
-		Portal_Visibility(info.model, info.relativelightorigin, info.outleaflist, info.outleafpvs, &info.outnumleafs, info.outsurfacelist, info.outsurfacepvs, &info.outnumsurfaces, NULL, 0, r_shadow_realtime_dlight_portalculling.integer >= 2, info.lightmins, info.lightmaxs, info.outmins, info.outmaxs, info.outshadowtrispvs, info.outlighttrispvs, info.visitingleafpvs);
-	}
-	else
-	{
-		// recurse the bsp tree, checking leafs and surfaces for visibility
-		// optionally using svbsp for exact culling of compiled lights
-		// (or if the user enables dlight svbsp culling, which is mostly for
-		//  debugging not actual use)
-		R_Q1BSP_CallRecursiveGetLightInfo(&info, (r_shadow_compilingrtlight ? r_shadow_realtime_world_compilesvbsp.integer : r_shadow_realtime_dlight_svbspculling.integer) != 0);
-	}
-
+	R_Q1BSP_CallRecursiveGetLightInfo(&info, (r_shadow_compilingrtlight ? r_shadow_realtime_world_compilesvbsp.integer : r_shadow_realtime_dlight_svbspculling.integer) != 0);
 	rsurface.entity = NULL; // used only by R_GetCurrentTexture and RSurf_ActiveWorldEntity/RSurf_ActiveModelEntity
 
 	// limit combined leaf box to light boundaries

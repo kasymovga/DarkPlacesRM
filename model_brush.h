@@ -149,7 +149,6 @@ typedef struct mnode_s
 	//this part shared between node and leaf
 	mplane_t *plane; // != NULL
 	struct mnode_s *parent;
-	struct mportal_s *portals;
 	// for bounding box culling
 	vec3_t mins;
 	vec3_t maxs;
@@ -170,7 +169,6 @@ typedef struct mleaf_s
 	//this part shared between node and leaf
 	mplane_t *plane; // == NULL
 	struct mnode_s *parent;
-	struct mportal_s *portals;
 	// for bounding box culling
 	vec3_t mins;
 	vec3_t maxs;
@@ -188,7 +186,6 @@ typedef struct mleaf_s
 	int *firstleafbrush; // q3bsp
 	unsigned char ambient_sound_level[NUM_AMBIENTS]; // q1bsp
 	int contents; // q1bsp: // TODO: remove (only used temporarily during loading when making collision hull 0)
-	int portalmarkid; // q1bsp // used by see-polygon-through-portals visibility checker
 }
 mleaf_t;
 
@@ -209,18 +206,6 @@ typedef struct hull_s
 	vec3_t clip_size;
 }
 hull_t;
-
-typedef struct mportal_s
-{
-	struct mportal_s *next; // the next portal on this leaf
-	mleaf_t *here; // the leaf this portal is on
-	mleaf_t *past; // the leaf through this portal (infront)
-	int numpoints;
-	mvertex_t *points;
-	vec3_t mins, maxs; // culling
-	mplane_t plane;
-}
-mportal_t;
 
 typedef struct svbspmesh_s
 {

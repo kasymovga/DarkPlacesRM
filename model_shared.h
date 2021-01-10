@@ -790,12 +790,6 @@ typedef struct model_brush_s
 	int num_leafsurfaces;
 	int *data_leafsurfaces;
 
-	int num_portals;
-	mportal_t *data_portals;
-
-	int num_portalpoints;
-	mvertex_t *data_portalpoints;
-
 	int num_brushes;
 	q3mbrush_t *data_brushes;
 

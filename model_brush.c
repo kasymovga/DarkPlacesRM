@@ -27,7 +27,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 
 //cvar_t r_subdivide_size = {CVAR_SAVE, "r_subdivide_size", "128", "how large water polygons should be (smaller values produce more polygons which give better warping effects)"};
-cvar_t mod_bsp_portalize = {0, "mod_bsp_portalize", "1", "enables portal generation from BSP tree (may take several seconds per map), used by r_drawportals, r_useportalculling, r_shadow_realtime_world_compileportalculling, sv_cullentities_portal"};
 cvar_t r_novis = {0, "r_novis", "0", "draws whole level, see also sv_cullentities_pvs 0"};
 cvar_t r_nosurftextures = {0, "r_nosurftextures", "0", "pretends there was no texture lump found in the q1bsp/hlbsp loading (useful for debugging this rare case)"};
 cvar_t r_subdivisions_tolerance = {0, "r_subdivisions_tolerance", "4", "maximum error tolerance on curve subdivision for rendering purposes (in other words, the curves will be given as many polygons as necessary to represent curves at this quality)"};
@@ -75,7 +74,6 @@ static qboolean Mod_Q3BSP_TraceLineOfSight(struct model_s *model, const vec3_t s
 void Mod_BrushInit(void)
 {
 //	Cvar_RegisterVariable(&r_subdivide_size);
-	Cvar_RegisterVariable(&mod_bsp_portalize);
 	Cvar_RegisterVariable(&r_novis);
 	Cvar_RegisterVariable(&r_nosurftextures);
 	Cvar_RegisterVariable(&r_subdivisions_tolerance);
@@ -3278,410 +3276,6 @@ static void Mod_Q1BSP_LoadMapBrushes(void)
 #endif
 }
 
-
-#define MAX_PORTALPOINTS 64
-
-typedef struct portal_s
-{
-	mplane_t plane;
-	mnode_t *nodes[2];		// [0] = front side of plane
-	struct portal_s *next[2];
-	int numpoints;
-	double points[3*MAX_PORTALPOINTS];
-	struct portal_s *chain; // all portals are linked into a list
-}
-portal_t;
-
-static memexpandablearray_t portalarray;
-
-static void Mod_Q1BSP_RecursiveRecalcNodeBBox(mnode_t *node)
-{
-	// process only nodes (leafs already had their box calculated)
-	if (!node->plane)
-		return;
-
-	// calculate children first
-	Mod_Q1BSP_RecursiveRecalcNodeBBox(node->children[0]);
-	Mod_Q1BSP_RecursiveRecalcNodeBBox(node->children[1]);
-
-	// make combined bounding box from children
-	node->mins[0] = min(node->children[0]->mins[0], node->children[1]->mins[0]);
-	node->mins[1] = min(node->children[0]->mins[1], node->children[1]->mins[1]);
-	node->mins[2] = min(node->children[0]->mins[2], node->children[1]->mins[2]);
-	node->maxs[0] = max(node->children[0]->maxs[0], node->children[1]->maxs[0]);
-	node->maxs[1] = max(node->children[0]->maxs[1], node->children[1]->maxs[1]);
-	node->maxs[2] = max(node->children[0]->maxs[2], node->children[1]->maxs[2]);
-}
-
-static void Mod_Q1BSP_FinalizePortals(void)
-{
-	int i, j, numportals, numpoints, portalindex, portalrange = (int)Mem_ExpandableArray_IndexRange(&portalarray);
-	portal_t *p;
-	mportal_t *portal;
-	mvertex_t *point;
-	mleaf_t *leaf, *endleaf;
-
-	// tally up portal and point counts and recalculate bounding boxes for all
-	// leafs (because qbsp is very sloppy)
-	leaf = loadmodel->brush.data_leafs;
-	endleaf = leaf + loadmodel->brush.num_leafs;
-	if (mod_recalculatenodeboxes.integer)
-	{
-		for (;leaf < endleaf;leaf++)
-		{
-			VectorSet(leaf->mins,  2000000000,  2000000000,  2000000000);
-			VectorSet(leaf->maxs, -2000000000, -2000000000, -2000000000);
-		}
-	}
-	numportals = 0;
-	numpoints = 0;
-	for (portalindex = 0;portalindex < portalrange;portalindex++)
-	{
-		p = (portal_t*)Mem_ExpandableArray_RecordAtIndex(&portalarray, portalindex);
-		if (!p)
-			continue;
-		// note: this check must match the one below or it will usually corrupt memory
-		// the nodes[0] != nodes[1] check is because leaf 0 is the shared solid leaf, it can have many portals inside with leaf 0 on both sides
-		if (p->numpoints >= 3 && p->nodes[0] != p->nodes[1] && ((mleaf_t *)p->nodes[0])->clusterindex >= 0 && ((mleaf_t *)p->nodes[1])->clusterindex >= 0)
-		{
-			numportals += 2;
-			numpoints += p->numpoints * 2;
-		}
-	}
-	loadmodel->brush.data_portals = (mportal_t *)Mem_Alloc(loadmodel->mempool, numportals * sizeof(mportal_t) + numpoints * sizeof(mvertex_t));
-	loadmodel->brush.num_portals = numportals;
-	loadmodel->brush.data_portalpoints = (mvertex_t *)((unsigned char *) loadmodel->brush.data_portals + numportals * sizeof(mportal_t));
-	loadmodel->brush.num_portalpoints = numpoints;
-	// clear all leaf portal chains
-	for (i = 0;i < loadmodel->brush.num_leafs;i++)
-		loadmodel->brush.data_leafs[i].portals = NULL;
-	// process all portals in the global portal chain, while freeing them
-	portal = loadmodel->brush.data_portals;
-	point = loadmodel->brush.data_portalpoints;
-	for (portalindex = 0;portalindex < portalrange;portalindex++)
-	{
-		p = (portal_t*)Mem_ExpandableArray_RecordAtIndex(&portalarray, portalindex);
-		if (!p)
-			continue;
-		if (p->numpoints >= 3 && p->nodes[0] != p->nodes[1])
-		{
-			// note: this check must match the one above or it will usually corrupt memory
-			// the nodes[0] != nodes[1] check is because leaf 0 is the shared solid leaf, it can have many portals inside with leaf 0 on both sides
-			if (((mleaf_t *)p->nodes[0])->clusterindex >= 0 && ((mleaf_t *)p->nodes[1])->clusterindex >= 0)
-			{
-				// first make the back to front portal(forward portal)
-				portal->points = point;
-				portal->numpoints = p->numpoints;
-				portal->plane.dist = p->plane.dist;
-				VectorCopy(p->plane.normal, portal->plane.normal);
-				portal->here = (mleaf_t *)p->nodes[1];
-				portal->past = (mleaf_t *)p->nodes[0];
-				// copy points
-				for (j = 0;j < portal->numpoints;j++)
-				{
-					VectorCopy(p->points + j*3, point->position);
-					point++;
-				}
-				BoxFromPoints(portal->mins, portal->maxs, portal->numpoints, portal->points->position);
-				PlaneClassify(&portal->plane);
-
-				// link into leaf's portal chain
-				portal->next = portal->here->portals;
-				portal->here->portals = portal;
-
-				// advance to next portal
-				portal++;
-
-				// then make the front to back portal(backward portal)
-				portal->points = point;
-				portal->numpoints = p->numpoints;
-				portal->plane.dist = -p->plane.dist;
-				VectorNegate(p->plane.normal, portal->plane.normal);
-				portal->here = (mleaf_t *)p->nodes[0];
-				portal->past = (mleaf_t *)p->nodes[1];
-				// copy points
-				for (j = portal->numpoints - 1;j >= 0;j--)
-				{
-					VectorCopy(p->points + j*3, point->position);
-					point++;
-				}
-				BoxFromPoints(portal->mins, portal->maxs, portal->numpoints, portal->points->position);
-				PlaneClassify(&portal->plane);
-
-				// link into leaf's portal chain
-				portal->next = portal->here->portals;
-				portal->here->portals = portal;
-
-				// advance to next portal
-				portal++;
-			}
-			// add the portal's polygon points to the leaf bounding boxes
-			if (mod_recalculatenodeboxes.integer)
-			{
-				for (i = 0;i < 2;i++)
-				{
-					leaf = (mleaf_t *)p->nodes[i];
-					for (j = 0;j < p->numpoints;j++)
-					{
-						if (leaf->mins[0] > p->points[j*3+0]) leaf->mins[0] = p->points[j*3+0];
-						if (leaf->mins[1] > p->points[j*3+1]) leaf->mins[1] = p->points[j*3+1];
-						if (leaf->mins[2] > p->points[j*3+2]) leaf->mins[2] = p->points[j*3+2];
-						if (leaf->maxs[0] < p->points[j*3+0]) leaf->maxs[0] = p->points[j*3+0];
-						if (leaf->maxs[1] < p->points[j*3+1]) leaf->maxs[1] = p->points[j*3+1];
-						if (leaf->maxs[2] < p->points[j*3+2]) leaf->maxs[2] = p->points[j*3+2];
-					}
-				}
-			}
-		}
-	}
-	// now recalculate the node bounding boxes from the leafs
-	if (mod_recalculatenodeboxes.integer)
-		Mod_Q1BSP_RecursiveRecalcNodeBBox(loadmodel->brush.data_nodes + loadmodel->brushq1.hulls[0].firstclipnode);
-}
-
-/*
-=============
-AddPortalToNodes
-=============
-*/
-static void AddPortalToNodes(portal_t *p, mnode_t *front, mnode_t *back)
-{
-	if (!front)
-		Host_Error("AddPortalToNodes: NULL front node");
-	if (!back)
-		Host_Error("AddPortalToNodes: NULL back node");
-	if (p->nodes[0] || p->nodes[1])
-		Host_Error("AddPortalToNodes: already included");
-	// note: front == back is handled gracefully, because leaf 0 is the shared solid leaf, it can often have portals with the same leaf on both sides
-
-	p->nodes[0] = front;
-	p->next[0] = (portal_t *)front->portals;
-	front->portals = (mportal_t *)p;
-
-	p->nodes[1] = back;
-	p->next[1] = (portal_t *)back->portals;
-	back->portals = (mportal_t *)p;
-}
-
-/*
-=============
-RemovePortalFromNode
-=============
-*/
-static void RemovePortalFromNodes(portal_t *portal)
-{
-	int i;
-	mnode_t *node;
-	void **portalpointer;
-	portal_t *t;
-	for (i = 0;i < 2;i++)
-	{
-		node = portal->nodes[i];
-
-		portalpointer = (void **) &node->portals;
-		while (1)
-		{
-			t = (portal_t *)*portalpointer;
-			if (!t)
-				Host_Error("RemovePortalFromNodes: portal not in leaf");
-
-			if (t == portal)
-			{
-				if (portal->nodes[0] == node)
-				{
-					*portalpointer = portal->next[0];
-					portal->nodes[0] = NULL;
-				}
-				else if (portal->nodes[1] == node)
-				{
-					*portalpointer = portal->next[1];
-					portal->nodes[1] = NULL;
-				}
-				else
-					Host_Error("RemovePortalFromNodes: portal not bounding leaf");
-				break;
-			}
-
-			if (t->nodes[0] == node)
-				portalpointer = (void **) &t->next[0];
-			else if (t->nodes[1] == node)
-				portalpointer = (void **) &t->next[1];
-			else
-				Host_Error("RemovePortalFromNodes: portal not bounding leaf");
-		}
-	}
-}
-
-#define PORTAL_DIST_EPSILON (1.0 / 32.0)
-static double *portalpointsbuffer;
-static int portalpointsbufferoffset;
-static int portalpointsbuffersize;
-static void Mod_Q1BSP_RecursiveNodePortals(mnode_t *node)
-{
-	int i, side;
-	mnode_t *front, *back, *other_node;
-	mplane_t clipplane, *plane;
-	portal_t *portal, *nextportal, *nodeportal, *splitportal, *temp;
-	int numfrontpoints, numbackpoints;
-	double *frontpoints, *backpoints;
-
-	// if a leaf, we're done
-	if (!node->plane)
-		return;
-
-	// get some space for our clipping operations to use
-	if (portalpointsbuffersize < portalpointsbufferoffset + 6*MAX_PORTALPOINTS)
-	{
-		portalpointsbuffersize = portalpointsbufferoffset * 2;
-		portalpointsbuffer = (double *)Mem_Realloc(loadmodel->mempool, portalpointsbuffer, portalpointsbuffersize * sizeof(*portalpointsbuffer));
-	}
-	frontpoints = portalpointsbuffer + portalpointsbufferoffset;
-	portalpointsbufferoffset += 3*MAX_PORTALPOINTS;
-	backpoints = portalpointsbuffer + portalpointsbufferoffset;
-	portalpointsbufferoffset += 3*MAX_PORTALPOINTS;
-
-	plane = node->plane;
-
-	front = node->children[0];
-	back = node->children[1];
-	if (front == back)
-		Host_Error("Mod_Q1BSP_RecursiveNodePortals: corrupt node hierarchy");
-
-	// create the new portal by generating a polygon for the node plane,
-	// and clipping it by all of the other portals(which came from nodes above this one)
-	nodeportal = (portal_t *)Mem_ExpandableArray_AllocRecord(&portalarray);
-	nodeportal->plane = *plane;
-
-	// TODO: calculate node bounding boxes during recursion and calculate a maximum plane size accordingly to improve precision (as most maps do not need 1 billion unit plane polygons)
-	PolygonD_QuadForPlane(nodeportal->points, nodeportal->plane.normal[0], nodeportal->plane.normal[1], nodeportal->plane.normal[2], nodeportal->plane.dist, 1024.0*1024.0*1024.0);
-	nodeportal->numpoints = 4;
-	// side = 0;	// shut up compiler warning -> should be no longer needed, Host_Error is declared noreturn now
-	for (portal = (portal_t *)node->portals;portal;portal = portal->next[side])
-	{
-		clipplane = portal->plane;
-		if (portal->nodes[0] == portal->nodes[1])
-			Host_Error("Mod_Q1BSP_RecursiveNodePortals: portal has same node on both sides(1)");
-		if (portal->nodes[0] == node)
-			side = 0;
-		else if (portal->nodes[1] == node)
-		{
-			clipplane.dist = -clipplane.dist;
-			VectorNegate(clipplane.normal, clipplane.normal);
-			side = 1;
-		}
-		else
-		{
-			Host_Error("Mod_Q1BSP_RecursiveNodePortals: mislinked portal");
-			side = 0; // hush warning
-		}
-
-		for (i = 0;i < nodeportal->numpoints*3;i++)
-			frontpoints[i] = nodeportal->points[i];
-		PolygonD_Divide(nodeportal->numpoints, frontpoints, clipplane.normal[0], clipplane.normal[1], clipplane.normal[2], clipplane.dist, PORTAL_DIST_EPSILON, MAX_PORTALPOINTS, nodeportal->points, &nodeportal->numpoints, 0, NULL, NULL, NULL);
-		if (nodeportal->numpoints <= 0 || nodeportal->numpoints >= MAX_PORTALPOINTS)
-			break;
-	}
-
-	if (nodeportal->numpoints < 3)
-	{
-		Con_Print("Mod_Q1BSP_RecursiveNodePortals: WARNING: new portal was clipped away\n");
-		nodeportal->numpoints = 0;
-	}
-	else if (nodeportal->numpoints >= MAX_PORTALPOINTS)
-	{
-		Con_Print("Mod_Q1BSP_RecursiveNodePortals: WARNING: new portal has too many points\n");
-		nodeportal->numpoints = 0;
-	}
-
-	AddPortalToNodes(nodeportal, front, back);
-
-	// split the portals of this node along this node's plane and assign them to the children of this node
-	// (migrating the portals downward through the tree)
-	for (portal = (portal_t *)node->portals;portal;portal = nextportal)
-	{
-		if (portal->nodes[0] == portal->nodes[1])
-			Host_Error("Mod_Q1BSP_RecursiveNodePortals: portal has same node on both sides(2)");
-		if (portal->nodes[0] == node)
-			side = 0;
-		else if (portal->nodes[1] == node)
-			side = 1;
-		else
-		{
-			Host_Error("Mod_Q1BSP_RecursiveNodePortals: mislinked portal");
-			side = 0; // hush warning
-		}
-		nextportal = portal->next[side];
-		if (!portal->numpoints)
-			continue;
-
-		other_node = portal->nodes[!side];
-		RemovePortalFromNodes(portal);
-
-		// cut the portal into two portals, one on each side of the node plane
-		PolygonD_Divide(portal->numpoints, portal->points, plane->normal[0], plane->normal[1], plane->normal[2], plane->dist, PORTAL_DIST_EPSILON, MAX_PORTALPOINTS, frontpoints, &numfrontpoints, MAX_PORTALPOINTS, backpoints, &numbackpoints, NULL);
-
-		if (!numfrontpoints)
-		{
-			if (side == 0)
-				AddPortalToNodes(portal, back, other_node);
-			else
-				AddPortalToNodes(portal, other_node, back);
-			continue;
-		}
-		if (!numbackpoints)
-		{
-			if (side == 0)
-				AddPortalToNodes(portal, front, other_node);
-			else
-				AddPortalToNodes(portal, other_node, front);
-			continue;
-		}
-
-		// the portal is split
-		splitportal = (portal_t *)Mem_ExpandableArray_AllocRecord(&portalarray);
-		temp = splitportal->chain;
-		*splitportal = *portal;
-		splitportal->chain = temp;
-		for (i = 0;i < numbackpoints*3;i++)
-			splitportal->points[i] = backpoints[i];
-		splitportal->numpoints = numbackpoints;
-		for (i = 0;i < numfrontpoints*3;i++)
-			portal->points[i] = frontpoints[i];
-		portal->numpoints = numfrontpoints;
-
-		if (side == 0)
-		{
-			AddPortalToNodes(portal, front, other_node);
-			AddPortalToNodes(splitportal, back, other_node);
-		}
-		else
-		{
-			AddPortalToNodes(portal, other_node, front);
-			AddPortalToNodes(splitportal, other_node, back);
-		}
-	}
-
-	Mod_Q1BSP_RecursiveNodePortals(front);
-	Mod_Q1BSP_RecursiveNodePortals(back);
-
-	portalpointsbufferoffset -= 6*MAX_PORTALPOINTS;
-}
-
-static void Mod_Q1BSP_MakePortals(void)
-{
-	Mem_ExpandableArray_NewArray(&portalarray, loadmodel->mempool, sizeof(portal_t), 1020*1024/sizeof(portal_t));
-	portalpointsbufferoffset = 0;
-	portalpointsbuffersize = 6*MAX_PORTALPOINTS*128;
-	portalpointsbuffer = (double *)Mem_Alloc(loadmodel->mempool, portalpointsbuffersize * sizeof(*portalpointsbuffer));
-	Mod_Q1BSP_RecursiveNodePortals(loadmodel->brush.data_nodes + loadmodel->brushq1.hulls[0].firstclipnode);
-	Mem_Free(portalpointsbuffer);
-	portalpointsbuffer = NULL;
-	portalpointsbufferoffset = 0;
-	portalpointsbuffersize = 0;
-	Mod_Q1BSP_FinalizePortals();
-	Mem_ExpandableArray_FreeArray(&portalarray);
-}
-
 //Returns PVS data for a given point
 //(note: can return NULL)
 static unsigned char *Mod_Q1BSP_GetPVS(dp_model_t *model, const vec3_t p)
@@ -3957,9 +3551,6 @@ void Mod_Q1BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	mod->brushq1.num_compressedpvs = 0;
 
 	Mod_Q1BSP_MakeHull0();
-	if (mod_bsp_portalize.integer)
-		Mod_Q1BSP_MakePortals();
-
 	mod->numframes = 2;		// regular and alternate animation
 	mod->numskins = 1;
 
@@ -4162,7 +3753,7 @@ void Mod_Q1BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		}
 	}
 
-	Con_DPrintf("Stats for q1bsp model \"%s\": %i faces, %i nodes, %i leafs, %i visleafs, %i visleafportals, mesh: %i vertices, %i triangles, %i surfaces\n", loadmodel->name, loadmodel->num_surfaces, loadmodel->brush.num_nodes, loadmodel->brush.num_leafs, mod->brush.num_pvsclusters, loadmodel->brush.num_portals, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->num_surfaces);
+	Con_DPrintf("Stats for q1bsp model \"%s\": %i faces, %i nodes, %i leafs, %i visleafs, mesh: %i vertices, %i triangles, %i surfaces\n", loadmodel->name, loadmodel->num_surfaces, loadmodel->brush.num_nodes, loadmodel->brush.num_leafs, mod->brush.num_pvsclusters, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->num_surfaces);
 }
 
 int Mod_Q2BSP_SuperContentsFromNativeContents(dp_model_t *model, int nativecontents)
@@ -4942,9 +4533,6 @@ static void Mod_Q2BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	mod->brushq1.num_compressedpvs = 0;
 
 	// the MakePortals code works fine on the q2bsp data as well
-	if (mod_bsp_portalize.integer)
-		Mod_Q1BSP_MakePortals();
-
 	mod->numframes = 0;		// q2bsp animations are kind of special, frame is unbounded...
 	mod->numskins = 1;
 
@@ -5133,7 +4721,7 @@ static void Mod_Q2BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 	mod = loadmodel;
 
-	Con_DPrintf("Stats for q2bsp model \"%s\": %i faces, %i nodes, %i leafs, %i clusters, %i clusterportals, mesh: %i vertices, %i triangles, %i surfaces\n", loadmodel->name, loadmodel->num_surfaces, loadmodel->brush.num_nodes, loadmodel->brush.num_leafs, mod->brush.num_pvsclusters, loadmodel->brush.num_portals, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->num_surfaces);
+	Con_DPrintf("Stats for q2bsp model \"%s\": %i faces, %i nodes, %i leafs, %i clusters, mesh: %i vertices, %i triangles, %i surfaces\n", loadmodel->name, loadmodel->num_surfaces, loadmodel->brush.num_nodes, loadmodel->brush.num_leafs, mod->brush.num_pvsclusters, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->num_surfaces);
 }
 
 static int Mod_Q3BSP_SuperContentsFromNativeContents(dp_model_t *model, int nativecontents);
@@ -7905,9 +7493,6 @@ static void Mod_Q3BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->brush.numsubmodels = loadmodel->brushq3.num_models;
 
 	// the MakePortals code works fine on the q3bsp data as well
-	if (mod_bsp_portalize.integer)
-		Mod_Q1BSP_MakePortals();
-
 	// FIXME: shader alpha should replace r_wateralpha support in q3bsp
 	loadmodel->brush.supportwateralpha = true;
 
@@ -8046,7 +7631,7 @@ static void Mod_Q3BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		}
 	}
 
-	Con_DPrintf("Stats for q3bsp model \"%s\": %i faces, %i nodes, %i leafs, %i clusters, %i clusterportals, mesh: %i vertices, %i triangles, %i surfaces\n", loadmodel->name, loadmodel->num_surfaces, loadmodel->brush.num_nodes, loadmodel->brush.num_leafs, mod->brush.num_pvsclusters, loadmodel->brush.num_portals, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->num_surfaces);
+	Con_DPrintf("Stats for q3bsp model \"%s\": %i faces, %i nodes, %i leafs, %i clusters, mesh: %i vertices, %i triangles, %i surfaces\n", loadmodel->name, loadmodel->num_surfaces, loadmodel->brush.num_nodes, loadmodel->brush.num_leafs, mod->brush.num_pvsclusters, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->num_surfaces);
 }
 
 void Mod_IBSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
@@ -8679,5 +8264,5 @@ void Mod_OBJ_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	mod = loadmodel;
 	Mem_Free(submodelfirstsurface);
 
-	Con_DPrintf("Stats for obj model \"%s\": %i faces, %i nodes, %i leafs, %i clusters, %i clusterportals, mesh: %i vertices, %i triangles, %i surfaces\n", loadmodel->name, loadmodel->num_surfaces, loadmodel->brush.num_nodes, loadmodel->brush.num_leafs, mod->brush.num_pvsclusters, loadmodel->brush.num_portals, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->num_surfaces);
+	Con_DPrintf("Stats for obj model \"%s\": %i faces, %i nodes, %i leafs, %i clusters, mesh: %i vertices, %i triangles, %i surfaces\n", loadmodel->name, loadmodel->num_surfaces, loadmodel->brush.num_nodes, loadmodel->brush.num_leafs, mod->brush.num_pvsclusters, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->num_surfaces);
 }

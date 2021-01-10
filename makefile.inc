@@ -112,7 +112,6 @@ OBJ_COMMON= \
 	netconn.o \
 	palette.o \
 	polygon.o \
-	portals.o \
 	protocol.o \
 	prvm_cmds.o \
 	prvm_edict.o \
