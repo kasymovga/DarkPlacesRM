@@ -1240,7 +1240,6 @@ void Mod_SpriteInit(void);
 // loaders
 void Mod_Q1BSP_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_IBSP_Load(dp_model_t *mod, void *buffer, void *bufferend);
-void Mod_MAP_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_OBJ_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend);
