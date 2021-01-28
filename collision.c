@@ -18,7 +18,7 @@ cvar_t collision_cache = {0, "collision_cache", "1", "store results of collision
 //cvar_t collision_triangle_neighborsides = {0, "collision_triangle_neighborsides", "1", "override automatic side generation if triangle has neighbors with face planes that form a convex edge (perfect solution, but can not work for all edges)"};
 cvar_t collision_triangle_bevelsides = {0, "collision_triangle_bevelsides", "0", "generate sloped edge planes on triangles - if 0, see axialedgeplanes"};
 cvar_t collision_triangle_axialsides = {0, "collision_triangle_axialsides", "1", "generate axially-aligned edge planes on triangles - otherwise use perpendicular edge planes"};
-cvar_t collision_triangle_directional = {0, "collision_triangle_directional", "0", "check trace direction for triangles"};
+cvar_t collision_triangle_directional = {0, "collision_triangle_directional", "-1", "check trace direction for triangles: -1 compatible behavior, 0 disable, 1 enable"};
 cvar_t collision_brush_buffer_extra_multiplier = {0, "collision_brush_buffer_extra_multiplier", "1", "Multiplier for memory amount using for build brush collisions. 1 or less is for compatible behavior. >1 can prevent issues with brushes which have too many sides."};
 
 mempool_t *collision_mempool;
@@ -1004,7 +1004,7 @@ void Collision_TraceBrushTriangleMeshFloat(trace_t *trace, const colbrushf_t *th
 					VectorCopy(vertex3f + element3i[tri * 3 + 1] * 3, points[1].v);
 					VectorCopy(vertex3f + element3i[tri * 3 + 2] * 3, points[2].v);
 					//Direction check
-					if (collision_triangle_directional.integer)
+					if (collision_triangle_directional.integer > 0)
 					{
 						VectorSubtract(points[0].v, points[1].v, edge01);
 						VectorSubtract(points[2].v, points[1].v, edge21);
@@ -1034,7 +1034,7 @@ void Collision_TraceBrushTriangleMeshFloat(trace_t *trace, const colbrushf_t *th
 				VectorCopy(vertex3f + element3i[1] * 3, points[1].v);
 				VectorCopy(vertex3f + element3i[2] * 3, points[2].v);
 				//Direction check
-				if (collision_triangle_directional.integer)
+				if (collision_triangle_directional.integer > 0)
 				{
 					VectorSubtract(points[0].v, points[1].v, edge01);
 					VectorSubtract(points[2].v, points[1].v, edge21);
@@ -1061,7 +1061,7 @@ void Collision_TraceBrushTriangleMeshFloat(trace_t *trace, const colbrushf_t *th
 			VectorCopy(vertex3f + element3i[1] * 3, points[1].v);
 			VectorCopy(vertex3f + element3i[2] * 3, points[2].v);
 			//Direction check
-			if (collision_triangle_directional.integer)
+			if (collision_triangle_directional.integer > 0)
 			{
 				VectorSubtract(points[0].v, points[1].v, edge01);
 				VectorSubtract(points[2].v, points[1].v, edge21);
@@ -1117,7 +1117,7 @@ void Collision_TraceBrushTriangleFloat(trace_t *trace, const colbrushf_t *thisbr
 	colpointf_t edgedirs[3];
 	colplanef_t planes[5];
 	colbrushf_t brush;
-	if (collision_triangle_directional.integer)
+	if (collision_triangle_directional.integer > 0)
 	{
 		float faceplanenormal[3], edge01[3], edge21[3], tracedir[3];
 		VectorSubtract(thisbrush_end->mins, thisbrush_start->mins, tracedir);
@@ -1302,18 +1302,26 @@ void Collision_TraceLineTriangleFloat(trace_t *trace, const vec3_t linestart, co
 	// if start point is on the back side there is no collision
 	// (we don't care about traces going through the triangle the wrong way)
 
-	// calculate the start distance
-	// 6 ops
-	d1 = DotProduct(faceplanenormal, linestart);
-	if (d1 <= faceplanedist)
-		return;
+	if (collision_triangle_directional.integer) {
+		// calculate the start distance
+		// 6 ops
+		d1 = DotProduct(faceplanenormal, linestart);
+		if (d1 <= faceplanedist)
+			return;
 
-	// calculate the end distance
-	// 6 ops
-	d2 = DotProduct(faceplanenormal, lineend);
-	// if both are in front, there is no collision
-	if (d2 >= faceplanedist)
-		return;
+		// calculate the end distance
+		// 6 ops
+		d2 = DotProduct(faceplanenormal, lineend);
+		// if both are in front, there is no collision
+		if (d2 >= faceplanedist)
+			return;
+	} else {
+		d1 = DotProduct(faceplanenormal, linestart);
+		d2 = DotProduct(faceplanenormal, lineend);
+		// if both are in front or back, there is no collision
+		if ((d1 >= faceplanedist && d2 >= faceplanedist) || (d1 <= faceplanedist && d2 <= faceplanedist))
+			return;
+	}
 
 	// from here on we know d1 is >= 0 and d2 is < 0
 	// this means the line starts infront and ends behind, passing through it
