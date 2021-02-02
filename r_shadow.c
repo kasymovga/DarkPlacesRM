@@ -298,7 +298,6 @@ cvar_t r_shadow_frontsidecasting = {0, "r_shadow_frontsidecasting", "1", "whethe
 cvar_t r_shadow_realtime_dlight = {CVAR_SAVE, "r_shadow_realtime_dlight", "1", "enables rendering of dynamic lights such as explosions and rocket light"};
 cvar_t r_shadow_realtime_dlight_shadows = {CVAR_SAVE, "r_shadow_realtime_dlight_shadows", "1", "enables rendering of shadows from dynamic lights"};
 cvar_t r_shadow_realtime_dlight_svbspculling = {0, "r_shadow_realtime_dlight_svbspculling", "0", "enables svbsp optimization on dynamic lights (very slow!)"};
-cvar_t r_shadow_realtime_dlight_portalculling = {0, "r_shadow_realtime_dlight_portalculling", "0", "enables portal optimization on dynamic lights (slow!)"};
 cvar_t r_shadow_realtime_world = {CVAR_SAVE, "r_shadow_realtime_world", "0", "enables rendering of full world lighting (whether loaded from the map, or a .rtlights file, or a .ent file, or a .lights file produced by hlight)"};
 cvar_t r_shadow_realtime_world_importlightentitiesfrommap = {0, "r_shadow_realtime_world_importlightentitiesfrommap", "1", "load lights from .ent file or map entities at startup if no .rtlights or .lights file is present (if set to 2, always use the .ent or map entities)"};
 cvar_t r_shadow_realtime_world_lightmaps = {CVAR_SAVE, "r_shadow_realtime_world_lightmaps", "0", "brightness to render lightmaps when using full world lighting, try 0.5 for a tenebrae-like appearance"};
@@ -306,7 +305,6 @@ cvar_t r_shadow_realtime_world_shadows = {CVAR_SAVE, "r_shadow_realtime_world_sh
 cvar_t r_shadow_realtime_world_compile = {0, "r_shadow_realtime_world_compile", "1", "enables compilation of world lights for higher performance rendering"};
 cvar_t r_shadow_realtime_world_compileshadow = {0, "r_shadow_realtime_world_compileshadow", "1", "enables compilation of shadows from world lights for higher performance rendering"};
 cvar_t r_shadow_realtime_world_compilesvbsp = {0, "r_shadow_realtime_world_compilesvbsp", "1", "enables svbsp optimization during compilation (slower than compileportalculling but more exact)"};
-cvar_t r_shadow_realtime_world_compileportalculling = {0, "r_shadow_realtime_world_compileportalculling", "1", "enables portal-based culling optimization during compilation (overrides compilesvbsp)"};
 cvar_t r_shadow_scissor = {0, "r_shadow_scissor", "1", "use scissor optimization of light rendering (restricts rendering to the portion of the screen affected by the light)"};
 cvar_t r_shadow_shadowmapping = {CVAR_SAVE, "r_shadow_shadowmapping", "1", "enables use of shadowmapping (depth texture sampling) instead of stencil shadow volumes, requires gl_fbo 1"};
 cvar_t r_shadow_shadowmapping_filterquality = {CVAR_SAVE, "r_shadow_shadowmapping_filterquality", "-1", "shadowmap filter modes: -1 = auto-select, 0 = no filtering, 1 = bilinear, 2 = bilinear 2x2 blur (fast), 3 = 3x3 blur (moderate), 4 = 4x4 blur (slow)"};
@@ -758,14 +756,12 @@ void R_Shadow_Init(void)
 	Cvar_RegisterVariable(&r_shadow_realtime_dlight);
 	Cvar_RegisterVariable(&r_shadow_realtime_dlight_shadows);
 	Cvar_RegisterVariable(&r_shadow_realtime_dlight_svbspculling);
-	Cvar_RegisterVariable(&r_shadow_realtime_dlight_portalculling);
 	Cvar_RegisterVariable(&r_shadow_realtime_world);
 	Cvar_RegisterVariable(&r_shadow_realtime_world_lightmaps);
 	Cvar_RegisterVariable(&r_shadow_realtime_world_shadows);
 	Cvar_RegisterVariable(&r_shadow_realtime_world_compile);
 	Cvar_RegisterVariable(&r_shadow_realtime_world_compileshadow);
 	Cvar_RegisterVariable(&r_shadow_realtime_world_compilesvbsp);
-	Cvar_RegisterVariable(&r_shadow_realtime_world_compileportalculling);
 	Cvar_RegisterVariable(&r_shadow_scissor);
 	Cvar_RegisterVariable(&r_shadow_shadowmapping);
 	Cvar_RegisterVariable(&r_shadow_shadowmapping_vsdct);
