@@ -7645,11 +7645,6 @@ void Mod_IBSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		Host_Error("Mod_IBSP_Load: unknown/unsupported version %i", i);
 }
 
-void Mod_MAP_Load(dp_model_t *mod, void *buffer, void *bufferend)
-{
-	Host_Error("Mod_MAP_Load: not yet implemented");
-}
-
 typedef struct objvertex_s
 {
 	int nextindex;

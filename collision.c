@@ -18,6 +18,8 @@ cvar_t collision_cache = {0, "collision_cache", "1", "store results of collision
 //cvar_t collision_triangle_neighborsides = {0, "collision_triangle_neighborsides", "1", "override automatic side generation if triangle has neighbors with face planes that form a convex edge (perfect solution, but can not work for all edges)"};
 cvar_t collision_triangle_bevelsides = {0, "collision_triangle_bevelsides", "0", "generate sloped edge planes on triangles - if 0, see axialedgeplanes"};
 cvar_t collision_triangle_axialsides = {0, "collision_triangle_axialsides", "1", "generate axially-aligned edge planes on triangles - otherwise use perpendicular edge planes"};
+cvar_t collision_triangle_directional = {0, "collision_triangle_directional", "-1", "check trace direction for triangles: -1 compatible behavior, 0 disable, 1 enable"};
+cvar_t collision_brush_buffer_extra_multiplier = {0, "collision_brush_buffer_extra_multiplier", "1", "Multiplier for memory amount using for build brush collisions. 1 or less is for compatible behavior. >1 can prevent issues with brushes which have too many sides."};
 
 mempool_t *collision_mempool;
 
@@ -32,6 +34,8 @@ void Collision_Init (void)
 //	Cvar_RegisterVariable(&collision_triangle_neighborsides);
 	Cvar_RegisterVariable(&collision_triangle_bevelsides);
 	Cvar_RegisterVariable(&collision_triangle_axialsides);
+	Cvar_RegisterVariable(&collision_triangle_directional);
+	Cvar_RegisterVariable(&collision_brush_buffer_extra_multiplier);
 	collision_mempool = Mem_AllocPool("collision cache", 0, NULL);
 	Collision_Cache_Init(collision_mempool);
 }
@@ -163,18 +167,19 @@ colbrushf_t *Collision_NewBrushFromPlanes(mempool_t *mempool, int numoriginalpla
 {
 	// TODO: planesbuf could be replaced by a remapping table
 	int j, k, w, xyzflags;
-	int numpointsbuf = 0, maxpointsbuf = 256, numedgedirsbuf = 0, maxedgedirsbuf = 256, numplanesbuf = 0, maxplanesbuf = 256, numelementsbuf = 0, maxelementsbuf = 256;
+	int multiplier = bound(1, collision_brush_buffer_extra_multiplier.integer, 64);
+	int numpointsbuf = 0, maxpointsbuf = 256 * multiplier, numedgedirsbuf = 0, maxedgedirsbuf = 256 * multiplier, numplanesbuf = 0, maxplanesbuf = 256 * multiplier, numelementsbuf = 0, maxelementsbuf = 256 * multiplier;
 	int isaabb = true;
 	double maxdist;
 	colbrushf_t *brush;
-	colpointf_t pointsbuf[256];
-	colpointf_t edgedirsbuf[256];
-	colplanef_t planesbuf[256];
-	int elementsbuf[1024];
-	int polypointbuf[256];
-	int pmaxpoints = 64;
+	colpointf_t pointsbuf[maxpointsbuf];
+	colpointf_t edgedirsbuf[maxedgedirsbuf];
+	colplanef_t planesbuf[maxplanesbuf];
+	int elementsbuf[maxelementsbuf];
+	int pmaxpoints = 64 * multiplier;
+	int polypointbuf[pmaxpoints];
 	int pnumpoints;
-	double p[2][3*64];
+	double p[2][3*pmaxpoints];
 #if 0
 	// enable these if debugging to avoid seeing garbage in unused data-
 	memset(pointsbuf, 0, sizeof(pointsbuf));
@@ -188,7 +193,7 @@ colbrushf_t *Collision_NewBrushFromPlanes(mempool_t *mempool, int numoriginalpla
 	// check if there are too many planes and skip the brush
 	if (numoriginalplanes >= maxplanesbuf)
 	{
-		Con_DPrint("Collision_NewBrushFromPlanes: failed to build collision brush: too many planes for buffer\n");
+		Con_Print("Collision_NewBrushFromPlanes: failed to build collision brush: too many planes for buffer\n");
 		return NULL;
 	}
 
@@ -255,14 +260,14 @@ colbrushf_t *Collision_NewBrushFromPlanes(mempool_t *mempool, int numoriginalpla
 		// check if there are too many polygon vertices for buffer
 		if (pnumpoints > pmaxpoints)
 		{
-			Con_DPrint("Collision_NewBrushFromPlanes: failed to build collision brush: too many points for buffer\n");
+			Con_Print("Collision_NewBrushFromPlanes: failed to build collision brush: too many points for buffer\n");
 			return NULL;
 		}
 
 		// check if there are too many triangle elements for buffer
 		if (numelementsbuf + (pnumpoints - 2) * 3 > maxelementsbuf)
 		{
-			Con_DPrint("Collision_NewBrushFromPlanes: failed to build collision brush: too many triangle elements for buffer\n");
+			Con_Print("Collision_NewBrushFromPlanes: failed to build collision brush: too many triangle elements for buffer\n");
 			return NULL;
 		}
 
@@ -285,7 +290,7 @@ colbrushf_t *Collision_NewBrushFromPlanes(mempool_t *mempool, int numoriginalpla
 				// check if there are too many and skip the brush
 				if (numpointsbuf >= maxpointsbuf)
 				{
-					Con_DPrint("Collision_NewBrushFromPlanes: failed to build collision brush: too many points for buffer\n");
+					Con_Print("Collision_NewBrushFromPlanes: failed to build collision brush: too many points for buffer\n");
 					return NULL;
 				}
 				// add the new one
@@ -335,7 +340,7 @@ colbrushf_t *Collision_NewBrushFromPlanes(mempool_t *mempool, int numoriginalpla
 				// check if there are too many and skip the brush
 				if (numedgedirsbuf >= maxedgedirsbuf)
 				{
-					Con_DPrint("Collision_NewBrushFromPlanes: failed to build collision brush: too many edgedirs for buffer\n");
+					Con_Print("Collision_NewBrushFromPlanes: failed to build collision brush: too many edgedirs for buffer\n");
 					return NULL;
 				}
 				// add the new one
@@ -352,7 +357,7 @@ colbrushf_t *Collision_NewBrushFromPlanes(mempool_t *mempool, int numoriginalpla
 	// if nothing is left, there's nothing to allocate
 	if (numplanesbuf < 4)
 	{
-		Con_DPrintf("Collision_NewBrushFromPlanes: failed to build collision brush: %i triangles, %i planes (input was %i planes), %i vertices\n", numelementsbuf / 3, numplanesbuf, numoriginalplanes, numpointsbuf);
+		Con_Printf("Collision_NewBrushFromPlanes: failed to build collision brush: %i triangles, %i planes (input was %i planes), %i vertices\n", numelementsbuf / 3, numplanesbuf, numoriginalplanes, numpointsbuf);
 		return NULL;
 	}
 
@@ -959,10 +964,12 @@ static void Collision_SnapCopyPoints(int numpoints, const colpointf_t *in, colpo
 void Collision_TraceBrushTriangleMeshFloat(trace_t *trace, const colbrushf_t *thisbrush_start, const colbrushf_t *thisbrush_end, int numtriangles, const int *element3i, const float *vertex3f, int stride, float *bbox6f, int supercontents, int q3surfaceflags, const texture_t *texture, const vec3_t segmentmins, const vec3_t segmentmaxs)
 {
 	int i;
+	float faceplanenormal[3], edge01[3], edge21[3], tracedir[3];
 	colpointf_t points[3];
 	colpointf_t edgedirs[3];
 	colplanef_t planes[5];
 	colbrushf_t brush;
+	VectorSubtract(thisbrush_end->mins, thisbrush_start->mins, tracedir);
 	memset(&brush, 0, sizeof(brush));
 	brush.isaabb = false;
 	brush.hasaabbplanes = false;
@@ -996,6 +1003,18 @@ void Collision_TraceBrushTriangleMeshFloat(trace_t *trace, const colbrushf_t *th
 					VectorCopy(vertex3f + element3i[tri * 3 + 0] * 3, points[0].v);
 					VectorCopy(vertex3f + element3i[tri * 3 + 1] * 3, points[1].v);
 					VectorCopy(vertex3f + element3i[tri * 3 + 2] * 3, points[2].v);
+					//Direction check
+					if (collision_triangle_directional.integer > 0)
+					{
+						VectorSubtract(points[0].v, points[1].v, edge01);
+						VectorSubtract(points[2].v, points[1].v, edge21);
+						CrossProduct(edge01, edge21, faceplanenormal);
+						if (DotProduct(faceplanenormal, faceplanenormal) < 0.0001f)
+							continue;
+
+						if (DotProduct(faceplanenormal, tracedir) >= 0)
+							continue;
+					}
 					Collision_SnapCopyPoints(brush.numpoints, points, points, COLLISION_SNAPSCALE, COLLISION_SNAP);
 					Collision_CalcEdgeDirsForPolygonBrushFloat(&brush);
 					Collision_CalcPlanesForTriangleBrushFloat(&brush);
@@ -1014,6 +1033,18 @@ void Collision_TraceBrushTriangleMeshFloat(trace_t *trace, const colbrushf_t *th
 				VectorCopy(vertex3f + element3i[0] * 3, points[0].v);
 				VectorCopy(vertex3f + element3i[1] * 3, points[1].v);
 				VectorCopy(vertex3f + element3i[2] * 3, points[2].v);
+				//Direction check
+				if (collision_triangle_directional.integer > 0)
+				{
+					VectorSubtract(points[0].v, points[1].v, edge01);
+					VectorSubtract(points[2].v, points[1].v, edge21);
+					CrossProduct(edge01, edge21, faceplanenormal);
+					if (DotProduct(faceplanenormal, faceplanenormal) < 0.0001f)
+						continue;
+
+					if (DotProduct(faceplanenormal, tracedir) >= 0)
+						continue;
+				}
 				Collision_SnapCopyPoints(brush.numpoints, points, points, COLLISION_SNAPSCALE, COLLISION_SNAP);
 				Collision_CalcEdgeDirsForPolygonBrushFloat(&brush);
 				Collision_CalcPlanesForTriangleBrushFloat(&brush);
@@ -1029,6 +1060,18 @@ void Collision_TraceBrushTriangleMeshFloat(trace_t *trace, const colbrushf_t *th
 			VectorCopy(vertex3f + element3i[0] * 3, points[0].v);
 			VectorCopy(vertex3f + element3i[1] * 3, points[1].v);
 			VectorCopy(vertex3f + element3i[2] * 3, points[2].v);
+			//Direction check
+			if (collision_triangle_directional.integer > 0)
+			{
+				VectorSubtract(points[0].v, points[1].v, edge01);
+				VectorSubtract(points[2].v, points[1].v, edge21);
+				CrossProduct(edge01, edge21, faceplanenormal);
+				if (DotProduct(faceplanenormal, faceplanenormal) < 0.0001f)
+					continue;
+
+				if (DotProduct(faceplanenormal, tracedir) >= 0)
+					continue;
+			}
 			Collision_SnapCopyPoints(brush.numpoints, points, points, COLLISION_SNAPSCALE, COLLISION_SNAP);
 			Collision_CalcEdgeDirsForPolygonBrushFloat(&brush);
 			Collision_CalcPlanesForTriangleBrushFloat(&brush);
@@ -1074,6 +1117,19 @@ void Collision_TraceBrushTriangleFloat(trace_t *trace, const colbrushf_t *thisbr
 	colpointf_t edgedirs[3];
 	colplanef_t planes[5];
 	colbrushf_t brush;
+	if (collision_triangle_directional.integer > 0)
+	{
+		float faceplanenormal[3], edge01[3], edge21[3], tracedir[3];
+		VectorSubtract(thisbrush_end->mins, thisbrush_start->mins, tracedir);
+		VectorSubtract(v0, v1, edge01);
+		VectorSubtract(v2, v1, edge21);
+		CrossProduct(edge01, edge21, faceplanenormal);
+		if (DotProduct(faceplanenormal, faceplanenormal) < 0.0001f)
+			return;
+
+		if (DotProduct(faceplanenormal, tracedir) >= 0)
+			return;
+	}
 	memset(&brush, 0, sizeof(brush));
 	brush.isaabb = false;
 	brush.hasaabbplanes = false;
@@ -1246,18 +1302,26 @@ void Collision_TraceLineTriangleFloat(trace_t *trace, const vec3_t linestart, co
 	// if start point is on the back side there is no collision
 	// (we don't care about traces going through the triangle the wrong way)
 
-	// calculate the start distance
-	// 6 ops
-	d1 = DotProduct(faceplanenormal, linestart);
-	if (d1 <= faceplanedist)
-		return;
+	if (collision_triangle_directional.integer) {
+		// calculate the start distance
+		// 6 ops
+		d1 = DotProduct(faceplanenormal, linestart);
+		if (d1 <= faceplanedist)
+			return;
 
-	// calculate the end distance
-	// 6 ops
-	d2 = DotProduct(faceplanenormal, lineend);
-	// if both are in front, there is no collision
-	if (d2 >= faceplanedist)
-		return;
+		// calculate the end distance
+		// 6 ops
+		d2 = DotProduct(faceplanenormal, lineend);
+		// if both are in front, there is no collision
+		if (d2 >= faceplanedist)
+			return;
+	} else {
+		d1 = DotProduct(faceplanenormal, linestart);
+		d2 = DotProduct(faceplanenormal, lineend);
+		// if both are in front or back, there is no collision
+		if ((d1 >= faceplanedist && d2 >= faceplanedist) || (d1 <= faceplanedist && d2 <= faceplanedist))
+			return;
+	}
 
 	// from here on we know d1 is >= 0 and d2 is < 0
 	// this means the line starts infront and ends behind, passing through it
