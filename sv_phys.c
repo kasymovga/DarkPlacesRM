@@ -3022,7 +3022,7 @@ static void SV_Physics_ClientEntity_PreThink(prvm_edict_t *ent)
 	if (host_client->clmovement_inputtimeout <= 0)
 	{
 		SV_ClientThink();
-		//host_client->cmd.time = max(host_client->cmd.time, sv.time);
+		host_client->cmd.time += sv.frametime;
 	}
 
 	// make sure the velocity is still sane (not a NaN)
