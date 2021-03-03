@@ -671,6 +671,8 @@ particle_t *CL_NewParticle(const vec3_t sortorigin, unsigned short ptypeindex, i
 	memset(part, 0, sizeof(*part));
 	VectorCopy(sortorigin, part->sortorigin);
 	part->typeindex = ptypeindex;
+	part->lasttime = cl.time;
+	part->cachetime = 0;
 	part->blendmode = blendmode;
 	if(orientation == PARTICLE_HBEAM || orientation == PARTICLE_VBEAM)
 	{
@@ -2009,6 +2011,8 @@ void CL_ParticleRain (const vec3_t mins, const vec3_t maxs, const vec3_t dir, in
 }
 
 cvar_t r_drawparticles = {0, "r_drawparticles", "1", "enables drawing of particles"};
+cvar_t r_drawparticles_ticrate_min = {0, "r_drawparticles_ticrate_min", "0.01666", "minimal frame time for particles"};
+cvar_t r_drawparticles_ticrate_factor = {0, "r_drawparticles_ticrate_factor", "3", "frame time factor relatively client fps for particles"};
 static cvar_t r_drawparticles_drawdistance = {CVAR_SAVE, "r_drawparticles_drawdistance", "2000", "particles further than drawdistance*size will not be drawn"};
 static cvar_t r_drawparticles_nearclip_min = {CVAR_SAVE, "r_drawparticles_nearclip_min", "4", "particles closer than drawnearclip_min will not be drawn"};
 static cvar_t r_drawparticles_nearclip_max = {CVAR_SAVE, "r_drawparticles_nearclip_max", "4", "particles closer than drawnearclip_min will be faded"};
@@ -2483,6 +2487,8 @@ void R_Particles_Init (void)
 	}
 
 	Cvar_RegisterVariable(&r_drawparticles);
+	Cvar_RegisterVariable(&r_drawparticles_ticrate_min);
+	Cvar_RegisterVariable(&r_drawparticles_ticrate_factor);
 	Cvar_RegisterVariable(&r_drawparticles_drawdistance);
 	Cvar_RegisterVariable(&r_drawparticles_nearclip_min);
 	Cvar_RegisterVariable(&r_drawparticles_nearclip_max);
@@ -2647,7 +2653,7 @@ static void R_DrawParticle_TransparentCallback(const entity_render_t *ent, const
 	vec3_t vecorg, vecvel, baseright, baseup;
 	int surfacelistindex;
 	int batchstart, batchcount;
-	const particle_t *p;
+	particle_t *p;
 	pblend_t blendmode;
 	rtexture_t *texture;
 	float *v3f, *t2f, *c4f;
@@ -2658,6 +2664,7 @@ static void R_DrawParticle_TransparentCallback(const entity_render_t *ent, const
 	vec4_t colormultiplier;
 	float minparticledist_start, minparticledist_end;
 	qboolean dofade;
+	qboolean usecache = (r_drawparticles_ticrate_min.value > 0 || r_drawparticles_ticrate_factor.integer > 1);
 
 	RSurf_ActiveWorldEntity();
 
@@ -2681,7 +2688,12 @@ static void R_DrawParticle_TransparentCallback(const entity_render_t *ent, const
 	for (surfacelistindex = 0, v3f = particle_vertex3f, t2f = particle_texcoord2f, c4f = particle_color4f;surfacelistindex < numsurfaces;surfacelistindex++, v3f += 3*4, t2f += 2*4, c4f += 4*4)
 	{
 		p = cl.particles + surfacelist[surfacelistindex];
-
+		if (p->cachetime == p->lasttime) {
+			memcpy(c4f, p->c4f, sizeof(p->c4f));
+			memcpy(t2f, p->t2f, sizeof(p->t2f));
+			memcpy(v3f, p->v3f, sizeof(p->v3f));
+			continue;
+		}
 		blendmode = (pblend_t)p->blendmode;
 		palpha = p->alpha;
 		if(dofade && p->orientation != PARTICLE_VBEAM && p->orientation != PARTICLE_HBEAM)
@@ -2863,6 +2875,12 @@ static void R_DrawParticle_TransparentCallback(const entity_render_t *ent, const
 			t2f[6] = v[1];t2f[7] = tex->t1;
 			break;
 		}
+		if (usecache) {
+			memcpy(p->c4f, c4f, sizeof(p->c4f));
+			memcpy(p->t2f, t2f, sizeof(p->t2f));
+			memcpy(p->v3f, v3f, sizeof(p->v3f));
+			p->cachetime = p->lasttime;
+		}
 	}
 
 	// now render batches of particles based on blendmode and texture
@@ -2916,23 +2934,22 @@ void R_DrawParticles (void)
 	int i, a;
 	int drawparticles = r_drawparticles.integer;
 	float minparticledist_start;
+	float ticrate = r_drawparticles_ticrate_min.value;
 	particle_t *p;
 	float gravity, frametime, f, dist, oldorg[3], decaldir[3];
 	float drawdist2;
 	int hitent;
 	trace_t trace;
-	qboolean update;
-
-	frametime = bound(0, cl.time - cl.particles_updatetime, 1);
-	cl.particles_updatetime = bound(cl.time - 1, cl.particles_updatetime + frametime, cl.time + 1);
-
+	static int skipindex;
+	int skipfactor;
+	skipfactor = max(1, r_drawparticles_ticrate_factor.integer);
+	skipindex++;
+	if (skipindex >= skipfactor) skipindex = 0;
 	// LordHavoc: early out conditions
 	if (!cl.num_particles)
 		return;
 
 	minparticledist_start = DotProduct(r_refdef.view.origin, r_refdef.view.forward) + r_drawparticles_nearclip_min.value;
-	gravity = frametime * cl.movevars_gravity;
-	update = frametime > 0;
 	drawdist2 = r_drawparticles_drawdistance.value * r_refdef.view.quality;
 	drawdist2 = drawdist2*drawdist2;
 
@@ -2944,9 +2961,11 @@ void R_DrawParticles (void)
 				cl.free_particle = i;
 			continue;
 		}
-
-		if (update)
+		frametime = cl.time - p->lasttime;
+		if (frametime > ticrate && i % skipfactor == skipindex)
 		{
+			p->lasttime = cl.time;
+			gravity = frametime * cl.movevars_gravity;
 			if (p->delayedspawn > cl.time)
 				continue;
 
