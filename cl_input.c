@@ -446,11 +446,9 @@ cvar_t cl_movement_airaccel_sideways_friction = {0, "cl_movement_airaccel_sidewa
 cvar_t in_pitch_min = {0, "in_pitch_min", "-90", "how far you can aim upward (quake used -70)"};
 cvar_t in_pitch_max = {0, "in_pitch_max", "90", "how far you can aim downward (quake used 80)"};
 
-cvar_t m_filter = {CVAR_SAVE, "m_filter","0", "smoothes mouse movement, less responsive but smoother aiming"};
-cvar_t m_accelerate = {CVAR_SAVE, "m_accelerate","1", "mouse acceleration factor (try 2)"};
+cvar_t m_accelerate = {CVAR_SAVE, "m_accelerate","1", "mouse acceleration factor, values greater than 1 - old acceleration with m_accelerate_minspeed and m_accelerate_maxspeed bounding, values lower 0 working as q3 mouse acceleration with inverted value"};
 cvar_t m_accelerate_minspeed = {CVAR_SAVE, "m_accelerate_minspeed","5000", "below this speed, no acceleration is done"};
 cvar_t m_accelerate_maxspeed = {CVAR_SAVE, "m_accelerate_maxspeed","10000", "above this speed, full acceleration is done"};
-cvar_t m_accelerate_filter = {CVAR_SAVE, "m_accelerate_filter","0.1", "mouse acceleration factor filtering"};
 
 cvar_t cl_netfps = {CVAR_SAVE, "cl_netfps","72", "how many input packets to send to server each second"};
 cvar_t cl_netrepeatinput = {CVAR_SAVE, "cl_netrepeatinput", "1", "how many packets in a row can be lost without movement issues when using cl_movement (technically how many input messages to repeat in each packet that have not yet been acknowledged by the server), only affects DP7 and later servers (Quake uses 0, QuakeWorld uses 2, and just for comparison Quake3 uses 1)"};
@@ -523,7 +521,7 @@ Send the intended movement message to the server
 */
 void CL_Input (void)
 {
-	float mx, my, accel = 0;
+	float accel = 0;
 	static float old_mouse_x = 0, old_mouse_y = 0;
 
 	// clamp before the move to prevent starting with bad angles
@@ -591,55 +589,35 @@ void CL_Input (void)
 	// apply m_accelerate if it is on
 	if(m_accelerate.value)
 	{
-		static float averagespeed = 0;
 		float speed, f, mi, ma;
 
 		speed = sqrt(in_mouse_x * in_mouse_x + in_mouse_y * in_mouse_y) / cl.realframetime;
-		if(m_accelerate_filter.value > 0)
-			f = bound(0, cl.realframetime / m_accelerate_filter.value, 1);
-		else
-			f = 1;
-		averagespeed = speed * f + averagespeed * (1 - f);
-
 		mi = max(1, m_accelerate_minspeed.value);
 		ma = max(m_accelerate_minspeed.value + 1, m_accelerate_maxspeed.value);
 
 		if (m_accelerate.value < 0)
 		{
-			accel = -1 * m_accelerate.value * averagespeed * cl.realframetime;
+			accel = -1 * m_accelerate.value * speed * cl.realframetime;
 		}
 		else if (m_accelerate.value > 1)
 		{
-			if(averagespeed <= mi)
+			if(speed <= mi)
 			{
 				f = 1;
 			}
-			else if(averagespeed >= ma)
+			else if(speed >= ma)
 			{
 				f = m_accelerate.value;
 			}
 			else
 			{
-				f = averagespeed;
+				f = speed;
 				f = (f - mi) / (ma - mi) * (m_accelerate.value - 1) + 1;
 			}
 			in_mouse_x *= f;
 			in_mouse_y *= f;
 		}
 
-	}
-
-	// apply m_filter if it is on
-	if (m_filter.integer)
-	{
-		mx = in_mouse_x;
-		my = in_mouse_y;
-
-		in_mouse_x = (mx + old_mouse_x) * 0.5;
-		in_mouse_y = (my + old_mouse_y) * 0.5;
-		
-		old_mouse_x = mx;
-		old_mouse_y = my;
 	}
 
 	// ignore a mouse move if mouse was activated/deactivated this frame
@@ -2252,11 +2230,9 @@ void CL_InitInput (void)
 
 	Cvar_RegisterVariable(&in_pitch_min);
 	Cvar_RegisterVariable(&in_pitch_max);
-	Cvar_RegisterVariable(&m_filter);
 	Cvar_RegisterVariable(&m_accelerate);
 	Cvar_RegisterVariable(&m_accelerate_minspeed);
 	Cvar_RegisterVariable(&m_accelerate_maxspeed);
-	Cvar_RegisterVariable(&m_accelerate_filter);
 
 	Cvar_RegisterVariable(&cl_netfps);
 	Cvar_RegisterVariable(&cl_netrepeatinput);
