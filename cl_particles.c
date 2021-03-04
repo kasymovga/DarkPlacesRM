@@ -276,6 +276,7 @@ particleeffectinfo_t baselineparticleeffectinfo =
 };
 
 cvar_t cl_particles = {CVAR_SAVE, "cl_particles", "1", "enables particle effects"};
+cvar_t cl_particles_max = {CVAR_SAVE, "cl_particles_max", "16384", "maximal amount of particles (have engine limit)"};
 cvar_t cl_particles_quality = {CVAR_SAVE, "cl_particles_quality", "1", "multiplies number of particles"};
 cvar_t cl_particles_alpha = {CVAR_SAVE, "cl_particles_alpha", "1", "multiplies opacity of particles"};
 cvar_t cl_particles_size = {CVAR_SAVE, "cl_particles_size", "1", "multiplies particle size"};
@@ -589,6 +590,7 @@ void CL_Particles_Init (void)
 	Cmd_AddCommand ("cl_particles_reloadeffects", CL_Particles_LoadEffectInfo_f, "reloads effectinfo.txt and maps/levelname_effectinfo.txt (where levelname is the current map) if parameter is given, loads from custom file (no levelname_effectinfo are loaded in this case)");
 
 	Cvar_RegisterVariable (&cl_particles);
+	Cvar_RegisterVariable (&cl_particles_max);
 	Cvar_RegisterVariable (&cl_particles_quality);
 	Cvar_RegisterVariable (&cl_particles_alpha);
 	Cvar_RegisterVariable (&cl_particles_size);
@@ -3165,10 +3167,10 @@ killparticle:
 	while (cl.num_particles > 0 && cl.particles[cl.num_particles - 1].typeindex == 0)
 		cl.num_particles--;
 
-	if (cl.num_particles == cl.max_particles && cl.max_particles < MAX_PARTICLES)
+	if (cl.num_particles == cl.max_particles && cl.max_particles < min(MAX_PARTICLES, cl_particles_max.integer))
 	{
 		particle_t *oldparticles = cl.particles;
-		cl.max_particles = min(cl.max_particles * 2, MAX_PARTICLES);
+		cl.max_particles = min(cl.max_particles * 2, min(MAX_PARTICLES, cl_particles_max.integer));
 		cl.particles = (particle_t *) Mem_Alloc(cls.levelmempool, cl.max_particles * sizeof(particle_t));
 		memcpy(cl.particles, oldparticles, cl.num_particles * sizeof(particle_t));
 		Mem_Free(oldparticles);
