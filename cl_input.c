@@ -589,18 +589,18 @@ void CL_Input (void)
 	// apply m_accelerate if it is on
 	if(m_accelerate.value)
 	{
-		float speed, f, mi, ma;
+		float speed;
 
 		speed = sqrt(in_mouse_x * in_mouse_x + in_mouse_y * in_mouse_y) / cl.realframetime;
-		mi = max(1, m_accelerate_minspeed.value);
-		ma = max(m_accelerate_minspeed.value + 1, m_accelerate_maxspeed.value);
-
 		if (m_accelerate.value < 0)
 		{
-			accel = -1 * m_accelerate.value * speed * cl.realframetime;
+			accel = -1 * m_accelerate.value * (speed / 1000);
 		}
 		else if (m_accelerate.value > 1)
 		{
+			float mi, ma, f;
+			mi = max(1, m_accelerate_minspeed.value);
+			ma = max(m_accelerate_minspeed.value + 1, m_accelerate_maxspeed.value);
 			if(speed <= mi)
 			{
 				f = 1;
