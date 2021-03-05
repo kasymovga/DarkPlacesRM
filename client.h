@@ -1030,6 +1030,9 @@ typedef struct particle_s
 	unsigned char   texnum;
 	unsigned char   staincolor[3];
 	signed char     staintexnum;
+	float           lasttime;
+	float           cachetime;
+	float v3f[12], t2f[8], c4f[16];
 }
 particle_t;
 
@@ -1333,7 +1336,6 @@ typedef struct client_state_s
 	int num_decals;
 	int num_showlmps;
 
-	double particles_updatetime;
 	double decals_updatetime;
 	int free_particle;
 	int free_decal;
