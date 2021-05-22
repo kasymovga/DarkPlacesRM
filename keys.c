@@ -1807,6 +1807,7 @@ Key_WriteBindings (qfile_t *f)
 	char tinystr[2];
 	const char *p;
 
+	FS_Printf(f, "unbindall\n");
 	for (j = 0; j < MAX_BINDMAPS; j++)
 	{
 		for (i = 0; i < (int)(sizeof(keybindings[0])/sizeof(keybindings[0][0])); i++)
