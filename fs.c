@@ -358,6 +358,7 @@ mempool_t *fs_mempool;
 void *fs_mutex = NULL;
 
 searchpath_t *fs_searchpaths = NULL;
+searchpath_t *fs_basesearchpath = NULL;
 const char *const fs_checkgamedir_missing = "missing";
 
 #define MAX_FILES_IN_PACK	65536
@@ -1309,6 +1310,8 @@ static void FS_AddGameHierarchy (const char *dir)
 	char vabuf[1024];
 	// Add the common game directory
 	FS_AddGameDirectory (va(vabuf, sizeof(vabuf), "%s%s/", fs_basedir, dir));
+	if (!fs_basesearchpath)
+		fs_basesearchpath = fs_searchpaths;
 
 	if (*fs_userdir)
 		FS_AddGameDirectory(va(vabuf, sizeof(vabuf), "%s%s/", fs_userdir, dir));
@@ -1370,6 +1373,7 @@ static void FS_ClearSearchPath (void)
 	// unload all packs and directory information, close all pack files
 	// (if a qfile is still reading a pack it won't be harmed because it used
 	//  dup() to get its own handle already)
+	fs_basesearchpath = NULL;
 	while (fs_searchpaths)
 	{
 		searchpath_t *search = fs_searchpaths;
@@ -2573,6 +2577,20 @@ static searchpath_t *FS_FindFile (const char *name, int* index, qboolean quiet)
 	searchpath_t *search;
 	pack_t *pak;
 
+	if (!strncmp(name, "dlcache/", 8)) {
+		char netpath[MAX_OSPATH];
+		dpsnprintf(netpath, sizeof(netpath), "%s%s", fs_basesearchpath->filename, name);
+		if (FS_SysFileExists (netpath))
+		{
+			if (!quiet && developer_extra.integer)
+				Con_DPrintf("FS_FindFile: %s\n", netpath);
+
+			if (index != NULL)
+				*index = -1;
+
+			return fs_basesearchpath;
+		}
+	}
 	// search through the path, one element at a time
 	for (search = fs_searchpaths;search;search = search->next)
 	{
