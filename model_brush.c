@@ -6181,6 +6181,8 @@ static void Mod_Q3BSP_LoadLightGrid(lump_t *l)
 	}
 }
 
+static unsigned char nobsp_pvs[1] = {1};
+
 static void Mod_Q3BSP_LoadPVS(lump_t *l)
 {
 	q3dpvs_t *in;
@@ -6188,18 +6190,16 @@ static void Mod_Q3BSP_LoadPVS(lump_t *l)
 
 	if (l->filelen == 0)
 	{
+		//create fake pvs info
 		int i;
-		// unvised maps often have cluster indices even without pvs, so check
-		// leafs to find real number of clusters
+		Con_Printf("Mod_Q3BSP_LoadPVS: no pvs data in %s, generate stub\n", loadmodel->name);
 		loadmodel->brush.num_pvsclusters = 1;
 		for (i = 0;i < loadmodel->brush.num_leafs;i++)
-			loadmodel->brush.num_pvsclusters = max(loadmodel->brush.num_pvsclusters, loadmodel->brush.data_leafs[i].clusterindex + 1);
+			loadmodel->brush.data_leafs[i].clusterindex = 0;
 
-		// create clusters
-		loadmodel->brush.num_pvsclusterbytes = (loadmodel->brush.num_pvsclusters + 7) / 8;
-		totalchains = loadmodel->brush.num_pvsclusterbytes * loadmodel->brush.num_pvsclusters;
-		loadmodel->brush.data_pvsclusters = (unsigned char *)Mem_Alloc(loadmodel->mempool, totalchains);
-		memset(loadmodel->brush.data_pvsclusters, 0xFF, totalchains);
+		loadmodel->brush.num_pvsclusters = 1;
+		loadmodel->brush.num_pvsclusterbytes = 1;
+		loadmodel->brush.data_pvsclusters = nobsp_pvs;
 		return;
 	}
 
@@ -7655,8 +7655,6 @@ typedef struct objvertex_s
 	float vn[3];
 }
 objvertex_t;
-
-static unsigned char nobsp_pvs[1] = {1};
 
 void Mod_OBJ_Load(dp_model_t *mod, void *buffer, void *bufferend)
 {
