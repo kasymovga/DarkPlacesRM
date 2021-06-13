@@ -5695,9 +5695,15 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 				R_ResetViewRendering2D(fbo, depthtexture, colortexture);
 				if (cl.motionbluralpha > 0 && !r_refdef.envmap && r_fb.ghosttexture_valid)
 				{
+					float r_screenvertex3f_scaled[12] = {
+						0, 0, 0,
+						r_fb.screentexcoord2f[1], 0, 0,
+						r_fb.screentexcoord2f[2], r_fb.screentexcoord2f[3], 0,
+						0, r_fb.screentexcoord2f[4], 0
+					};
 					GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 					GL_Color(1, 1, 1, cl.motionbluralpha);
-					R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f, NULL, r_fb.screentexcoord2f);
+					R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f_scaled, NULL, r_fb.screentexcoord2f);
 					R_SetupShader_Generic(r_fb.ghosttexture, NULL, GL_MODULATE, 1, false, true, true);
 					R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
 					r_refdef.stats[r_stat_bloom_drawpixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
