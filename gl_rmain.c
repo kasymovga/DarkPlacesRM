@@ -5704,10 +5704,10 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 				R_Mesh_CopyToTexture(r_fb.ghosttexture, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
 				r_refdef.stats[r_stat_bloom_copypixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
 				r_fb.ghosttexture_valid = true;
-				if (!r_fb.fbo) {
-					R_Mesh_CopyToTexture(r_fb.colortexture, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
-					r_refdef.stats[r_stat_bloom_copypixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
-				}
+			}
+			if (!r_fb.fbo) {
+				R_Mesh_CopyToTexture(r_fb.colortexture, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
+				r_refdef.stats[r_stat_bloom_copypixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
 			}
 		}
 		else
