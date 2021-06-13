@@ -4654,14 +4654,15 @@ static void R_View_Update(void)
 	R_View_UpdateEntityLighting();
 }
 
-float viewscalefpsadjusted = 1.0f;
+static float viewscalefpsadjusted = 1.0f;
+static float viewscale = 1.0f;
 
 static void R_GetScaledViewSize(int width, int height, int *outwidth, int *outheight)
 {
-	float scale = r_viewscale.value * sqrt(viewscalefpsadjusted);
-	scale = bound(0.03125f, scale, 1.0f);
-	*outwidth = (int)ceil(width * scale);
-	*outheight = (int)ceil(height * scale);
+	viewscale = r_viewscale.value * sqrt(viewscalefpsadjusted);
+	viewscale = bound(0.03125f, viewscale, 1.0f);
+	*outwidth = (int)ceil(width * viewscale);
+	*outheight = (int)ceil(height * viewscale);
 }
 
 void R_SetupView(qboolean allowwaterclippingplane, int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
@@ -5685,9 +5686,9 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 				{
 					float r_screenvertex3f_scaled[12] = {
 						0, 0, 0,
-						r_fb.screentexcoord2f[1], 0, 0,
-						r_fb.screentexcoord2f[2], r_fb.screentexcoord2f[3], 0,
-						0, r_fb.screentexcoord2f[4], 0
+						viewscale, 0, 0,
+						viewscale, viewscale, 0,
+						0, viewscale, 0
 					};
 					GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 					GL_Color(1, 1, 1, cl.motionbluralpha);
