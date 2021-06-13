@@ -1962,12 +1962,11 @@ static void CL_ParseServerInfo (void)
 				((cl_autodemo_delete.integer & 0x2) ? 0x1 : 0)
 			);
 
-			cls.demofile = FS_OpenRealFile(demofile, "wb", false);
+			CL_Demo_Start(demofile);
 			if (cls.demofile)
 			{
 				cls.forcetrack = -1;
 				FS_Printf (cls.demofile, "%i\n", cls.forcetrack);
-				cls.demorecording = true;
 				strlcpy(cls.demoname, demofile, sizeof(cls.demoname));
 				cls.demo_lastcsprogssize = -1;
 				cls.demo_lastcsprogscrc = -1;

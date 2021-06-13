@@ -1600,6 +1600,7 @@ int Key_StringToKeynum (const char *str);
 //
 // cl_demo.c
 //
+void CL_Demo_Start(const char *name);
 void CL_StopPlayback(void);
 void CL_ReadDemoMessage(void);
 void CL_WriteDemoMessage(sizebuf_t *mesage);

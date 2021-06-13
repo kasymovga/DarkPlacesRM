@@ -25,7 +25,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern cvar_t cl_capturevideo;
 extern cvar_t cl_capturevideo_demo_stop;
 #endif
-int old_vsync = 0;
+#define DEMO_BUFFER_SIZE 16777216
+static char *demo_buffer;
+static int demo_buffer_length;
+static mempool_t *demo_mempool;
+
 
 static void CL_FinishTimeDemo (void);
 
@@ -43,6 +47,56 @@ Whenever cl.time gets past the last received message, another message is
 read from the demo file.
 ==============================================================================
 */
+
+static void Demo_FS_Close (void)
+{
+	Con_Printf("Flushing demo buffer into file...\n");
+	FS_Write(cls.demofile, demo_buffer, demo_buffer_length);
+	demo_buffer_length = 0;
+	FS_Close (cls.demofile);
+}
+
+static void Demo_Finalize (void)
+{
+	Demo_FS_Close();
+	Mem_FreePool(&demo_mempool);
+	demo_buffer = NULL;
+	demo_buffer_length = 0;
+	cls.demofile = NULL;
+	cls.demorecording = false;
+}
+
+void CL_Demo_Start (const char *name)
+{
+	if (cls.demorecording)
+		return;
+
+	cls.demofile = FS_OpenRealFile(name, "wb", false);
+	if (!cls.demofile)
+		return;
+
+	demo_mempool = Mem_AllocPool("Demo", 0, NULL);
+	demo_buffer = Mem_Alloc(demo_mempool, DEMO_BUFFER_SIZE);
+	demo_buffer_length = 0;
+	cls.demorecording = true;
+}
+
+static void Demo_FS_Write (const void *data, size_t datasize)
+{
+	if (datasize + demo_buffer_length > DEMO_BUFFER_SIZE)
+	{
+		Con_Printf("Flushing demo buffer into file...\n");
+		FS_Write(cls.demofile, demo_buffer, demo_buffer_length);
+		demo_buffer_length = 0;
+		if (datasize > DEMO_BUFFER_SIZE)
+		{
+			FS_Write(cls.demofile, data, datasize);
+			return;
+		}
+	}
+	memcpy(&demo_buffer[demo_buffer_length], data, datasize);
+	demo_buffer_length += datasize;
+}
 
 /*
 =====================
@@ -92,10 +146,7 @@ void CL_StopPlayback (void)
 	if (!cls.demoplayback)
 		return;
 
-	FS_Close (cls.demofile);
-	cls.demoplayback = false;
-	cls.demofile = NULL;
-
+	Demo_Finalize();
 	if (cls.timedemo)
 		CL_FinishTimeDemo ();
 
@@ -122,13 +173,13 @@ void CL_WriteDemoMessage (sizebuf_t *message)
 		return;
 
 	len = LittleLong (message->cursize);
-	FS_Write (cls.demofile, &len, 4);
+	Demo_FS_Write (&len, 4);
 	for (i=0 ; i<3 ; i++)
 	{
 		f = LittleFloat (cl.viewangles[i]);
-		FS_Write (cls.demofile, &f, 4);
+		Demo_FS_Write (&f, 4);
 	}
-	FS_Write (cls.demofile, message->data, message->cursize);
+	Demo_FS_Write (message->data, message->cursize);
 }
 
 /*
@@ -144,7 +195,7 @@ void CL_CutDemo (unsigned char **buf, fs_offset_t *filesize)
 	*buf = NULL;
 	*filesize = 0;
 
-	FS_Close(cls.demofile);
+	Demo_FS_Close();
 	*buf = FS_LoadFile(cls.demoname, tempmempool, false, filesize);
 
 	// restart the demo recording
@@ -175,7 +226,7 @@ void CL_PasteDemo (unsigned char **buf, fs_offset_t *filesize)
 	if(startoffset < *filesize)
 		++startoffset;
 
-	FS_Write(cls.demofile, *buf + startoffset, *filesize - startoffset);
+	Demo_FS_Write(*buf + startoffset, *filesize - startoffset);
 
 	Mem_Free(*buf);
 	*buf = NULL;
@@ -330,9 +381,7 @@ void CL_Stop_f (void)
 	}
 	else
 		Con_Print("Completed demo\n");
-	FS_Close (cls.demofile);
-	cls.demofile = NULL;
-	cls.demorecording = false;
+	Demo_Finalize();
 }
 
 /*
@@ -389,7 +438,7 @@ void CL_Record_f (void)
 
 	// open the demo file
 	Con_Printf("recording to %s.\n", name);
-	cls.demofile = FS_OpenRealFile(name, "wb", false);
+	CL_Demo_Start(name);
 	if (!cls.demofile)
 	{
 		Con_Print("ERROR: couldn't open.\n");
@@ -400,7 +449,6 @@ void CL_Record_f (void)
 	cls.forcetrack = track;
 	FS_Printf(cls.demofile, "%i\n", cls.forcetrack);
 
-	cls.demorecording = true;
 	cls.demo_lastcsprogssize = -1;
 	cls.demo_lastcsprogscrc = -1;
 }
