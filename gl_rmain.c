@@ -5510,12 +5510,6 @@ static void R_Bloom_MakeTexture(void)
 
 	r_refdef.stats[r_stat_bloom]++;
 
-	if ((r_motionblur.value || r_damageblur.value) && !r_fb.fbo)
-	{
-		R_Mesh_CopyToTexture(r_fb.colortexture, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
-		r_refdef.stats[r_stat_bloom_copypixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
-	}
-
 	// scale down screen texture to the bloom texture size
 	CHECKGLERROR
 	r_fb.bloomindex = 0;
@@ -5646,12 +5640,6 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 
 		if (r_fb.colortexture)
 		{
-			if (!r_fb.fbo)
-			{
-				R_Mesh_CopyToTexture(r_fb.colortexture, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
-				r_refdef.stats[r_stat_bloom_copypixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
-			}
-
 			if(!R_Stereo_Active() && (r_motionblur.value > 0 || r_damageblur.value > 0) && r_fb.ghosttexture)
 			{
 				// declare variables
@@ -5716,6 +5704,10 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 				R_Mesh_CopyToTexture(r_fb.ghosttexture, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
 				r_refdef.stats[r_stat_bloom_copypixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
 				r_fb.ghosttexture_valid = true;
+				if (!r_fb.fbo) {
+					R_Mesh_CopyToTexture(r_fb.colortexture, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
+					r_refdef.stats[r_stat_bloom_copypixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
+				}
 			}
 		}
 		else
