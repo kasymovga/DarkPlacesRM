@@ -5690,9 +5690,26 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 						viewscale, viewscale, 0,
 						0, viewscale, 0
 					};
+					float r_screentexcoord2f[8] = {
+						r_fb.screentexcoord2f[0],
+						r_fb.screentexcoord2f[1],
+						r_fb.screentexcoord2f[2],
+						r_fb.screentexcoord2f[3],
+						r_fb.screentexcoord2f[4],
+						r_fb.screentexcoord2f[5],
+						r_fb.screentexcoord2f[6],
+						r_fb.screentexcoord2f[7]
+					};
+					if (r_fb.fbo) {
+						float shift = r_fb.screentexcoord2f[5];
+						r_screentexcoord2f[1] -= shift;
+						r_screentexcoord2f[3] -= shift;
+						r_screentexcoord2f[5] -= shift;
+						r_screentexcoord2f[7] -= shift;
+					}
 					GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 					GL_Color(1, 1, 1, cl.motionbluralpha);
-					R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f_scaled, NULL, r_fb.screentexcoord2f);
+					R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f_scaled, NULL, r_screentexcoord2f);
 					R_SetupShader_Generic(r_fb.ghosttexture, NULL, GL_MODULATE, 1, false, true, true);
 					R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
 					r_refdef.stats[r_stat_bloom_drawpixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
