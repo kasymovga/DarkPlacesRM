@@ -705,7 +705,13 @@ int SV_EntitiesInBox(const vec3_t mins, const vec3_t maxs, int maxedicts, prvm_e
 
 void SV_LinkEdict_TouchAreaGrid_Call(prvm_edict_t *touch, prvm_edict_t *ent)
 {
+	static int recursive_call = 0;
 	prvm_prog_t *prog = SVVM_prog;
+	if (recursive_call > 7)
+	{
+		Con_Printf("SV_LinkEdict_TouchAreaGrid: Too much recursive touches!\n");
+		return;
+	}
 	PRVM_serverglobaledict(self) = PRVM_EDICT_TO_PROG(touch);
 	PRVM_serverglobaledict(other) = PRVM_EDICT_TO_PROG(ent);
 	PRVM_serverglobalfloat(time) = sv.time;
@@ -722,15 +728,18 @@ void SV_LinkEdict_TouchAreaGrid_Call(prvm_edict_t *touch, prvm_edict_t *ent)
 	PRVM_serverglobalfloat(trace_dphitcontents) = 0;
 	PRVM_serverglobalfloat(trace_dphitq3surfaceflags) = 0;
 	PRVM_serverglobalstring(trace_dphittexturename) = 0;
+	recursive_call++;
 	prog->ExecuteProgram(prog, PRVM_serveredictfunction(touch, touch), "QC function self.touch is missing");
+	recursive_call--;
 }
 
+#define MAX_EDICTS_TOUCH_AREA_GRID 512
 void SV_LinkEdict_TouchAreaGrid(prvm_edict_t *ent)
 {
 	prvm_prog_t *prog = SVVM_prog;
 	int i, numtouchedicts, old_self, old_other;
 	prvm_edict_t *touch;
-	static prvm_edict_t *touchedicts[MAX_EDICTS];
+	prvm_edict_t *touchedicts[MAX_EDICTS_TOUCH_AREA_GRID];
 
 	if (ent == prog->edicts)
 		return;		// don't add the world
@@ -743,12 +752,11 @@ void SV_LinkEdict_TouchAreaGrid(prvm_edict_t *ent)
 
 	// build a list of edicts to touch, because the link loop can be corrupted
 	// by IncreaseEdicts called during touch functions
-	numtouchedicts = SV_EntitiesInBox(ent->priv.server->areamins, ent->priv.server->areamaxs, MAX_EDICTS, touchedicts);
-	if (numtouchedicts > MAX_EDICTS)
+	numtouchedicts = SV_EntitiesInBox(ent->priv.server->areamins, ent->priv.server->areamaxs, MAX_EDICTS_TOUCH_AREA_GRID, touchedicts);
+	if (numtouchedicts > MAX_EDICTS_TOUCH_AREA_GRID)
 	{
-		// this never happens
-		Con_Printf("SV_EntitiesInBox returned %i edicts, max was %i\n", numtouchedicts, MAX_EDICTS);
-		numtouchedicts = MAX_EDICTS;
+		Con_Printf("SV_EntitiesInBox returned %i edicts, max was %i\n", numtouchedicts, MAX_EDICTS_TOUCH_AREA_GRID);
+		numtouchedicts = MAX_EDICTS_TOUCH_AREA_GRID;
 	}
 
 	old_self = PRVM_serverglobaledict(self);
@@ -756,10 +764,11 @@ void SV_LinkEdict_TouchAreaGrid(prvm_edict_t *ent)
 	for (i = 0;i < numtouchedicts;i++)
 	{
 		touch = touchedicts[i];
-		if (touch != ent && (int)PRVM_serveredictfloat(touch, solid) == SOLID_TRIGGER && PRVM_serveredictfunction(touch, touch))
+		if (touch != ent && !touch->priv.server->free && (int)PRVM_serveredictfloat(touch, solid) == SOLID_TRIGGER && PRVM_serveredictfunction(touch, touch))
 		{
 			SV_LinkEdict_TouchAreaGrid_Call(touch, ent);
 		}
+		if (ent->priv.server->free) break;
 	}
 	PRVM_serverglobaledict(self) = old_self;
 	PRVM_serverglobaledict(other) = old_other;
