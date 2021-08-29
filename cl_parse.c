@@ -2355,6 +2355,12 @@ static void CL_ParseStaticSound (int large)
 	S_StaticSound (cl.sound_precache[sound_num], org, vol/255.0f, atten);
 }
 
+static void CL_ParseAchivement (void)
+{
+	MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring));
+	Con_Printf("Achivement: %s\n", cl_readstring);
+}
+
 static void CL_ParseEffect (void)
 {
 	vec3_t		org;
@@ -4092,7 +4098,10 @@ void CL_ParseServerMessage(void)
 				break;
 
 			case svc_effect:
-				CL_ParseEffect ();
+				if (gamemode == GAME_NORMAL)
+					CL_ParseAchivement();
+				else
+					CL_ParseEffect ();
 				break;
 
 			case svc_effect2:
