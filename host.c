@@ -339,6 +339,27 @@ static void Host_AddConfigText(void)
 		Cbuf_InsertText("alias startmap_sp \"map start\"\nalias startmap_dm \"map start\"\nexec teu.rc\n");
 	else
 		Cbuf_InsertText("alias startmap_sp \"map start\"\nalias startmap_dm \"map start\"\nexec " STARTCONFIGFILENAME "\n");
+
+	Cbuf_InsertText(
+			"bind SPACE \"+jump\"\n"
+			"bind MOUSE1 \"+attack\"\n"
+			"bind MWHEELUP \"impulse 10\"\n"
+			"bind MWHEELDOWN \"impulse 12\"\n"
+			"bind 1 \"impulse 1\"\n"
+			"bind 2 \"impulse 2\"\n"
+			"bind 3 \"impulse 3\"\n"
+			"bind 4 \"impulse 4\"\n"
+			"bind 5 \"impulse 5\"\n"
+			"bind 6 \"impulse 6\"\n"
+			"bind 7 \"impulse 7\"\n"
+			"bind 8 \"impulse 8\"\n"
+			"bind 9 \"impulse 9\"\n"
+			"bind BACKQUOTE \"toggleconsole\"\n"
+			"bind a \"+moveleft\"\n"
+			"bind d \"+moveright\"\n"
+			"bind s \"+back\"\n"
+			"bind w \"+forward\"\n"
+			);
 }
 
 /*
