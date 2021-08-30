@@ -38,6 +38,7 @@ cvar_t sv_worldbasename = {CVAR_READONLY, "sv_worldbasename", "", "name of curre
 
 cvar_t sv_disablenotify = {0, "sv_disablenotify", "1", "suppress broadcast prints when certain cvars are changed (CVAR_NOTIFY flag in engine code)"};
 cvar_t coop = {0, "coop","0", "coop mode, 0 = no coop, 1 = coop mode, multiple players playing through the singleplayer game (coop mode also shuts off deathmatch)"};
+cvar_t campaign = {0, "campaign","0", "dummy campaign cvar"};
 cvar_t deathmatch = {0, "deathmatch","0", "deathmatch mode, values depend on mod but typically 0 = no deathmatch, 1 = normal deathmatch with respawning weapons, 2 = weapons stay (players can only pick up new weapons)"};
 cvar_t fraglimit = {CVAR_NOTIFY, "fraglimit","0", "ends level if this many frags is reached by any player"};
 cvar_t gamecfg = {0, "gamecfg", "0", "unused cvar in quake, can be used by mods"};
