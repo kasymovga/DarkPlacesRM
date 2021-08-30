@@ -6566,9 +6566,9 @@ void R_Shadow_LoadWorldLightsFromMap_LightArghliteTyrlite(void)
 			color[2] *= overridecolor[2];
 		}
 		radius = light[3] * r_editlights_quakelightsizescale.value * lightscale / fadescale;
-		color[0] = color[0] * light[0];
-		color[1] = color[1] * light[1];
-		color[2] = color[2] * light[2];
+		color[0] = color[0] * (0.001 + light[0] * 0.0001);
+		color[1] = color[1] * (0.001 + light[1] * 0.0001);
+		color[2] = color[2] * (0.001 + light[2] * 0.0001);
 		switch (type)
 		{
 		case LIGHTTYPE_MINUSX:
