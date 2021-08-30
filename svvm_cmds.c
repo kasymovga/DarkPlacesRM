@@ -389,7 +389,10 @@ static void VM_SV_sprint(prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNTRANGE(2, 8, VM_SV_sprint);
 
-	VM_VarString(prog, 1, string, sizeof(string));
+	if (gamemode == GAME_NORMAL)
+		VM_VarString2(prog, 1, string, sizeof(string));
+	else
+		VM_VarString(prog, 1, string, sizeof(string));
 
 	entnum = PRVM_G_EDICTNUM(OFS_PARM0);
 	// LordHavoc: div0 requested that sprintto world  operate like print
@@ -443,7 +446,11 @@ static void VM_SV_centerprint(prvm_prog_t *prog)
 	if (!client->netconnection)
 		return;
 
-	VM_VarString(prog, 1, string, sizeof(string));
+	if (gamemode == GAME_NORMAL)
+		VM_VarString2(prog, 1, string, sizeof(string));
+	else
+		VM_VarString(prog, 1, string, sizeof(string));
+
 	MSG_WriteChar(&client->netconnection->message,svc_centerprint);
 	MSG_WriteString(&client->netconnection->message, string);
 }

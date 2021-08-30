@@ -1142,6 +1142,8 @@ static qboolean FS_AddPack_Fullpath(const char *pakfile, const char *shortname, 
 		pak = FS_LoadPackPK3 (pakfile);
 	else if(!strcasecmp(ext, "obb")) // android apk expansion
 		pak = FS_LoadPackPK3 (pakfile);
+	else if(!strcasecmp(ext, "kpf")) // Kex engine expansion
+		pak = FS_LoadPackPK3 (pakfile);
 	else
 		Con_Printf("\"%s\" does not have a pack extension\n", pakfile);
 
@@ -1299,6 +1301,37 @@ static void FS_AddGameDirectory (const char *dir)
 	fs_searchpaths = search;
 }
 
+static void FS_AddBaseDirectory (const char *dir)
+{
+	int i;
+	stringlist_t list;
+	searchpath_t *search;
+
+	strlcpy (fs_gamedir, dir, sizeof (fs_gamedir));
+
+	stringlistinit(&list);
+	listdirectory(&list, "", dir);
+	stringlistsort(&list, false);
+
+	// add any KPF package in the directory
+	for (i = 0;i < list.numstrings;i++)
+	{
+		if (!strcasecmp(FS_FileExtension(list.strings[i]), "kpf"))
+		{
+			FS_AddPack_Fullpath(list.strings[i], list.strings[i] + strlen(dir), NULL, false);
+		}
+	}
+
+	stringlistfreecontents(&list);
+
+	// Add the directory to the search path
+	// (unpacked files have the priority over packed files)
+	search = (searchpath_t *)Mem_Alloc(fs_mempool, sizeof(searchpath_t));
+	strlcpy (search->filename, dir, sizeof (search->filename));
+	search->next = fs_searchpaths;
+	fs_searchpaths = search;
+}
+
 
 /*
 ================
@@ -1309,6 +1342,7 @@ static void FS_AddGameHierarchy (const char *dir)
 {
 	char vabuf[1024];
 	// Add the common game directory
+	FS_AddBaseDirectory (va(vabuf, sizeof(vabuf), "%s/", fs_basedir));
 	FS_AddGameDirectory (va(vabuf, sizeof(vabuf), "%s%s/", fs_basedir, dir));
 	if (!fs_basesearchpath)
 		fs_basesearchpath = fs_searchpaths;

@@ -48,6 +48,21 @@ cvar_t prvm_reuseedicts_neverinsameframe = {0, "prvm_reuseedicts_neverinsamefram
 static double prvm_reuseedicts_always_allow = 0;
 qboolean prvm_runawaycheck = true;
 
+#define PO_HASHSIZE 16384
+typedef struct po_string_s
+{
+	char *key, *value;
+	struct po_string_s *nextonhashchain;
+}
+po_string_t;
+typedef struct po_s
+{
+	po_string_t *hashtable[PO_HASHSIZE];
+}
+po_t;
+static po_t *po_kex;
+static const char *PRVM_PO_Lookup(po_t *po, const char *str);
+
 //============================================================================
 // mempool handling
 
@@ -1333,6 +1348,13 @@ const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_
 			strlcpy (temp, com_token, sizeof(temp));
 			dpsnprintf (com_token, sizeof(com_token), "0 %s 0", temp);
 		}
+		if (com_token[0] == '$' && po_kex)
+		{
+			//Translation
+			const char *translated = PRVM_PO_Lookup(po_kex, &com_token[1]);
+			if (translated)
+				strlcpy(com_token, translated, sizeof(com_token));
+		}
 
 		if (!PRVM_ED_ParseEpair(prog, ent, key, com_token, strcmp(keyname, "wad") != 0))
 			prog->error_cmd("PRVM_ED_ParseEdict: parse error");
@@ -1597,18 +1619,6 @@ PRVM_ResetProg
 ===============
 */
 
-#define PO_HASHSIZE 16384
-typedef struct po_string_s
-{
-	char *key, *value;
-	struct po_string_s *nextonhashchain;
-}
-po_string_t;
-typedef struct po_s
-{
-	po_string_t *hashtable[PO_HASHSIZE];
-}
-po_t;
 static void PRVM_PO_UnparseString(char *out, const char *in, size_t outsize)
 {
 	for(;;)
@@ -1709,6 +1719,107 @@ static void PRVM_PO_ParseString(char *out, const char *in, size_t outsize)
 		++in;
 	}
 }
+
+static po_t *PRVM_KexLocalization_Load(const char *filename, mempool_t *pool)
+{
+	char *buf = (char *)FS_LoadFile(filename, pool, true, NULL);
+	char key[MAX_INPUTLINE + 1];
+	int key_len = 0;
+	char value[MAX_INPUTLINE + 1];
+	int value_len = 0;
+	int hashindex;
+	po_string_t thisstr;
+	po_t *po = NULL;
+	char *p = buf;
+	while (*p) {
+		if (*p == '\r') *p = '\n';
+		p++;
+	}
+	while (*buf) {
+		while (*buf == ' ') buf++;
+		if (*buf == '\n')
+		{
+			buf++;
+			continue;
+		}
+		key_len = 0;
+		value_len = 0;
+		key[0] = '\0';
+		value[0] = '\0';
+		if (*buf == '/') { //commentary
+			while (*buf && *buf != '\n') buf++;
+			continue;
+		}
+		while (*buf && key_len < MAX_INPUTLINE && *buf != ' ' && *buf != '=' && *buf != '\n')
+		{
+			key[key_len] = *buf;
+			key_len++;
+			buf++;
+		}
+		key[key_len] = '\0';
+		if (!*buf || *buf == '\n') {
+			Con_Printf("%s: Line ended after %s key\n", filename, key);
+			continue;
+		}
+		while (*buf && *buf != '=' && *buf != '\n') buf++;
+		if (*buf != '=')
+		{
+			Con_Printf("%s: No = sign after %s key\n", filename, key);
+			while (*buf && *buf != '\n') buf++;
+			continue;
+		} else
+			buf++;
+
+		while (*buf == ' ') buf++;
+		if (*buf != '"')
+		{
+			Con_Printf("%s: No \" sign before value after %s key\n", filename, key);
+			while (*buf && *buf != '\n') buf++;
+			continue;
+		}
+		else
+			buf++;
+
+		while (*buf && value_len < MAX_INPUTLINE && *buf != '\n' && *buf != '"')
+		{
+			if (*buf == '\\') {
+				if (buf[1] == 'n')
+				{
+					buf += 2;
+					value[value_len] = '\n';
+					value_len++;
+					continue;
+				}
+				else
+					buf++;
+			}
+			value[value_len] = *buf;
+			value_len++;
+			buf++;
+		}
+		value[value_len] = '\0';
+		while (*buf && *buf != '\n') buf++;
+		if (key_len && value_len) {
+			if (!po)
+			{
+				po = (po_t *)Mem_Alloc(pool, sizeof(*po));
+				memset(po, 0, sizeof(*po));
+			}
+			memset(&thisstr, 0, sizeof(thisstr)); // hush compiler warning
+			thisstr.key = (char *)Mem_Alloc(pool, key_len + 1);
+			memcpy(thisstr.key, key, key_len + 1);
+			thisstr.value = (char *)Mem_Alloc(pool, value_len + 1);
+			memcpy(thisstr.value, value, value_len + 1);
+			hashindex = CRC_Block((const unsigned char *) thisstr.key, strlen(thisstr.key)) % PO_HASHSIZE;
+			thisstr.nextonhashchain = po->hashtable[hashindex];
+			po->hashtable[hashindex] = (po_string_t *)Mem_Alloc(pool, sizeof(thisstr));
+			memcpy(po->hashtable[hashindex], &thisstr, sizeof(thisstr));
+			memset(&thisstr, 0, sizeof(thisstr));
+		}
+	}
+	return po;
+}
+
 static po_t *PRVM_PO_Load(const char *filename, const char *filename2, mempool_t *pool)
 {
 	po_t *po = NULL;
@@ -2331,6 +2442,25 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 
 	PRVM_Init_Exec(prog);
 
+	po_kex = NULL;
+	if(FS_FileExists("localization/loc_english.txt")) //kex localization
+	{
+		po_kex = PRVM_KexLocalization_Load("localization/loc_english.txt", prog->progs_mempool);
+		for (i=0 ; i<prog->numglobaldefs ; i++)
+		{
+			if((prog->globaldefs[i].type & ~DEF_SAVEGLOBAL) == ev_string)
+			{
+				prvm_eval_t *val = PRVM_GLOBALFIELDVALUE(prog->globaldefs[i].ofs);
+				const char *value = PRVM_GetString(prog, val->string);
+				if(*value == '$')
+				{
+					value = PRVM_PO_Lookup(po_kex, &value[1]);
+					if(value)
+						val->string = PRVM_SetEngineString(prog, value);
+				}
+			}
+		}
+	}
 	if(*prvm_language.string)
 	// in CSQC we really shouldn't be able to change how stuff works... sorry for now
 	// later idea: include a list of authorized .po file checksums with the csprogs

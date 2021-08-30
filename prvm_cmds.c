@@ -255,6 +255,47 @@ void VM_VarString(prvm_prog_t *prog, int first, char *out, int outlength)
 	*out++ = 0;
 }
 
+void VM_VarString2(prvm_prog_t *prog, int first, char *out, int outlength)
+{
+	const char* s = PRVM_G_STRING((OFS_PARM0+first*3));
+	char repl[16];
+	const char *ins;
+	char buf[outlength];
+	const char *ins_pos_p;
+	int ins_pos;
+	int ins_len;
+	int i;
+	if (!strstr(s, "{0}"))
+	{
+		VM_VarString(prog, first, out, outlength);
+		return;
+	}
+	strlcpy(out, s, outlength);
+	for (i = first + 1;i < prog->argc && i < 10; i++)
+	{
+		sprintf(repl, "{%i}", i - first - 1);
+		ins = PRVM_G_STRING((OFS_PARM0+i*3));
+		ins_len = strlen(ins);
+		if ((ins_pos_p = strstr(out, repl)))
+		{
+			ins_pos = ins_pos_p - out;
+			if (ins_len + (int)strlen(out) > outlength) break;
+			memcpy(buf, out, ins_pos);
+			memcpy(&buf[ins_pos], ins, ins_len);
+			strlcpy(&buf[ins_pos + ins_len], &out[ins_pos + 3], outlength - (ins_pos + 3));
+			strlcpy(out, buf, outlength);
+		}
+	}
+	ins_pos = 0;
+	for (i = 0; out[i]; i++)
+	{
+		buf[ins_pos] = out[i];
+		ins_pos++;
+	}
+	buf[ins_pos] = '\0';
+	strlcpy(out, buf, outlength);
+}
+
 /*
 =================
 VM_checkextension
@@ -400,7 +441,11 @@ void VM_bprint(prvm_prog_t *prog)
 		return;
 	}
 
-	VM_VarString(prog, 0, string, sizeof(string));
+	if (gamemode == GAME_NORMAL)
+		VM_VarString2(prog, 0, string, sizeof(string));
+	else
+		VM_VarString(prog, 0, string, sizeof(string));
+
 	SV_BroadcastPrint(string);
 }
 
