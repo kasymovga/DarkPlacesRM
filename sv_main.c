@@ -462,6 +462,7 @@ void SV_Init (void)
 
 	Cvar_RegisterVariable (&sv_disablenotify);
 	Cvar_RegisterVariable (&coop);
+	Cvar_RegisterVariable (&campaign);
 	Cvar_RegisterVariable (&deathmatch);
 	Cvar_RegisterVariable (&fraglimit);
 	Cvar_RegisterVariable (&gamecfg);
