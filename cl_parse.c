@@ -4098,7 +4098,7 @@ void CL_ParseServerMessage(void)
 				break;
 
 			case svc_effect:
-				if (gamemode == GAME_NORMAL)
+				if (gamegroup == GAME_NORMAL)
 					CL_ParseAchivement();
 				else
 					CL_ParseEffect ();

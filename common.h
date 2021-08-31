@@ -268,6 +268,8 @@ typedef enum gamemode_e
 	GAME_NORMAL,
 	GAME_HIPNOTIC,
 	GAME_ROGUE,
+	GAME_DOPA,
+	GAME_MG1,
 	GAME_QUOTH,
 	GAME_NEHAHRA,
 	GAME_NEXUIZ,
@@ -309,6 +311,7 @@ gamemode_t;
 #define IS_OLDNEXUIZ_DERIVED(g) ((g) == GAME_NEXUIZ || (g) == GAME_VORETOURNAMENT || (g) == GAME_REXUIZ)
 
 extern gamemode_t gamemode;
+extern gamemode_t gamegroup;
 extern const char *gamename;
 extern const char *gamenetworkfiltername;
 extern const char *gamedirname1;

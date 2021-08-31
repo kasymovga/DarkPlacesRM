@@ -37,6 +37,7 @@ const char **com_argv;
 int com_selffd = -1;
 
 gamemode_t gamemode;
+gamemode_t gamegroup;
 const char *gamename;
 const char *gamenetworkfiltername; // same as gamename currently but with _ in place of spaces so that "getservers" packets parse correctly (this also means the 
 const char *gamedirname1;
@@ -1450,6 +1451,8 @@ static const gamemode_info_t gamemode_info [GAME_COUNT] =
 { GAME_NORMAL,					GAME_NORMAL,				"",						"-quake",					"DarkPlaces-Quake",			"DarkPlaces-Quake",			"id1",		NULL,			"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -quake runs the game Quake (default)
 { GAME_HIPNOTIC,				GAME_NORMAL,				"hipnotic",				"-hipnotic",				"Darkplaces-Hipnotic",		"Darkplaces-Hipnotic",		"id1",		"hipnotic",		"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -hipnotic runs Quake mission pack 1: The Scourge of Armagon
 { GAME_ROGUE,					GAME_NORMAL,				"rogue",				"-rogue",					"Darkplaces-Rogue",			"Darkplaces-Rogue",			"id1",		"rogue",		"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -rogue runs Quake mission pack 2: The Dissolution of Eternity
+{ GAME_DOPA,					GAME_NORMAL,				"dopa",					"-dopa",					"Darkplaces-Dopa",			"Darkplaces-Dopa",			"id1",		"dopa",			"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -dopa runs Quake: Dimension of the Past
+{ GAME_MG1,						GAME_NORMAL,				"mg1",					"-mg1",						"Darkplaces-MG1",			"Darkplaces-MG1",			"id1",		"mg1",			"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -mg1 runs Quake: Dimension of the Machine
 { GAME_NEHAHRA,					GAME_NORMAL,				"nehahra",				"-nehahra",					"DarkPlaces-Nehahra",		"DarkPlaces-Nehahra",		"id1",		"nehahra",		"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -nehahra runs The Seal of Nehahra movie and game
 { GAME_QUOTH,					GAME_NORMAL,				"quoth",				"-quoth",					"Darkplaces-Quoth",			"Darkplaces-Quoth",			"id1",		"quoth",		"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -quoth runs the Quoth mod for playing community maps made for it
 { GAME_NEXUIZ,					GAME_NEXUIZ,				"nexuiz",				"-nexuiz",					"Nexuiz",					"Nexuiz",					"data",		NULL,			"nexuiz",			"nexuiz"				}, // COMMANDLINEOPTION: Game: -nexuiz runs the multiplayer game Nexuiz
@@ -1550,6 +1553,7 @@ static void COM_SetGameType(int index)
 	if (index < 0 || index >= (int)(sizeof (gamemode_info) / sizeof (gamemode_info[0])))
 		index = 0;
 	gamemode = gamemode_info[index].mode;
+	gamegroup = gamemode_info[index].group;
 	gamename = gamemode_info[index].gamename;
 	gamenetworkfiltername = gamemode_info[index].gamenetworkfiltername;
 	gamedirname1 = gamemode_info[index].gamedirname1;

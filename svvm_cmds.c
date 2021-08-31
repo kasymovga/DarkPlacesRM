@@ -389,7 +389,7 @@ static void VM_SV_sprint(prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNTRANGE(2, 8, VM_SV_sprint);
 
-	if (gamemode == GAME_NORMAL)
+	if (gamegroup == GAME_NORMAL)
 		VM_VarString2(prog, 1, string, sizeof(string));
 	else
 		VM_VarString(prog, 1, string, sizeof(string));
@@ -446,7 +446,7 @@ static void VM_SV_centerprint(prvm_prog_t *prog)
 	if (!client->netconnection)
 		return;
 
-	if (gamemode == GAME_NORMAL)
+	if (gamegroup == GAME_NORMAL)
 		VM_VarString2(prog, 1, string, sizeof(string));
 	else
 		VM_VarString(prog, 1, string, sizeof(string));
