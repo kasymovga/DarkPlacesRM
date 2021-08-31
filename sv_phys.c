@@ -2627,6 +2627,7 @@ void SV_Physics_Toss (prvm_edict_t *ent)
 	float d, ent_gravity;
 	float bouncefactor;
 	float bouncestop;
+	int movetype = (int)PRVM_serveredictfloat(ent, movetype);
 
 // if onground, return without moving
 	if ((int)PRVM_serveredictfloat(ent, flags) & FL_ONGROUND)
@@ -2661,8 +2662,11 @@ void SV_Physics_Toss (prvm_edict_t *ent)
 
 	SV_CheckVelocity (ent);
 
+	if (kex_compat.integer && movetype == MOVETYPE_BOUNCEMISSILE)
+		movetype = MOVETYPE_TOSS;
+
 // add gravity
-	if (PRVM_serveredictfloat(ent, movetype) == MOVETYPE_TOSS || PRVM_serveredictfloat(ent, movetype) == MOVETYPE_BOUNCE)
+	if (movetype == MOVETYPE_TOSS || movetype == MOVETYPE_BOUNCE)
 		PRVM_serveredictvector(ent, velocity)[2] -= SV_Gravity(ent);
 
 // move angles
@@ -2689,7 +2693,7 @@ void SV_Physics_Toss (prvm_edict_t *ent)
 		if (trace.fraction == 1)
 			break;
 		movetime *= 1 - min(1, trace.fraction);
-		switch((int)PRVM_serveredictfloat(ent, movetype))
+		switch(movetype)
 		{
 		case MOVETYPE_BOUNCEMISSILE:
 			bouncefactor = PRVM_serveredictfloat(ent, bouncefactor);
