@@ -389,7 +389,7 @@ static void VM_SV_sprint(prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNTRANGE(2, 8, VM_SV_sprint);
 
-	if (gamegroup == GAME_NORMAL)
+	if (kex_compat.integer)
 		VM_VarString2(prog, 1, string, sizeof(string));
 	else
 		VM_VarString(prog, 1, string, sizeof(string));

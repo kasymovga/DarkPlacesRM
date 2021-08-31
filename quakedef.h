@@ -417,6 +417,8 @@ extern cvar_t developer_loading;
 
 extern cvar_t sessionid;
 
+extern cvar_t kex_compat;
+
 #define STARTCONFIGFILENAME "quake.rc"
 #define CONFIGFILENAME "config.cfg"
 

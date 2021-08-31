@@ -380,6 +380,7 @@ int fs_all_gamedirs_count = 0;
 cvar_t scr_screenshot_name = {CVAR_NORESETTODEFAULTS, "scr_screenshot_name","dp", "prefix name for saved screenshots (changes based on -game commandline, as well as which game mode is running; the date is encoded using strftime escapes)"};
 cvar_t fs_empty_files_in_pack_mark_deletions = {0, "fs_empty_files_in_pack_mark_deletions", "0", "if enabled, empty files in a pak/pk3 count as not existing but cancel the search in further packs, effectively allowing patch pak/pk3 files to 'delete' files"};
 cvar_t cvar_fs_gamedir = {CVAR_READONLY | CVAR_NORESETTODEFAULTS, "fs_gamedir", "", "the list of currently selected gamedirs (use the 'gamedir' command to change this)"};
+cvar_t kex_compat = {0, "kex_compat", "0", "kex-compatible mode"};
 
 
 /*
@@ -1319,6 +1320,7 @@ static void FS_AddBaseDirectory (const char *dir)
 		if (!strcasecmp(FS_FileExtension(list.strings[i]), "kpf"))
 		{
 			FS_AddPack_Fullpath(list.strings[i], list.strings[i] + strlen(dir), NULL, false);
+			Cvar_SetQuick(&kex_compat, "1");
 		}
 	}
 
@@ -2280,6 +2282,7 @@ void FS_Init_Commands(void)
 	Cvar_RegisterVariable (&scr_screenshot_name);
 	Cvar_RegisterVariable (&fs_empty_files_in_pack_mark_deletions);
 	Cvar_RegisterVariable (&cvar_fs_gamedir);
+	Cvar_RegisterVariable (&kex_compat);
 
 	Cmd_AddCommand ("gamedir", FS_GameDir_f, "changes active gamedir list (can take multiple arguments), not including base directory (example usage: gamedir ctf)");
 	Cmd_AddCommand ("fs_rescan", FS_Rescan_f, "rescans filesystem for new pack archives and any other changes");

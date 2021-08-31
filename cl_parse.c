@@ -4098,7 +4098,7 @@ void CL_ParseServerMessage(void)
 				break;
 
 			case svc_effect:
-				if (gamegroup == GAME_NORMAL)
+				if (kex_compat.integer)
 					CL_ParseAchivement();
 				else
 					CL_ParseEffect ();

@@ -441,7 +441,7 @@ void VM_bprint(prvm_prog_t *prog)
 		return;
 	}
 
-	if (gamegroup == GAME_NORMAL)
+	if (kex_compat.integer)
 		VM_VarString2(prog, 0, string, sizeof(string));
 	else
 		VM_VarString(prog, 0, string, sizeof(string));
