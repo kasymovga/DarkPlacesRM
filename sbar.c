@@ -1623,16 +1623,14 @@ void Sbar_Draw (void)
 
 			if (sb_lines > 24)
 			{
-				if (gamemode != GAME_GOODVSBAD2)
-					Sbar_DrawInventory ();
+				Sbar_DrawInventory ();
 				if (!cl.islocalgame)
 					Sbar_DrawFrags ();
 			}
 
 			if (sb_showscores || (cl.stats[STAT_HEALTH] <= 0 && cl_deathscoreboard.integer))
 			{
-				if (gamemode != GAME_GOODVSBAD2)
-					Sbar_DrawAlphaPic (0, 0, sb_scorebar, sbar_alpha_bg.value);
+				Sbar_DrawAlphaPic (0, 0, sb_scorebar, sbar_alpha_bg.value);
 				Sbar_DrawScoreboard ();
 			}
 			else if (sb_lines)
@@ -1649,35 +1647,32 @@ void Sbar_Draw (void)
 						Sbar_DrawPic (209, 12, sb_items[1]);
 				}
 				// armor
-				if (gamemode != GAME_GOODVSBAD2)
+				if (cl.stats[STAT_ITEMS] & IT_INVULNERABILITY)
 				{
-					if (cl.stats[STAT_ITEMS] & IT_INVULNERABILITY)
+					Sbar_DrawNum (24, 0, 666, 3, 1);
+					Sbar_DrawPic (0, 0, sb_disc);
+				}
+				else
+				{
+					if (gamemode == GAME_ROGUE)
 					{
-						Sbar_DrawNum (24, 0, 666, 3, 1);
-						Sbar_DrawPic (0, 0, sb_disc);
+						Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3, cl.stats[STAT_ARMOR] <= 25);
+						if (cl.stats[STAT_ITEMS] & RIT_ARMOR3)
+							Sbar_DrawPic (0, 0, sb_armor[2]);
+						else if (cl.stats[STAT_ITEMS] & RIT_ARMOR2)
+							Sbar_DrawPic (0, 0, sb_armor[1]);
+						else if (cl.stats[STAT_ITEMS] & RIT_ARMOR1)
+							Sbar_DrawPic (0, 0, sb_armor[0]);
 					}
 					else
 					{
-						if (gamemode == GAME_ROGUE)
-						{
-							Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3, cl.stats[STAT_ARMOR] <= 25);
-							if (cl.stats[STAT_ITEMS] & RIT_ARMOR3)
-								Sbar_DrawPic (0, 0, sb_armor[2]);
-							else if (cl.stats[STAT_ITEMS] & RIT_ARMOR2)
-								Sbar_DrawPic (0, 0, sb_armor[1]);
-							else if (cl.stats[STAT_ITEMS] & RIT_ARMOR1)
-								Sbar_DrawPic (0, 0, sb_armor[0]);
-						}
-						else
-						{
-							Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3, cl.stats[STAT_ARMOR] <= 25);
-							if (cl.stats[STAT_ITEMS] & IT_ARMOR3)
-								Sbar_DrawPic (0, 0, sb_armor[2]);
-							else if (cl.stats[STAT_ITEMS] & IT_ARMOR2)
-								Sbar_DrawPic (0, 0, sb_armor[1]);
-							else if (cl.stats[STAT_ITEMS] & IT_ARMOR1)
-								Sbar_DrawPic (0, 0, sb_armor[0]);
-						}
+						Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3, cl.stats[STAT_ARMOR] <= 25);
+						if (cl.stats[STAT_ITEMS] & IT_ARMOR3)
+							Sbar_DrawPic (0, 0, sb_armor[2]);
+						else if (cl.stats[STAT_ITEMS] & IT_ARMOR2)
+							Sbar_DrawPic (0, 0, sb_armor[1]);
+						else if (cl.stats[STAT_ITEMS] & IT_ARMOR1)
+							Sbar_DrawPic (0, 0, sb_armor[0]);
 					}
 				}
 

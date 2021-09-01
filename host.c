@@ -220,7 +220,7 @@ static void Host_ServerOptions (void)
 		else
 		{
 			// default players in some games, singleplayer in most
-			if (gamemode != GAME_GOODVSBAD2 && !IS_NEXUIZ_DERIVED(gamemode) && gamemode != GAME_BATTLEMECH)
+			if (!IS_NEXUIZ_DERIVED(gamemode) && gamemode != GAME_BATTLEMECH)
 				svs.maxclients = 1;
 		}
 	}
