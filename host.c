@@ -333,8 +333,6 @@ static void Host_AddConfigText(void)
 	// override these) and then execute the quake.rc startup script
 	if (gamemode == GAME_NEHAHRA)
 		Cbuf_InsertText("alias startmap_sp \"map nehstart\"\nalias startmap_dm \"map nehstart\"\nexec " STARTCONFIGFILENAME "\n");
-	else if (gamemode == GAME_TRANSFUSION)
-		Cbuf_InsertText("alias startmap_sp \"map e1m1\"\n""alias startmap_dm \"map bb1\"\nexec " STARTCONFIGFILENAME "\n");
 	else if (gamemode == GAME_TEU)
 		Cbuf_InsertText("alias startmap_sp \"map start\"\nalias startmap_dm \"map start\"\nexec teu.rc\n");
 	else

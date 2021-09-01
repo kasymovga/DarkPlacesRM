@@ -1620,13 +1620,12 @@ void Sbar_Draw (void)
 			sbar_x = (vid_conwidth.integer - 320)/2;
 			sbar_y = vid_conheight.integer - SBAR_HEIGHT;
 			// LordHavoc: changed to draw the deathmatch overlays in any multiplayer mode
-			//if (cl.gametype == GAME_DEATHMATCH && gamemode != GAME_TRANSFUSION)
 
 			if (sb_lines > 24)
 			{
 				if (gamemode != GAME_GOODVSBAD2)
 					Sbar_DrawInventory ();
-				if (!cl.islocalgame && gamemode != GAME_TRANSFUSION)
+				if (!cl.islocalgame)
 					Sbar_DrawFrags ();
 			}
 
@@ -1723,10 +1722,7 @@ void Sbar_Draw (void)
 				// LordHavoc: changed to draw the deathmatch overlays in any multiplayer mode
 				if ((!cl.islocalgame || cl.gametype != GAME_COOP))
 				{
-					if (gamemode == GAME_TRANSFUSION)
-						Sbar_MiniDeathmatchOverlay (0, 0);
-					else
-						Sbar_MiniDeathmatchOverlay (sbar_x + 324, vid_conheight.integer - 8*8);
+					Sbar_MiniDeathmatchOverlay (sbar_x + 324, vid_conheight.integer - 8*8);
 					Sbar_Score(24);
 				}
 			}
@@ -1923,10 +1919,7 @@ void Sbar_MiniDeathmatchOverlay (int x, int y)
 	Sbar_SortFrags ();
 
 	// decide where to print
-	if (gamemode == GAME_TRANSFUSION)
-		numlines = (vid_conwidth.integer - x + 127) / 128;
-	else
-		numlines = (vid_conheight.integer - y + 7) / 8;
+	numlines = (vid_conheight.integer - y + 7) / 8;
 
 	// give up if there isn't room
 	if (x >= vid_conwidth.integer || y >= vid_conheight.integer || numlines < 1)
@@ -1941,49 +1934,40 @@ void Sbar_MiniDeathmatchOverlay (int x, int y)
 	range_end = scoreboardlines;
 	teamsep = 0;
 
-	if (gamemode != GAME_TRANSFUSION)
-		if (Sbar_IsTeammatch ())
+	if (Sbar_IsTeammatch ())
+	{
+		// reserve space for the team scores
+		numlines -= teamlines;
+
+		// find first and last player of my team (only draw the team totals and my own team)
+		range_begin = range_end = i;
+		myteam = cl.scores[fragsort[i]].colors & 15;
+		while(range_begin > 0 && (cl.scores[fragsort[range_begin-1]].colors & 15) == myteam)
+			--range_begin;
+		while(range_end < scoreboardlines && (cl.scores[fragsort[range_end]].colors & 15) == myteam)
+			++range_end;
+
+		// looks better than two players
+		if(numlines == 2)
 		{
-			// reserve space for the team scores
-			numlines -= teamlines;
-
-			// find first and last player of my team (only draw the team totals and my own team)
-			range_begin = range_end = i;
-			myteam = cl.scores[fragsort[i]].colors & 15;
-			while(range_begin > 0 && (cl.scores[fragsort[range_begin-1]].colors & 15) == myteam)
-				--range_begin;
-			while(range_end < scoreboardlines && (cl.scores[fragsort[range_end]].colors & 15) == myteam)
-				++range_end;
-
-			// looks better than two players
-			if(numlines == 2)
-			{
-				teamsep = 8;
-				numlines = 1;
-			}
+			teamsep = 8;
+			numlines = 1;
 		}
+	}
 
 	// figure out start
 	i -= numlines/2;
 	i = min(i, range_end - numlines);
 	i = max(i, range_begin);
 
-	if (gamemode == GAME_TRANSFUSION)
-	{
-		for (;i < range_end && x < vid_conwidth.integer;i++)
-			x += 128 + (int)Sbar_PrintScoreboardItem(cl.scores + fragsort[i], x, y);
-	}
-	else
-	{
-		if(range_end - i < numlines) // won't draw to bottom?
-			y += 8 * (numlines - (range_end - i)); // bottom align
-		// show team scores first
-		for (j = 0;j < teamlines && y < vid_conheight.integer;j++)
-			y += (int)Sbar_PrintScoreboardItem((teams + teamsort[j]), x, y);
-		y += teamsep;
-		for (;i < range_end && y < vid_conheight.integer;i++)
-			y += (int)Sbar_PrintScoreboardItem(cl.scores + fragsort[i], x, y);
-	}
+	if(range_end - i < numlines) // won't draw to bottom?
+		y += 8 * (numlines - (range_end - i)); // bottom align
+	// show team scores first
+	for (j = 0;j < teamlines && y < vid_conheight.integer;j++)
+		y += (int)Sbar_PrintScoreboardItem((teams + teamsort[j]), x, y);
+	y += teamsep;
+	for (;i < range_end && y < vid_conheight.integer;i++)
+		y += (int)Sbar_PrintScoreboardItem(cl.scores + fragsort[i], x, y);
 }
 
 static int Sbar_TeamColorCompare(const void *t1_, const void *t2_)

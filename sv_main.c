@@ -35,6 +35,7 @@ cvar_t sv_worldmessage = {CVAR_READONLY, "sv_worldmessage", "", "title of curren
 cvar_t sv_worldname = {CVAR_READONLY, "sv_worldname", "", "name of current worldmodel"};
 cvar_t sv_worldnamenoextension = {CVAR_READONLY, "sv_worldnamenoextension", "", "name of current worldmodel without extension"};
 cvar_t sv_worldbasename = {CVAR_READONLY, "sv_worldbasename", "", "name of current worldmodel without maps/ prefix or extension"};
+cvar_t sv_use_default_spawnflags = {0, "sv_use_default_spawnflags", "1", "Use default Quake spawnflags (256, 512, 1024, 2048)"};
 
 cvar_t sv_disablenotify = {0, "sv_disablenotify", "1", "suppress broadcast prints when certain cvars are changed (CVAR_NOTIFY flag in engine code)"};
 cvar_t coop = {0, "coop","0", "coop mode, 0 = no coop, 1 = coop mode, multiple players playing through the singleplayer game (coop mode also shuts off deathmatch)"};
@@ -445,6 +446,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable(&sv_worldname);
 	Cvar_RegisterVariable(&sv_worldnamenoextension);
 	Cvar_RegisterVariable(&sv_worldbasename);
+	Cvar_RegisterVariable(&sv_use_default_spawnflags);
 
 	Cvar_RegisterVariable (&csqc_progname);
 	Cvar_RegisterVariable (&csqc_progcrc);
@@ -3756,7 +3758,7 @@ static void SVVM_count_edicts(prvm_prog_t *prog)
 static qboolean SVVM_load_edict(prvm_prog_t *prog, prvm_edict_t *ent)
 {
 	// remove things from different skill levels or deathmatch
-	if (gamemode != GAME_TRANSFUSION) //Transfusion does this in QC
+	if (sv_use_default_spawnflags.integer)
 	{
 		if (deathmatch.integer)
 		{

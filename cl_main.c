@@ -1386,10 +1386,7 @@ static void CL_UpdateViewModel(void)
 		ent->state_current.modelindex = 0;
 	else if (cl.stats[STAT_ITEMS] & IT_INVISIBILITY)
 	{
-		if (gamemode == GAME_TRANSFUSION)
-			ent->state_current.alpha = 128;
-		else
-			ent->state_current.modelindex = 0;
+		ent->state_current.modelindex = 0;
 	}
 	ent->state_current.alpha = cl.entities[cl.viewentity].state_current.alpha;
 	ent->state_current.effects = EF_NOSHADOW | (cl.entities[cl.viewentity].state_current.effects & (EF_ADDITIVE | EF_FULLBRIGHT | EF_NODEPTHTEST | EF_NOGUNBOB));

@@ -26,8 +26,6 @@ enum m_state_e {
 	m_main,
 	m_demo,
 	m_singleplayer,
-	m_transfusion_episode,
-	m_transfusion_skill,
 	m_load,
 	m_save,
 	m_multiplayer,

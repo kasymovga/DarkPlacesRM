@@ -1759,10 +1759,8 @@ void Con_DrawNotify (void)
 
 	if (con_notify.integer < 0)
 		Cvar_SetValueQuick(&con_notify, 0);
-	if (gamemode == GAME_TRANSFUSION)
-		v = 8; // vertical offset
-	else
-		v = 0;
+
+	v = 0;
 
 	// GAME_NEXUIZ: center, otherwise left justify
 	align = con_notifyalign.value;
