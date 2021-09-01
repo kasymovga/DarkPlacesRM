@@ -1741,6 +1741,12 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 	movetime2 = movetime;
 	VectorScale(PRVM_serveredictvector(pusher, velocity), movetime2, move1);
 	VectorScale(PRVM_serveredictvector(pusher, avelocity), movetime2, moveangle);
+	if (kex_compat.integer) {
+		if (!strcmp(PRVM_GetString(prog, PRVM_serveredictstring(pusher, classname)), "func_bob")) {
+			moveangle[0] = moveangle[1] = moveangle[2] = 0;
+			rotated = 0;
+		}
+	}
 	if (moveangle[0] || moveangle[2])
 	{
 		for (i = 0;i < 3;i++)
@@ -1800,7 +1806,9 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 // move the pusher to its final position
 
 	VectorMA (PRVM_serveredictvector(pusher, origin), movetime, PRVM_serveredictvector(pusher, velocity), PRVM_serveredictvector(pusher, origin));
-	VectorMA (PRVM_serveredictvector(pusher, angles), movetime, PRVM_serveredictvector(pusher, avelocity), PRVM_serveredictvector(pusher, angles));
+	if (rotated)
+		VectorMA (PRVM_serveredictvector(pusher, angles), movetime, PRVM_serveredictvector(pusher, avelocity), PRVM_serveredictvector(pusher, angles));
+
 	PRVM_serveredictfloat(pusher, ltime) += movetime;
 	SV_LinkEdict(pusher);
 
