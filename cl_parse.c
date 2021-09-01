@@ -4224,35 +4224,10 @@ void CL_ParseServerMessage(void)
 				Cmd_ExecuteString ("help", src_command, true);
 				break;
 			case svc_hidelmp:
-				if (gamemode == GAME_TENEBRAE)
-				{
-					// repeating particle effect
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					(void) MSG_ReadByte(&cl_message);
-					MSG_ReadLong(&cl_message);
-					MSG_ReadLong(&cl_message);
-					MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring));
-				}
-				else
-					SHOWLMP_decodehide();
+				SHOWLMP_decodehide();
 				break;
 			case svc_showlmp:
-				if (gamemode == GAME_TENEBRAE)
-				{
-					// particle effect
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					MSG_ReadCoord(&cl_message, cls.protocol);
-					(void) MSG_ReadByte(&cl_message);
-					MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring));
-				}
-				else
-					SHOWLMP_decodeshow();
+				SHOWLMP_decodeshow();
 				break;
 			case svc_skybox:
 				R_SetSkyBox(MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring)));

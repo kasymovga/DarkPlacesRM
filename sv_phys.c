@@ -54,8 +54,6 @@ int SV_GetPitchSign(prvm_prog_t *prog, prvm_edict_t *ent)
 			:
 			(
 			 (((unsigned char)PRVM_serveredictfloat(ent, pflags)) & PFLAGS_FULLDYNAMIC)
-			 ||
-			 ((gamemode == GAME_TENEBRAE) && ((unsigned int)PRVM_serveredictfloat(ent, effects) & (16 | 32)))
 			)
 	   )
 		return -1;

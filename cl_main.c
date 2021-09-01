@@ -1162,9 +1162,6 @@ static void CL_UpdateNetworkEntity(entity_t *e, int recursionlimit, qboolean int
 		Matrix4x4_CreateFromQuakeEntity(&e->render.matrix, origin[0], origin[1], origin[2], angles[0], angles[1], angles[2], e->render.scale);
 	}
 
-	// tenebrae's sprites are all additive mode (weird)
-	if (gamemode == GAME_TENEBRAE && e->render.model && e->render.model->type == mod_sprite)
-		e->render.flags |= RENDER_ADDITIVE;
 	// player model is only shown with chase_active on
 	if (e->state_current.number == cl.viewentity)
 		e->render.flags |= RENDER_EXTERIORMODEL;

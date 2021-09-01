@@ -3493,7 +3493,7 @@ void GL_Main_Init(void)
 	for (i = 0;i < R_BUFFERDATA_COUNT;i++)
 		Cvar_RegisterVariable(&r_buffermegs[i]);
 	Cvar_RegisterVariable(&r_batch_dynamicbuffer);
-	if (gamemode == GAME_NEHAHRA || gamemode == GAME_TENEBRAE)
+	if (gamemode == GAME_NEHAHRA)
 		Cvar_SetValue("r_fullbrights", 0);
 #ifdef DP_MOBILETOUCH
 	// GLES devices have terrible depth precision in general, so...
