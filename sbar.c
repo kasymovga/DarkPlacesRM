@@ -153,7 +153,7 @@ static void sbar_start(void)
 	char vabuf[1024];
 	int i;
 
-	if (gamemode == GAME_DELUXEQUAKE || gamemode == GAME_BLOODOMNICIDE)
+	if (gamemode == GAME_BLOODOMNICIDE)
 	{
 	}
 	else if (IS_OLDNEXUIZ_DERIVED(gamemode))
@@ -1347,9 +1347,6 @@ void Sbar_Draw (void)
 		}
 		else if (cl.intermission == 2)
 			Sbar_FinaleOverlay();
-		else if (gamemode == GAME_DELUXEQUAKE)
-		{
-		}
 		else if (IS_OLDNEXUIZ_DERIVED(gamemode))
 		{
 			if (sb_showscores || (cl.stats[STAT_HEALTH] <= 0 && cl_deathscoreboard.integer))

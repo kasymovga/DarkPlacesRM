@@ -366,10 +366,6 @@ static void Host_Map_f (void)
 		return;
 	}
 
-	// GAME_DELUXEQUAKE - clear warpmark (used by QC)
-	if (gamemode == GAME_DELUXEQUAKE)
-		Cvar_Set("warpmark", "");
-
 	cls.demonum = -1;		// stop demo loop in case this fails
 
 	CL_Disconnect ();
