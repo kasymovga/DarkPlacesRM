@@ -1815,10 +1815,6 @@ void CL_SendMove(void)
 	case PROTOCOL_QUAKEWORLD:
 	case PROTOCOL_QUAKE:
 	case PROTOCOL_QUAKEDP:
-	case PROTOCOL_NEHAHRAMOVIE:
-	case PROTOCOL_NEHAHRABJP:
-	case PROTOCOL_NEHAHRABJP2:
-	case PROTOCOL_NEHAHRABJP3:
 	case PROTOCOL_DARKPLACES1:
 	case PROTOCOL_DARKPLACES2:
 	case PROTOCOL_DARKPLACES3:
@@ -1883,7 +1879,6 @@ void CL_SendMove(void)
 	// send the movement message
 	// PROTOCOL_QUAKE        clc_move = 16 bytes total
 	// PROTOCOL_QUAKEDP      clc_move = 16 bytes total
-	// PROTOCOL_NEHAHRAMOVIE clc_move = 16 bytes total
 	// PROTOCOL_DARKPLACES1  clc_move = 19 bytes total
 	// PROTOCOL_DARKPLACES2  clc_move = 25 bytes total
 	// PROTOCOL_DARKPLACES3  clc_move = 25 bytes total
@@ -1932,10 +1927,6 @@ void CL_SendMove(void)
 			break;
 		case PROTOCOL_QUAKE:
 		case PROTOCOL_QUAKEDP:
-		case PROTOCOL_NEHAHRAMOVIE:
-		case PROTOCOL_NEHAHRABJP:
-		case PROTOCOL_NEHAHRABJP2:
-		case PROTOCOL_NEHAHRABJP3:
 			// 5 bytes
 			MSG_WriteByte (&buf, clc_move);
 			MSG_WriteFloat (&buf, cl.cmd.time); // last server packet time

@@ -356,7 +356,7 @@ void MSG_WriteCoord32f (sizebuf_t *sb, float f)
 
 void MSG_WriteCoord (sizebuf_t *sb, float f, protocolversion_t protocol)
 {
-	if (protocol == PROTOCOL_QUAKE || protocol == PROTOCOL_QUAKEDP || protocol == PROTOCOL_NEHAHRAMOVIE || protocol == PROTOCOL_NEHAHRABJP || protocol == PROTOCOL_NEHAHRABJP2 || protocol == PROTOCOL_NEHAHRABJP3 || protocol == PROTOCOL_QUAKEWORLD)
+	if (protocol == PROTOCOL_QUAKE || protocol == PROTOCOL_QUAKEDP || protocol == PROTOCOL_QUAKEWORLD)
 		MSG_WriteCoord13i (sb, f);
 	else if (protocol == PROTOCOL_DARKPLACES1)
 		MSG_WriteCoord32f (sb, f);
@@ -397,7 +397,7 @@ void MSG_WriteAngle32f (sizebuf_t *sb, float f)
 
 void MSG_WriteAngle (sizebuf_t *sb, float f, protocolversion_t protocol)
 {
-	if (protocol == PROTOCOL_QUAKE || protocol == PROTOCOL_QUAKEDP || protocol == PROTOCOL_NEHAHRAMOVIE || protocol == PROTOCOL_NEHAHRABJP || protocol == PROTOCOL_NEHAHRABJP2 || protocol == PROTOCOL_NEHAHRABJP3 || protocol == PROTOCOL_DARKPLACES1 || protocol == PROTOCOL_DARKPLACES2 || protocol == PROTOCOL_DARKPLACES3 || protocol == PROTOCOL_DARKPLACES4 || protocol == PROTOCOL_QUAKEWORLD)
+	if (protocol == PROTOCOL_QUAKE || protocol == PROTOCOL_QUAKEDP || protocol == PROTOCOL_DARKPLACES1 || protocol == PROTOCOL_DARKPLACES2 || protocol == PROTOCOL_DARKPLACES3 || protocol == PROTOCOL_DARKPLACES4 || protocol == PROTOCOL_QUAKEWORLD)
 		MSG_WriteAngle8i (sb, f);
 	else
 		MSG_WriteAngle16i (sb, f);
@@ -536,7 +536,7 @@ float MSG_ReadCoord32f (sizebuf_t *sb)
 
 float MSG_ReadCoord (sizebuf_t *sb, protocolversion_t protocol)
 {
-	if (protocol == PROTOCOL_QUAKE || protocol == PROTOCOL_QUAKEDP || protocol == PROTOCOL_NEHAHRAMOVIE || protocol == PROTOCOL_NEHAHRABJP || protocol == PROTOCOL_NEHAHRABJP2 || protocol == PROTOCOL_NEHAHRABJP3 || protocol == PROTOCOL_QUAKEWORLD)
+	if (protocol == PROTOCOL_QUAKE || protocol == PROTOCOL_QUAKEDP || protocol == PROTOCOL_QUAKEWORLD)
 		return MSG_ReadCoord13i(sb);
 	else if (protocol == PROTOCOL_DARKPLACES1)
 		return MSG_ReadCoord32f(sb);
@@ -571,7 +571,7 @@ float MSG_ReadAngle32f (sizebuf_t *sb)
 
 float MSG_ReadAngle (sizebuf_t *sb, protocolversion_t protocol)
 {
-	if (protocol == PROTOCOL_QUAKE || protocol == PROTOCOL_QUAKEDP || protocol == PROTOCOL_NEHAHRAMOVIE || protocol == PROTOCOL_NEHAHRABJP || protocol == PROTOCOL_NEHAHRABJP2 || protocol == PROTOCOL_NEHAHRABJP3 || protocol == PROTOCOL_DARKPLACES1 || protocol == PROTOCOL_DARKPLACES2 || protocol == PROTOCOL_DARKPLACES3 || protocol == PROTOCOL_DARKPLACES4 || protocol == PROTOCOL_QUAKEWORLD)
+	if (protocol == PROTOCOL_QUAKE || protocol == PROTOCOL_QUAKEDP || protocol == PROTOCOL_DARKPLACES1 || protocol == PROTOCOL_DARKPLACES2 || protocol == PROTOCOL_DARKPLACES3 || protocol == PROTOCOL_DARKPLACES4 || protocol == PROTOCOL_QUAKEWORLD)
 		return MSG_ReadAngle8i (sb);
 	else
 		return MSG_ReadAngle16i (sb);
@@ -1453,7 +1453,6 @@ static const gamemode_info_t gamemode_info [GAME_COUNT] =
 { GAME_ROGUE,					GAME_NORMAL,				"rogue",				"-rogue",					"Darkplaces-Rogue",			"Darkplaces-Rogue",			"id1",		"rogue",		"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -rogue runs Quake mission pack 2: The Dissolution of Eternity
 { GAME_DOPA,					GAME_NORMAL,				"dopa",					"-dopa",					"Darkplaces-Dopa",			"Darkplaces-Dopa",			"id1",		"dopa",			"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -dopa runs Quake: Dimension of the Past
 { GAME_MG1,						GAME_NORMAL,				"mg1",					"-mg1",						"Darkplaces-MG1",			"Darkplaces-MG1",			"id1",		"mg1",			"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -mg1 runs Quake: Dimension of the Machine
-{ GAME_NEHAHRA,					GAME_NORMAL,				"nehahra",				"-nehahra",					"DarkPlaces-Nehahra",		"DarkPlaces-Nehahra",		"id1",		"nehahra",		"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -nehahra runs The Seal of Nehahra movie and game
 { GAME_QUOTH,					GAME_NORMAL,				"quoth",				"-quoth",					"Darkplaces-Quoth",			"Darkplaces-Quoth",			"id1",		"quoth",		"dp",				"darkplaces"			}, // COMMANDLINEOPTION: Game: -quoth runs the Quoth mod for playing community maps made for it
 { GAME_NEXUIZ,					GAME_NEXUIZ,				"nexuiz",				"-nexuiz",					"Nexuiz",					"Nexuiz",					"data",		NULL,			"nexuiz",			"nexuiz"				}, // COMMANDLINEOPTION: Game: -nexuiz runs the multiplayer game Nexuiz
 { GAME_REXUIZ,					GAME_REXUIZ,				"rexuiz",				"-rexuiz",					"Rexuiz",					"Nexuiz",					"data",		NULL,			"rexuiz",			"rexuiz"				}, // COMMANDLINEOPTION: Game: -nexuiz runs the multiplayer game Nexuiz

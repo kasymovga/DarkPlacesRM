@@ -523,30 +523,6 @@ static void Cmd_Exec(const char *filename)
 "r_shadow_bumpscale_basetexture 0\n"
 				);
 			break;
-		case GAME_NEHAHRA:
-			Cbuf_InsertText("\n"
-"sv_gameplayfix_blowupfallenzombies 0\n"
-"sv_gameplayfix_findradiusdistancetobox 0\n"
-"sv_gameplayfix_grenadebouncedownslopes 0\n"
-"sv_gameplayfix_slidemoveprojectiles 0\n"
-"sv_gameplayfix_upwardvelocityclearsongroundflag 0\n"
-"sv_gameplayfix_setmodelrealbox 0\n"
-"sv_gameplayfix_droptofloorstartsolid 0\n"
-"sv_gameplayfix_droptofloorstartsolid_nudgetocorrect 0\n"
-"sv_gameplayfix_noairborncorpse 0\n"
-"sv_gameplayfix_noairborncorpse_allowsuspendeditems 0\n"
-"sv_gameplayfix_easierwaterjump 0\n"
-"sv_gameplayfix_delayprojectiles 0\n"
-"sv_gameplayfix_multiplethinksperframe 0\n"
-"sv_gameplayfix_fixedcheckwatertransition 0\n"
-"sv_gameplayfix_q1bsptracelinereportstexture 0\n"
-"sv_gameplayfix_swiminbmodels 0\n"
-"sv_gameplayfix_downtracesupportsongroundflag 0\n"
-"sys_ticrate 0.01388889\n"
-"r_shadow_gloss 1\n"
-"r_shadow_bumpscale_basetexture 0\n"
-				);
-			break;
 		// hipnotic mission pack has issues in their 'friendly monster' ai, which seem to attempt to attack themselves for some reason when findradius() returns non-solid entities.
 		// hipnotic mission pack has issues with bobbing water entities 'jittering' between different heights on alternate frames at the default 0.0138889 ticrate, 0.02 avoids this issue
 		// hipnotic mission pack has issues in their proximity mine sticking code, which causes them to bounce off.

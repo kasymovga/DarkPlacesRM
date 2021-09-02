@@ -24,7 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 enum m_state_e {
 	m_none,
 	m_main,
-	m_demo,
 	m_singleplayer,
 	m_load,
 	m_save,

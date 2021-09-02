@@ -350,14 +350,6 @@ void R_FillColors(float *out, int verts, float r, float g, float b, float a)
 // FIXME: move this to client?
 void FOG_clear(void)
 {
-	if (gamemode == GAME_NEHAHRA)
-	{
-		Cvar_Set("gl_fogenable", "0");
-		Cvar_Set("gl_fogdensity", "0.2");
-		Cvar_Set("gl_fogred", "0.3");
-		Cvar_Set("gl_foggreen", "0.3");
-		Cvar_Set("gl_fogblue", "0.3");
-	}
 	r_refdef.fog_density = 0;
 	r_refdef.fog_red = 0;
 	r_refdef.fog_green = 0;
@@ -3323,17 +3315,6 @@ void GL_Main_Init(void)
 	Cmd_AddCommand("r_glsl_restart", R_GLSL_Restart_f, "unloads GLSL shaders, they will then be reloaded as needed");
 	Cmd_AddCommand("r_glsl_dumpshader", R_GLSL_DumpShader_f, "dumps the engine internal default.glsl shader into glsl/default.glsl");
 	// FIXME: the client should set up r_refdef.fog stuff including the fogmasktable
-	if (gamemode == GAME_NEHAHRA)
-	{
-		Cvar_RegisterVariable (&gl_fogenable);
-		Cvar_RegisterVariable (&gl_fogdensity);
-		Cvar_RegisterVariable (&gl_fogred);
-		Cvar_RegisterVariable (&gl_foggreen);
-		Cvar_RegisterVariable (&gl_fogblue);
-		Cvar_RegisterVariable (&gl_fogstart);
-		Cvar_RegisterVariable (&gl_fogend);
-		Cvar_RegisterVariable (&gl_skyclip);
-	}
 	Cvar_RegisterVariable(&r_motionblur);
 	Cvar_RegisterVariable(&r_damageblur);
 	Cvar_RegisterVariable(&r_motionblur_averaging);
@@ -3493,8 +3474,6 @@ void GL_Main_Init(void)
 	for (i = 0;i < R_BUFFERDATA_COUNT;i++)
 		Cvar_RegisterVariable(&r_buffermegs[i]);
 	Cvar_RegisterVariable(&r_batch_dynamicbuffer);
-	if (gamemode == GAME_NEHAHRA)
-		Cvar_SetValue("r_fullbrights", 0);
 #ifdef DP_MOBILETOUCH
 	// GLES devices have terrible depth precision in general, so...
 	Cvar_SetValueQuick(&r_nearclip, 4);
@@ -5806,37 +5785,6 @@ matrix4x4_t r_waterscrollmatrix;
 
 void R_UpdateFog(void)
 {
-	// Nehahra fog
-	if (gamemode == GAME_NEHAHRA)
-	{
-		if (gl_fogenable.integer)
-		{
-			r_refdef.oldgl_fogenable = true;
-			r_refdef.fog_density = gl_fogdensity.value;
-			r_refdef.fog_red = gl_fogred.value;
-			r_refdef.fog_green = gl_foggreen.value;
-			r_refdef.fog_blue = gl_fogblue.value;
-			r_refdef.fog_alpha = 1;
-			r_refdef.fog_start = 0;
-			r_refdef.fog_end = gl_skyclip.value;
-			r_refdef.fog_height = 1<<30;
-			r_refdef.fog_fadedepth = 128;
-		}
-		else if (r_refdef.oldgl_fogenable)
-		{
-			r_refdef.oldgl_fogenable = false;
-			r_refdef.fog_density = 0;
-			r_refdef.fog_red = 0;
-			r_refdef.fog_green = 0;
-			r_refdef.fog_blue = 0;
-			r_refdef.fog_alpha = 0;
-			r_refdef.fog_start = 0;
-			r_refdef.fog_end = 0;
-			r_refdef.fog_height = 1<<30;
-			r_refdef.fog_fadedepth = 128;
-		}
-	}
-
 	// fog parms
 	r_refdef.fog_alpha = bound(0, r_refdef.fog_alpha, 1);
 	r_refdef.fog_start = max(0, r_refdef.fog_start);

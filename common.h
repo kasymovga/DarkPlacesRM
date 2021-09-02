@@ -133,12 +133,8 @@ typedef enum protocolversion_e
 	PROTOCOL_DARKPLACES2, ///< various changes
 	PROTOCOL_DARKPLACES1, ///< uses EntityFrame entity snapshot encoder/decoder which is a QuakeWorld-like entity snapshot delta compression method
 	PROTOCOL_QUAKEDP, ///< darkplaces extended quake protocol (used by TomazQuake and others), backwards compatible as long as no extended features are used
-	PROTOCOL_NEHAHRAMOVIE, ///< Nehahra movie protocol, a big nasty hack dating back to early days of the Quake Standards Group (but only ever used by neh_gl.exe), this is potentially backwards compatible with quake protocol as long as no extended features are used (but in actuality the neh_gl.exe which wrote this protocol ALWAYS wrote the extended information)
 	PROTOCOL_QUAKE, ///< quake (aka netquake/normalquake/nq) protocol
 	PROTOCOL_QUAKEWORLD, ///< quakeworld protocol
-	PROTOCOL_NEHAHRABJP, ///< same as QUAKEDP but with 16bit modelindex
-	PROTOCOL_NEHAHRABJP2, ///< same as NEHAHRABJP but with 16bit soundindex
-	PROTOCOL_NEHAHRABJP3 ///< same as NEHAHRABJP2 but with some changes
 }
 protocolversion_t;
 
@@ -271,7 +267,6 @@ typedef enum gamemode_e
 	GAME_DOPA,
 	GAME_MG1,
 	GAME_QUOTH,
-	GAME_NEHAHRA,
 	GAME_NEXUIZ,
 	GAME_REXUIZ,
 	GAME_XONOTIC,

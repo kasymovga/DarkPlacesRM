@@ -1948,16 +1948,8 @@ void SHOWLMP_decodeshow(void)
 	float x, y;
 	strlcpy (lmplabel,MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring)), sizeof (lmplabel));
 	strlcpy (picname, MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring)), sizeof (picname));
-	if (gamemode == GAME_NEHAHRA) // LordHavoc: nasty old legacy junk
-	{
-		x = MSG_ReadByte(&cl_message);
-		y = MSG_ReadByte(&cl_message);
-	}
-	else
-	{
-		x = MSG_ReadShort(&cl_message);
-		y = MSG_ReadShort(&cl_message);
-	}
+	x = MSG_ReadShort(&cl_message);
+	y = MSG_ReadShort(&cl_message);
 	if (!cl.showlmps || cl.num_showlmps >= cl.max_showlmps)
 	{
 		showlmp_t *oldshowlmps = cl.showlmps;

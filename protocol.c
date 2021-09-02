@@ -74,10 +74,6 @@ protocolversioninfo[] =
 	{   15, PROTOCOL_QUAKEDP     , "QUAKEDP"},
 	{   15, PROTOCOL_QUAKE       , "QUAKE"},
 	{   28, PROTOCOL_QUAKEWORLD  , "QW"},
-	{  250, PROTOCOL_NEHAHRAMOVIE, "NEHAHRAMOVIE"},
-	{10000, PROTOCOL_NEHAHRABJP  , "NEHAHRABJP"},
-	{10001, PROTOCOL_NEHAHRABJP2 , "NEHAHRABJP2"},
-	{10002, PROTOCOL_NEHAHRABJP3 , "NEHAHRABJP3"},
 	{    0, PROTOCOL_UNKNOWN     , NULL}
 };
 
@@ -139,7 +135,7 @@ void EntityFrameQuake_ReadEntity(int bits)
 
 	if (bits & U_MOREBITS)
 		bits |= (MSG_ReadByte(&cl_message)<<8);
-	if ((bits & U_EXTEND1) && cls.protocol != PROTOCOL_NEHAHRAMOVIE)
+	if ((bits & U_EXTEND1))
 	{
 		bits |= MSG_ReadByte(&cl_message) << 16;
 		if (bits & U_EXTEND2)
@@ -184,10 +180,7 @@ void EntityFrameQuake_ReadEntity(int bits)
 	s.flags = 0;
 	if (bits & U_MODEL)
 	{
-		if (cls.protocol == PROTOCOL_NEHAHRABJP || cls.protocol == PROTOCOL_NEHAHRABJP2 || cls.protocol == PROTOCOL_NEHAHRABJP3)
-							s.modelindex = (unsigned short) MSG_ReadShort(&cl_message);
-		else
-							s.modelindex = (s.modelindex & 0xFF00) | MSG_ReadByte(&cl_message);
+		s.modelindex = (s.modelindex & 0xFF00) | MSG_ReadByte(&cl_message);
 	}
 	if (bits & U_FRAME)		s.frame = (s.frame & 0xFF00) | MSG_ReadByte(&cl_message);
 	if (bits & U_COLORMAP)	s.colormap = MSG_ReadByte(&cl_message);
@@ -211,27 +204,6 @@ void EntityFrameQuake_ReadEntity(int bits)
 	if (bits & U_MODEL2)	s.modelindex = (s.modelindex & 0x00FF) | (MSG_ReadByte(&cl_message) << 8);
 	if (bits & U_VIEWMODEL)	s.flags |= RENDER_VIEWMODEL;
 	if (bits & U_EXTERIORMODEL)	s.flags |= RENDER_EXTERIORMODEL;
-
-	// LordHavoc: to allow playback of the Nehahra movie
-	if (cls.protocol == PROTOCOL_NEHAHRAMOVIE && (bits & U_EXTEND1))
-	{
-		// LordHavoc: evil format
-		int i = (int)MSG_ReadFloat(&cl_message);
-		int j = (int)(MSG_ReadFloat(&cl_message) * 255.0f);
-		if (i == 2)
-		{
-			i = (int)MSG_ReadFloat(&cl_message);
-			if (i)
-				s.effects |= EF_FULLBRIGHT;
-		}
-		if (j < 0)
-			s.alpha = 0;
-		else if (j == 0 || j >= 255)
-			s.alpha = 255;
-		else
-			s.alpha = j;
-	}
-
 	ent->state_previous = ent->state_current;
 	ent->state_current = s;
 	if (ent->state_current.active == ACTIVE_NETWORK)
@@ -768,7 +740,7 @@ qboolean EntityFrameQuake_WriteFrame(sizebuf_t *msg, int maxsize, int numstates,
 		if (baseline.modelindex != s->modelindex)
 		{
 			bits |= U_MODEL;
-			if ((s->modelindex & 0xFF00) && sv.protocol != PROTOCOL_NEHAHRABJP && sv.protocol != PROTOCOL_NEHAHRABJP2 && sv.protocol != PROTOCOL_NEHAHRABJP3)
+			if ((s->modelindex & 0xFF00))
 				bits |= U_MODEL2;
 		}
 		if (baseline.alpha != s->alpha)
@@ -783,12 +755,8 @@ qboolean EntityFrameQuake_WriteFrame(sizebuf_t *msg, int maxsize, int numstates,
 			bits |= U_COLORMOD;
 
 		// if extensions are disabled, clear the relevant update flags
-		if (sv.protocol == PROTOCOL_QUAKE || sv.protocol == PROTOCOL_NEHAHRAMOVIE)
+		if (sv.protocol == PROTOCOL_QUAKE)
 			bits &= 0x7FFF;
-		if (sv.protocol == PROTOCOL_NEHAHRAMOVIE)
-			if (s->alpha != 255 || s->effects & EF_FULLBRIGHT)
-				bits |= U_EXTEND1;
-
 		// write the message
 		if (bits >= 16777216)
 			bits |= U_EXTEND2;
@@ -803,20 +771,14 @@ qboolean EntityFrameQuake_WriteFrame(sizebuf_t *msg, int maxsize, int numstates,
 
 			MSG_WriteByte (&buf, bits);
 			if (bits & U_MOREBITS)		MSG_WriteByte(&buf, bits>>8);
-			if (sv.protocol != PROTOCOL_NEHAHRAMOVIE)
-			{
-				if (bits & U_EXTEND1)	MSG_WriteByte(&buf, bits>>16);
-				if (bits & U_EXTEND2)	MSG_WriteByte(&buf, bits>>24);
-			}
+			if (bits & U_EXTEND1)	MSG_WriteByte(&buf, bits>>16);
+			if (bits & U_EXTEND2)	MSG_WriteByte(&buf, bits>>24);
 			if (bits & U_LONGENTITY)	MSG_WriteShort(&buf, s->number);
 			else						MSG_WriteByte(&buf, s->number);
 
 			if (bits & U_MODEL)
 			{
-				if (sv.protocol == PROTOCOL_NEHAHRABJP || sv.protocol == PROTOCOL_NEHAHRABJP2 || sv.protocol == PROTOCOL_NEHAHRABJP3)
-					MSG_WriteShort(&buf, s->modelindex);
-				else
-					MSG_WriteByte(&buf, s->modelindex);
+				MSG_WriteByte(&buf, s->modelindex);
 			}
 			if (bits & U_FRAME)			MSG_WriteByte(&buf, s->frame);
 			if (bits & U_COLORMAP)		MSG_WriteByte(&buf, s->colormap);
@@ -838,7 +800,7 @@ qboolean EntityFrameQuake_WriteFrame(sizebuf_t *msg, int maxsize, int numstates,
 			if (bits & U_MODEL2)		MSG_WriteByte(&buf, s->modelindex >> 8);
 
 			// the nasty protocol
-			if ((bits & U_EXTEND1) && sv.protocol == PROTOCOL_NEHAHRAMOVIE)
+			if ((bits & U_EXTEND1))
 			{
 				if (s->effects & EF_FULLBRIGHT)
 				{
@@ -2704,7 +2666,7 @@ void EntityFrame5_CL_ReadFrame(void)
 	// read the number of this frame to echo back in next input packet
 	framenum = MSG_ReadLong(&cl_message);
 	CL_NewFrameReceived(framenum);
-	if (cls.protocol != PROTOCOL_QUAKE && cls.protocol != PROTOCOL_QUAKEDP && cls.protocol != PROTOCOL_NEHAHRAMOVIE && cls.protocol != PROTOCOL_DARKPLACES1 && cls.protocol != PROTOCOL_DARKPLACES2 && cls.protocol != PROTOCOL_DARKPLACES3 && cls.protocol != PROTOCOL_DARKPLACES4 && cls.protocol != PROTOCOL_DARKPLACES5 && cls.protocol != PROTOCOL_DARKPLACES6)
+	if (cls.protocol != PROTOCOL_QUAKE && cls.protocol != PROTOCOL_QUAKEDP && cls.protocol != PROTOCOL_DARKPLACES1 && cls.protocol != PROTOCOL_DARKPLACES2 && cls.protocol != PROTOCOL_DARKPLACES3 && cls.protocol != PROTOCOL_DARKPLACES4 && cls.protocol != PROTOCOL_DARKPLACES5 && cls.protocol != PROTOCOL_DARKPLACES6)
 		cls.servermovesequence = MSG_ReadLong(&cl_message);
 	// read entity numbers until we find a 0x8000
 	// (which would be remove world entity, but is actually a terminator)
@@ -2941,7 +2903,7 @@ qboolean EntityFrame5_WriteFrame(sizebuf_t *msg, int maxsize, entityframe5_datab
 
 	packetlog = NULL;
 	// write stat updates
-	if (sv.protocol != PROTOCOL_QUAKE && sv.protocol != PROTOCOL_QUAKEDP && sv.protocol != PROTOCOL_NEHAHRAMOVIE && sv.protocol != PROTOCOL_NEHAHRABJP && sv.protocol != PROTOCOL_NEHAHRABJP2 && sv.protocol != PROTOCOL_NEHAHRABJP3 && sv.protocol != PROTOCOL_DARKPLACES1 && sv.protocol != PROTOCOL_DARKPLACES2 && sv.protocol != PROTOCOL_DARKPLACES3 && sv.protocol != PROTOCOL_DARKPLACES4 && sv.protocol != PROTOCOL_DARKPLACES5)
+	if (sv.protocol != PROTOCOL_QUAKE && sv.protocol != PROTOCOL_QUAKEDP && sv.protocol != PROTOCOL_DARKPLACES1 && sv.protocol != PROTOCOL_DARKPLACES2 && sv.protocol != PROTOCOL_DARKPLACES3 && sv.protocol != PROTOCOL_DARKPLACES4 && sv.protocol != PROTOCOL_DARKPLACES5)
 	{
 		for (i = 0;i < MAX_CL_STATS && msg->cursize + 6 + 11 <= maxsize;i++)
 		{
@@ -2994,7 +2956,7 @@ qboolean EntityFrame5_WriteFrame(sizebuf_t *msg, int maxsize, entityframe5_datab
 	d->latestframenum = framenum;
 	MSG_WriteByte(msg, svc_entities);
 	MSG_WriteLong(msg, framenum);
-	if (sv.protocol != PROTOCOL_QUAKE && sv.protocol != PROTOCOL_QUAKEDP && sv.protocol != PROTOCOL_NEHAHRAMOVIE && sv.protocol != PROTOCOL_DARKPLACES1 && sv.protocol != PROTOCOL_DARKPLACES2 && sv.protocol != PROTOCOL_DARKPLACES3 && sv.protocol != PROTOCOL_DARKPLACES4 && sv.protocol != PROTOCOL_DARKPLACES5 && sv.protocol != PROTOCOL_DARKPLACES6)
+	if (sv.protocol != PROTOCOL_QUAKE && sv.protocol != PROTOCOL_QUAKEDP && sv.protocol != PROTOCOL_DARKPLACES1 && sv.protocol != PROTOCOL_DARKPLACES2 && sv.protocol != PROTOCOL_DARKPLACES3 && sv.protocol != PROTOCOL_DARKPLACES4 && sv.protocol != PROTOCOL_DARKPLACES5 && sv.protocol != PROTOCOL_DARKPLACES6)
 		MSG_WriteLong(msg, movesequence);
 	for (priority = ENTITYFRAME5_PRIORITYLEVELS - 1;priority >= 0 && packetlog->numstates < ENTITYFRAME5_MAXSTATES;priority--)
 	{

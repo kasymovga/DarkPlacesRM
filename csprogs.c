@@ -402,7 +402,7 @@ qboolean CSQC_AddRenderEdict(prvm_edict_t *ed, int edictnum)
 	 &&  (entrender->alpha >= 1)
 	 && !(renderflags & RF_NOSHADOW)
 	 && !(entrender->flags & RENDER_VIEWMODEL)
-	 && (!(entrender->flags & RENDER_EXTERIORMODEL) || (!cl.intermission && cls.protocol != PROTOCOL_NEHAHRAMOVIE && !cl_noplayershadow.integer)))
+	 && (!(entrender->flags & RENDER_EXTERIORMODEL) || (!cl.intermission && !cl_noplayershadow.integer)))
 		entrender->flags |= RENDER_SHADOW;
 	if (entrender->flags & RENDER_VIEWMODEL)
 		entrender->flags |= RENDER_NOSELFSHADOW;

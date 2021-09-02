@@ -1177,7 +1177,7 @@ static void CL_UpdateNetworkEntity(entity_t *e, int recursionlimit, qboolean int
 	if (!(e->render.effects & (EF_NOSHADOW | EF_ADDITIVE | EF_NODEPTHTEST))
 	 && (e->render.alpha >= 1)
 	 && !(e->render.flags & RENDER_VIEWMODEL)
-	 && (!(e->render.flags & RENDER_EXTERIORMODEL) || (!cl.intermission && cls.protocol != PROTOCOL_NEHAHRAMOVIE && !cl_noplayershadow.integer)))
+	 && (!(e->render.flags & RENDER_EXTERIORMODEL) || (!cl.intermission && !cl_noplayershadow.integer)))
 		e->render.flags |= RENDER_SHADOW;
 	if (e->render.flags & RENDER_VIEWMODEL)
 		e->render.flags |= RENDER_NOSELFSHADOW;
@@ -1254,10 +1254,7 @@ static void CL_UpdateNetworkEntityTrail(entity_t *e)
 		else if (e->render.effects & EF_ROCKET)
 			trailtype = EFFECT_TR_ROCKET;
 		else if (e->render.effects & EF_GRENADE)
-		{
-			// LordHavoc: e->render.alpha == -1 is for Nehahra dem compatibility (cigar smoke)
-			trailtype = e->render.alpha == -1 ? EFFECT_TR_NEHAHRASMOKE : EFFECT_TR_GRENADE;
-		}
+			trailtype = EFFECT_TR_GRENADE;
 		else if (e->render.effects & EF_TRACER3)
 			trailtype = EFFECT_TR_VORESPIKE;
 	}
@@ -1513,10 +1510,7 @@ static void CL_LinkNetworkEntity(entity_t *e)
 		else if (e->render.effects & EF_ROCKET)
 			trailtype = EFFECT_TR_ROCKET;
 		else if (e->render.effects & EF_GRENADE)
-		{
-			// LordHavoc: e->render.alpha == -1 is for Nehahra dem compatibility (cigar smoke)
-			trailtype = e->render.alpha == -1 ? EFFECT_TR_NEHAHRASMOKE : EFFECT_TR_GRENADE;
-		}
+			trailtype = EFFECT_TR_GRENADE;
 		else if (e->render.effects & EF_TRACER3)
 			trailtype = EFFECT_TR_VORESPIKE;
 	}
@@ -2461,7 +2455,7 @@ void CL_Init (void)
 	Cmd_AddCommand ("fog_heighttexture", CL_Fog_HeightTexture_f, "set global fog parameters (density red green blue alpha mindist maxdist top depth textures/mapname/fogheight.tga)");
 
 	// LordHavoc: added pausedemo
-	Cmd_AddCommand ("pausedemo", CL_PauseDemo_f, "pause demo playback (can also safely pause demo recording if using QUAKE, QUAKEDP or NEHAHRAMOVIE protocol, useful for making movies)");
+	Cmd_AddCommand ("pausedemo", CL_PauseDemo_f, "pause demo playback (can also safely pause demo recording if using QUAKE or QUAKEDP protocol, useful for making movies)");
 
 	Cmd_AddCommand ("cl_areastats", CL_AreaStats_f, "prints statistics on entity culling during collision traces");
 
