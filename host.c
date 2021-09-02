@@ -331,11 +331,7 @@ static void Host_AddConfigText(void)
 {
 	// set up the default startmap_sp and startmap_dm aliases (mods can
 	// override these) and then execute the quake.rc startup script
-	if (gamemode == GAME_TEU)
-		Cbuf_InsertText("alias startmap_sp \"map start\"\nalias startmap_dm \"map start\"\nexec teu.rc\n");
-	else
-		Cbuf_InsertText("alias startmap_sp \"map start\"\nalias startmap_dm \"map start\"\nexec " STARTCONFIGFILENAME "\n");
-
+	Cbuf_InsertText("alias startmap_sp \"map start\"\nalias startmap_dm \"map start\"\nexec " STARTCONFIGFILENAME "\n");
 	Cbuf_InsertText(
 			"bind SPACE \"+jump\"\n"
 			"bind MOUSE1 \"+attack\"\n"
