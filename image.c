@@ -834,6 +834,45 @@ qboolean LoadWAL_GetMetadata(const unsigned char *f, int filesize, int *retwidth
 	return true;
 }
 
+// gfx/* wad lumps and gfx/*.lmp files are simply width and height and paletted pixels, with color 255 as transparent
+static unsigned char* LoadLMP_BGRA(const unsigned char *f, int filesize, int *miplevel)
+{
+	unsigned char *image_buffer;
+	int i;
+
+	if (filesize < 9)
+	{
+		Con_Print("Bad lmp file\n");
+		return NULL;
+	}
+
+	image_width = f[0] + f[1] * 0x100 + f[2] * 0x10000 + f[3] * 0x1000000;
+	image_height = f[4] + f[5] * 0x100 + f[6] * 0x10000 + f[7] * 0x1000000;
+
+	if (image_width > 32768 || image_height > 32768 || image_width <= 0 || image_height <= 0 || image_width * image_height > filesize - 8)
+	{
+		Con_Print("Bad lmp file\n");
+		return NULL;
+	}
+
+	image_buffer = (unsigned char *)Mem_Alloc(tempmempool, image_width*image_height * 4);
+	if (!image_buffer)
+	{
+		Con_Printf("LoadLMP: not enough memory for %i by %i image\n", image_width, image_height);
+		return NULL;
+	}
+
+	for (i = 0; i < image_width * image_height; i++)
+	{
+		const unsigned char *p = (const unsigned char *)palette_bgra_transparent + 4 * f[8 + i];
+		image_buffer[i * 4 + 0] = p[0];
+		image_buffer[i * 4 + 1] = p[1];
+		image_buffer[i * 4 + 2] = p[2];
+		image_buffer[i * 4 + 3] = p[3];
+	}
+
+	return image_buffer;
+}
 
 void Image_StripImageExtension (const char *in, char *out, size_t size_out)
 {
@@ -922,6 +961,7 @@ imageformat_t imageformats_gfx[] =
 	{"%s.png", PNG_LoadImage_BGRA},
 	{"%s.jpg", JPEG_LoadImage_BGRA},
 	{"%s.pcx", LoadPCX_BGRA},
+	{"%s.lmp", LoadLMP_BGRA},
 	{NULL, NULL}
 };
 
@@ -931,6 +971,7 @@ imageformat_t imageformats_other[] =
 	{"%s.png", PNG_LoadImage_BGRA},
 	{"%s.jpg", JPEG_LoadImage_BGRA},
 	{"%s.pcx", LoadPCX_BGRA},
+	{"%s.lmp", LoadLMP_BGRA},
 	{NULL, NULL}
 };
 
