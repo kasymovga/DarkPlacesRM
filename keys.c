@@ -2085,7 +2085,7 @@ Key_Event (int key, int ascii, qboolean down)
 	// send function keydowns to interpreter no matter what mode is (unless the menu has specifically grabbed the keyboard, for rebinding keys)
 	// VorteX: Omnicide does bind F* keys
 	if (keydest != key_menu_grabbed)
-	if (key >= K_F1 && key <= K_F12 && gamemode != GAME_BLOODOMNICIDE)
+	if (key >= K_F1 && key <= K_F12)
 	{
 		if (bind)
 		{
@@ -2140,15 +2140,7 @@ Key_Event (int key, int ascii, qboolean down)
 	// ignore binds while a video is played, let the video system handle the key event
 	if (cl_videoplaying)
 	{
-		if (gamemode == GAME_BLOODOMNICIDE) // menu controls key events
-#ifdef CONFIG_MENU
-			MR_KeyEvent(key, ascii, down);
-#else
-			{
-			}
-#endif
-		else
-			CL_Video_KeyEvent (key, ascii, keydown[key] != 0);
+		CL_Video_KeyEvent (key, ascii, keydown[key] != 0);
 		return;
 	}
 

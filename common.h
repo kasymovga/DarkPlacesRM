@@ -282,7 +282,6 @@ typedef enum gamemode_e
 	GAME_CONTAGIONTHEORY,
 	GAME_EDU2P,
 	GAME_PROPHECY,
-	GAME_BLOODOMNICIDE,
 	GAME_STEELSTORM, // added by motorsep
 	GAME_STEELSTORM2, // added by motorsep
 	GAME_SSAMMO, // added by motorsep

@@ -151,10 +151,7 @@ static void sbar_start(void)
 	char vabuf[1024];
 	int i;
 
-	if (gamemode == GAME_BLOODOMNICIDE)
-	{
-	}
-	else if (gamemode == GAME_ZYMOTIC)
+	if (gamemode == GAME_ZYMOTIC)
 	{
 		zymsb_crosshair_center = Draw_CachePic_Flags ("gfx/hud/crosshair_center", CACHEPICFLAG_QUIET);
 		zymsb_crosshair_line = Draw_CachePic_Flags ("gfx/hud/crosshair_line", CACHEPICFLAG_QUIET);
