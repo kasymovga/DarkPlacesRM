@@ -535,7 +535,7 @@ static void Cmd_Exec(const char *filename)
 "sv_gameplayfix_slidemoveprojectiles 0\n"
 "sv_gameplayfix_upwardvelocityclearsongroundflag 0\n"
 "sv_gameplayfix_setmodelrealbox 0\n"
-"sv_gameplayfix_droptofloorstartsolid 0\n"
+"sv_gameplayfix_droptofloorstartsolid 1\n" // prevent issue with scorpion on hip1m2
 "sv_gameplayfix_droptofloorstartsolid_nudgetocorrect 0\n"
 "sv_gameplayfix_noairborncorpse 0\n"
 "sv_gameplayfix_noairborncorpse_allowsuspendeditems 0\n"
