@@ -1615,6 +1615,15 @@ static void VM_SV_setspawnparms(prvm_prog_t *prog)
 }
 
 /*
+==============
+VM_SV_finaleFinished
+==============
+*/
+static void VM_SV_finaleFinished(prvm_prog_t *prog)
+{
+	//just stub
+}
+/*
 =================
 VM_SV_getlight
 
@@ -3276,7 +3285,7 @@ VM_SV_precache_model,			// #75 string(string s) precache_model2 (QUAKE)
 VM_SV_precache_sound,			// #76 string(string s) precache_sound2 (QUAKE)
 VM_precache_file,				// #77 string(string s) precache_file2 (QUAKE)
 VM_SV_setspawnparms,			// #78 void(entity e) setspawnparms (QUAKE)
-NULL,							// #79 void(entity killer, entity killee) logfrag (QUAKEWORLD)
+VM_SV_finaleFinished,			// #79 void(entity killer, entity killee) logfrag (QUAKEWORLD), void(void) finaleFinished(QUAKERERELEASED)
 NULL,							// #80 string(entity e, string keyname) infokey (QUAKEWORLD)
 VM_stof,						// #81 float(string s) stof (FRIK_FILE)
 NULL,							// #82 void(vector where, float set) multicast (QUAKEWORLD)
