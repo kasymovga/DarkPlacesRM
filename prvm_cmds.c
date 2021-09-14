@@ -771,6 +771,7 @@ static int typeflags_to_cvarflags(int flags) {
 
 /*
 =================
+DP_RM_CVAR_ALTERTYPE
 VM_cvar_altertype
 
 float cvar_altertype(string varname, float setflags, float unsetflags);
