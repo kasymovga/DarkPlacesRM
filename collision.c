@@ -752,7 +752,8 @@ void Collision_TraceBrushBrushFloat(trace_t *trace, const colbrushf_t *trace_sta
 			trace->hitq3surfaceflags = hitq3surfaceflags;
 			trace->hittexture = hittexture;
 			trace->fraction = bound(0, enterfrac2, 1);
-			VectorCopy(newimpactplane, trace->plane.normal);
+			if (newimpactplane[0] || newimpactplane[1] || newimpactplane[2])
+				VectorCopy(newimpactplane, trace->plane.normal);
 			trace->plane.dist = newimpactplane[3];
 		}
 	}
@@ -765,7 +766,8 @@ void Collision_TraceBrushBrushFloat(trace_t *trace, const colbrushf_t *trace_sta
 			trace->startsolid = true;
 			if (leavefrac < 1)
 				trace->allsolid = true;
-			VectorCopy(newimpactplane, trace->plane.normal);
+			if (newimpactplane[0] || newimpactplane[1] || newimpactplane[2])
+				VectorCopy(newimpactplane, trace->plane.normal);
 			trace->plane.dist = newimpactplane[3];
 			if (trace->startdepth > startdepth)
 			{
