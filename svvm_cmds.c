@@ -703,6 +703,12 @@ static void VM_SV_tracebox(prvm_prog_t *prog)
 	int		move;
 	prvm_edict_t	*ent;
 
+	if (prog->argc == 2) //compatibility with kex engine
+	{
+		VM_bprint(prog);
+		SV_BroadcastPrint("\n");
+		return;
+	}
 	VM_SAFEPARMCOUNTRANGE(6, 8, VM_SV_tracebox); // allow more parameters for future expansion
 
 	prog->xfunction->builtinsprofile += 30;
