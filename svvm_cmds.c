@@ -703,7 +703,7 @@ static void VM_SV_tracebox(prvm_prog_t *prog)
 	int		move;
 	prvm_edict_t	*ent;
 
-	if (prog->argc == 2) //compatibility with kex engine
+	if (kex_compat.integer) //compatibility with kex engine
 	{
 		VM_bprint(prog);
 		SV_BroadcastPrint("\n");
@@ -1645,15 +1645,13 @@ static void VM_SV_getlight(prvm_prog_t *prog)
 {
 	vec3_t ambientcolor, diffusecolor, diffusenormal;
 	vec3_t p;
-	VM_SAFEPARMCOUNTRANGE(1, 3, VM_SV_getlight);
-	if (prog->argc == 3)
+	if (kex_compat.integer)
 	{
-		p[0] = PRVM_G_FLOAT(OFS_PARM0);
-		p[1] = PRVM_G_FLOAT(OFS_PARM1);
-		p[2] = PRVM_G_FLOAT(OFS_PARM2);
+		VM_SV_sprint(prog);
+		return;
 	}
-	else
-		VectorCopy(PRVM_G_VECTOR(OFS_PARM0), p);
+	VM_SAFEPARMCOUNT(1, VM_SV_getlight);
+	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), p);
 	VectorClear(ambientcolor);
 	VectorClear(diffusecolor);
 	VectorClear(diffusenormal);

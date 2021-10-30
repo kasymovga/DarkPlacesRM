@@ -1766,14 +1766,13 @@ vector randomvec()
 void VM_randomvec(prvm_prog_t *prog)
 {
 	vec3_t temp;
-	VM_SAFEPARMCOUNTRANGE(0, 3, VM_SV_getlight);
+	if (kex_compat.integer)
+	{
+		VM_bprint(prog);
+		return;
+	}
+	VM_SAFEPARMCOUNT(0, VM_randomvec);
 	VectorRandom(temp);
-	if (prog->argc == 3)
-		temp[2] *= PRVM_G_FLOAT(OFS_PARM2);
-	if (prog->argc >= 2)
-		temp[1] *= PRVM_G_FLOAT(OFS_PARM1);
-	if (prog->argc >= 1)
-		temp[0] *= PRVM_G_FLOAT(OFS_PARM0);
 	VectorCopy(temp, PRVM_G_VECTOR(OFS_RETURN));
 }
 
