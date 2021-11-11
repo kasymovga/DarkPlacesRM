@@ -1824,6 +1824,7 @@ typedef struct r_refdef_view_s
 
 	// render quality (0 to 1) - affects r_drawparticles_drawdistance and others
 	float quality;
+	qboolean camera;
 }
 r_refdef_view_t;
 

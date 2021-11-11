@@ -2650,7 +2650,7 @@ static void R_DrawParticle_TransparentCallback(const entity_render_t *ent, const
 	vec4_t colormultiplier;
 	float minparticledist_start, minparticledist_end;
 	qboolean dofade;
-	qboolean usecache = (r_drawparticles_ticrate_min.value > 0 || r_drawparticles_ticrate_factor.integer > 1);
+	qboolean usecache = ((r_drawparticles_ticrate_min.value > 0 || r_drawparticles_ticrate_factor.integer > 1) && !r_refdef.view.camera);
 
 	RSurf_ActiveWorldEntity();
 

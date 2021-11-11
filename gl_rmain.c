@@ -5153,6 +5153,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 				// we need to perform a matrix transform to render the view... so let's get the transformation matrix
 				r_fb.water.hideplayer = false; // we don't want to hide the player model from these ones
 				CL_VM_TransformView(p->camera_entity - MAX_EDICTS, &r_refdef.view.matrix, &r_refdef.view.clipplane, visorigin);
+				r_refdef.view.camera = true;
 				R_RenderView_UpdateViewVectors();
 				if(r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
 				{
@@ -5197,6 +5198,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			{
 				// we need to perform a matrix transform to render the view... so let's get the transformation matrix
 				CL_VM_TransformView(p->camera_entity - MAX_EDICTS, &r_refdef.view.matrix, &r_refdef.view.clipplane, visorigin);
+				r_refdef.view.camera = true;
 			}
 
 			// note: all of the view is used for displaying... so
