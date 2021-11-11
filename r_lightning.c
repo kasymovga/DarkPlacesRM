@@ -311,16 +311,7 @@ void R_DrawLightningBeams(void)
 	{
 		if (b->model && b->lightning)
 		{
-			vec3_t org, start, end, dir;
-			vec_t dist;
-			CL_Beam_CalculatePositions(b, start, end);
-			// calculate the nearest point on the line (beam) for depth sorting
-			VectorSubtract(end, start, dir);
-			dist = (DotProduct(r_refdef.view.origin, dir) - DotProduct(start, dir)) / (DotProduct(end, dir) - DotProduct(start, dir));
-			dist = bound(0, dist, 1);
-			VectorLerp(start, dist, end, org);
-			// now we have the nearest point on the line, so sort with it
-			R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, org, R_DrawLightningBeam_TransparentCallback, NULL, i, NULL);
+			R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, R_DrawLightningBeam_TransparentCallback, NULL, i, NULL);
 		}
 	}
 }
