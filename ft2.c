@@ -350,9 +350,11 @@ qboolean Font_OpenLibrary (void)
 #elif defined(MACOSX)
 		"libfreetype.6.dylib",
 		"libfreetype.dylib",
+		"libfreetype-fallback.dylib",
 #else
 		"libfreetype.so.6",
 		"libfreetype.so",
+		"libfreetype-fallback.so",
 #endif
 		NULL
 	};
