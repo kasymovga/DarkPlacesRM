@@ -4972,45 +4972,18 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 	}
 }
 
-extern cvar_t r_drawparticles;
-extern cvar_t r_drawdecals;
-
 static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 {
 	int myscissor[4];
 	r_refdef_view_t originalview;
 	r_refdef_view_t myview;
-	int planeindex, qualityreduction = 0, old_r_dynamic = 0, old_r_shadows = 0, old_r_worldrtlight = 0, old_r_dlight = 0, old_r_particles = 0, old_r_decals = 0;
+	int planeindex;
 	r_waterstate_waterplane_t *p;
 	vec3_t visorigin;
 	qboolean usewaterfbo = (r_viewfbo.integer >= 1 || r_water_fbo.integer >= 1) && vid.support.ext_framebuffer_object && vid.support.arb_texture_non_power_of_two && vid.samples < 2;
 	char vabuf[1024];
 
 	originalview = r_refdef.view;
-
-	// lowquality hack, temporarily shut down some cvars and restore afterwards
-	qualityreduction = r_water_lowquality.integer;
-	if (qualityreduction > 0)
-	{
-		if (qualityreduction >= 1)
-		{
-			old_r_shadows = r_shadows.integer;
-			old_r_worldrtlight = r_shadow_realtime_world.integer;
-			old_r_dlight = r_shadow_realtime_dlight.integer;
-			Cvar_SetValueQuick(&r_shadows, 0);
-			Cvar_SetValueQuick(&r_shadow_realtime_world, 0);
-			Cvar_SetValueQuick(&r_shadow_realtime_dlight, 0);
-		}
-		if (qualityreduction >= 2)
-		{
-			old_r_dynamic = r_dynamic.integer;
-			old_r_particles = r_drawparticles.integer;
-			old_r_decals = r_drawdecals.integer;
-			Cvar_SetValueQuick(&r_dynamic, 0);
-			Cvar_SetValueQuick(&r_drawparticles, 0);
-			Cvar_SetValueQuick(&r_drawdecals, 0);
-		}
-	}
 
 	// make sure enough textures are allocated
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
@@ -5230,29 +5203,12 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 		R_ClearScreen(r_refdef.fogenabled);
 	R_View_Update();
 	R_AnimCache_CacheVisibleEntities();
-	goto finish;
+	return;
 error:
 	r_refdef.view = originalview;
 	r_fb.water.renderingscene = false;
 	Cvar_SetValueQuick(&r_water, 0);
 	Con_Printf("R_Water_ProcessPlanes: Error: texture creation failed!  Turned off r_water.\n");
-finish:
-	// lowquality hack, restore cvars
-	if (qualityreduction > 0)
-	{
-		if (qualityreduction >= 1)
-		{
-			Cvar_SetValueQuick(&r_shadows, old_r_shadows);
-			Cvar_SetValueQuick(&r_shadow_realtime_world, old_r_worldrtlight);
-			Cvar_SetValueQuick(&r_shadow_realtime_dlight, old_r_dlight);
-		}
-		if (qualityreduction >= 2)
-		{
-			Cvar_SetValueQuick(&r_dynamic, old_r_dynamic);
-			Cvar_SetValueQuick(&r_drawparticles, old_r_particles);
-			Cvar_SetValueQuick(&r_drawdecals, old_r_decals);
-		}
-	}
 }
 
 static void R_Bloom_StartFrame(void)
@@ -5847,9 +5803,9 @@ void R_UpdateVariables(void)
 	r_refdef.shadowpolygonfactor = r_refdef.polygonfactor + r_shadow_polygonfactor.value * (r_shadow_frontsidecasting.integer ? 1 : -1);
 	r_refdef.shadowpolygonoffset = r_refdef.polygonoffset + r_shadow_polygonoffset.value * (r_shadow_frontsidecasting.integer ? 1 : -1);
 
-	r_refdef.scene.rtworld = r_shadow_realtime_world.integer != 0;
+	r_refdef.scene.rtworld = (r_shadow_realtime_world.integer != 0 && !(r_refdef.view.camera && r_water_lowquality.integer >= 1));
 	r_refdef.scene.rtworldshadows = r_shadow_realtime_world_shadows.integer && vid.stencil;
-	r_refdef.scene.rtdlight = r_shadow_realtime_dlight.integer != 0 && !gl_flashblend.integer && r_dynamic.integer;
+	r_refdef.scene.rtdlight = (r_shadow_realtime_dlight.integer != 0 && !gl_flashblend.integer && r_dynamic.integer && !(r_refdef.view.camera && r_water_lowquality.integer >= 1));
 	r_refdef.scene.rtdlightshadows = r_refdef.scene.rtdlight && r_shadow_realtime_dlight_shadows.integer && vid.stencil;
 	r_refdef.lightmapintensity = r_refdef.scene.rtworld ? r_shadow_realtime_world_lightmaps.value : 1;
 	if (FAKELIGHT_ENABLED)
@@ -6151,6 +6107,7 @@ extern int r_shadow_shadowmapatlas_modelshadows_size;
 void R_RenderScene(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 {
 	qboolean shadowmapping = false;
+	qboolean lowquality = (r_refdef.view.camera && r_water_lowquality.integer >= 2);
 
 	if (r_timereport_active)
 		R_TimeReport("beginscene");
@@ -6199,23 +6156,25 @@ void R_RenderScene(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 		}
 	}
 
-	R_Shadow_PrepareModelShadows();
-	R_Shadow_PrepareLights(fbo, depthtexture, colortexture);
-	if (r_timereport_active)
-		R_TimeReport("preparelights");
-
-	// render all the shadowmaps that will be used for this view
-	shadowmapping = R_Shadow_ShadowMappingEnabled();
-	if (shadowmapping || r_shadow_shadowmapatlas_modelshadows_size)
+	if (!lowquality)
 	{
-		R_Shadow_DrawShadowMaps();
+		R_Shadow_PrepareModelShadows();
+		R_Shadow_PrepareLights(fbo, depthtexture, colortexture);
 		if (r_timereport_active)
-			R_TimeReport("shadowmaps");
-	}
+			R_TimeReport("preparelights");
+		// render all the shadowmaps that will be used for this view
+		shadowmapping = R_Shadow_ShadowMappingEnabled();
+		if ((shadowmapping || r_shadow_shadowmapatlas_modelshadows_size))
+		{
+			R_Shadow_DrawShadowMaps();
+			if (r_timereport_active)
+				R_TimeReport("shadowmaps");
+		}
 
-	// render prepass deferred lighting if r_shadow_deferred is on, this produces light buffers that will be sampled in forward pass
-	if (r_shadow_usingdeferredprepass)
-		R_Shadow_DrawPrepass();
+		// render prepass deferred lighting if r_shadow_deferred is on, this produces light buffers that will be sampled in forward pass
+		if (r_shadow_usingdeferredprepass)
+			R_Shadow_DrawPrepass();
+	}
 
 	// now we begin the forward pass of the view render
 	if (r_depthfirst.integer >= 1 && cl.csqc_vidvars.drawworld && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->DrawDepth)
@@ -6250,53 +6209,59 @@ void R_RenderScene(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 	if (r_refdef.scene.extraupdate)
 		S_ExtraUpdate ();
 
-	if ((r_shadows.integer == 1 || (r_shadows.integer > 0 && !shadowmapping)) && !r_shadows_drawafterrtlighting.integer && r_refdef.lightmapintensity > 0)
+	if (!lowquality)
 	{
-		R_ResetViewRendering3D(fbo, depthtexture, colortexture);
-		R_Shadow_DrawModelShadows();
-		R_ResetViewRendering3D(fbo, depthtexture, colortexture);
+		if ((r_shadows.integer == 1 || (r_shadows.integer > 0 && !shadowmapping)) && !r_shadows_drawafterrtlighting.integer && r_refdef.lightmapintensity > 0)
+		{
+			R_ResetViewRendering3D(fbo, depthtexture, colortexture);
+			R_Shadow_DrawModelShadows();
+			R_ResetViewRendering3D(fbo, depthtexture, colortexture);
+			// don't let sound skip if going slow
+			if (r_refdef.scene.extraupdate)
+				S_ExtraUpdate ();
+		}
+
+		if (!r_shadow_usingdeferredprepass)
+		{
+			R_Shadow_DrawLights();
+			if (r_timereport_active)
+				R_TimeReport("rtlights");
+		}
+
 		// don't let sound skip if going slow
 		if (r_refdef.scene.extraupdate)
 			S_ExtraUpdate ();
-	}
 
-	if (!r_shadow_usingdeferredprepass)
-	{
-		R_Shadow_DrawLights();
-		if (r_timereport_active)
-			R_TimeReport("rtlights");
-	}
-
-	// don't let sound skip if going slow
-	if (r_refdef.scene.extraupdate)
-		S_ExtraUpdate ();
-
-	if ((r_shadows.integer == 1 || (r_shadows.integer > 0 && !shadowmapping)) && r_shadows_drawafterrtlighting.integer && r_refdef.lightmapintensity > 0)
-	{
-		R_ResetViewRendering3D(fbo, depthtexture, colortexture);
-		R_Shadow_DrawModelShadows();
-		R_ResetViewRendering3D(fbo, depthtexture, colortexture);
-		// don't let sound skip if going slow
-		if (r_refdef.scene.extraupdate)
-			S_ExtraUpdate ();
+		if ((r_shadows.integer == 1 || (r_shadows.integer > 0 && !shadowmapping)) && r_shadows_drawafterrtlighting.integer && r_refdef.lightmapintensity > 0)
+		{
+			R_ResetViewRendering3D(fbo, depthtexture, colortexture);
+			R_Shadow_DrawModelShadows();
+			R_ResetViewRendering3D(fbo, depthtexture, colortexture);
+			// don't let sound skip if going slow
+			if (r_refdef.scene.extraupdate)
+				S_ExtraUpdate ();
+		}
 	}
 
 	if (cl.csqc_vidvars.drawworld)
 	{
-		if (cl_decals_newsystem.integer)
+		if (!lowquality)
 		{
-			R_DrawModelDecals();
-			if (r_timereport_active)
-				R_TimeReport("modeldecals");
-		}
-		else
-		{
-			R_DrawDecals();
-			if (r_timereport_active)
-				R_TimeReport("decals");
+			if (cl_decals_newsystem.integer)
+			{
+				R_DrawModelDecals();
+				if (r_timereport_active)
+					R_TimeReport("modeldecals");
+			}
+			else
+			{
+				R_DrawDecals();
+				if (r_timereport_active)
+					R_TimeReport("decals");
+			}
+			R_DrawParticles();
 		}
 
-		R_DrawParticles();
 		if (r_timereport_active)
 			R_TimeReport("particles");
 
@@ -6346,7 +6311,7 @@ void R_RenderScene(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 			R_TimeReport("modeldebug");
 	}
 
-	if (cl.csqc_vidvars.drawworld)
+	if (!lowquality && cl.csqc_vidvars.drawworld)
 	{
 		R_Shadow_DrawCoronas();
 		if (r_timereport_active)
