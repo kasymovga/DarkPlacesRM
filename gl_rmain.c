@@ -252,6 +252,7 @@ cvar_t r_buffermegs[R_BUFFERDATA_COUNT] =
 	{CVAR_SAVE, "r_buffermegs_index32", "1", "index buffer size for one frame (32bit indices)"},
 	{CVAR_SAVE, "r_buffermegs_uniform", "0.25", "uniform buffer size for one frame"},
 };
+cvar_t r_lightmap_updates_per_frame = {0, "r_lightmap_updates_per_frame", "1024", "Amount of lightmap updates per frame"};
 
 extern cvar_t v_glslgamma;
 extern cvar_t v_glslgamma_2d;
@@ -3462,6 +3463,7 @@ void GL_Main_Init(void)
 	for (i = 0;i < R_BUFFERDATA_COUNT;i++)
 		Cvar_RegisterVariable(&r_buffermegs[i]);
 	Cvar_RegisterVariable(&r_batch_dynamicbuffer);
+	Cvar_RegisterVariable(&r_lightmap_updates_per_frame);
 #ifdef DP_MOBILETOUCH
 	// GLES devices have terrible depth precision in general, so...
 	Cvar_SetValueQuick(&r_nearclip, 4);
@@ -11008,10 +11010,22 @@ void R_DrawWorldSurfaces(qboolean skysurfaces, qboolean writedepth, qboolean dep
 	}
 	else if (update)
 	{
-		for (j = model->firstmodelsurface, endj = model->firstmodelsurface + model->nummodelsurfaces;j < endj;j++)
+		int c = 0;
+		static int startj;
+		for (j = (startj >= model->firstmodelsurface ? startj : model->firstmodelsurface), endj = model->firstmodelsurface + model->nummodelsurfaces;j < endj;j++)
 			if (r_refdef.viewcache.world_surfacevisible[j])
 				if (update[j])
+				{
+					c++;
+					if (c >= r_lightmap_updates_per_frame.integer) {
+						startj = j;
+						break;
+					}
 					R_BuildLightMap(r_refdef.scene.worldentity, surfaces + j);
+				}
+
+		if (j >= endj)
+			startj = 0;
 	}
 	// don't do anything if there were no surfaces
 	if (!numsurfacelist)
