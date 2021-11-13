@@ -351,13 +351,13 @@ static char discord_game_command[512];
 long long int discord_client_id;
 static void *discord_thread;
 static void *discord_mutex;
-static int discord_shutdown;
-static int discord_activity_update_required;
+static volatile int discord_shutdown;
+static volatile int discord_activity_update_required;
 static char discord_activity_update_details[128];
 static char discord_activity_update_state[128];
 static char discord_activity_update_party[128];
-static int discord_activity_update_party_slots;
-static int discord_activity_update_party_slots_used;
+static volatile int discord_activity_update_party_slots;
+static volatile int discord_activity_update_party_slots_used;
 static void Discord_SetStatus(const char *details, const char *state, const char *party) {
 	struct DiscordActivity activity;
 	memset(&activity, 0, sizeof(activity));
