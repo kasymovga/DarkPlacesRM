@@ -2664,7 +2664,7 @@ static void R_DrawParticle_TransparentCallback(const entity_render_t *ent, const
 	for (surfacelistindex = 0, v3f = particle_vertex3f, t2f = particle_texcoord2f, c4f = particle_color4f;surfacelistindex < numsurfaces;surfacelistindex++, v3f += 3*4, t2f += 2*4, c4f += 4*4)
 	{
 		p = cl.particles + surfacelist[surfacelistindex];
-		if (p->cachetime == p->lasttime) {
+		if (p->cachetime == p->lasttime && usecache) {
 			memcpy(c4f, p->c4f, sizeof(p->c4f));
 			memcpy(t2f, p->t2f, sizeof(p->t2f));
 			memcpy(v3f, p->v3f, sizeof(p->v3f));
