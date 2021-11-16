@@ -2946,7 +2946,7 @@ static void VM_CL_SpawnParticle (prvm_prog_t *prog)
 	
 	if (prog->argc < 3) // global-set particle
 	{
-		part = CL_NewParticle(
+		part = CL_NewParticle(org,
 			(unsigned short)PRVM_clientglobalfloat(particle_type),
 			((int)PRVM_clientglobalvector(particle_color1)[0] << 16) + ((int)PRVM_clientglobalvector(particle_color1)[1] << 8) + ((int)PRVM_clientglobalvector(particle_color1)[2]),
 			((int)PRVM_clientglobalvector(particle_color2)[0] << 16) + ((int)PRVM_clientglobalvector(particle_color2)[1] << 8) + ((int)PRVM_clientglobalvector(particle_color2)[2]),
@@ -3000,7 +3000,7 @@ static void VM_CL_SpawnParticle (prvm_prog_t *prog)
 			return;
 		}
 		theme = &vmpartspawner.themes[themenum];
-		part = CL_NewParticle(
+		part = CL_NewParticle(org,
 			theme->typeindex,
 			theme->color1,
 			theme->color2,
@@ -3066,7 +3066,7 @@ static void VM_CL_SpawnParticleDelayed (prvm_prog_t *prog)
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), org);
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM1), dir);
 	if (prog->argc < 5) // global-set particle
-		part = CL_NewParticle(
+		part = CL_NewParticle(org,
 			(unsigned short)PRVM_clientglobalfloat(particle_type),
 			((int)PRVM_clientglobalvector(particle_color1)[0] << 16) + ((int)PRVM_clientglobalvector(particle_color1)[1] << 8) + ((int)PRVM_clientglobalvector(particle_color1)[2]),
 			((int)PRVM_clientglobalvector(particle_color2)[0] << 16) + ((int)PRVM_clientglobalvector(particle_color2)[1] << 8) + ((int)PRVM_clientglobalvector(particle_color2)[2]),
@@ -3110,7 +3110,7 @@ static void VM_CL_SpawnParticleDelayed (prvm_prog_t *prog)
 			return;
 		}
 		theme = &vmpartspawner.themes[themenum];
-		part = CL_NewParticle(
+		part = CL_NewParticle(org,
 			theme->typeindex,
 			theme->color1,
 			theme->color2,
@@ -3433,6 +3433,7 @@ void VM_CL_AddPolygonsToMeshQueue (prvm_prog_t *prog)
 {
 	int i;
 	vmpolygons_t *polys = &prog->vmpolygons;
+	vec3_t center;
 
 	// only add polygons of the currently active prog to the queue - if there is none, we're done
 	if( !prog )
@@ -3443,7 +3444,8 @@ void VM_CL_AddPolygonsToMeshQueue (prvm_prog_t *prog)
 
 	for (i = 0;i < polys->num_triangles;i++)
 	{
-		R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, VM_DrawPolygonCallback, (entity_render_t *)polys, i, NULL);
+		VectorMAMAM(1.0f / 3.0f, polys->data_vertex3f + 3*polys->data_triangles[i].elements[0], 1.0f / 3.0f, polys->data_vertex3f + 3*polys->data_triangles[i].elements[1], 1.0f / 3.0f, polys->data_vertex3f + 3*polys->data_triangles[i].elements[2], center);
+		R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, center, VM_DrawPolygonCallback, (entity_render_t *)polys, i, NULL);
 	}
 
 	/*polys->num_triangles = 0; // now done after rendering the scene,

@@ -419,9 +419,11 @@ static void R_Model_Sprite_Draw_TransparentCallback(const entity_render_t *ent, 
 
 void R_Model_Sprite_Draw(entity_render_t *ent)
 {
+	vec3_t org;
 	if (ent->frameblend[0].subframe < 0)
 		return;
 
-	R_MeshQueue_AddTransparent((ent->flags & RENDER_WORLDOBJECT) ? TRANSPARENTSORT_SKY : (ent->flags & RENDER_NODEPTHTEST) ? TRANSPARENTSORT_HUD : TRANSPARENTSORT_DISTANCE, R_Model_Sprite_Draw_TransparentCallback, ent, 0, rsurface.rtlight);
+	Matrix4x4_OriginFromMatrix(&ent->matrix, org);
+	R_MeshQueue_AddTransparent((ent->flags & RENDER_WORLDOBJECT) ? TRANSPARENTSORT_SKY : (ent->flags & RENDER_NODEPTHTEST) ? TRANSPARENTSORT_HUD : TRANSPARENTSORT_DISTANCE, org, R_Model_Sprite_Draw_TransparentCallback, ent, 0, rsurface.rtlight);
 }
 

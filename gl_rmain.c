@@ -85,6 +85,8 @@ cvar_t r_nearclip = {0, "r_nearclip", "1", "distance from camera of nearclip pla
 cvar_t r_deformvertexes = {0, "r_deformvertexes", "1", "allows use of deformvertexes in shader files (can be turned off to check performance impact)"};
 cvar_t r_transparent = {0, "r_transparent", "1", "allows use of transparent surfaces (can be turned off to check performance impact)"};
 cvar_t r_transparent_alphatocoverage = {0, "r_transparent_alphatocoverage", "1", "enables GL_ALPHA_TO_COVERAGE antialiasing technique on alphablend and alphatest surfaces when using vid_samples 2 or higher"};
+cvar_t r_transparent_sortsurfacesbynearest = {0, "r_transparent_sortsurfacesbynearest", "1", "sort entity and world surfaces by nearest point on bounding box instead of using the center of the bounding box, usually reduces sorting artifacts"};
+cvar_t r_transparent_useplanardistance = {0, "r_transparent_useplanardistance", "0", "sort transparent meshes by distance from view plane rather than spherical distance to the chosen point"};
 cvar_t r_showoverdraw = {0, "r_showoverdraw", "0", "shows overlapping geometry"};
 cvar_t r_showbboxes = {0, "r_showbboxes", "0", "shows bounding boxes of server entities, value controls opacity scaling (1 = 10%,  10 = 100%)"};
 cvar_t r_showsurfaces = {0, "r_showsurfaces", "0", "1 shows surfaces as different colors, or a value of 2 shows triangle draw order (for analyzing whether meshes are optimized for vertex cache)"};
@@ -134,6 +136,10 @@ cvar_t r_polygonoffset_decals_offset = {0, "r_polygonoffset_decals_offset", "-14
 cvar_t r_fog_exp2 = {0, "r_fog_exp2", "0", "uses GL_EXP2 fog (as in Nehahra) rather than realistic GL_EXP fog"};
 cvar_t r_fog_clear = {0, "r_fog_clear", "1", "clears renderbuffer with fog color before render starts"};
 cvar_t r_drawfog = {CVAR_SAVE, "r_drawfog", "1", "allows one to disable fog rendering"};
+cvar_t r_transparentdepthmasking = {CVAR_SAVE, "r_transparentdepthmasking", "0", "enables depth writes on transparent meshes whose materially is normally opaque, this prevents seeing the inside of a transparent mesh"};
+cvar_t r_transparent_sortmindist = {CVAR_SAVE, "r_transparent_sortmindist", "0", "lower distance limit for transparent sorting"};
+cvar_t r_transparent_sortmaxdist = {CVAR_SAVE, "r_transparent_sortmaxdist", "32768", "upper distance limit for transparent sorting"};
+cvar_t r_transparent_sortarraysize = {CVAR_SAVE, "r_transparent_sortarraysize", "4096", "number of distance-sorting layers"};
 cvar_t r_celshading = {CVAR_SAVE, "r_celshading", "0", "cartoon-style light shading (OpenGL 2.x only)"}; // FIXME remove OpenGL 2.x only once implemented for DX9
 cvar_t r_celoutlines = {CVAR_SAVE, "r_celoutlines", "0", "cartoon-style outlines (requires r_shadow_deferred; OpenGL 2.x only)"}; // FIXME remove OpenGL 2.x only once implemented for DX9
 
@@ -3334,6 +3340,8 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_deformvertexes);
 	Cvar_RegisterVariable(&r_transparent);
 	Cvar_RegisterVariable(&r_transparent_alphatocoverage);
+	Cvar_RegisterVariable(&r_transparent_sortsurfacesbynearest);
+	Cvar_RegisterVariable(&r_transparent_useplanardistance);
 	Cvar_RegisterVariable(&r_showoverdraw);
 	Cvar_RegisterVariable(&r_showbboxes);
 	Cvar_RegisterVariable(&r_showsurfaces);
@@ -3380,6 +3388,10 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_fog_exp2);
 	Cvar_RegisterVariable(&r_fog_clear);
 	Cvar_RegisterVariable(&r_drawfog);
+	Cvar_RegisterVariable(&r_transparentdepthmasking);
+	Cvar_RegisterVariable(&r_transparent_sortmindist);
+	Cvar_RegisterVariable(&r_transparent_sortmaxdist);
+	Cvar_RegisterVariable(&r_transparent_sortarraysize);
 	Cvar_RegisterVariable(&r_texture_dds_load);
 	Cvar_RegisterVariable(&r_texture_dds_save);
 	Cvar_RegisterVariable(&r_textureunits);
@@ -6434,6 +6446,7 @@ static void R_DrawEntityBBoxes(void)
 {
 	int i;
 	prvm_edict_t *edict;
+	vec3_t center;
 	prvm_prog_t *prog = SVVM_prog;
 
 	// this function draws bounding boxes of server entities
@@ -6450,7 +6463,8 @@ static void R_DrawEntityBBoxes(void)
 			continue;
 		if(PRVM_serveredictedict(edict, viewmodelforclient) != 0)
 			continue;
-		R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, R_DrawEntityBBoxes_Callback, (entity_render_t *)NULL, i, (rtlight_t *)NULL);
+		VectorLerp(edict->priv.server->areamins, 0.5f, edict->priv.server->areamaxs, center);
+		R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, center, R_DrawEntityBBoxes_Callback, (entity_render_t *)NULL, i, (rtlight_t *)NULL);
 	}
 }
 
@@ -6555,8 +6569,10 @@ static void R_DrawNoModel_TransparentCallback(const entity_render_t *ent, const 
 
 void R_DrawNoModel(entity_render_t *ent)
 {
+	vec3_t org;
+	Matrix4x4_OriginFromMatrix(&ent->matrix, org);
 	if ((ent->flags & RENDER_ADDITIVE) || (ent->alpha < 1))
-		R_MeshQueue_AddTransparent((ent->flags & RENDER_NODEPTHTEST) ? TRANSPARENTSORT_HUD : TRANSPARENTSORT_DISTANCE, R_DrawNoModel_TransparentCallback, ent, 0, rsurface.rtlight);
+		R_MeshQueue_AddTransparent((ent->flags & RENDER_NODEPTHTEST) ? TRANSPARENTSORT_HUD : TRANSPARENTSORT_DISTANCE, org, R_DrawNoModel_TransparentCallback, ent, 0, rsurface.rtlight);
 	else
 		R_DrawNoModel_TransparentCallback(ent, rsurface.rtlight, 0, NULL);
 }
@@ -6976,6 +6992,9 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 		// promote alphablend to alphatocoverage (a type of alphatest) if antialiasing is on
 		t->currentmaterialflags = (t->currentmaterialflags & ~(MATERIALFLAG_BLENDED | MATERIALFLAG_ALPHA)) | MATERIALFLAG_ALPHATEST;
 	}
+	if ((t->currentmaterialflags & (MATERIALFLAG_BLENDED | MATERIALFLAG_NODEPTHTEST)) == MATERIALFLAG_BLENDED && r_transparentdepthmasking.integer && !(t->basematerialflags & MATERIALFLAG_BLENDED))
+		t->currentmaterialflags |= MATERIALFLAG_TRANSDEPTH;
+
 	// there is no tcmod
 	if (t->currentmaterialflags & MATERIALFLAG_WATERSCROLL)
 	{
@@ -9772,6 +9791,52 @@ static void R_DrawSurface_TransparentCallback(const entity_render_t *ent, const 
 		}
 	}
 
+	if (r_transparentdepthmasking.integer)
+	{
+		qboolean setup = false;
+		for (i = 0;i < numsurfaces;i = j)
+		{
+			j = i + 1;
+			surface = rsurface.modelsurfaces + surfacelist[i];
+			texture = surface->texture;
+			rsurface.texture = R_GetCurrentTexture(texture);
+			rsurface.lightmaptexture = NULL;
+			rsurface.deluxemaptexture = NULL;
+			rsurface.uselightmaptexture = false;
+			// scan ahead until we find a different texture
+			endsurface = min(i + 1024, numsurfaces);
+			texturenumsurfaces = 0;
+			texturesurfacelist[texturenumsurfaces++] = surface;
+			for (;j < endsurface;j++)
+			{
+				surface = rsurface.modelsurfaces + surfacelist[j];
+				if (texture != surface->texture)
+					break;
+				texturesurfacelist[texturenumsurfaces++] = surface;
+			}
+			if (!(rsurface.texture->currentmaterialflags & MATERIALFLAG_TRANSDEPTH))
+				continue;
+			// render the range of surfaces as depth
+			if (!setup)
+			{
+				setup = true;
+				GL_ColorMask(0,0,0,0);
+				GL_Color(1,1,1,1);
+				GL_DepthTest(true);
+				GL_BlendFunc(GL_ONE, GL_ZERO);
+				GL_DepthMask(true);
+//				R_Mesh_ResetTextureState();
+			}
+			RSurf_SetupDepthAndCulling();
+			RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_ALLOWMULTIDRAW, texturenumsurfaces, texturesurfacelist);
+			R_SetupShader_DepthOrShadow(false, false, !!rsurface.batchskeletaltransform3x4);
+			R_Mesh_PrepareVertices_Vertex3f(rsurface.batchnumvertices, rsurface.batchvertex3f, rsurface.batchvertex3f_vertexbuffer, rsurface.batchvertex3f_bufferoffset);
+			RSurf_DrawBatch();
+		}
+		if (setup)
+			GL_ColorMask(r_refdef.view.colormask[0], r_refdef.view.colormask[1], r_refdef.view.colormask[2], 1);
+	}
+
 	for (i = 0;i < numsurfaces;i = j)
 	{
 		j = i + 1;
@@ -9822,10 +9887,30 @@ static void R_ProcessTransparentTextureSurfaceList(int texturenumsurfaces, const
 	// transparent surfaces get pushed off into the transparent queue
 	int surfacelistindex;
 	const msurface_t *surface;
+	vec3_t tempcenter, center;
 	for (surfacelistindex = 0;surfacelistindex < texturenumsurfaces;surfacelistindex++)
 	{
 		surface = texturesurfacelist[surfacelistindex];
-		R_MeshQueue_AddTransparent((rsurface.entity->flags & RENDER_WORLDOBJECT) ? TRANSPARENTSORT_SKY : (rsurface.texture->currentmaterialflags & MATERIALFLAG_NODEPTHTEST) ? TRANSPARENTSORT_HUD : rsurface.texture->transparentsort, R_DrawSurface_TransparentCallback, rsurface.entity, surface - rsurface.modelsurfaces, rsurface.rtlight);
+		if (r_transparent_sortsurfacesbynearest.integer)
+		{
+			tempcenter[0] = bound(surface->mins[0], rsurface.localvieworigin[0], surface->maxs[0]);
+			tempcenter[1] = bound(surface->mins[1], rsurface.localvieworigin[1], surface->maxs[1]);
+			tempcenter[2] = bound(surface->mins[2], rsurface.localvieworigin[2], surface->maxs[2]);
+		}
+		else
+		{
+			tempcenter[0] = (surface->mins[0] + surface->maxs[0]) * 0.5f;
+			tempcenter[1] = (surface->mins[1] + surface->maxs[1]) * 0.5f;
+			tempcenter[2] = (surface->mins[2] + surface->maxs[2]) * 0.5f;
+		}
+		Matrix4x4_Transform(&rsurface.matrix, tempcenter, center);
+		if (rsurface.entity->transparent_offset) // transparent offset
+		{
+			center[0] += r_refdef.view.forward[0]*rsurface.entity->transparent_offset;
+			center[1] += r_refdef.view.forward[1]*rsurface.entity->transparent_offset;
+			center[2] += r_refdef.view.forward[2]*rsurface.entity->transparent_offset;
+		}
+		R_MeshQueue_AddTransparent((rsurface.entity->flags & RENDER_WORLDOBJECT) ? TRANSPARENTSORT_SKY : (rsurface.texture->currentmaterialflags & MATERIALFLAG_NODEPTHTEST) ? TRANSPARENTSORT_HUD : rsurface.texture->transparentsort, center, R_DrawSurface_TransparentCallback, rsurface.entity, surface - rsurface.modelsurfaces, rsurface.rtlight);
 	}
 }
 
@@ -10065,10 +10150,12 @@ void R_DrawLocs(void)
 {
 	int index;
 	cl_locnode_t *loc, *nearestloc;
+	vec3_t center;
 	nearestloc = CL_Locs_FindNearest(cl.movement_origin);
 	for (loc = cl.locnodes, index = 0;loc;loc = loc->next, index++)
 	{
-		R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, R_DrawLoc_Callback, (entity_render_t *)loc, loc == nearestloc ? -1 : index, NULL);
+		VectorLerp(loc->mins, 0.5f, loc->maxs, center);
+		R_MeshQueue_AddTransparent(TRANSPARENTSORT_DISTANCE, center, R_DrawLoc_Callback, (entity_render_t *)loc, loc == nearestloc ? -1 : index, NULL);
 	}
 }
 
