@@ -193,7 +193,7 @@ void listdirectory(stringlist_t *list, const char *basepath, const char *path)
 	DIR *dir;
 	struct dirent *ent;
 	dpsnprintf(fullpath, sizeof(fullpath), "%s%s", basepath, path);
-#if 0
+#ifdef __ANDROID__
 	// SDL currently does not support listing assets, so we have to emulate
 	// it. We're using relative paths for assets, so that will do.
 	if (basepath[0] != '/')
@@ -203,7 +203,7 @@ void listdirectory(stringlist_t *list, const char *basepath, const char *path)
 		dpsnprintf(listpath, sizeof(listpath), "%sls.txt", fullpath);
 		char *buf = (char *) FS_SysLoadFile(listpath, tempmempool, true, NULL);
 		if (!buf)
-			return;
+			goto nolsfile;
 		char *p = buf;
 		for (;;)
 		{
@@ -217,6 +217,7 @@ void listdirectory(stringlist_t *list, const char *basepath, const char *path)
 		Mem_Free(buf);
 		return;
 	}
+nolsfile:
 #endif
 	dir = opendir(fullpath);
 	if (!dir)

@@ -3649,6 +3649,15 @@ int FS_SysFileType (const char *path)
 
 	return FS_FILETYPE_FILE;
 #else
+#ifdef __ANDROID__
+	filedesc_t h;
+	h = FS_SysOpenFiledesc(path, "rb", false);
+	if (!FILEDESC_ISVALID(h))
+		return FS_FILETYPE_NONE;
+
+	FILEDESC_CLOSE(h);
+	return FS_FILETYPE_FILE;
+#else
 	struct stat buf;
 
 	if (stat (path,&buf) == -1)
@@ -3661,6 +3670,7 @@ int FS_SysFileType (const char *path)
 		return FS_FILETYPE_DIRECTORY;
 
 	return FS_FILETYPE_FILE;
+#endif
 #endif
 }
 
