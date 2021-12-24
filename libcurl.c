@@ -250,8 +250,6 @@ Setting the command to NULL clears it.
 */
 static void Curl_CommandWhenDone(const char *cmd)
 {
-	if(!curl_dll)
-		return;
 	if(cmd)
 		strlcpy(command_when_done, cmd, sizeof(command_when_done));
 	else
@@ -266,8 +264,6 @@ Problem: what counts as an error?
 
 static void Curl_CommandWhenError(const char *cmd)
 {
-	if(!curl_dll)
-		return;
 	if(cmd)
 		strlcpy(command_when_error, cmd, sizeof(command_when_error));
 	else
@@ -327,8 +323,6 @@ All downloads finished, at least one success since connect, no single failure
 */
 static void Curl_CheckCommandWhenDone(void)
 {
-	if(!curl_dll)
-		return;
 	if(numdownloads_added && ((numdownloads_success + numdownloads_fail) == numdownloads_added))
 	{
 		if(numdownloads_fail == 0)
@@ -889,6 +883,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 
 	if((!curl_dll || !cl_curl_enabled.integer) && loadtype != LOADTYPE_PAK)
 	{
+		Con_Printf("Curl_Begin: %s\n", (curl_dll ? "libcurl support not enabled. Set cl_curl_enabled to 1 to enable." : "libcurl DLL not found."));
 		return false;
 	}
 	else
@@ -1018,12 +1013,6 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 						qfile_t *f = FS_OpenRealFile(fn, "wb", false);
 						if (f)
 							FS_Close(f);
-
-						if (!curl_dll || !cl_curl_enabled.integer)
-						{
-							if (curl_mutex) Thread_UnlockMutex(curl_mutex);
-							return false;
-						}
 					}
 				}
 				else
@@ -1034,6 +1023,12 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 						FS_Close(f);
 				}
 			}
+		}
+		if (loadtype == LOADTYPE_PAK && (!curl_dll || !cl_curl_enabled.integer))
+		{
+			if (curl_mutex) Thread_UnlockMutex(curl_mutex);
+			Con_Printf("Curl_Begin: %s\n", (curl_dll ? "libcurl support not enabled. Set cl_curl_enabled to 1 to enable." : "libcurl DLL not found."));
+			return false;
 		}
 
 		// if we get here, we actually want to download... so first verify the
