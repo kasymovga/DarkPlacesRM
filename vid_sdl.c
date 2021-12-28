@@ -1130,27 +1130,27 @@ void Sys_SendKeyEvents( void )
 #endif
 				break;
 			case SDL_WINDOWEVENT:
-#ifdef DEBUGSDLEVENTS
 				Con_DPrintf("SDL_Event: SDL_WINDOWEVENT %i\n", (int)event.window.event);
-#endif
-				//if (event.window.windowID == window) // how to compare?
+				if (window && event.window.windowID == SDL_GetWindowID(window)) // how to compare?
 				{
 					switch(event.window.event)
 					{
 					case SDL_WINDOWEVENT_SHOWN:
 						vid_hidden = false;
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_SHOWN\n");
 						break;
 					case  SDL_WINDOWEVENT_HIDDEN:
 						vid_hidden = true;
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_HIDDEN\n");
 						break;
 					case SDL_WINDOWEVENT_EXPOSED:
-#ifdef DEBUGSDLEVENTS
 						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_EXPOSED\n");
-#endif
 						break;
 					case SDL_WINDOWEVENT_MOVED:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_MOVED\n");
 						break;
 					case SDL_WINDOWEVENT_RESIZED:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_RESIZED\n");
 						if(vid_resizable.integer < 2)
 						{
 							vid.width = event.window.data1;
@@ -1177,22 +1177,31 @@ void Sys_SendKeyEvents( void )
 						}
 						break;
 					case SDL_WINDOWEVENT_MINIMIZED:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_MINIMIZED\n");
 						break;
 					case SDL_WINDOWEVENT_MAXIMIZED:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_MAXIMIZED\n");
 						break;
 					case SDL_WINDOWEVENT_RESTORED:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_RESTORED\n");
 						break;
 					case SDL_WINDOWEVENT_ENTER:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_ENTER\n");
 						break;
 					case SDL_WINDOWEVENT_LEAVE:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_LEAVE\n");
 						break;
 					case SDL_WINDOWEVENT_FOCUS_GAINED:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_GAINED\n");
 						vid_hasfocus = true;
+						vid_hidden = false; //ugly workaround, SDL_WINDOWEVENT_SHOWN missed on Android. SDL2 bug?
 						break;
 					case SDL_WINDOWEVENT_FOCUS_LOST:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_FOCUS_LOST\n");
 						vid_hasfocus = false;
 						break;
 					case SDL_WINDOWEVENT_CLOSE:
+						Con_DPrintf("SDL_Event: SDL_WINDOWEVENT_CLOSE\n");
 						Sys_Quit(0);
 						break;
 					}
