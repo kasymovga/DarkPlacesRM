@@ -2158,7 +2158,7 @@ Key_Event (int key, int ascii, qboolean down)
 			break;
 		case key_game:
 			// ignore key repeats on binds and only send the bind if the event hasnt been already processed by csqc
-			if (!(CL_VM_InputEvent(down ? 0 : 1, key, ascii)) && bind && !vid_touchscreen.integer)
+			if (!(CL_VM_InputEvent(down ? 0 : 1, key, ascii)) && bind)
 			{
 				if(keydown[key] == 1 && down)
 				{
