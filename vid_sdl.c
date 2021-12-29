@@ -688,21 +688,19 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 }
 
 // multitouch[10][] represents the mouse pointer
-// multitouch[][0]: finger active
-// multitouch[][1]: Y
-// multitouch[][2]: Y
-// X and Y coordinates are 0-1.
+struct finger {
+	int state;
+	float x, y;
+	float start_x, start_y;
+};
 #define MAXFINGERS 11
-static float multitouch[MAXFINGERS][3];
+static struct finger multitouch[MAXFINGERS];
 struct touchscreen_area {
 	int dest, corner, x, y, width, height;
 	char image[64], cmd[32];
 };
 static struct touchscreen_area touchscreen_areas[126];
 int touchscreen_areas_count;
-
-// this one stores how many areas this finger has touched
-int multitouchs[MAXFINGERS];
 
 static void VID_TouchScreenInit(void) {
 	const char *cfg_path = "dptouchscreen.cfg";
@@ -753,6 +751,17 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 	float sqsum;
 	qboolean button = false;
 	qboolean check_dest = false;
+	if (vid_touchscreen_active.integer) {
+		if ((dest & 32)) {
+			*resultbutton = false;
+			return false;
+		}
+	} else {
+		if (!(dest & 32)) {
+			*resultbutton = false;
+			return false;
+		}
+	}
 	VectorClear(rel);
 	if (key_consoleactive & KEY_CONSOLEACTIVE_USER) {
 		check_dest = dest & 1;
@@ -777,12 +786,10 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 		fheight = pheight / vid_conheight.value;
 		for (finger = 0;finger < MAXFINGERS;finger++)
 		{
-			if (multitouch[finger][0] && multitouch[finger][1] >= fx && multitouch[finger][2] >= fy && multitouch[finger][1] < fx + fwidth && multitouch[finger][2] < fy + fheight)
+			if (multitouch[finger].state && multitouch[finger].start_x >= fx && multitouch[finger].start_y >= fy && multitouch[finger].start_x < fx + fwidth && multitouch[finger].start_y < fy + fheight)
 			{
-				multitouchs[finger]++;
-
-				rel[0] = bound(-1, (multitouch[finger][1] - (fx + 0.5f * fwidth)) * (2.0f / fwidth), 1);
-				rel[1] = bound(-1, (multitouch[finger][2] - (fy + 0.5f * fheight)) * (2.0f / fheight), 1);
+				rel[0] = bound(-1, (multitouch[finger].x - multitouch[finger].start_x) * (4.0f / fwidth), 1);
+				rel[1] = bound(-1, (multitouch[finger].y - multitouch[finger].start_y) * (4.0f / fheight), 1);
 				rel[2] = 0;
 
 				sqsum = rel[0]*rel[0] + rel[1]*rel[1];
@@ -828,9 +835,13 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 			if (*resultbutton != button) {
 				Key_Event(K_ESCAPE, 0, button);
 			}
+		} else if (!strcmp(command, "*touchtoggle")) {
+			if (!button && *resultbutton) {
+				Cvar_SetValueQuick(&vid_touchscreen_active, !vid_touchscreen_active.integer);
+			}
 		} else if (!strcmp(command, "*keyboard")) {
-			if (button)
-				VID_ShowKeyboard(true);
+			if (button && *resultbutton != button)
+				VID_ShowKeyboard(!VID_ShowingKeyboard());
 		}
 	} else {
 		if (*resultbutton != button)
@@ -876,19 +887,23 @@ void VID_BuildJoyState(vid_joystate_t *joystate)
 /////////////////////
 // Movement handling
 ////
-static void IN_Move_TouchScreen_Quake(void)
+static qboolean IN_Move_TouchScreen_Quake(void)
 {
-	int x, y, n = 0, p = 0;
+	int x, y, n = 0, p = 0, st;
 	static qboolean oldbuttons[128];
 	static qboolean buttons[128];
 	keydest_t keydest = (key_consoleactive & KEY_CONSOLEACTIVE_USER) ? key_console : key_dest;
 	memcpy(oldbuttons, buttons, sizeof(oldbuttons));
-	memset(multitouchs, 0, sizeof(multitouchs));
 
 	// simple quake controls
-	multitouch[MAXFINGERS-1][0] = SDL_GetMouseState(&x, &y);
-	multitouch[MAXFINGERS-1][1] = x * 32768 / vid.width;
-	multitouch[MAXFINGERS-1][2] = y * 32768 / vid.height;
+	st = SDL_GetMouseState(&x, &y);
+	multitouch[MAXFINGERS-1].x = ((float)x) / vid.width;
+	multitouch[MAXFINGERS-1].y = ((float)y) / vid.height;
+	if (!multitouch[MAXFINGERS-1].state) {
+		multitouch[MAXFINGERS-1].start_x = multitouch[MAXFINGERS-1].x;
+		multitouch[MAXFINGERS-1].start_y = multitouch[MAXFINGERS-1].y;
+	}
+	multitouch[MAXFINGERS-1].state = st;
 
 	// top of screen is toggleconsole and K_ESCAPE
 	in_windowmouse_x = x;
@@ -897,14 +912,16 @@ static void IN_Move_TouchScreen_Quake(void)
 		p += VID_TouchscreenArea(touchscreen_areas[n].dest, touchscreen_areas[n].corner, touchscreen_areas[n].x, touchscreen_areas[n].y,
 				touchscreen_areas[n].width, touchscreen_areas[n].height, touchscreen_areas[n].image, touchscreen_areas[n].cmd, &buttons[n]);
 	}
-	VID_TouchscreenArea((p ? 0 : 7), 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n++]);
-	VID_TouchscreenArea((p ? 0 : 6), 0,   0,   0, vid_conwidth.integer, vid_conheight.integer, NULL, "*click", &buttons[n]);
-
+	if (!p) {
+		p += VID_TouchscreenArea(7, 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n++]);
+		p += VID_TouchscreenArea(6, 0,   0,   0, vid_conwidth.integer, vid_conheight.integer, NULL, "*click", &buttons[n]);
+	}
 	if (keydest == key_console && !VID_ShowingKeyboard())
 	{
 		// user entered a command, close the console now
 		Con_ToggleConsole_f();
 	}
+	return p;
 }
 
 void IN_Move( void )
@@ -932,11 +949,7 @@ void IN_Move( void )
 	oldkeydest = keydest;
 	oldshowkeyboard = !!vid_touchscreen_showkeyboard.integer;
 
-	if (vid_touchscreen.integer)
-	{
-		IN_Move_TouchScreen_Quake();
-	}
-	else
+	if (!vid_touchscreen.integer || !IN_Move_TouchScreen_Quake())
 	{
 		if (vid_usingmouse && vid_activewindow)
 		{
@@ -1102,8 +1115,7 @@ void Sys_SendKeyEvents( void )
 				else
 					Con_DPrintf("SDL_Event: SDL_MOUSEBUTTONUP\n");
 #endif
-				if (!vid_touchscreen.integer)
-				if (event.button.button > 0 && event.button.button <= ARRAY_SIZE(buttonremap))
+				if ((!vid_touchscreen.integer || !vid_touchscreen_active.integer) && event.button.button > 0 && event.button.button <= ARRAY_SIZE(buttonremap))
 					Key_Event( buttonremap[event.button.button - 1], 0, event.button.state == SDL_PRESSED );
 				break;
 			case SDL_MOUSEWHEEL:
@@ -1231,11 +1243,11 @@ void Sys_SendKeyEvents( void )
 #endif
 				for (i = 0;i < MAXFINGERS-1;i++)
 				{
-					if (!multitouch[i][0])
+					if (!multitouch[i].state)
 					{
-						multitouch[i][0] = event.tfinger.fingerId + 1;
-						multitouch[i][1] = event.tfinger.x;
-						multitouch[i][2] = event.tfinger.y;
+						multitouch[i].state = event.tfinger.fingerId + 1;
+						multitouch[i].start_x = multitouch[i].x = event.tfinger.x;
+						multitouch[i].start_y = multitouch[i].y = event.tfinger.y;
 						// TODO: use event.tfinger.pressure?
 						break;
 					}
@@ -1249,9 +1261,9 @@ void Sys_SendKeyEvents( void )
 #endif
 				for (i = 0;i < MAXFINGERS-1;i++)
 				{
-					if (multitouch[i][0] == event.tfinger.fingerId + 1)
+					if (multitouch[i].state == event.tfinger.fingerId + 1)
 					{
-						multitouch[i][0] = 0;
+						multitouch[i].state = 0;
 						break;
 					}
 				}
@@ -1264,10 +1276,10 @@ void Sys_SendKeyEvents( void )
 #endif
 				for (i = 0;i < MAXFINGERS-1;i++)
 				{
-					if (multitouch[i][0] == event.tfinger.fingerId + 1)
+					if (multitouch[i].state == event.tfinger.fingerId + 1)
 					{
-						multitouch[i][1] = event.tfinger.x;
-						multitouch[i][2] = event.tfinger.y;
+						multitouch[i].x = event.tfinger.x;
+						multitouch[i].y = event.tfinger.y;
 						break;
 					}
 				}
