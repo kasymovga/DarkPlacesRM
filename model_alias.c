@@ -20,7 +20,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "image.h"
+#ifndef CONFIG_SV
 #include "r_shadow.h"
+#else
+#define r_smoothnormals_areaweighting ((cvar_t) { .integer = 0 })
+#endif
 #include "mod_skeletal_animatevertices_generic.h"
 #ifdef SSE_POSSIBLE
 #include "mod_skeletal_animatevertices_sse.h"
@@ -905,6 +909,7 @@ static void Mod_MDL_LoadFrames (unsigned char* datapointer, int inverts, int *ve
 	}
 }
 
+#ifndef CONFIG_SV
 static void Mod_BuildAliasSkinFromSkinFrame(texture_t *texture, skinframe_t *skinframe)
 {
 	if (cls.state == ca_dedicated)
@@ -943,6 +948,7 @@ static void Mod_BuildAliasSkinFromSkinFrame(texture_t *texture, skinframe_t *ski
 	// WHEN ADDING DEFAULTS HERE, REMEMBER TO PUT DEFAULTS IN ALL LOADERS
 	// JUST GREP FOR "specularscalemod = 1".
 }
+#endif
 
 void Mod_BuildAliasSkinsFromSkinFiles(texture_t *skin, skinfile_t *skinfile, const char *meshname, const char *shadername)
 {
@@ -966,14 +972,18 @@ void Mod_BuildAliasSkinsFromSkinFiles(texture_t *skin, skinfile_t *skinfile, con
 					Image_StripImageExtension(skinfileitem->replacement, stripbuf, sizeof(stripbuf));
 					if(developer_extra.integer)
 						Con_DPrintf("--> got %s from skin file\n", stripbuf);
+					#ifndef CONFIG_SV
 					Mod_LoadTextureFromQ3Shader(skin, stripbuf, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
+					#endif
 					break;
 				}
 			}
 			if (!skinfileitem)
 			{
 				// don't render unmentioned meshes
+				#ifndef CONFIG_SV
 				Mod_BuildAliasSkinFromSkinFrame(skin, NULL);
+				#endif
 				if(developer_extra.integer)
 					Con_DPrintf("--> skipping\n");
 				skin->basematerialflags = skin->currentmaterialflags = MATERIALFLAG_NOSHADOW | MATERIALFLAG_NODRAW;
@@ -985,7 +995,9 @@ void Mod_BuildAliasSkinsFromSkinFiles(texture_t *skin, skinfile_t *skinfile, con
 		if(developer_extra.integer)
 			Con_DPrintf("--> using default\n");
 		Image_StripImageExtension(shadername, stripbuf, sizeof(stripbuf));
+		#ifndef CONFIG_SV
 		Mod_LoadTextureFromQ3Shader(skin, stripbuf, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
+		#endif
 	}
 }
 
@@ -1006,15 +1018,18 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	daliasframetype_t *pinframetype;
 	daliasgroup_t *pinframegroup;
 	unsigned char *datapointer, *startframes, *startskins;
+	#ifndef CONFIG_SV
 	char name[MAX_QPATH];
 	skinframe_t *tempskinframe;
 	animscene_t *tempskinscenes;
 	texture_t *tempaliasskins;
+	#endif
 	float *vertst;
 	int *vertonseam, *vertremap;
 	skinfile_t *skinfiles;
+	#ifndef CONFIG_SV
 	char vabuf[1024];
-
+	#endif
 	datapointer = (unsigned char *)buffer;
 	pinmodel = (mdl_t *)datapointer;
 	datapointer += sizeof(mdl_t);
@@ -1027,6 +1042,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->modeldatatypestring = "MDL";
 
 	loadmodel->type = mod_alias;
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
 	loadmodel->Draw = R_Q1BSP_Draw;
@@ -1038,6 +1054,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
 	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
 	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
 	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
 	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
 	// FIXME add TraceBrush!
@@ -1203,10 +1220,12 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 // load the frames
 	loadmodel->animscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * loadmodel->numframes);
 	loadmodel->surfmesh.data_morphmdlvertex = (trivertx_t *)Mem_Alloc(loadmodel->mempool, sizeof(trivertx_t) * loadmodel->surfmesh.num_morphframes * loadmodel->surfmesh.num_vertices);
+	#ifndef CONFIG_SV
 	if (r_enableshadowvolumes.integer)
 	{
 		loadmodel->surfmesh.data_neighbor3i = (int *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_triangles * sizeof(int[3]));
 	}
+	#endif
 	Mod_MDL_LoadFrames (startframes, numverts, vertremap);
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
@@ -1276,6 +1295,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			loadmodel->skinscenes[i].framerate = 1.0f / interval;
 			loadmodel->skinscenes[i].loop = true;
 
+			#ifndef CONFIG_SV
 			for (j = 0;j < groupskins;j++)
 			{
 				if (groupskins > 1)
@@ -1287,10 +1307,12 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 				datapointer += skinwidth * skinheight;
 				totalskins++;
 			}
+			#endif
 		}
 		// check for skins that don't exist in the model, but do exist as external images
 		// (this was added because yummyluv kept pestering me about support for it)
 		// TODO: support shaders here?
+		#ifndef CONFIG_SV
 		while ((tempskinframe = R_SkinFrame_LoadExternal(va(vabuf, sizeof(vabuf), "%s_%i", loadmodel->name, loadmodel->numskins), (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS, false)))
 		{
 			// expand the arrays to make room
@@ -1322,6 +1344,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			for (j = 0;j < loadmodel->numskins * loadmodel->num_surfaces;j++)
 				loadmodel->data_textures[j].currentframe = &loadmodel->data_textures[j];
 		}
+		#endif
 	}
 
 	surface = loadmodel->data_surfaces;
@@ -1344,6 +1367,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
 	}
 
+	#ifndef CONFIG_SV
 	// because shaders can do somewhat unexpected things, check for unusual features now
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
@@ -1352,6 +1376,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
+	#endif
 }
 
 void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
@@ -1363,7 +1388,9 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	md2_t *pinmodel;
 	unsigned char *base, *datapointer;
 	md2frame_t *pinframe;
+	#ifndef CONFIG_SV
 	char *inskin;
+	#endif
 	md2triangle_t *intri;
 	unsigned short *inst;
 	struct md2verthash_s
@@ -1386,6 +1413,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->modeldatatypestring = "MD2";
 
 	loadmodel->type = mod_alias;
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
 	loadmodel->Draw = R_Q1BSP_Draw;
@@ -1401,7 +1429,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
 	loadmodel->PointSuperContents = NULL;
 	loadmodel->AnimateVertices = Mod_MDL_AnimateVertices;
-
+	#endif
 	if (LittleLong(pinmodel->num_tris) < 1 || LittleLong(pinmodel->num_tris) > 65536)
 		Host_Error ("%s has invalid number of triangles: %i", loadmodel->name, LittleLong(pinmodel->num_tris));
 	if (LittleLong(pinmodel->num_xyz) < 1 || LittleLong(pinmodel->num_xyz) > 65536)
@@ -1437,22 +1465,29 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	loadmodel->num_surfaces = 1;
 	loadmodel->nummodelsurfaces = loadmodel->num_surfaces;
-	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->numframes * sizeof(animscene_t) + loadmodel->numframes * sizeof(float[6]) + loadmodel->surfmesh.num_triangles * sizeof(int[3]) + (r_enableshadowvolumes.integer ? loadmodel->surfmesh.num_triangles * sizeof(int[3]) : 0));
+	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->numframes * sizeof(animscene_t) + loadmodel->numframes * sizeof(float[6]) + loadmodel->surfmesh.num_triangles * sizeof(int[3])
+			#ifndef CONFIG_SV
+			+ (r_enableshadowvolumes.integer ? loadmodel->surfmesh.num_triangles * sizeof(int[3]) : 0)
+			#endif
+			);
 	loadmodel->data_surfaces = (msurface_t *)data;data += loadmodel->num_surfaces * sizeof(msurface_t);
 	loadmodel->sortedmodelsurfaces = (int *)data;data += loadmodel->num_surfaces * sizeof(int);
 	loadmodel->sortedmodelsurfaces[0] = 0;
 	loadmodel->animscenes = (animscene_t *)data;data += loadmodel->numframes * sizeof(animscene_t);
 	loadmodel->surfmesh.data_morphmd2framesize6f = (float *)data;data += loadmodel->numframes * sizeof(float[6]);
 	loadmodel->surfmesh.data_element3i = (int *)data;data += loadmodel->surfmesh.num_triangles * sizeof(int[3]);
+	#ifndef CONFIG_SV
 	if (r_enableshadowvolumes.integer)
 	{
 		loadmodel->surfmesh.data_neighbor3i = (int *)data;//data += loadmodel->surfmesh.num_triangles * sizeof(int[3]);
 	}
-
+	#endif
 	loadmodel->synctype = ST_RAND;
 
 	// load the skins
+	#ifndef CONFIG_SV
 	inskin = (char *)(base + LittleLong(pinmodel->ofs_skins));
+	#endif
 	skinfiles = Mod_LoadSkinFiles();
 	if (skinfiles)
 	{
@@ -1468,8 +1503,10 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
 		loadmodel->num_texturesperskin = loadmodel->num_surfaces;
 		loadmodel->data_textures = (texture_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t));
+		#ifndef CONFIG_SV
 		for (i = 0;i < loadmodel->numskins;i++, inskin += MD2_SKINNAME)
 			Mod_LoadTextureFromQ3Shader(loadmodel->data_textures + i * loadmodel->num_surfaces, inskin, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
+		#endif
 	}
 	else
 	{
@@ -1478,7 +1515,9 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
 		loadmodel->num_texturesperskin = loadmodel->num_surfaces;
 		loadmodel->data_textures = (texture_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t));
+		#ifndef CONFIG_SV
 		Mod_BuildAliasSkinFromSkinFrame(loadmodel->data_textures, NULL);
+		#endif
 	}
 
 	loadmodel->skinscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * loadmodel->numskins);
@@ -1616,6 +1655,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 
 	// because shaders can do somewhat unexpected things, check for unusual features now
+	#ifndef CONFIG_SV
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
@@ -1623,6 +1663,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
+	#endif
 }
 
 void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
@@ -1652,6 +1693,7 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->modeldatatypestring = "MD3";
 
 	loadmodel->type = mod_alias;
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
 	loadmodel->Draw = R_Q1BSP_Draw;
@@ -1663,6 +1705,7 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
 	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
 	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
 	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
 	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
 	loadmodel->PointSuperContents = NULL;
@@ -1727,7 +1770,11 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->nummodelsurfaces = loadmodel->num_surfaces;
 	loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
 	loadmodel->num_texturesperskin = loadmodel->num_surfaces;
-	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + meshtriangles * sizeof(int[3]) + (r_enableshadowvolumes.integer ? meshtriangles * sizeof(int[3]) : 0) + (meshvertices <= 65536 ? meshtriangles * sizeof(unsigned short[3]) : 0) + meshvertices * sizeof(float[2]) + meshvertices * loadmodel->numframes * sizeof(md3vertex_t));
+	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + meshtriangles * sizeof(int[3])
+			#ifndef CONFIG_SV
+			+ (r_enableshadowvolumes.integer ? meshtriangles * sizeof(int[3]) : 0)
+			#endif
+			+ (meshvertices <= 65536 ? meshtriangles * sizeof(unsigned short[3]) : 0) + meshvertices * sizeof(float[2]) + meshvertices * loadmodel->numframes * sizeof(md3vertex_t));
 	loadmodel->data_surfaces = (msurface_t *)data;data += loadmodel->num_surfaces * sizeof(msurface_t);
 	loadmodel->sortedmodelsurfaces = (int *)data;data += loadmodel->num_surfaces * sizeof(int);
 	loadmodel->data_textures = (texture_t *)data;data += loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t);
@@ -1736,10 +1783,12 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->surfmesh.num_morphframes = loadmodel->numframes; // TODO: remove?
 	loadmodel->num_poses = loadmodel->surfmesh.num_morphframes;
 	loadmodel->surfmesh.data_element3i = (int *)data;data += meshtriangles * sizeof(int[3]);
+	#ifndef CONFIG_SV
 	if (r_enableshadowvolumes.integer)
 	{
 		loadmodel->surfmesh.data_neighbor3i = (int *)data;data += meshtriangles * sizeof(int[3]);
 	}
+	#endif
 	loadmodel->surfmesh.data_texcoordtexture2f = (float *)data;data += meshvertices * sizeof(float[2]);
 	loadmodel->surfmesh.data_morphmd3vertex = (md3vertex_t *)data;data += meshvertices * loadmodel->numframes * sizeof(md3vertex_t);
 	if (meshvertices <= 65536)
@@ -1811,6 +1860,7 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 
 	// because shaders can do somewhat unexpected things, check for unusual features now
+	#ifndef CONFIG_SV
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
@@ -1818,6 +1868,7 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
+	#endif
 }
 
 void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
@@ -1891,7 +1942,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		Con_Printf("%s has no animations\n", loadmodel->name);
 		return;
 	}
-
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
 	loadmodel->Draw = R_Q1BSP_Draw;
@@ -1903,6 +1954,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
 	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
 	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
 	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
 	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
 	loadmodel->PointSuperContents = NULL;
@@ -1999,17 +2051,23 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->nummodelsurfaces = loadmodel->num_surfaces;
 	loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
 	loadmodel->num_texturesperskin = loadmodel->num_surfaces;
-	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + meshtriangles * sizeof(int[3]) + (r_enableshadowvolumes.integer ? meshtriangles * sizeof(int[3]) : 0) + (meshvertices <= 65536 ? meshtriangles * sizeof(unsigned short[3]) : 0) + meshvertices * (sizeof(float[14]) + sizeof(unsigned short) + sizeof(unsigned char[2][4])) + loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]) + loadmodel->num_bones * sizeof(float[12]));
+	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + meshtriangles * sizeof(int[3])
+			#ifndef CONFIG_SV
+			+ (r_enableshadowvolumes.integer ? meshtriangles * sizeof(int[3]) : 0)
+			#endif
+			+ (meshvertices <= 65536 ? meshtriangles * sizeof(unsigned short[3]) : 0) + meshvertices * (sizeof(float[14]) + sizeof(unsigned short) + sizeof(unsigned char[2][4])) + loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]) + loadmodel->num_bones * sizeof(float[12]));
 	loadmodel->data_surfaces = (msurface_t *)data;data += loadmodel->num_surfaces * sizeof(msurface_t);
 	loadmodel->sortedmodelsurfaces = (int *)data;data += loadmodel->num_surfaces * sizeof(int);
 	loadmodel->data_textures = (texture_t *)data;data += loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t);
 	loadmodel->surfmesh.num_vertices = meshvertices;
 	loadmodel->surfmesh.num_triangles = meshtriangles;
 	loadmodel->surfmesh.data_element3i = (int *)data;data += meshtriangles * sizeof(int[3]);
+	#ifndef CONFIG_SV
 	if (r_enableshadowvolumes.integer)
 	{
 		loadmodel->surfmesh.data_neighbor3i = (int *)data;data += meshtriangles * sizeof(int[3]);
 	}
+	#endif
 	loadmodel->surfmesh.data_vertex3f = (float *)data;data += meshvertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_svector3f = (float *)data;data += meshvertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_tvector3f = (float *)data;data += meshvertices * sizeof(float[3]);
@@ -2211,6 +2269,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 
 	// because shaders can do somewhat unexpected things, check for unusual features now
+	#ifndef CONFIG_SV
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
@@ -2218,6 +2277,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
+	#endif
 }
 
 void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
@@ -2275,7 +2335,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		Con_Printf("%s has no frames\n", loadmodel->name);
 		return;
 	}
-
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
 	loadmodel->Draw = R_Q1BSP_Draw;
@@ -2287,6 +2347,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
 	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
 	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
 	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
 	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
 	loadmodel->PointSuperContents = NULL;
@@ -2331,17 +2392,23 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
 	loadmodel->num_texturesperskin = loadmodel->num_surfaces;
 	// do most allocations as one merged chunk
-	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + meshtriangles * sizeof(int[3]) + (meshvertices <= 65536 ? meshtriangles * sizeof(unsigned short[3]) : 0) + (r_enableshadowvolumes.integer ? meshtriangles * sizeof(int[3]) : 0) + meshvertices * (sizeof(float[14]) + sizeof(unsigned short) + sizeof(unsigned char[2][4])) + loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]) + loadmodel->num_bones * sizeof(float[12]) + loadmodel->numskins * sizeof(animscene_t) + loadmodel->num_bones * sizeof(aliasbone_t) + loadmodel->numframes * sizeof(animscene_t));
+	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + meshtriangles * sizeof(int[3]) + (meshvertices <= 65536 ? meshtriangles * sizeof(unsigned short[3]) : 0)
+			#ifndef CONFIG_SV
+			+ (r_enableshadowvolumes.integer ? meshtriangles * sizeof(int[3]) : 0)
+			#endif
+			+ meshvertices * (sizeof(float[14]) + sizeof(unsigned short) + sizeof(unsigned char[2][4])) + loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]) + loadmodel->num_bones * sizeof(float[12]) + loadmodel->numskins * sizeof(animscene_t) + loadmodel->num_bones * sizeof(aliasbone_t) + loadmodel->numframes * sizeof(animscene_t));
 	loadmodel->data_surfaces = (msurface_t *)data;data += loadmodel->num_surfaces * sizeof(msurface_t);
 	loadmodel->sortedmodelsurfaces = (int *)data;data += loadmodel->num_surfaces * sizeof(int);
 	loadmodel->data_textures = (texture_t *)data;data += loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t);
 	loadmodel->surfmesh.num_vertices = meshvertices;
 	loadmodel->surfmesh.num_triangles = meshtriangles;
 	loadmodel->surfmesh.data_element3i = (int *)data;data += meshtriangles * sizeof(int[3]);
+	#ifndef CONFIG_SV
 	if (r_enableshadowvolumes.integer)
 	{
 		loadmodel->surfmesh.data_neighbor3i = (int *)data;data += meshtriangles * sizeof(int[3]);
 	}
+	#endif
 	loadmodel->surfmesh.data_vertex3f = (float *)data;data += meshvertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_svector3f = (float *)data;data += meshvertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_tvector3f = (float *)data;data += meshvertices * sizeof(float[3]);
@@ -2587,7 +2654,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
 		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
 	}
-
+	#ifndef CONFIG_SV
 	// because shaders can do somewhat unexpected things, check for unusual features now
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
@@ -2596,6 +2663,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
+	#endif
 }
 
 // no idea why PSK/PSA files contain weird quaternions but they do...
@@ -2629,6 +2697,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->modeldatatypestring = "PSK";
 
 	loadmodel->type = mod_alias;
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
 	loadmodel->Draw = R_Q1BSP_Draw;
@@ -2640,6 +2709,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
 	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
 	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
 	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
 	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
 	loadmodel->PointSuperContents = NULL;
@@ -2998,16 +3068,22 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->surfmesh.num_vertices = meshvertices;
 	loadmodel->surfmesh.num_triangles = meshtriangles;
 	// do most allocations as one merged chunk
-	size = loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + loadmodel->surfmesh.num_triangles * sizeof(int[3]) + (r_enableshadowvolumes.integer ? loadmodel->surfmesh.num_triangles * sizeof(int[3]) : 0)  + loadmodel->surfmesh.num_vertices * sizeof(float[3]) + loadmodel->surfmesh.num_vertices * sizeof(float[3]) + loadmodel->surfmesh.num_vertices * sizeof(float[3]) + loadmodel->surfmesh.num_vertices * sizeof(float[3]) + loadmodel->surfmesh.num_vertices * sizeof(float[2]) + loadmodel->surfmesh.num_vertices * sizeof(unsigned char[4]) + loadmodel->surfmesh.num_vertices * sizeof(unsigned char[4]) + loadmodel->surfmesh.num_vertices * sizeof(unsigned short) + loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]) + loadmodel->num_bones * sizeof(float[12]) + loadmodel->numskins * sizeof(animscene_t) + loadmodel->num_bones * sizeof(aliasbone_t) + loadmodel->numframes * sizeof(animscene_t) + ((loadmodel->surfmesh.num_vertices <= 65536) ? (loadmodel->surfmesh.num_triangles * sizeof(unsigned short[3])) : 0);
+	size = loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + loadmodel->surfmesh.num_triangles * sizeof(int[3])
+			#ifndef CONFIG_SV
+			+ (r_enableshadowvolumes.integer ? loadmodel->surfmesh.num_triangles * sizeof(int[3]) : 0)
+			#endif
+			+ loadmodel->surfmesh.num_vertices * sizeof(float[3]) + loadmodel->surfmesh.num_vertices * sizeof(float[3]) + loadmodel->surfmesh.num_vertices * sizeof(float[3]) + loadmodel->surfmesh.num_vertices * sizeof(float[3]) + loadmodel->surfmesh.num_vertices * sizeof(float[2]) + loadmodel->surfmesh.num_vertices * sizeof(unsigned char[4]) + loadmodel->surfmesh.num_vertices * sizeof(unsigned char[4]) + loadmodel->surfmesh.num_vertices * sizeof(unsigned short) + loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]) + loadmodel->num_bones * sizeof(float[12]) + loadmodel->numskins * sizeof(animscene_t) + loadmodel->num_bones * sizeof(aliasbone_t) + loadmodel->numframes * sizeof(animscene_t) + ((loadmodel->surfmesh.num_vertices <= 65536) ? (loadmodel->surfmesh.num_triangles * sizeof(unsigned short[3])) : 0);
 	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, size);
 	loadmodel->data_surfaces = (msurface_t *)data;data += loadmodel->num_surfaces * sizeof(msurface_t);
 	loadmodel->sortedmodelsurfaces = (int *)data;data += loadmodel->num_surfaces * sizeof(int);
 	loadmodel->data_textures = (texture_t *)data;data += loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t);
 	loadmodel->surfmesh.data_element3i = (int *)data;data += loadmodel->surfmesh.num_triangles * sizeof(int[3]);
+	#ifndef CONFIG_SV
 	if (r_enableshadowvolumes.integer)
 	{
 		loadmodel->surfmesh.data_neighbor3i = (int *)data;data += loadmodel->surfmesh.num_triangles * sizeof(int[3]);
 	}
+	#endif
 	loadmodel->surfmesh.data_vertex3f = (float *)data;data += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_svector3f = (float *)data;data += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_tvector3f = (float *)data;data += loadmodel->surfmesh.num_vertices * sizeof(float[3]);
@@ -3267,6 +3343,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 
 	// because shaders can do somewhat unexpected things, check for unusual features now
+	#ifndef CONFIG_SV
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
@@ -3274,6 +3351,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
+	#endif
 }
 
 void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
@@ -3461,7 +3539,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 
 	text = header.num_text && header.ofs_text ? (const char *)(pbase + header.ofs_text) : "";
-
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
 	loadmodel->Draw = R_Q1BSP_Draw;
@@ -3473,6 +3551,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
 	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
 	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
 	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
 	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
 	loadmodel->PointSuperContents = NULL;
@@ -3494,17 +3573,23 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	meshtriangles = header.num_triangles;
 
 	// do most allocations as one merged chunk
-	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + meshtriangles * sizeof(int[3]) + (meshvertices <= 65536 ? meshtriangles * sizeof(unsigned short[3]) : 0) + (r_enableshadowvolumes.integer ? meshtriangles * sizeof(int[3]) : 0) + meshvertices * (sizeof(float[14]) + (vcolor4f || vcolor4ub ? sizeof(float[4]) : 0)) + (vblendindexes && vblendweights ? meshvertices * (sizeof(unsigned short) + sizeof(unsigned char[2][4])) : 0) + loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]) + loadmodel->num_bones * sizeof(float[12]) + loadmodel->numskins * sizeof(animscene_t) + loadmodel->num_bones * sizeof(aliasbone_t) + loadmodel->numframes * sizeof(animscene_t));
+	data = (unsigned char *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t) + loadmodel->num_surfaces * sizeof(int) + loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t) + meshtriangles * sizeof(int[3]) + (meshvertices <= 65536 ? meshtriangles * sizeof(unsigned short[3]) : 0)
+			#ifndef CONFIG_SV
+			+ (r_enableshadowvolumes.integer ? meshtriangles * sizeof(int[3]) : 0)
+			#endif
+			+ meshvertices * (sizeof(float[14]) + (vcolor4f || vcolor4ub ? sizeof(float[4]) : 0)) + (vblendindexes && vblendweights ? meshvertices * (sizeof(unsigned short) + sizeof(unsigned char[2][4])) : 0) + loadmodel->num_poses * loadmodel->num_bones * sizeof(short[7]) + loadmodel->num_bones * sizeof(float[12]) + loadmodel->numskins * sizeof(animscene_t) + loadmodel->num_bones * sizeof(aliasbone_t) + loadmodel->numframes * sizeof(animscene_t));
 	loadmodel->data_surfaces = (msurface_t *)data;data += loadmodel->num_surfaces * sizeof(msurface_t);
 	loadmodel->sortedmodelsurfaces = (int *)data;data += loadmodel->num_surfaces * sizeof(int);
 	loadmodel->data_textures = (texture_t *)data;data += loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t);
 	loadmodel->surfmesh.num_vertices = meshvertices;
 	loadmodel->surfmesh.num_triangles = meshtriangles;
 	loadmodel->surfmesh.data_element3i = (int *)data;data += meshtriangles * sizeof(int[3]);
+	#ifndef CONFIG_SV
 	if (r_enableshadowvolumes.integer)
 	{
 		loadmodel->surfmesh.data_neighbor3i = (int *)data;data += meshtriangles * sizeof(int[3]);
 	}
+	#endif
 	loadmodel->surfmesh.data_vertex3f = (float *)data;data += meshvertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_svector3f = (float *)data;data += meshvertices * sizeof(float[3]);
 	loadmodel->surfmesh.data_tvector3f = (float *)data;data += meshvertices * sizeof(float[3]);
@@ -4038,6 +4123,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	if (pose1        ) Mem_Free(pose1        );pose1         = NULL;
 
 	// because shaders can do somewhat unexpected things, check for unusual features now
+	#ifndef CONFIG_SV
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
@@ -4045,4 +4131,5 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
+	#endif
 }

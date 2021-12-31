@@ -869,8 +869,10 @@ static void MemList_f(void)
 static void MemStats_f(void)
 {
 	Mem_CheckSentinelsGlobal();
+	#ifndef CONFIG_SV
 	R_TextureStats_Print(false, false, true);
 	GL_Mesh_ListVBOs(false);
+	#endif
 	Mem_PrintStats();
 }
 

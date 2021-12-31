@@ -32,9 +32,6 @@ when crossing a water boudnary.
 
 */
 
-cvar_t cl_rollspeed = {0, "cl_rollspeed", "200", "how much strafing is necessary to tilt the view"};
-cvar_t cl_rollangle = {0, "cl_rollangle", "2.0", "how much to tilt the view when strafing"};
-
 cvar_t cl_bob = {CVAR_SAVE, "cl_bob","0.02", "view bobbing amount"};
 cvar_t cl_bobcycle = {CVAR_SAVE, "cl_bobcycle","0.6", "view bobbing speed"};
 cvar_t cl_bobup = {CVAR_SAVE, "cl_bobup","0.5", "view bobbing adjustment that makes the up or down swing of the bob last longer"};
@@ -114,37 +111,6 @@ cvar_t chase_pitchangle = {CVAR_SAVE, "chase_pitchangle", "55", "chase cam pitch
 cvar_t v_yshearing = {0, "v_yshearing", "0", "be all out of gum (set this to the maximum angle to allow Y shearing for - try values like 75)"};
 
 float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
-
-
-/*
-===============
-V_CalcRoll
-
-Used by view and sv_user
-===============
-*/
-float V_CalcRoll (const vec3_t angles, const vec3_t velocity)
-{
-	vec3_t	right;
-	float	sign;
-	float	side;
-	float	value;
-
-	AngleVectors (angles, NULL, right, NULL);
-	side = DotProduct (velocity, right);
-	sign = side < 0 ? -1 : 1;
-	side = fabs(side);
-
-	value = cl_rollangle.value;
-
-	if (side < cl_rollspeed.value)
-		side = side * value / cl_rollspeed.value;
-	else
-		side = value;
-
-	return side*sign;
-
-}
 
 void V_StartPitchDrift (void)
 {
@@ -1104,9 +1070,6 @@ void V_Init (void)
 
 	Cvar_RegisterVariable (&v_idlescale);
 	Cvar_RegisterVariable (&crosshair);
-
-	Cvar_RegisterVariable (&cl_rollspeed);
-	Cvar_RegisterVariable (&cl_rollangle);
 	Cvar_RegisterVariable (&cl_bob);
 	Cvar_RegisterVariable (&cl_bobcycle);
 	Cvar_RegisterVariable (&cl_bobup);

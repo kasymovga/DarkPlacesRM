@@ -24,8 +24,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "image.h"
-#include "r_shadow.h"
 #include "polygon.h"
+
+#ifndef CONFIG_SV
+#include "r_shadow.h"
 
 cvar_t r_enableshadowvolumes = {CVAR_SAVE, "r_enableshadowvolumes", "1", "Enables use of Stencil Shadow Volume shadowing methods, saves some memory if turned off"};
 cvar_t r_mipskins = {CVAR_SAVE, "r_mipskins", "0", "mipmaps model skins so they render faster in the distance and do not display noise artifacts, can cause discoloration of skins if they contain undesirable border colors"};
@@ -39,6 +41,7 @@ cvar_t mod_generatelightmaps_gridsamples = {CVAR_SAVE, "mod_generatelightmaps_gr
 cvar_t mod_generatelightmaps_lightmapradius = {CVAR_SAVE, "mod_generatelightmaps_lightmapradius", "16", "sampling area around each lightmap pixel"};
 cvar_t mod_generatelightmaps_vertexradius = {CVAR_SAVE, "mod_generatelightmaps_vertexradius", "16", "sampling area around each vertex"};
 cvar_t mod_generatelightmaps_gridradius = {CVAR_SAVE, "mod_generatelightmaps_gridradius", "64", "sampling area around each lightgrid cell center"};
+#endif
 
 dp_model_t *loadmodel;
 
@@ -60,12 +63,12 @@ typedef struct q3shader_data_s
 } q3shader_data_t;
 static q3shader_data_t* q3shader_data;
 
+#ifndef CONFIG_SV
 static void mod_start(void)
 {
 	int i, count;
 	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
-
 	SCR_PushLoadingScreen(false, "Loading models", 1.0);
 	count = 0;
 	for (i = 0;i < nummodels;i++)
@@ -122,7 +125,6 @@ static void mod_newmap(void)
 				R_SkinFrame_MarkUsed(mod->brush.alphaskyskinframe);
 		}
 	}
-
 	if (!cl_stainmaps_clearonload.integer)
 		return;
 
@@ -143,6 +145,7 @@ static void mod_newmap(void)
 		}
 	}
 }
+#endif
 
 /*
 ===============
@@ -152,7 +155,9 @@ Mod_Init
 static void Mod_Print(void);
 static void Mod_Precache (void);
 static void Mod_Decompile_f(void);
+#ifndef CONFIG_SV
 static void Mod_GenerateLightmaps_f(void);
+#endif
 void Mod_Init (void)
 {
 	mod_mempool = Mem_AllocPool("modelinfo", 0, NULL);
@@ -161,7 +166,7 @@ void Mod_Init (void)
 	Mod_BrushInit();
 	Mod_AliasInit();
 	Mod_SpriteInit();
-
+	#ifndef CONFIG_SV
 	Cvar_RegisterVariable(&r_enableshadowvolumes);
 	Cvar_RegisterVariable(&r_mipskins);
 	Cvar_RegisterVariable(&r_mipnormalmaps);
@@ -175,17 +180,22 @@ void Mod_Init (void)
 	Cvar_RegisterVariable(&mod_generatelightmaps_lightmapradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_vertexradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_gridradius);
+	#endif
 
 	Cmd_AddCommand ("modellist", Mod_Print, "prints a list of loaded models");
 	Cmd_AddCommand ("modelprecache", Mod_Precache, "load a model");
 	Cmd_AddCommand ("modeldecompile", Mod_Decompile_f, "exports a model in several formats for editing purposes");
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("mod_generatelightmaps", Mod_GenerateLightmaps_f, "rebuilds lighting on current worldmodel");
+	#endif
 }
 
+#ifndef CONFIG_SV
 void Mod_RenderInit(void)
 {
 	R_RegisterModule("Models", mod_start, mod_shutdown, mod_newmap, NULL, NULL);
 }
+#endif
 
 void Mod_UnloadModel (dp_model_t *mod)
 {
@@ -201,6 +211,7 @@ void Mod_UnloadModel (dp_model_t *mod)
 	used = mod->used;
 	if (mod->mempool)
 	{
+		#ifndef CONFIG_SV
 		if (mod->surfmesh.data_element3i_indexbuffer)
 			R_Mesh_DestroyMeshBuffer(mod->surfmesh.data_element3i_indexbuffer);
 		mod->surfmesh.data_element3i_indexbuffer = NULL;
@@ -210,9 +221,12 @@ void Mod_UnloadModel (dp_model_t *mod)
 		if (mod->surfmesh.vbo_vertexbuffer)
 			R_Mesh_DestroyMeshBuffer(mod->surfmesh.vbo_vertexbuffer);
 		mod->surfmesh.vbo_vertexbuffer = NULL;
+		#endif
 	}
 	// free textures/memory attached to the model
+	#ifndef CONFIG_SV
 	R_FreeTexturePool(&mod->texturepool);
+	#endif
 	Mem_FreePool(&mod->mempool);
 	// clear the struct to make it available
 	memset(mod, 0, sizeof(dp_model_t));
@@ -223,11 +237,12 @@ void Mod_UnloadModel (dp_model_t *mod)
 	mod->loaded = false;
 }
 
+#ifndef CONFIG_SV
 static void R_Model_Null_Draw(entity_render_t *ent)
 {
 	return;
 }
-
+#endif
 
 typedef void (*mod_framegroupify_parsegroups_t) (unsigned int i, int start, int len, float fps, qboolean loop, const char *name, void *pass);
 
@@ -411,7 +426,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 		mod->modeldatatypestring = "null";
 		mod->type = mod_null;
+		#ifndef CONFIG_SV
 		mod->Draw = R_Model_Null_Draw;
+		#endif
 		mod->numframes = 2;
 		mod->numskins = 1;
 
@@ -451,9 +468,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 	if (developer_loading.integer)
 		Con_Printf("loading model %s\n", mod->name);
-	
+	#ifndef CONFIG_SV
 	SCR_PushLoadingScreen(true, mod->name, 1);
-
+	#endif
 	// LordHavoc: unload the existing model in this slot (if there is one)
 	if (mod->loaded || mod->mempool)
 		Mod_UnloadModel(mod);
@@ -515,8 +532,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 			Mod_FrameGroupify(mod, (const char *)buf);
 			Mem_Free(buf);
 		}
-
+		#ifndef CONFIG_SV
 		Mod_BuildVBOs();
+		#endif
 	}
 	else if (crash)
 	{
@@ -526,9 +544,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 	// no fatal errors occurred, so this model is ready to use.
 	mod->loaded = true;
-
+	#ifndef CONFIG_SV
 	SCR_PopLoadingScreen(false);
-
+	#endif
 	return mod;
 }
 
@@ -573,8 +591,9 @@ dp_model_t *Mod_FindName(const char *name, const char *parentname)
 		parentname = "";
 
 	// if we're not dedicatd, the renderer calls will crash without video
+	#ifndef CONFIG_SV
 	Host_StartVideo();
-
+	#endif
 	nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 
 	if (!name[0])
@@ -630,8 +649,9 @@ void Mod_Reload(void)
 	int i, count;
 	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
-
+	#ifndef CONFIG_SV
 	SCR_PushLoadingScreen(false, "Reloading models", 1.0);
+	#endif
 	count = 0;
 	for (i = 0;i < nummodels;i++)
 		if ((mod = (dp_model_t *) Mem_ExpandableArray_RecordAtIndex(&models, i)) && mod->name[0] && mod->name[0] != '*' && mod->used)
@@ -639,11 +659,17 @@ void Mod_Reload(void)
 	for (i = 0;i < nummodels;i++)
 		if ((mod = (dp_model_t *) Mem_ExpandableArray_RecordAtIndex(&models, i)) && mod->name[0] && mod->name[0] != '*' && mod->used)
 		{
+			#ifndef CONFIG_SV
 			SCR_PushLoadingScreen(true, mod->name, 1.0 / count);
+			#endif
 			Mod_LoadModel(mod, true, true);
+			#ifndef CONFIG_SV
 			SCR_PopLoadingScreen(false);
+			#endif
 		}
+	#ifndef CONFIG_SV
 	SCR_PopLoadingScreen(false);
+	#endif
 }
 
 unsigned char *mod_base;
@@ -683,7 +709,11 @@ Mod_Precache
 static void Mod_Precache(void)
 {
 	if (Cmd_Argc() == 2)
-		Mod_ForName(Cmd_Argv(1), false, true, Cmd_Argv(1)[0] == '*' ? cl.model_name[1] : NULL);
+		Mod_ForName(Cmd_Argv(1), false, true,
+				#ifndef CONFIG_SV
+				Cmd_Argv(1)[0] == '*' ? cl.model_name[1] :
+				#endif
+				NULL);
 	else
 		Con_Print("usage: modelprecache <filename>\n");
 }
@@ -768,7 +798,9 @@ void Mod_BuildTriangleNeighbors(int *neighbors, const int *elements, int numtria
 		}
 
 		// also send a keepalive here (this can take a while too!)
+		#ifndef CONFIG_SV
 		CL_KeepaliveMessage(false);
+		#endif
 	}
 	// free the allocated buffer
 	Mem_Free(edgehashentries);
@@ -1197,17 +1229,21 @@ void Mod_ShadowMesh_AddMesh(mempool_t *mempool, shadowmesh_t *mesh, rtexture_t *
 	}
 
 	// the triangle calculation can take a while, so let's do a keepalive here
+	#ifndef CONFIG_SV
 	CL_KeepaliveMessage(false);
+	#endif
 }
 
 shadowmesh_t *Mod_ShadowMesh_Begin(mempool_t *mempool, int maxverts, int maxtriangles, rtexture_t *map_diffuse, rtexture_t *map_specular, rtexture_t *map_normal, int light, int neighbors, int expandable)
 {
 	// the preparation before shadow mesh initialization can take a while, so let's do a keepalive here
+	#ifndef CONFIG_SV
 	CL_KeepaliveMessage(false);
-
+	#endif
 	return Mod_ShadowMesh_Alloc(mempool, maxverts, maxtriangles, map_diffuse, map_specular, map_normal, light, neighbors, expandable);
 }
 
+#ifndef CONFIG_SV
 static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 {
 	if (!mesh || !mesh->numverts)
@@ -1246,6 +1282,7 @@ static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 		Mem_Free(mem);
 	}
 }
+#endif
 
 shadowmesh_t *Mod_ShadowMesh_Finish(mempool_t *mempool, shadowmesh_t *firstmesh, qboolean light, qboolean neighbors, qboolean createvbo)
 {
@@ -1265,15 +1302,18 @@ shadowmesh_t *Mod_ShadowMesh_Finish(mempool_t *mempool, shadowmesh_t *firstmesh,
 				for (i = 0;i < newmesh->numtriangles*3;i++)
 					newmesh->element3s[i] = newmesh->element3i[i];
 			}
+			#ifndef CONFIG_SV
 			if (createvbo)
 				Mod_ShadowMesh_CreateVBOs(newmesh, mempool);
+			#endif
 		}
 		Mem_Free(mesh);
 	}
 
 	// this can take a while, so let's do a keepalive here
+	#ifndef CONFIG_SV
 	CL_KeepaliveMessage(false);
-
+	#endif
 	return firstmesh;
 }
 
@@ -1331,12 +1371,14 @@ void Mod_ShadowMesh_Free(shadowmesh_t *mesh)
 	shadowmesh_t *nextmesh;
 	for (;mesh;mesh = nextmesh)
 	{
+		#ifndef CONFIG_SV
 		if (mesh->element3i_indexbuffer)
 			R_Mesh_DestroyMeshBuffer(mesh->element3i_indexbuffer);
 		if (mesh->element3s_indexbuffer)
 			R_Mesh_DestroyMeshBuffer(mesh->element3s_indexbuffer);
 		if (mesh->vbo_vertexbuffer)
 			R_Mesh_DestroyMeshBuffer(mesh->vbo_vertexbuffer);
+		#endif
 		nextmesh = mesh->next;
 		Mem_Free(mesh);
 	}
@@ -1764,8 +1806,10 @@ void Mod_LoadQ3Shaders(void)
 					layer->rgbgen.rgbgen = Q3RGBGEN_IDENTITY;
 					layer->alphagen.alphagen = Q3ALPHAGEN_IDENTITY;
 					layer->tcgen.tcgen = Q3TCGEN_TEXTURE;
+					#ifndef CONFIG_SV
 					layer->blendfunc[0] = GL_ONE;
 					layer->blendfunc[1] = GL_ZERO;
+					#endif
 					while (COM_ParseToken_QuakeC(&text, false))
 					{
 						if (!strcasecmp(com_token, "}"))
@@ -1798,6 +1842,7 @@ void Mod_LoadQ3Shaders(void)
 						}
 						if (numparameters >= 2 && !strcasecmp(parameter[0], "blendfunc"))
 						{
+							#ifndef CONFIG_SV
 							if (numparameters == 2)
 							{
 								if (!strcasecmp(parameter[1], "add"))
@@ -1850,6 +1895,7 @@ void Mod_LoadQ3Shaders(void)
 										layer->blendfunc[k] = GL_ONE; // default in case of parsing error
 								}
 							}
+							#endif
 						}
 						if (numparameters >= 2 && !strcasecmp(parameter[0], "alphafunc"))
 							layer->alphatest = true;
@@ -1993,7 +2039,7 @@ void Mod_LoadQ3Shaders(void)
 								shader.layers[0].texflags |= TEXF_ALPHA;
 						}
 					}
-
+					#ifndef CONFIG_SV
 					if(mod_q3shader_force_addalpha.integer)
 					{
 						// for a long while, DP treated GL_ONE GL_ONE as GL_SRC_ALPHA GL_ONE
@@ -2001,10 +2047,11 @@ void Mod_LoadQ3Shaders(void)
 						if(layer->blendfunc[0] == GL_ONE && layer->blendfunc[1] == GL_ONE)
 							layer->blendfunc[0] = GL_SRC_ALPHA;
 					}
-					
+					#endif
 					layer->texflags = 0;
 					if (layer->alphatest)
 						layer->texflags |= TEXF_ALPHA;
+					#ifndef CONFIG_SV
 					switch(layer->blendfunc[0])
 					{
 						case GL_SRC_ALPHA:
@@ -2019,6 +2066,7 @@ void Mod_LoadQ3Shaders(void)
 							layer->texflags |= TEXF_ALPHA;
 							break;
 					}
+					#endif
 					if (!(shader.surfaceparms & Q3SURFACEPARM_NOMIPMAPS))
 						layer->texflags |= TEXF_MIPMAP;
 					if (!(shader.textureflags & Q3TEXTUREFLAG_NOPICMIP))
@@ -2391,6 +2439,7 @@ q3shaderinfo_t *Mod_LookupQ3Shader(const char *name)
 	return NULL;
 }
 
+#ifndef CONFIG_SV
 texture_shaderpass_t *Mod_CreateShaderPass(skinframe_t *skinframe)
 {
 	texture_shaderpass_t *shaderpass = (texture_shaderpass_t *)Mem_Alloc(loadmodel->mempool, sizeof(*shaderpass));
@@ -2817,6 +2866,7 @@ nothing                GL_ZERO GL_ONE
 	texture->backgroundcurrentskinframe = texture->backgroundshaderpass ? texture->backgroundshaderpass->skinframes[0] : NULL;
 	return success;
 }
+#endif
 
 skinfile_t *Mod_LoadSkinFiles(void)
 {
@@ -3033,6 +3083,7 @@ void Mod_MakeSortedSurfaces(dp_model_t *mod)
 	Mem_Free(numsurfacesfortexture);
 }
 
+#ifndef CONFIG_SV
 void Mod_BuildVBOs(void)
 {
 	if (!loadmodel->surfmesh.num_vertices)
@@ -3093,6 +3144,7 @@ void Mod_BuildVBOs(void)
 		Mem_Free(mem);
 	}
 }
+#endif
 
 extern cvar_t mod_obj_orientation;
 static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const char *mtlfilename, const char *originalfilename)
@@ -3427,12 +3479,17 @@ static void Mod_Decompile_f(void)
 	strlcpy(inname, Cmd_Argv(1), sizeof(inname));
 	FS_StripExtension(inname, basename, sizeof(basename));
 
-	mod = Mod_ForName(inname, false, true, inname[0] == '*' ? cl.model_name[1] : NULL);
+	mod = Mod_ForName(inname, false, true,
+			#ifndef CONFIG_SV
+			inname[0] == '*' ? cl.model_name[1] :
+			#endif
+			NULL);
 	if (!mod)
 	{
 		Con_Print("No such model\n");
 		return;
 	}
+	#ifndef CONFIG_SV
 	if (mod->brush.submodel)
 	{
 		// if we're decompiling a submodel, be sure to give it a proper name based on its parent
@@ -3440,6 +3497,7 @@ static void Mod_Decompile_f(void)
 		dpsnprintf(basename, sizeof(basename), "%s/%s", outname, mod->name);
 		outname[0] = 0;
 	}
+	#endif
 	if (!mod->surfmesh.num_triangles)
 	{
 		Con_Print("Empty model (or sprite)\n");
@@ -3531,6 +3589,7 @@ static void Mod_Decompile_f(void)
 	}
 }
 
+#ifndef CONFIG_SV
 void Mod_AllocLightmap_Init(mod_alloclightmap_state_t *state, mempool_t *mempool, int width, int height)
 {
 	int y;
@@ -4514,3 +4573,4 @@ static void Mod_GenerateLightmaps_f(void)
 	}
 	Mod_GenerateLightmaps(cl.worldmodel);
 }
+#endif

@@ -796,6 +796,7 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 		packetLen = 8;
 		conn->outgoing_unreliable_sequence++;
 		// client sends qport in every packet
+		#ifndef CONFIG_SV
 		if (conn == cls.netcon)
 		{
 			*((short *)(sendbuffer + 8)) = LittleShort(cls.qw_qport);
@@ -803,6 +804,7 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 			// also update cls.qw_outgoing_sequence
 			cls.qw_outgoing_sequence = conn->outgoing_unreliable_sequence;
 		}
+		#endif
 		if (packetLen + (sendreliable ? conn->sendMessageLength : 0) > 1400)
 		{
 			Con_Printf ("NetConn_SendUnreliableMessage: reliable message too big %u\n", data->cursize);
@@ -884,13 +886,13 @@ int NetConn_SendUnreliableMessage(netconn_t *conn, sizebuf_t *data, protocolvers
 				conn->message.overflowed = true;
 				return -1;
 			}
-
+			#ifndef CONFIG_SV
 			if (developer_networking.integer && conn == cls.netcon)
 			{
 				Con_Print("client sending reliable message to server:\n");
 				SZ_HexDumpToConsole(&conn->message);
 			}
-
+			#endif
 			memcpy(conn->sendMessage, conn->message.data, conn->message.cursize);
 			conn->sendMessageLength = conn->message.cursize;
 			SZ_Clear(&conn->message);
@@ -1094,8 +1096,10 @@ void NetConn_OpenServerPorts(int opennetports)
 	Con_Printf("Server using port %i\n", port);
 	if (sv_netport.integer != port)
 		Cvar_SetValueQuick(&sv_netport, port);
+	#ifndef CONFIG_SV
 	if (cls.state != ca_dedicated)
 		NetConn_OpenServerPort(NULL, LHNETADDRESSTYPE_LOOP, 1, 1);
+	#endif
 	if (opennetports)
 	{
 #ifndef NOSUPPORTIPV6
@@ -1175,16 +1179,19 @@ void NetConn_Close(netconn_t *conn)
 	Mem_Free(conn);
 }
 
+#ifndef CONFIG_SV
 static int clientport = -1;
 static int clientport2 = -1;
+#endif
 static int hostport = -1;
 void NetConn_UpdateSockets(void)
 {
+	#ifndef CONFIG_SV
 	int i, j;
-
+	#endif
 	// TODO add logic to automatically close sockets if needed
 	LHNET_DefaultDSCP(net_tos_dscp.integer);
-
+	#ifndef CONFIG_SV
 	if (cls.state != ca_dedicated)
 	{
 		if (clientport2 != cl_netport.integer)
@@ -1201,14 +1208,14 @@ void NetConn_UpdateSockets(void)
 		if (cl_numsockets == 0)
 			NetConn_OpenClientPorts();
 	}
-
+	#endif
 	if (hostport != sv_netport.integer)
 	{
 		hostport = sv_netport.integer;
 		if (sv.active)
 			Con_Print("Changing \"port\" will not take effect until \"map\" command is executed.\n");
 	}
-
+	#ifndef CONFIG_SV
 	for (j = 0;j < MAX_RCONS;j++)
 	{
 		i = (cls.rcon_ringpos + j + 1) % MAX_RCONS;
@@ -1225,6 +1232,7 @@ void NetConn_UpdateSockets(void)
 			}
 		}
 	}
+	#endif
 }
 
 static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, size_t length, protocolversion_t protocol, double newtimeout)
@@ -1247,9 +1255,10 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 		sequence_ack = LittleLong(*((int *)(data + 4)));
 		data += 8;
 		length -= 8;
-
+		#ifndef CONFIG_SV
 		if (conn != cls.netcon)
 		{
+		#endif
 			// server only
 			if (length < 2)
 				return 0;
@@ -1257,8 +1266,9 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 			//qport = LittleShort(*((int *)(data + 8)));
 			data += 2;
 			length -= 2;
+		#ifndef CONFIG_SV
 		}
-
+		#endif
 		conn->packetsReceived++;
 		reliable_message = (sequence >> 31) != 0;
 		reliable_ack = (sequence_ack >> 31) != 0;
@@ -1312,8 +1322,10 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 			conn->reliableMessagesReceived++;
 		}
 		conn->qw.incoming_sequence = sequence;
+		#ifndef CONFIG_SV
 		if (conn == cls.netcon)
 			cls.qw_incoming_sequence = conn->qw.incoming_sequence;
+		#endif
 		conn->qw.incoming_acknowledged = sequence_ack;
 		conn->qw.incoming_reliable_acknowledged = reliable_ack;
 		if (reliable_message)
@@ -1321,6 +1333,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 		conn->lastMessageTime = realtime;
 		conn->timeout = realtime + newtimeout;
 		conn->unreliableMessagesReceived++;
+		#ifndef CONFIG_SV
 		if (conn == cls.netcon)
 		{
 			SZ_Clear(&cl_message);
@@ -1328,6 +1341,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 			MSG_BeginReading(&cl_message);
 		}
 		else
+		#endif
 		{
 			SZ_Clear(&sv_message);
 			SZ_Write(&sv_message, data, (int)length);
@@ -1400,6 +1414,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 					conn->unreliableMessagesReceived++;
 					if (length > 0)
 					{
+						#ifndef CONFIG_SV
 						if (conn == cls.netcon)
 						{
 							SZ_Clear(&cl_message);
@@ -1407,6 +1422,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 							MSG_BeginReading(&cl_message);
 						}
 						else
+						#endif
 						{
 							SZ_Clear(&sv_message);
 							SZ_Write(&sv_message, data, (int)length);
@@ -1512,6 +1528,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 						conn->receiveMessageLength = 0;
 						if (length > 0)
 						{
+							#ifndef CONFIG_SV
 							if (conn == cls.netcon)
 							{
 								SZ_Clear(&cl_message);
@@ -1519,6 +1536,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 								MSG_BeginReading(&cl_message);
 							}
 							else
+							#endif
 							{
 								SZ_Clear(&sv_message);
 								SZ_Write(&sv_message, conn->receiveMessage, (int)length);
@@ -1537,6 +1555,7 @@ static int NetConn_ReceivedMessage(netconn_t *conn, const unsigned char *data, s
 	return 0;
 }
 
+#ifndef CONFIG_SV
 static void NetConn_ConnectionEstablished(lhnetsocket_t *mysocket, lhnetaddress_t *peeraddress, protocolversion_t initialprotocol)
 {
 	crypto_t *crypto;
@@ -1596,11 +1615,14 @@ static void NetConn_ConnectionEstablished(lhnetsocket_t *mysocket, lhnetaddress_
 		NetConn_SendUnreliableMessage(cls.netcon, &msg, cls.protocol, 10000, 0, false);
 	}
 }
+#endif
 
 int NetConn_IsLocalGame(void)
 {
+	#ifndef CONFIG_SV
 	if (cls.state == ca_connected && sv.active && cl.maxclients == 1)
 		return true;
+	#endif
 	return false;
 }
 
@@ -1819,6 +1841,7 @@ static void NetConn_ClientParsePacket_ServerList_ParseDPList(lhnetaddress_t *sen
 }
 #endif
 
+#ifndef CONFIG_SV
 static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *data, int length, lhnetaddress_t *peeraddress)
 {
 	qboolean fromserver;
@@ -2520,6 +2543,7 @@ void NetConn_ClientFrame(void)
 		SV_UnlockThreadMutex();
 	}
 }
+#endif
 
 static void NetConn_BuildChallengeString(char *buffer, int bufferlength)
 {
@@ -3851,9 +3875,11 @@ static void Net_Heartbeat_f(void)
 
 static void PrintStats(netconn_t *conn)
 {
+	#ifndef CONFIG_SV
 	if ((cls.state == ca_connected && cls.protocol == PROTOCOL_QUAKEWORLD) || (sv.active && sv.protocol == PROTOCOL_QUAKEWORLD))
 		Con_Printf("address=%21s canSend=%u sendSeq=%6u recvSeq=%6u\n", conn->address, !conn->sendMessageLength, conn->outgoing_unreliable_sequence, conn->qw.incoming_sequence);
 	else
+	#endif
 		Con_Printf("address=%21s canSend=%u sendSeq=%6u recvSeq=%6u\n", conn->address, !conn->sendMessageLength, conn->nq.sendSequence, conn->nq.receiveSequence);
 	Con_Printf("unreliable messages sent   = %i\n", conn->unreliableMessagesSent);
 	Con_Printf("unreliable messages recv   = %i\n", conn->unreliableMessagesReceived);

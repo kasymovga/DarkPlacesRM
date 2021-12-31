@@ -793,6 +793,7 @@ error_caught:
 =================================================================
 */
 
+#ifndef CONFIG_SV
 #define JPEG_OUTPUT_BUF_SIZE 4096
 static void JPEG_InitDestination (j_compress_ptr cinfo)
 {
@@ -839,6 +840,7 @@ static void JPEG_FileDest (j_compress_ptr cinfo, qfile_t* outfile)
 	dest->pub.term_destination = JPEG_TermDestination;
 	dest->outfile = outfile;
 }
+#endif
 
 static void JPEG_Mem_InitDestination (j_compress_ptr cinfo)
 {
@@ -880,6 +882,7 @@ static void JPEG_MemDest (j_compress_ptr cinfo, void* buf, size_t bufsize)
 }
 
 
+#ifndef CONFIG_SV
 /*
 ====================
 JPEG_SaveImage_preflipped
@@ -956,6 +959,7 @@ error_caught:
 	FS_Close (file);
 	return false;
 }
+#endif
 
 static size_t JPEG_try_SaveImage_to_Buffer (struct jpeg_compress_struct *cinfo, char *jpegbuf, size_t jpegsize, int quality, int width, int height, unsigned char *data)
 {

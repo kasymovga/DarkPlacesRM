@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifndef MODEL_SHARED_H
 #define MODEL_SHARED_H
+#include "matrixlib.h"
 
 typedef enum synctype_e {ST_SYNC=0, ST_RAND } synctype_t;
 

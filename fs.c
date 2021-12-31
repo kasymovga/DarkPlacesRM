@@ -53,7 +53,9 @@
 #include "thread.h"
 
 #include "fs.h"
+#ifndef CONFIG_SV
 #include "wad.h"
+#endif
 
 // Win32 requires us to add O_BINARY, but the other OSes don't have it
 #ifndef O_BINARY
@@ -1545,7 +1547,9 @@ void FS_Rescan (void)
 	}
 
 	// unload all wads so that future queries will return the new data
+	#ifndef CONFIG_SV
 	W_UnloadAll();
+	#endif
 }
 
 static void FS_Rescan_f(void)
@@ -1597,29 +1601,30 @@ qboolean FS_ChangeGameDirs(int numgamedirs, char gamedirs[][MAX_QPATH], qboolean
 			return false; // missing gamedirs
 		}
 	}
-
+	#ifndef CONFIG_SV
 	Host_SaveConfig();
-
+	#endif
 	fs_numgamedirs = numgamedirs;
 	for (i = 0;i < fs_numgamedirs;i++)
 		strlcpy(fs_gamedirs[i], gamedirs[i], sizeof(fs_gamedirs[i]));
 
 	// reinitialize filesystem to detect the new paks
 	FS_Rescan();
-
+	#ifndef CONFIG_SV
 	if (cls.demoplayback)
 	{
 		CL_Disconnect_f();
 		cls.demonum = 0;
 	}
-
+	#endif
 	// unload all sounds so they will be reloaded from the new files as needed
 	S_UnloadAllSounds_f();
 
 	// close down the video subsystem, it will start up again when the config finishes...
+	#ifndef CONFIG_SV
 	VID_Stop();
 	vid_opened = false;
-
+	#endif
 	// restart the video subsystem after the config is executed
 	Cbuf_InsertText("\nloadconfig\nvid_restart\n\n");
 
@@ -1655,7 +1660,7 @@ static void FS_GameDir_f (void)
 
 	for (i = 0;i < numgamedirs;i++)
 		strlcpy(gamedirs[i], Cmd_Argv(i+1), sizeof(gamedirs[i]));
-
+	#ifndef CONFIG_SV
 	if ((cls.state == ca_connected && !cls.demoplayback) || sv.active)
 	{
 		// actually, changing during game would work fine, but would be stupid
@@ -1665,7 +1670,7 @@ static void FS_GameDir_f (void)
 
 	// halt demo playback to close the file
 	CL_Disconnect();
-
+	#endif
 	FS_ChangeGameDirs(numgamedirs, gamedirs, true, true);
 }
 

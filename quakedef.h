@@ -368,6 +368,9 @@ extern char engineversion[128];
 #define HIT_WETSUIT         (1<<(23+2))
 #define HIT_EMPATHY_SHIELDS (1<<(23+3))
 
+#define MAX_FONT_SIZES 16
+#define MAX_FONT_FALLBACKS 3
+
 //===========================================
 
 #include "zone.h"
@@ -376,34 +379,39 @@ extern char engineversion[128];
 #include "cvar.h"
 #include "bspfile.h"
 #include "sys.h"
-#include "vid.h"
 #include "mathlib.h"
 
 #include "r_textures.h"
 
 #include "crypto.h"
+#ifndef CONFIG_SV
+#include "vid.h"
 #include "draw.h"
 #include "screen.h"
-#include "netconn.h"
-#include "protocol.h"
-#include "cmd.h"
 #include "sbar.h"
-#include "sound.h"
-#include "model_shared.h"
-#include "world.h"
-#include "client.h"
-#include "render.h"
-#include "progs.h"
-#include "progsvm.h"
-#include "server.h"
-
 #include "input.h"
 #include "keys.h"
-#include "console.h"
+#include "sound.h"
+#endif
+#include "netconn.h"
+#ifndef CONFIG_SV
 #ifdef CONFIG_MENU
 #include "menu.h"
 #endif
+#endif
+#include "protocol.h"
+#include "cmd.h"
+#include "model_shared.h"
+#include "world.h"
+#include "client.h"
+#include "progs.h"
+#include "progsvm.h"
+#ifndef CONFIG_SV
 #include "csprogs.h"
+#include "render.h"
+#endif
+#include "server.h"
+#include "console.h"
 
 extern qboolean noclip_anglehack;
 
@@ -516,7 +524,9 @@ qboolean Sys_HaveSSE2(void);
 #define Sys_HaveSSE2() false
 #endif
 
+#ifndef CONFIG_SV
 #include "glquake.h"
+#endif
 
 #include "palette.h"
 
@@ -595,6 +605,13 @@ void Sys_Shared_Init(void);
 #define INT_LOSSLESS_FORMAT_CONVERT_S(x) ((intmax_t)(x))
 #define INT_LOSSLESS_FORMAT_CONVERT_U(x) ((uintmax_t)(x))
 #endif
+
+// shared color tag printing constants
+#define STRING_COLOR_TAG			'^'
+#define STRING_COLOR_DEFAULT		7
+#define STRING_COLOR_DEFAULT_STR	"^7"
+#define STRING_COLOR_RGB_TAG_CHAR	'x'
+#define STRING_COLOR_RGB_TAG		"^x"
 
 #endif
 

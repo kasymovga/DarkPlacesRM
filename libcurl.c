@@ -475,6 +475,7 @@ static void curl_quiet_callback(int status, size_t length_received, unsigned cha
 	curl_default_callback(status, length_received, buffer, cbdata);
 }
 
+#ifndef CONFIG_SV
 static unsigned char *decode_image(downloadinfo *di, const char *content_type)
 {
 	unsigned char *pixels = NULL;
@@ -498,6 +499,7 @@ static unsigned char *decode_image(downloadinfo *di, const char *content_type)
 	// do we call Image_MakeLinearColorsFromsRGB or not?
 	return pixels;
 }
+#endif
 
 /*
 ====================
@@ -586,6 +588,7 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 	}
 	else if(ok && di->loadtype == LOADTYPE_CACHEPIC)
 	{
+		#ifndef CONFIG_SV
 		const char *p;
 		unsigned char *pixels = NULL;
 
@@ -600,9 +603,11 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 			Draw_NewPic(p, image_width, image_height, true, pixels);
 		else
 			CLEAR_AND_RETRY();
+		#endif
 	}
 	else if(ok && di->loadtype == LOADTYPE_SKINFRAME)
 	{
+		#ifndef CONFIG_SV
 		const char *p;
 		unsigned char *pixels = NULL;
 
@@ -617,6 +622,7 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 			R_SkinFrame_LoadInternalBGRA(p, TEXF_FORCE_RELOAD | TEXF_MIPMAP | TEXF_ALPHA, pixels, image_width, image_height, false); // TODO what sRGB argument to put here?
 		else
 			CLEAR_AND_RETRY();
+		#endif
 	}
 
 	if(di->prev)
@@ -896,6 +902,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 
 		// if URL is protocol:///* or protocol://:port/*, insert the IP of the current server
 		p = strchr(URL, ':');
+		#ifndef CONFIG_SV
 		if(p)
 		{
 			if(!strncmp(p, ":///", 4) || !strncmp(p, "://:", 4))
@@ -913,6 +920,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 				}
 			}
 		}
+		#endif
 
 		// Note: This extraction of the file name portion is NOT entirely correct.
 		//
@@ -1045,7 +1053,11 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 		di = (downloadinfo *) Z_Malloc(sizeof(*di));
 		strlcpy(di->filename, name, sizeof(di->filename));
 		strlcpy(di->url, URL, sizeof(di->url));
+		#ifndef CONFIG_SV
 		dpsnprintf(di->referer, sizeof(di->referer), "dp://%s/", cls.netcon ? cls.netcon->address : "notconnected.invalid");
+		#else
+		dpsnprintf(di->referer, sizeof(di->referer), "dp://dedicated/");
+		#endif
 		di->forthismap = forthismap;
 		di->stream = NULL;
 		di->startpos = 0;
@@ -1462,6 +1474,7 @@ static void Curl_Curl_f(void)
 		}
 		else if(!strcmp(a, "--finish_autodownload"))
 		{
+			#ifndef CONFIG_SV
 			if(numdownloads_added)
 			{
 				char donecommand[256];
@@ -1480,6 +1493,7 @@ static void Curl_Curl_f(void)
 						Curl_Register_predownload();
 				}
 			}
+			#endif
 			return;
 		}
 		else if(!strncmp(a, "--maxspeed=", 11))

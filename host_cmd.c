@@ -29,6 +29,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "hmac.h"
 #include "mdfour.h"
 #include "random.h"
+#ifndef CONFIG_SV
+#include "timedemo.h"
+#endif
+
 #include <time.h>
 
 int current_skill;
@@ -55,8 +59,6 @@ extern cvar_t developer_entityparsing;
 Host_Quit_f
 ==================
 */
-
-#include "timedemo.h"
 
 void Host_Quit_f (void)
 {
@@ -85,11 +87,13 @@ static void Host_Status_f (void)
 	if (cmd_source == src_command)
 	{
 		// if running a client, try to send over network so the client's status report parser will see the report
+		#ifndef CONFIG_SV
 		if (cls.state == ca_connected)
 		{
 			Cmd_ForwardToServer ();
 			return;
 		}
+		#endif
 		print = Con_Printf;
 	}
 	else
@@ -313,11 +317,13 @@ static void Host_Ping_f (void)
 	if (cmd_source == src_command)
 	{
 		// if running a client, try to send over network so the client's ping report parser will see the report
+		#ifndef CONFIG_SV
 		if (cls.state == ca_connected)
 		{
 			Cmd_ForwardToServer ();
 			return;
 		}
+		#endif
 		print = Con_Printf;
 	}
 	else
@@ -365,10 +371,11 @@ static void Host_Map_f (void)
 		Con_Print("map <levelname> : start a new game (kicks off all players)\n");
 		return;
 	}
-
+	#ifndef CONFIG_SV
 	cls.demonum = -1;		// stop demo loop in case this fails
 
 	CL_Disconnect ();
+	#endif
 	Host_ShutdownServer();
 
 	if(svs.maxclients != svs.maxclients_next)
@@ -378,20 +385,22 @@ static void Host_Map_f (void)
 			Mem_Free(svs.clients);
 		svs.clients = (client_t *)Mem_Alloc(sv_mempool, sizeof(client_t) * svs.maxclients);
 	}
-
+	#ifndef CONFIG_SV
 #ifdef CONFIG_MENU
 	// remove menu
 	if (key_dest == key_menu || key_dest == key_menu_grabbed)
 		MR_ToggleMenu(0);
 #endif
 	key_dest = key_game;
-
+	#endif
 	svs.serverflags = 0;			// haven't completed an episode yet
 	allowcheats = sv_cheats.integer != 0;
 	strlcpy(level, Cmd_Argv(1), sizeof(level));
 	SV_SpawnServer(level);
+	#ifndef CONFIG_SV
 	if (sv.active && cls.state == ca_disconnected)
 		CL_EstablishConnection("local:1", -2);
+	#endif
 }
 
 /*
@@ -410,25 +419,29 @@ static void Host_Changelevel_f (void)
 		Con_Print("changelevel <levelname> : continue game on a new level\n");
 		return;
 	}
+	Con_Printf("changelevel called\n");
 	// HACKHACKHACK
 	if (!sv.active) {
 		Host_Map_f();
 		return;
 	}
 
+	#ifndef CONFIG_SV
 #ifdef CONFIG_MENU
 	// remove menu
 	if (key_dest == key_menu || key_dest == key_menu_grabbed)
 		MR_ToggleMenu(0);
 #endif
 	key_dest = key_game;
-
+	#endif
 	SV_SaveSpawnparms ();
 	allowcheats = sv_cheats.integer != 0;
 	strlcpy(level, Cmd_Argv(1), sizeof(level));
 	SV_SpawnServer(level);
+	#ifndef CONFIG_SV
 	if (sv.active && cls.state == ca_disconnected)
 		CL_EstablishConnection("local:1", -2);
+	#endif
 }
 
 /*
@@ -452,19 +465,21 @@ static void Host_Restart_f (void)
 		Con_Print("Only the server may restart\n");
 		return;
 	}
-
+	#ifndef CONFIG_SV
 #ifdef CONFIG_MENU
 	// remove menu
 	if (key_dest == key_menu || key_dest == key_menu_grabbed)
 		MR_ToggleMenu(0);
 #endif
 	key_dest = key_game;
-
+	#endif
 	allowcheats = sv_cheats.integer != 0;
 	strlcpy(mapname, sv.name, sizeof(mapname));
 	SV_SpawnServer(mapname);
+	#ifndef CONFIG_SV
 	if (sv.active && cls.state == ca_disconnected)
 		CL_EstablishConnection("local:1", -2);
+	#endif
 }
 
 /*
@@ -475,6 +490,7 @@ This command causes the client to wait for the signon messages again.
 This is sent just before a server changes levels
 ==================
 */
+#ifndef CONFIG_SV
 void Host_Reconnect_f (void)
 {
 	char temp[128];
@@ -542,6 +558,7 @@ static void Host_Connect_f (void)
 		Cvar_SetQuick(&rcon_password, "");
 	CL_EstablishConnection(Cmd_Argv(1), 2);
 }
+#endif
 
 
 /*
@@ -699,6 +716,7 @@ void Host_Savegame_to(prvm_prog_t *prog, const char *name)
 	Con_Print("done.\n");
 }
 
+#ifndef CONFIG_SV
 /*
 ===============
 Host_Savegame_f
@@ -1115,6 +1133,7 @@ static void Host_Loadgame_f (void)
 	if (sv.active && cls.state == ca_disconnected)
 		CL_EstablishConnection("local:1", -2);
 }
+#endif
 
 //============================================================================
 
@@ -1390,16 +1409,20 @@ static void Host_Say(qboolean teamonly)
 
 	if (cmd_source == src_command)
 	{
+		#ifndef CONFIG_SV
 		if (cls.state == ca_dedicated)
+		#endif
 		{
 			fromServer = true;
 			teamonly = false;
 		}
+		#ifndef CONFIG_SV
 		else
 		{
 			Cmd_ForwardToServer ();
 			return;
 		}
+		#endif
 	}
 
 	if (Cmd_Argc () < 2)
@@ -1440,8 +1463,9 @@ static void Host_Say(qboolean teamonly)
 		if (host_client->active && (!teamonly || PRVM_serveredictfloat(host_client->edict, team) == PRVM_serveredictfloat(save->edict, team)))
 			SV_ClientPrint(text);
 	host_client = save;
-
+	#ifndef CONFIG_SV
 	if (cls.state == ca_dedicated)
+	#endif
 		Con_Print(&text[1]);
 }
 
@@ -1471,13 +1495,17 @@ static void Host_Tell_f(void)
 
 	if (cmd_source == src_command)
 	{
+		#ifndef CONFIG_SV
 		if (cls.state == ca_dedicated)
+		#endif
 			fromServer = true;
+		#ifndef CONFIG_SV
 		else
 		{
 			Cmd_ForwardToServer ();
 			return;
 		}
+		#endif
 	}
 
 	if (Cmd_Argc () < 2)
@@ -1612,7 +1640,7 @@ static void Host_Color(int changetop, int changebottom)
 	//	bottom = 13;
 
 	playercolor = top*16 + bottom;
-
+	#ifndef CONFIG_SV
 	if (cmd_source == src_command)
 	{
 		Cvar_SetValueQuick(&cl_color, playercolor);
@@ -1621,7 +1649,7 @@ static void Host_Color(int changetop, int changebottom)
 
 	if (cls.protocol == PROTOCOL_QUAKEWORLD)
 		return;
-
+	#endif
 	if (host_client->edict && PRVM_serverfunction(SV_ChangeTeam))
 	{
 		Con_DPrint("Calling SV_ChangeTeam\n");
@@ -1655,11 +1683,13 @@ static void Host_Color_f(void)
 
 	if (Cmd_Argc() == 1)
 	{
+		#ifndef CONFIG_SV
 		if (cmd_source == src_command)
 		{
 			Con_Printf("\"color\" is \"%i %i\"\n", cl_color.integer >> 4, cl_color.integer & 15);
 			Con_Print("color <0-15> [0-15]\n");
 		}
+		#endif
 		return;
 	}
 
@@ -1677,11 +1707,13 @@ static void Host_TopColor_f(void)
 {
 	if (Cmd_Argc() == 1)
 	{
+		#ifndef CONFIG_SV
 		if (cmd_source == src_command)
 		{
 			Con_Printf("\"topcolor\" is \"%i\"\n", (cl_color.integer >> 4) & 15);
 			Con_Print("topcolor <0-15>\n");
 		}
+		#endif
 		return;
 	}
 
@@ -1692,11 +1724,13 @@ static void Host_BottomColor_f(void)
 {
 	if (Cmd_Argc() == 1)
 	{
+		#ifndef CONFIG_SV
 		if (cmd_source == src_command)
 		{
 			Con_Printf("\"bottomcolor\" is \"%i\"\n", cl_color.integer & 15);
 			Con_Print("bottomcolor <0-15>\n");
 		}
+		#endif
 		return;
 	}
 
@@ -1752,6 +1786,7 @@ static void Host_Rate_BurstSize_f(void)
 	host_client->rate_burstsize = rate_burstsize;
 }
 
+#ifndef CONFIG_SV
 /*
 ==================
 Host_Kill_f
@@ -1770,6 +1805,7 @@ static void Host_Kill_f (void)
 	PRVM_serverglobaledict(self) = PRVM_EDICT_TO_PROG(host_client->edict);
 	prog->ExecuteProgram(prog, PRVM_serverfunction(ClientKill), "QC function ClientKill is missing");
 }
+#endif
 
 
 /*
@@ -1783,11 +1819,13 @@ static void Host_Pause_f (void)
 	if (cmd_source == src_command)
 	{
 		// if running a client, try to send over network so the pause is handled by the server
+		#ifndef CONFIG_SV
 		if (cls.state == ca_connected)
 		{
 			Cmd_ForwardToServer ();
 			return;
 		}
+		#endif
 		print = Con_Printf;
 	}
 	else
@@ -1797,11 +1835,15 @@ static void Host_Pause_f (void)
 	{
 		if (cmd_source == src_client)
 		{
+			#ifndef CONFIG_SV
 			if(cls.state == ca_dedicated || host_client != &svs.clients[0]) // non-admin
 			{
+			#endif
 				print("Pause not allowed.\n");
 				return;
+			#ifndef CONFIG_SV
 			}
+			#endif
 		}
 	}
 
@@ -1839,7 +1881,7 @@ static void Host_PModel_f (void)
 		return;
 	}
 	i = atoi(Cmd_Argv(1));
-
+	#ifndef CONFIG_SV
 	if (cmd_source == src_command)
 	{
 		if (cl_pmodel.integer == i)
@@ -1849,7 +1891,7 @@ static void Host_PModel_f (void)
 			Cmd_ForwardToServer ();
 		return;
 	}
-
+	#endif
 	PRVM_serveredictfloat(host_client->edict, pmodel) = i;
 }
 
@@ -1940,8 +1982,9 @@ static void Host_Spawn_f (void)
 		PRVM_serverglobalfloat(time) = sv.time;
 		PRVM_serverglobaledict(self) = PRVM_EDICT_TO_PROG(host_client->edict);
 		prog->ExecuteProgram(prog, PRVM_serverfunction(ClientConnect), "QC function ClientConnect is missing");
-
+		#ifndef CONFIG_SV
 		if (cls.state == ca_dedicated)
+		#endif
 			Con_Printf("%s connected\n", host_client->name);
 
 		PRVM_serverglobalfloat(time) = sv.time;
@@ -2104,10 +2147,14 @@ static void Host_Kick_f (void)
 	{
 		if (cmd_source == src_command)
 		{
+			#ifndef CONFIG_SV
 			if (cls.state == ca_dedicated)
+			#endif
 				who = "Console";
+			#ifndef CONFIG_SV
 			else
 				who = cl_name.string;
+			#endif
 		}
 		else
 			who = save->name;
@@ -2276,6 +2323,7 @@ static void Host_Give_f (void)
 	}
 }
 
+#ifndef CONFIG_SV
 static prvm_edict_t	*FindViewthing(prvm_prog_t *prog)
 {
 	int		i;
@@ -2487,18 +2535,21 @@ static void Host_Stopdemo_f (void)
 	CL_Disconnect ();
 	Host_ShutdownServer ();
 }
+#endif
 
 static void Host_SendCvar_f (void)
 {
 	int		i;
-	cvar_t	*c;
 	const char *cvarname;
 	client_t *old;
+	#ifndef CONFIG_SV
+	cvar_t *c;
 	char vabuf[1024];
-
+	#endif
 	if(Cmd_Argc() != 2)
 		return;
 	cvarname = Cmd_Argv(1);
+	#ifndef CONFIG_SV
 	if (cls.state == ca_connected)
 	{
 		c = Cvar_FindVar(cvarname);
@@ -2510,13 +2561,16 @@ static void Host_SendCvar_f (void)
 			Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "sentcvar %s \"%s\"", c->name, c->string));
 		return;
 	}
+	#endif
 	if(!sv.active)// || !PRVM_serverfunction(SV_ParseClientCommand))
 		return;
 
 	old = host_client;
+	#ifndef CONFIG_SV
 	if (cls.state != ca_dedicated)
 		i = 1;
 	else
+	#endif
 		i = 0;
 	for(;i<svs.maxclients;i++)
 		if(svs.clients[i].active && svs.clients[i].netconnection)
@@ -2561,6 +2615,7 @@ Host_PQRcon_f
 ProQuake rcon support
 =====================
 */
+#ifndef CONFIG_SV
 static void Host_PQRcon_f (void)
 {
 	int n;
@@ -2870,6 +2925,7 @@ static void Host_SetInfo_f (void) // credit: taken from QuakeWorld
 	}
 	CL_SetInfo(Cmd_Argv(1), Cmd_Argv(2), true, false, false, false);
 }
+#endif
 
 /*
 ====================
@@ -3005,6 +3061,7 @@ void Host_Pings_f (void)
 		MSG_WriteString(&host_client->netconnection->message, "\n");
 }
 
+#ifndef CONFIG_SV
 static void Host_PingPLReport_f(void)
 {
 	char *errbyte;
@@ -3022,6 +3079,7 @@ static void Host_PingPLReport_f(void)
 			cl.scores[i].qw_movementloss = 0;
 	}
 }
+#endif
 
 //=============================================================================
 
@@ -3032,8 +3090,9 @@ Host_InitCommands
 */
 void Host_InitCommands (void)
 {
+	#ifndef CONFIG_SV
 	dpsnprintf(cls.userinfo, sizeof(cls.userinfo), "\\name\\player\\team\\none\\topcolor\\0\\bottomcolor\\0\\rate\\10000\\msg\\1\\noaim\\1\\*ver\\dp");
-
+	#endif
 	Cmd_AddCommand_WithClientCommand ("status", Host_Status_f, Host_Status_f, "print server status information");
 	Cmd_AddCommand ("quit", Host_Quit_f, "quit the game");
 	Cmd_AddCommand_WithClientCommand ("god", NULL, Host_God_f, "god mode (invulnerability)");
@@ -3044,31 +3103,34 @@ void Host_InitCommands (void)
 	Cmd_AddCommand ("map", Host_Map_f, "kick everyone off the server and start a new level");
 	Cmd_AddCommand ("restart", Host_Restart_f, "restart current level");
 	Cmd_AddCommand ("changelevel", Host_Changelevel_f, "change to another level, bringing along all connected clients");
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("connect", Host_Connect_f, "connect to a server by IP address or hostname");
 	Cmd_AddCommand ("reconnect", Host_Reconnect_f, "reconnect to the last server you were on, or resets a quakeworld connection (do not use if currently playing on a netquake server)");
+	#endif
 	Cmd_AddCommand ("version", Host_Version_f, "print engine version");
 	Cmd_AddCommand_WithClientCommand ("say", Host_Say_f, Host_Say_f, "send a chat message to everyone on the server");
 	Cmd_AddCommand_WithClientCommand ("say_team", Host_Say_Team_f, Host_Say_Team_f, "send a chat message to your team on the server");
 	Cmd_AddCommand_WithClientCommand ("tell", Host_Tell_f, Host_Tell_f, "send a chat message to only one person on the server");
+	#ifndef CONFIG_SV
 	Cmd_AddCommand_WithClientCommand ("kill", NULL, Host_Kill_f, "die instantly");
+	#endif
 	Cmd_AddCommand_WithClientCommand ("pause", Host_Pause_f, Host_Pause_f, "pause the game (if the server allows pausing)");
 	Cmd_AddCommand ("kick", Host_Kick_f, "kick a player off the server by number or name");
 	Cmd_AddCommand_WithClientCommand ("ping", Host_Ping_f, Host_Ping_f, "print ping times of all players on the server");
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("load", Host_Loadgame_f, "load a saved game file");
 	Cmd_AddCommand ("save", Host_Savegame_f, "save the game to a file");
-
 	Cmd_AddCommand ("startdemos", Host_Startdemos_f, "start playing back the selected demos sequentially (used at end of startup script)");
 	Cmd_AddCommand ("demos", Host_Demos_f, "restart looping demos defined by the last startdemos command");
 	Cmd_AddCommand ("stopdemo", Host_Stopdemo_f, "stop playing or recording demo (like stop command) and return to looping demos");
-
 	Cmd_AddCommand ("viewmodel", Host_Viewmodel_f, "change model of viewthing entity in current level");
 	Cmd_AddCommand ("viewframe", Host_Viewframe_f, "change animation frame of viewthing entity in current level");
 	Cmd_AddCommand ("viewnext", Host_Viewnext_f, "change to next animation frame of viewthing entity in current level");
 	Cmd_AddCommand ("viewprev", Host_Viewprev_f, "change to previous animation frame of viewthing entity in current level");
-
 	Cvar_RegisterVariable (&cl_name);
-	Cmd_AddCommand_WithClientCommand ("name", Host_Name_f, Host_Name_f, "change your player name");
 	Cvar_RegisterVariable (&cl_color);
+	#endif
+	Cmd_AddCommand_WithClientCommand ("name", Host_Name_f, Host_Name_f, "change your player name");
 	Cmd_AddCommand_WithClientCommand ("color", Host_Color_f, Host_Color_f, "change your player shirt and pants colors");
 	Cvar_RegisterVariable (&cl_rate);
 	Cmd_AddCommand_WithClientCommand ("rate", Host_Rate_f, Host_Rate_f, "change your network connection speed");
@@ -3082,7 +3144,6 @@ void Host_InitCommands (void)
 	Cmd_AddCommand_WithClientCommand ("playermodel", Host_Playermodel_f, Host_Playermodel_f, "change your player model");
 	Cvar_RegisterVariable (&cl_playerskin);
 	Cmd_AddCommand_WithClientCommand ("playerskin", Host_Playerskin_f, Host_Playerskin_f, "change your player skin number");
-
 	Cmd_AddCommand_WithClientCommand ("prespawn", NULL, Host_PreSpawn_f, "signon 1 (client acknowledges that server information has been received)");
 	Cmd_AddCommand_WithClientCommand ("spawn", NULL, Host_Spawn_f, "signon 2 (client has sent player information, and is asking server to send scoreboard rankings)");
 	Cmd_AddCommand_WithClientCommand ("begin", NULL, Host_Begin_f, "signon 3 (client asks server to start sending entities, and will go to signon 4 (playing) when the first entity update is received)");
@@ -3094,6 +3155,7 @@ void Host_InitCommands (void)
 	Cvar_RegisterVariable (&rcon_address);
 	Cvar_RegisterVariable (&rcon_secure);
 	Cvar_RegisterVariable (&rcon_secure_challengetimeout);
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("rcon", Host_Rcon_f, "sends a command to the server console (if your rcon_password matches the server's rcon_password), or to the address specified by rcon_address when not connected (again rcon_password must match the server's); note: if rcon_secure is set, client and server clocks must be synced e.g. via NTP");
 	Cmd_AddCommand ("srcon", Host_Rcon_f, "sends a command to the server console (if your rcon_password matches the server's rcon_password), or to the address specified by rcon_address when not connected (again rcon_password must match the server's); this always works as if rcon_secure is set; note: client and server clocks must be synced e.g. via NTP");
 	Cmd_AddCommand ("pqrcon", Host_PQRcon_f, "sends a command to a proquake server console (if your rcon_password matches the server's rcon_password), or to the address specified by rcon_address when not connected (again rcon_password must match the server's)");
@@ -3102,13 +3164,14 @@ void Host_InitCommands (void)
 	Cmd_AddCommand ("fullserverinfo", Host_FullServerinfo_f, "internal use only, sent by server to client to update client's local copy of serverinfo string");
 	Cmd_AddCommand ("fullinfo", Host_FullInfo_f, "allows client to modify their userinfo");
 	Cmd_AddCommand ("setinfo", Host_SetInfo_f, "modifies your userinfo");
+	#endif
 	Cmd_AddCommand ("packet", Host_Packet_f, "send a packet to the specified address:port containing a text string");
 	Cmd_AddCommand ("topcolor", Host_TopColor_f, "QW command to set top color without changing bottom color");
 	Cmd_AddCommand ("bottomcolor", Host_BottomColor_f, "QW command to set bottom color without changing top color");
-
 	Cmd_AddCommand_WithClientCommand ("pings", NULL, Host_Pings_f, "command sent by clients to request updated ping and packetloss of players on scoreboard (originally from QW, but also used on NQ servers)");
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("pingplreport", Host_PingPLReport_f, "command sent by server containing client ping and packet loss values for scoreboard, triggered by pings command from client (not used by QW servers)");
-
+	#endif
 	Cmd_AddCommand ("fixtrans", Image_FixTransparentPixels_f, "change alpha-zero pixels in an image file to sensible values, and write out a new TGA (warning: SLOW)");
 	Cvar_RegisterVariable (&r_fixtrans_auto);
 

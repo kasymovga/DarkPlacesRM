@@ -11,9 +11,12 @@
 #include <time.h>
 
 #include "cl_collision.h"
+#include "utf8lib.h"
+#ifndef CONFIG_SV
 #include "clvm_cmds.h"
 #include "csprogs.h"
 #include "ft2.h"
+#endif
 #include "mdfour.h"
 #include "irc.h"
 #include "slre.h"
@@ -111,7 +114,11 @@ void VM_FrameBlendFromFrameGroupBlend(frameblend_t *frameblend, const framegroup
 		return;
 	}
 
+	#ifdef CONFIG_SV
+	nolerp = false;
+	#else
 	nolerp = (model->type == mod_sprite) ? !r_lerpsprites.integer : !r_lerpmodels.integer;
+	#endif
 	numframes = model->numframes;
 	for (k = 0, g = framegroupblend;k < MAX_FRAMEGROUPBLENDS;k++, g++)
 	{
@@ -492,6 +499,7 @@ single print to the screen
 centerprint(value)
 =================
 */
+#ifndef CONFIG_SV
 void VM_centerprint(prvm_prog_t *prog)
 {
 	char string[VM_STRINGTEMP_LENGTH];
@@ -500,6 +508,7 @@ void VM_centerprint(prvm_prog_t *prog)
 	VM_VarString(prog, 0, string, sizeof(string));
 	SCR_CenterPrint(string);
 }
+#endif
 
 /*
 =================
@@ -2966,10 +2975,10 @@ VM_clientstate
 float	clientstate()
 =========
 */
+#ifndef CONFIG_SV
 void VM_clientstate(prvm_prog_t *prog)
 {
 	VM_SAFEPARMCOUNT(0,VM_clientstate);
-
 
 	switch( cls.state ) {
 		case ca_uninitialized:
@@ -2987,6 +2996,7 @@ void VM_clientstate(prvm_prog_t *prog)
 			break;
 	}
 }
+#endif
 
 /*
 =========
@@ -3387,6 +3397,7 @@ void VM_chr(prvm_prog_t *prog)
 	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, tmp);
 }
 
+#ifndef CONFIG_SV
 //=============================================================================
 // Draw builtins (client & menu)
 
@@ -4451,6 +4462,7 @@ void VM_gecko_get_texture_extent(prvm_prog_t *prog) {
 	PRVM_G_VECTOR(OFS_RETURN)[0] = 0;
 	PRVM_G_VECTOR(OFS_RETURN)[1] = 0;
 }
+#endif
 
 
 
@@ -4499,6 +4511,7 @@ VM_drawline
 void drawline(float width, vector pos1, vector pos2, vector rgb, float alpha, float flags)
 ========================
 */
+#ifndef CONFIG_SV
 void VM_drawline (prvm_prog_t *prog)
 {
 	prvm_vec_t	*c1, *c2, *rgb;
@@ -4514,6 +4527,7 @@ void VM_drawline (prvm_prog_t *prog)
 	flags	= (int)PRVM_G_FLOAT(OFS_PARM5);
 	DrawQ_Line(width, c1[0], c1[1], c2[0], c2[1], rgb[0], rgb[1], rgb[2], alpha, flags);
 }
+#endif
 
 // float(float number, float quantity) bitshift (EXT_BITSHIFT)
 void VM_bitshift (prvm_prog_t *prog)
@@ -6199,7 +6213,9 @@ static void animatemodel_reset(prvm_prog_t *prog);
 
 void VM_Cmd_Reset(prvm_prog_t *prog)
 {
+#ifndef CONFIG_SV
 	CL_PurgeOwner( MENUOWNER );
+#endif
 	VM_Search_Reset(prog);
 	VM_Files_CloseAll(prog);
 	animatemodel_reset(prog);
@@ -6570,6 +6586,7 @@ Common functions between menu.dat and clsprogs
 =========
 */
 
+#ifndef CONFIG_SV
 //#349 float() isdemo
 void VM_CL_isdemo (prvm_prog_t *prog)
 {
@@ -6583,6 +6600,7 @@ void VM_CL_videoplaying (prvm_prog_t *prog)
 	VM_SAFEPARMCOUNT(0, VM_CL_videoplaying);
 	PRVM_G_FLOAT(OFS_RETURN) = cl_videoplaying;
 }
+#endif
 
 /*
 =========
@@ -6989,8 +7007,10 @@ static dp_model_t *getmodel(prvm_prog_t *prog, prvm_edict_t *ed)
 {
 	if (prog == SVVM_prog)
 		return SV_GetModelFromEdict(ed);
+	#ifndef CONFIG_SV
 	else if (prog == CLVM_prog)
 		return CL_GetModelFromEdict(ed);
+	#endif
 	else
 		return NULL;
 }
@@ -7084,8 +7104,10 @@ static void getmatrix(prvm_prog_t *prog, prvm_edict_t *ed, matrix4x4_t *out)
 {
 	if (prog == SVVM_prog)
 		SV_GetEntityMatrix(prog, ed, out, false);
+	#ifndef CONFIG_SV
 	else if (prog == CLVM_prog)
 		CL_GetEntityMatrix(prog, ed, out, false);
+	#endif
 	else
 		*out = identitymatrix;
 }

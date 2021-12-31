@@ -385,8 +385,10 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 {
 	qboolean changed;
 	size_t valuelen;
-	char vabuf[1024], *oldval = NULL;
-
+	char *oldval = NULL;
+	#ifndef CONFIG_SV
+	char vabuf[1024];
+	#endif
 	changed = strcmp(var->string, value) != 0;
 	// LordHavoc: don't reallocate when there is no change
 	if (!changed)
@@ -424,6 +426,7 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 		}
 	}
 #endif
+	#ifndef CONFIG_SV
 	if ((var->flags & CVAR_USERINFO) && cls.state != ca_dedicated)
 		CL_SetInfo(var->name, var->string, true, false, false, false);
 	else if ((var->flags & CVAR_NQUSERINFOHACK) && cls.state != ca_dedicated)
@@ -470,7 +473,7 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 			NetConn_UpdateExtra();
 #endif
 	}
-
+	#endif
 	Cvar_UpdateAutoCvar(var);
 
     if(oldval) { // CVAR_WATCHED

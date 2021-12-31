@@ -26,7 +26,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef CONFIG_CD
 #include "cdaudio.h"
 #endif
+#ifndef CONFIG_SV
 #include "cl_video.h"
+#endif
 #include "progsvm.h"
 #include "csprogs.h"
 #include "sv_demo.h"
@@ -150,34 +152,37 @@ void Host_Error (const char *error, ...)
 	hosterror = true;
 
 	strlcpy(hosterrorstring2, hosterrorstring1, sizeof(hosterrorstring2));
-
+	#ifndef CONFIG_SV
 	CL_Parse_DumpPacket();
 
 	CL_Parse_ErrorCleanUp();
-
+	#endif
 	//PR_Crash();
 
 	// print out where the crash happened, if it was caused by QC (and do a cleanup)
 	PRVM_Crash(SVVM_prog);
+	#ifndef CONFIG_SV
 	PRVM_Crash(CLVM_prog);
 #ifdef CONFIG_MENU
 	PRVM_Crash(MVM_prog);
 #endif
 
 	cl.csqc_loaded = false;
+	#endif
 	Cvar_SetValueQuick(&csqc_progcrc, -1);
 	Cvar_SetValueQuick(&csqc_progsize, -1);
 
 	SV_LockThreadMutex();
 	Host_ShutdownServer ();
 	SV_UnlockThreadMutex();
-
+	#ifndef CONFIG_SV
 	if (cls.state == ca_dedicated)
+	#endif
 		Sys_Error ("Host_Error: %s",hosterrorstring2);	// dedicated servers exit
-
+	#ifndef CONFIG_SV
 	CL_Disconnect ();
 	cls.demonum = -1;
-
+	#endif
 	hosterror = false;
 
 	Host_AbortCurrentFrame();
@@ -185,8 +190,9 @@ void Host_Error (const char *error, ...)
 
 static void Host_ServerOptions (void)
 {
+	#ifndef CONFIG_SV
 	int i;
-
+	#endif
 	// general default
 	svs.maxclients = 8;
 
@@ -194,6 +200,7 @@ static void Host_ServerOptions (void)
 // COMMANDLINEOPTION: Server: -listen [playerlimit] starts a multiplayer server with graphical client, like singleplayer but other players can connect, default playerlimit is 8
 	// if no client is in the executable or -dedicated is specified on
 	// commandline, start a dedicated server
+	#ifndef CONFIG_SV
 	i = COM_CheckParm ("-dedicated");
 	if (i || !cl_available)
 	{
@@ -204,7 +211,9 @@ static void Host_ServerOptions (void)
 		if (COM_CheckParm ("-listen"))
 			Con_Printf ("Only one of -dedicated or -listen can be specified\n");
 		// default sv_public on for dedicated servers (often hosted by serious administrators), off for listen servers (often hosted by clueless users)
+	#endif
 		Cvar_SetValue("sv_public", 1);
+	#ifndef CONFIG_SV
 	}
 	else if (cl_available)
 	{
@@ -224,7 +233,7 @@ static void Host_ServerOptions (void)
 				svs.maxclients = 1;
 		}
 	}
-
+	#endif
 	svs.maxclients = svs.maxclients_next = bound(1, svs.maxclients, MAX_SCOREBOARD);
 
 	svs.clients = (client_t *)Mem_Alloc(sv_mempool, sizeof(client_t) * svs.maxclients);
@@ -303,18 +312,21 @@ static void Host_SaveConfig_to(const char *file)
 			Con_Printf("Couldn't write %s.\n", file);
 			return;
 		}
-
+		#ifndef CONFIG_SV
 		Key_WriteBindings (f);
+		#endif
 		Cvar_WriteVariables (f);
 
 		FS_Close (f);
 	}
 }
+#ifndef CONFIG_SV
 void Host_SaveConfig(void)
 {
 	if (cls.state != ca_dedicated)
 		Host_SaveConfig_to(CONFIGFILENAME);
 }
+#endif
 void Host_SaveConfig_f(void)
 {
 	const char *file = CONFIGFILENAME;
@@ -430,7 +442,11 @@ void SV_BroadcastPrint(const char *msg)
 		}
 	}
 
-	if (sv_echobprint.integer && cls.state == ca_dedicated)
+	if (sv_echobprint.integer
+			#ifndef CONFIG_SV
+			&& cls.state == ca_dedicated
+			#endif
+			)
 		Con_Print(msg);
 }
 
@@ -641,8 +657,9 @@ void Host_ShutdownServer(void)
 //
 	memset(&sv, 0, sizeof(sv));
 	memset(svs.clients, 0, svs.maxclients*sizeof(client_t));
-
+	#ifndef CONFIG_SV
 	cl.islocalgame = false;
+	#endif
 }
 
 
@@ -696,13 +713,18 @@ static void Host_Main_Loop(void)
 void Host_Main(void)
 #endif
 {
+	#ifndef CONFIG_SV
 	static double time1 = 0;
 	static double time2 = 0;
 	static double time3 = 0;
-	static double cl_timer = 0, sv_timer = 0;
-	static double clframetime, deltacleantime, olddirtytime, dirtytime;
+	static double clframetime;
+	static int pass1, pass2, pass3;
+	static double cl_timer = 0;
+	#endif
+	static double sv_timer = 0;
+	static double deltacleantime, olddirtytime, dirtytime;
 	static double wait;
-	static int pass1, pass2, pass3, i;
+	static int i;
 	static char vabuf[1024];
 	static qboolean playing;
 
@@ -717,7 +739,9 @@ void Host_Main(void)
 #endif
 		if (setjmp(host_abortframe))
 		{
+			#ifndef CONFIG_SV
 			SCR_ClearLoadingScreen(false);
+			#endif
 #ifndef __EMSCRIPTEN__
 			continue;			// something bad happened, or the server disconnected
 #else
@@ -743,8 +767,9 @@ void Host_Main(void)
 		}
 		realtime += deltacleantime;
 		host_dirtytime = dirtytime;
-
+		#ifndef CONFIG_SV
 		cl_timer += deltacleantime;
+		#endif
 		sv_timer += deltacleantime;
 
 		if (!svs.threaded)
@@ -786,16 +811,21 @@ void Host_Main(void)
 			Cvar_SetValue("host_framerate", 0);
 
 		// keep the random time dependent, but not when playing demos/benchmarking
-		if(!*sv_random_seed.string && !cls.demoplayback) {
+		if(!*sv_random_seed.string
+				#ifndef CONFIG_SV
+				&& !cls.demoplayback
+				#endif
+				) {
 			xrand();
             rand();
         }
 
 		// get new key events
+		#ifndef CONFIG_SV
 		Key_EventQueue_Unblock();
 		SndSys_SendKeyEvents();
 		Sys_SendKeyEvents();
-
+		#endif
 		NetConn_UpdateSockets();
 
 		Log_DestBuffer_Flush();
@@ -813,26 +843,40 @@ void Host_Main(void)
 		// when a server is running we only execute console commands on server frames
 		// (this mainly allows frikbot .way config files to work properly by staying in sync with the server qc)
 		// otherwise we execute them on client frames
-		if (sv.active ? sv_timer > 0 : cl_timer > 0)
+		if (
+				#ifndef CONFIG_SV
+				sv.active ? sv_timer > 0 : cl_timer > 0
+				#else
+				sv_timer > 0
+				#endif
+				)
 		{
 			// process console commands
 //			R_TimeReport("preconsole");
+			#ifndef CONFIG_SV
 			CL_VM_PreventInformationLeaks();
+			#endif
 			Cbuf_Frame();
 //			R_TimeReport("console");
 		}
-
 		//Con_Printf("%6.0f %6.0f\n", cl_timer * 1000000.0, sv_timer * 1000000.0);
 
 		// if the accumulators haven't become positive yet, wait a while
+		#ifndef CONFIG_SV
 		if (cls.state == ca_dedicated)
+		#endif
 			wait = sv_timer * -1000000.0;
+		#ifndef CONFIG_SV
 		else if (!sv.active || svs.threaded)
 			wait = cl_timer * -1000000.0;
 		else
 			wait = max(cl_timer, sv_timer) * -1000000.0;
-
-		if (!cls.timedemo && wait >= 1)
+		#endif
+		if (
+				#ifndef CONFIG_SV
+				!cls.timedemo &&
+				#endif
+				wait >= 1)
 		{
 			double time0, delta;
 
@@ -846,8 +890,10 @@ void Host_Main(void)
 			time0 = Sys_DirtyTime();
 			if (sv_checkforpacketsduringsleep.integer && !sys_usenoclockbutbenchmark.integer && !svs.threaded) {
 				NetConn_SleepMicroseconds((int)wait);
+				#ifndef CONFIG_SV
 				if (cls.state != ca_dedicated)
 					NetConn_ClientFrame(); // helps server browser get good ping values
+				#endif
 				// TODO can we do the same for ServerFrame? Probably not.
 			}
 			else
@@ -863,19 +909,20 @@ void Host_Main(void)
 			continue;
 #endif
 		}
-
 		// limit the frametime steps to no more than 100ms each
+		#ifndef CONFIG_SV
 		if (cl_timer > 0.1)
 			cl_timer = 0.1;
+		#endif
 		if (sv_timer > 0.1)
 		{
 			if (!svs.threaded)
 				svs.perf_acc_lost += (sv_timer - 0.1);
 			sv_timer = 0.1;
 		}
-
+		#ifndef CONFIG_SV
 		R_TimeReport("---");
-
+		#endif
 	//-------------------
 	//
 	// server operations
@@ -900,11 +947,13 @@ void Host_Main(void)
 			// stop running server frames if the wall time reaches this value
 			if (sys_ticrate.value <= 0)
 				advancetime = sv_timer;
+			#ifndef CONFIG_SV
 			else if (cl.islocalgame && !sv_fixedframeratesingleplayer.integer)
 			{
 				// synchronize to the client frametime, but no less than 10ms and no more than 100ms
 				advancetime = bound(0.01, cl_timer, 0.1);
 			}
+			#endif
 			else
 			{
 				advancetime = sys_ticrate.value;
@@ -933,7 +982,11 @@ void Host_Main(void)
 			sv.frametime = advancetime * slowmo.value;
 			if (host_framerate.value)
 				sv.frametime = host_framerate.value;
-			if (sv.paused || (cl.islocalgame && (key_dest != key_game || key_consoleactive || cl.csqc_paused)))
+			if (sv.paused
+					#ifndef CONFIG_SV
+					|| (cl.islocalgame && (key_dest != key_game || key_consoleactive || cl.csqc_paused))
+					#endif
+					)
 				sv.frametime = 0;
 
 			for (framecount = 0;framecount < framelimit && sv_timer > 0;framecount++)
@@ -948,8 +1001,9 @@ void Host_Main(void)
 				if (framelimit > 1 && Sys_DirtyTime() >= aborttime)
 					break;
 			}
+			#ifndef CONFIG_SV
 			R_TimeReport("serverphysics");
-
+			#endif
 			// send all messages to the clients
 			SV_SendClientMessages();
 
@@ -961,21 +1015,25 @@ void Host_Main(void)
 
 			// send an heartbeat if enough time has passed since the last one
 			NetConn_Heartbeat(0);
+			#ifndef CONFIG_SV
 			R_TimeReport("servernetwork");
+			#endif
 		}
+		#ifndef CONFIG_SV
 		else if (!svs.threaded)
 		{
 			// don't let r_speeds display jump around
 			R_TimeReport("serverphysics");
 			R_TimeReport("servernetwork");
 		}
+		#endif
 
 	//-------------------
 	//
 	// client operations
 	//
 	//-------------------
-
+		#ifndef CONFIG_SV
 		if (cls.state != ca_dedicated && (cl_timer > 0 || cls.timedemo || ((vid_activewindow ? cl_maxfps : cl_maxidlefps).value < 1)))
 		{
             if(cls.td_frames < -2 || cls.td_frames > 0) {
@@ -1099,7 +1157,7 @@ void Host_Main(void)
 							pass1+pass2+pass3, pass1, pass2, pass3);
 			}
 		}
-
+		#endif
 #if MEMPARANOIA
 		Mem_CheckSentinelsGlobal();
 #else
@@ -1108,8 +1166,10 @@ void Host_Main(void)
 #endif
 
 		// if there is some time remaining from this frame, reset the timers
+		#ifndef CONFIG_SV
 		if (cl_timer >= 0)
 			cl_timer = 0;
+		#endif
 		if (sv_timer >= 0)
 		{
 			if (!svs.threaded)
@@ -1137,6 +1197,7 @@ void Host_Main(void)
 
 //============================================================================
 
+#ifndef CONFIG_SV
 qboolean vid_opened = false;
 void Host_StartVideo(void)
 {
@@ -1151,6 +1212,7 @@ void Host_StartVideo(void)
 #endif
 	}
 }
+#endif
 
 char engineversion[128];
 
@@ -1226,10 +1288,11 @@ Host_Init
 */
 static void Host_Init (void)
 {
-	int i;
 	const char* os;
+	#ifndef CONFIG_SV
+	int i;
 	char vabuf[1024];
-
+	#endif
 	if (COM_CheckParm("-profilegameonly"))
 		Sys_AllowProfiling(false);
 
@@ -1268,13 +1331,13 @@ static void Host_Init (void)
 		developer_memorydebug.value = developer_memorydebug.integer = 1;
 		developer_memorydebug.string = "1";
 	}
-
+	#ifndef CONFIG_SV
 	if (COM_CheckParm("-developer3"))
 	{
 		gl_paranoid.integer = 1;gl_paranoid.string = "1";
 		gl_printcheckerror.integer = 1;gl_printcheckerror.string = "1";
 	}
-
+	#endif
 // COMMANDLINEOPTION: Console: -nostdout disables text output to the terminal the game was launched from
 	if (COM_CheckParm("-nostdout"))
 		sys_nostdout = 1;
@@ -1337,7 +1400,6 @@ static void Host_Init (void)
 	Mod_Init();
 	World_Init();
 	SV_Init();
-	V_Init(); // some cvars needed by server player physics (cl_rollangle etc)
 	Host_InitCommands();
 	Host_InitLocal();
 	Host_ServerOptions();
@@ -1348,11 +1410,13 @@ static void Host_Init (void)
 	Net_HttpServerInit();
 	GeoIP_Init();
 
+	#ifndef CONFIG_SV
 	if (cls.state == ca_dedicated)
 		Cmd_AddCommand ("disconnect", CL_Disconnect_f, "disconnect from server (or disconnect all clients if running a server)");
 	else
 	{
 		Con_DPrintf("Initializing client\n");
+		V_Init();
 		DP_Discord_Init();
 		R_Modules_Init();
 		Palette_Init();
@@ -1369,7 +1433,7 @@ static void Host_Init (void)
 		Key_Init();
 		CL_Init();
 	}
-
+	#endif
 	// save off current state of aliases, commands and cvars for later restore if FS_GameDir_f is called
 	// NOTE: menu commands are freed by Cmd_RestoreInitState
 	Cmd_SaveInitState();
@@ -1393,8 +1457,8 @@ static void Host_Init (void)
 	}
 
 	// put up the loading image so the user doesn't stare at a black screen...
+	#ifndef CONFIG_SV
 	SCR_BeginLoadingPlaque(true);
-
 #ifdef CONFIG_MENU
 	if (cls.state != ca_dedicated)
 	{
@@ -1430,14 +1494,14 @@ static void Host_Init (void)
 		Cbuf_AddText(va(vabuf, sizeof(vabuf), "playdemo %s\ncl_capturevideo 1\n", com_argv[i + 1]));
 		Cbuf_Execute();
 	}
-
 	if (cls.state == ca_dedicated || COM_CheckParm("-listen"))
 	if (!sv.active && !cls.demoplayback && !cls.connect_trying)
 	{
+	#endif
 		Cbuf_AddText("startmap_dm\n");
 		Cbuf_Execute();
+	#ifndef CONFIG_SV
 	}
-
 	if (!sv.active && !cls.demoplayback && !cls.connect_trying)
 	{
 #ifdef CONFIG_MENU
@@ -1445,18 +1509,19 @@ static void Host_Init (void)
 #endif
 		Cbuf_Execute();
 	}
-
+	#endif
 	Net_HttpServerStart();
 
 	Con_DPrint("========Initialized=========\n");
 
 	//Host_StartVideo();
-
+	#ifndef CONFIG_SV
 	if (cls.state != ca_dedicated)
 	{
 		DP_Discord_Start();
 		SV_StartThread();
 	}
+	#endif
 }
 
 
@@ -1492,48 +1557,53 @@ void Host_Shutdown(void)
 		SV_StopThread();
 
 	// disconnect client from server if active
+	#ifndef CONFIG_SV
 	CL_Disconnect();
-
+	#endif
 	// shut down local server if active
 	SV_LockThreadMutex();
 	Host_ShutdownServer();
 	SV_UnlockThreadMutex();
-
+	#ifndef CONFIG_SV
 #ifdef CONFIG_MENU
 	// Shutdown menu
 	if(MR_Shutdown)
 		MR_Shutdown();
 #endif
-
 	// AK shutdown PRVM
 	// AK hmm, no PRVM_Shutdown(); yet
 
 	CL_Video_Shutdown();
+	#endif
 #ifndef __ANDROID__
     IRC_Shutdown();
 #endif
     GeoIP_Shutdown();
+	#ifndef CONFIG_SV
 	Host_SaveConfig();
-
 #ifdef CONFIG_CD
 	CDAudio_Shutdown ();
 #endif
+	#endif
 	S_Terminate ();
 	Curl_Shutdown ();
 	NetConn_Shutdown ();
 	//PR_Shutdown ();
-
+	#ifndef CONFIG_SV
 	if (cls.state != ca_dedicated)
 	{
 		R_Modules_Shutdown();
 		VID_Shutdown();
+		DP_Discord_Shutdown();
 	}
-
+	#endif
 	SV_StopThread();
 	Thread_Shutdown();
 	Cmd_Shutdown();
+	#ifndef CONFIG_SV
 	Key_Shutdown();
 	CL_Shutdown();
+	#endif
 	Sys_Shutdown();
 	Log_Close();
 	Crypto_Shutdown();
@@ -1544,7 +1614,6 @@ void Host_Shutdown(void)
 	Con_Shutdown();
 	Memory_Shutdown();
 	Net_HttpServerShutdown();
-	DP_Discord_Shutdown();
 #ifdef __EMSCRIPTEN__
 	emscripten_cancel_main_loop();
 #endif

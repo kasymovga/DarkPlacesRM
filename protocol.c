@@ -1,4 +1,7 @@
 #include "quakedef.h"
+#ifdef CONFIG_SV
+cvar_t developer_networkentities = {0, "developer_networkentities", "0", "prints received entities, value is 0-10 (higher for more info, 10 being the most verbose)"};
+#endif
 
 #define ENTITYSIZEPROFILING_START(msg, num, flags) \
 	int entityprofiling_startsize = msg->cursize
@@ -127,6 +130,7 @@ void Protocol_Names(char *buffer, size_t buffersize)
 	}
 }
 
+#ifndef CONFIG_SV
 void EntityFrameQuake_ReadEntity(int bits)
 {
 	int num;
@@ -242,6 +246,7 @@ void EntityFrameQuake_ISeeDeadEntities(void)
 		}
 	}
 }
+#endif
 
 // NOTE: this only works with DP5 protocol and upwards. For lower protocols
 // (including QUAKE), no packet loss handling for CSQC is done, which makes
@@ -1056,6 +1061,7 @@ int EntityState_ReadExtendBits(void)
 	return bits;
 }
 
+#ifndef CONFIG_SV
 void EntityState_ReadFields(entity_state_t *e, unsigned int bits)
 {
 	if (cls.protocol == PROTOCOL_DARKPLACES2)
@@ -1201,6 +1207,7 @@ void EntityState_ReadFields(entity_state_t *e, unsigned int bits)
 		Con_Print("\n");
 	}
 }
+#endif
 
 // (client and server) allocates a new empty database
 entityframe_database_t *EntityFrame_AllocDatabase(mempool_t *mempool)
@@ -1442,6 +1449,7 @@ qboolean EntityFrame_WriteFrame(sizebuf_t *msg, int maxsize, entityframe_databas
 }
 
 // (client) reads a frame from network stream
+#ifndef CONFIG_SV
 void EntityFrame_CL_ReadFrame(void)
 {
 	int i, number, removed;
@@ -1567,6 +1575,7 @@ void EntityFrame_CL_ReadFrame(void)
 		}
 	}
 }
+#endif
 
 
 // (client) returns the frame number of the most recent frame recieved
@@ -1715,6 +1724,7 @@ int EntityFrame4_AckFrame(entityframe4_database_t *d, int framenum, int servermo
 	return found;
 }
 
+#ifndef CONFIG_SV
 void EntityFrame4_CL_ReadFrame(void)
 {
 	int i, n, cnumber, referenceframenum, framenum, enumber, done, stopnumber, skip = false;
@@ -1847,6 +1857,7 @@ void EntityFrame4_CL_ReadFrame(void)
 	if (skip)
 		EntityFrame4_ResetDatabase(d);
 }
+#endif
 
 qboolean EntityFrame4_WriteFrame(sizebuf_t *msg, int maxsize, entityframe4_database_t *d, int numstates, const entity_state_t **states)
 {
@@ -2307,6 +2318,7 @@ void EntityState5_WriteUpdate(int number, const entity_state_t *s, int changedbi
 	}
 }
 
+#ifndef CONFIG_SV
 static void EntityState5_ReadUpdate(entity_state_t *s, int number)
 {
 	int bits;
@@ -2591,6 +2603,7 @@ static void EntityState5_ReadUpdate(entity_state_t *s, int number)
 		Con_Print("\n");
 	}
 }
+#endif
 
 static int EntityState5_DeltaBits(const entity_state_t *o, const entity_state_t *n)
 {
@@ -2658,6 +2671,7 @@ static int EntityState5_DeltaBits(const entity_state_t *o, const entity_state_t 
 	return bits;
 }
 
+#ifndef CONFIG_SV
 void EntityFrame5_CL_ReadFrame(void)
 {
 	int n, enumber, framenum;
@@ -2716,6 +2730,7 @@ void EntityFrame5_CL_ReadFrame(void)
 		}
 	}
 }
+#endif
 
 static int packetlog5cmp(const void *a_, const void *b_)
 {
@@ -2990,6 +3005,7 @@ qboolean EntityFrame5_WriteFrame(sizebuf_t *msg, int maxsize, entityframe5_datab
 }
 
 
+#ifndef CONFIG_SV
 static void QW_TranslateEffects(entity_state_t *s, int qweffects)
 {
 	s->effects = 0;
@@ -3224,6 +3240,7 @@ static void EntityStateQW_ReadEntityUpdate(entity_state_t *s, int bits)
 		Con_Print("\n");
 	}
 }
+#endif
 
 entityframeqw_database_t *EntityFrameQW_AllocDatabase(mempool_t *pool)
 {
@@ -3237,6 +3254,7 @@ void EntityFrameQW_FreeDatabase(entityframeqw_database_t *d)
 	Mem_Free(d);
 }
 
+#ifndef CONFIG_SV
 void EntityFrameQW_CL_ReadFrame(qboolean delta)
 {
 	qboolean invalid = false;
@@ -3380,3 +3398,4 @@ void EntityFrameQW_CL_ReadFrame(qboolean delta)
 		number++;
 	}
 }
+#endif

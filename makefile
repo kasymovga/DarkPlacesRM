@@ -220,6 +220,11 @@ ifeq ($(DP_LIBMICROHTTPD),shared)
 	LIB_LIBMICROHTTPD=`pkg-config --libs libmicrohttpd`
 endif
 
+ifdef DP_GLES2
+	CFLAGS_GL=-DUSE_GLES2
+	LIB_GL=-lGLESv2
+endif
+
 # set these to "" if you want to use dynamic loading instead
 # zlib
 ifeq ($(DP_LINK_ZLIB), static)

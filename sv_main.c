@@ -31,6 +31,15 @@ static void SV_Download_f(void);
 static void SV_VM_Setup(void);
 extern cvar_t net_connecttimeout;
 
+cvar_t csqc_progname = {0, "csqc_progname","csprogs.dat","name of csprogs.dat file to load"};
+cvar_t csqc_progcrc = {CVAR_READONLY, "csqc_progcrc","-1","CRC of csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
+cvar_t csqc_progsize = {CVAR_READONLY, "csqc_progsize","-1","file size of csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
+cvar_t csqc_usedemoprogs = {0, "csqc_usedemoprogs","1","use csprogs stored in demos"};
+
+cvar_t csqc_progname_alt = {0, "csqc_progname_alt","","name of alternative csprogs.dat file to load"};
+cvar_t csqc_progcrc_alt = {CVAR_READONLY, "csqc_progcrc_alt","-1","CRC of alternative csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
+cvar_t csqc_progsize_alt = {CVAR_READONLY, "csqc_progsize_alt","-1","file size of alternative csprogs.dat file to load (-1 is none), only used during level changes and then reset to -1"};
+
 cvar_t sv_worldmessage = {CVAR_READONLY, "sv_worldmessage", "", "title of current level"};
 cvar_t sv_worldname = {CVAR_READONLY, "sv_worldname", "", "name of current worldmodel"};
 cvar_t sv_worldnamenoextension = {CVAR_READONLY, "sv_worldnamenoextension", "", "name of current worldmodel without extension"};
@@ -207,7 +216,9 @@ server_static_t svs;
 mempool_t *sv_mempool = NULL;
 
 extern cvar_t slowmo;
+#ifndef CONFIG_SV
 extern float		scr_centertime_off;
+#endif
 
 // MUST match effectnameindex_t in client.h
 static const char *standardeffectnames[EFFECT_TOTAL] =
@@ -431,17 +442,6 @@ SV_Init
 */
 void SV_Init (void)
 {
-	// init the csqc progs cvars, since they are updated/used by the server code
-	// TODO: fix this since this is a quick hack to make some of [515]'s broken code run ;) [9/13/2006 Black]
-	extern cvar_t csqc_progname;	//[515]: csqc crc check and right csprogs name according to progs.dat
-	extern cvar_t csqc_progcrc;
-	extern cvar_t csqc_progsize;
-	extern cvar_t csqc_usedemoprogs;
-
-    extern cvar_t csqc_progname_alt;
-    extern cvar_t csqc_progcrc_alt;
-    extern cvar_t csqc_progsize_alt;
-
 	Cvar_RegisterVariable(&sv_worldmessage);
 	Cvar_RegisterVariable(&sv_worldname);
 	Cvar_RegisterVariable(&sv_worldnamenoextension);
@@ -1673,7 +1673,11 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 			ed = PRVM_EDICT_NUM(s->number);
 
 			// if not touching a visible leaf
-			if (sv_cullentities_pvs.integer && !r_novis.integer && !r_trippy.integer && sv.writeentitiestoclient_pvsbytes)
+			if (sv_cullentities_pvs.integer
+					#ifndef CONFIG_SV
+					&& !r_novis.integer && !r_trippy.integer
+					#endif
+					&& sv.writeentitiestoclient_pvsbytes)
 			{
 				if (ed->priv.server->pvs_numclusters < 0)
 				{
@@ -1700,7 +1704,11 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 			}
 
 			// or not seen by random tracelines
-			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel && sv.worldmodel->brush.TraceLineOfSight && !r_trippy.integer)
+			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel && sv.worldmodel->brush.TraceLineOfSight
+					#ifndef CONFIG_SV
+					&& !r_trippy.integer
+					#endif
+					)
 			{
 				int culltracemode = PRVM_serveredictfloat(ed, culltracemode);
 				int samples;
@@ -3303,15 +3311,17 @@ void SV_SpawnServer (const char *server)
 
 //	SV_LockThreadMutex();
 
+	#ifndef CONFIG_SV
 	if(cls.state == ca_dedicated)
+	#endif
 		Sys_MakeProcessNice();
-
+	#ifndef CONFIG_SV
 	if (cls.state != ca_dedicated)
 	{
 		SCR_BeginLoadingPlaque(false);
 		S_StopAllSounds();
 	}
-
+	#endif
 	if(sv.active)
 	{
 		World_End(&sv.world);
@@ -3331,8 +3341,9 @@ void SV_SpawnServer (const char *server)
 	if (!worldmodel || !worldmodel->TraceBox)
 	{
 		Con_Printf("Couldn't load map %s\n", modelname);
-
+		#ifndef CONFIG_SV
 		if(cls.state == ca_dedicated)
+		#endif
 			Sys_MakeProcessMean();
 
 //		SV_UnlockThreadMutex();
@@ -3345,7 +3356,9 @@ void SV_SpawnServer (const char *server)
 	// let's not have any servers with no name
 	if (hostname.string[0] == 0)
 		Cvar_Set ("hostname", "UNNAMED");
+	#ifndef CONFIG_SV
 	scr_centertime_off = 0;
+	#endif
 
 	svs.changelevel_issued = false;		// now safe to issue another
 
@@ -3390,8 +3403,9 @@ void SV_SpawnServer (const char *server)
 	memset (&sv, 0, sizeof(sv));
 	// if running a local client, make sure it doesn't try to access the last
 	// level's data which is no longer valiud
+	#ifndef CONFIG_SV
 	cls.signon = 0;
-
+	#endif
 	Cvar_SetValue("halflifebsp", worldmodel->brush.ishlbsp);
 	Cvar_SetValue("sv_mapformat_is_quake2", worldmodel->brush.isq2bsp);
 	Cvar_SetValue("sv_mapformat_is_quake3", worldmodel->brush.isq3bsp);
@@ -3538,8 +3552,9 @@ void SV_SpawnServer (const char *server)
 
 	// Once all init frames have been run, we consider svqc code fully initialized.
 	prog->inittime = realtime;
-
+	#ifndef CONFIG_SV
 	if (cls.state == ca_dedicated)
+	#endif
 		Mod_PurgeUnused();
 
 // create a baseline for more efficient communications
@@ -3582,8 +3597,9 @@ void SV_SpawnServer (const char *server)
 
 	Con_DPrint("Server spawned.\n");
 	NetConn_Heartbeat (2);
-
+	#ifndef CONFIG_SV
 	if(cls.state == ca_dedicated)
+	#endif
 		Sys_MakeProcessMean();
 
 //	SV_UnlockThreadMutex();
@@ -4035,7 +4051,11 @@ static int SV_ThreadFunc(void *voiddata)
 			sv.frametime = advancetime * slowmo.value;
 			if (host_framerate.value)
 				sv.frametime = host_framerate.value;
-			if (sv.paused || (cl.islocalgame && (key_dest != key_game || key_consoleactive || cl.csqc_paused)))
+			if (sv.paused
+					#ifndef CONFIG_SV
+					|| (cl.islocalgame && (key_dest != key_game || key_consoleactive || cl.csqc_paused))
+					#endif
+					)
 				sv.frametime = 0;
 
 			sv_timer -= advancetime;
@@ -4090,4 +4110,45 @@ void SV_StopThread(void)
 	Thread_WaitThread(svs.thread, 0);
 	Thread_DestroyMutex(svs.threadmutex);
 	svs.threaded = false;
+}
+
+// returns true if the packet is valid, false if end of file is reached
+// used for dumping the CSQC download into demo files
+qboolean MakeDownloadPacket(const char *filename, unsigned char *data, size_t len, int crc, int cnt, sizebuf_t *buf, int protocol)
+{
+	int packetsize = buf->maxsize - 7; // byte short long
+	int npackets = ((int)len + packetsize - 1) / (packetsize);
+	char vabuf[1024];
+
+	if(protocol == PROTOCOL_QUAKEWORLD)
+		return false; // CSQC can't run in QW anyway
+
+	SZ_Clear(buf);
+	if(cnt == 0)
+	{
+		MSG_WriteByte(buf, svc_stufftext);
+		MSG_WriteString(buf, va(vabuf, sizeof(vabuf), "\ncl_downloadbegin %lu %s\n", (unsigned long)len, filename));
+		return true;
+	}
+	else if(cnt >= 1 && cnt <= npackets)
+	{
+		unsigned long thispacketoffset = (cnt - 1) * packetsize;
+		int thispacketsize = (int)len - thispacketoffset;
+		if(thispacketsize > packetsize)
+			thispacketsize = packetsize;
+
+		MSG_WriteByte(buf, svc_downloaddata);
+		MSG_WriteLong(buf, thispacketoffset);
+		MSG_WriteShort(buf, thispacketsize);
+		SZ_Write(buf, data + thispacketoffset, thispacketsize);
+
+		return true;
+	}
+	else if(cnt == npackets + 1)
+	{
+		MSG_WriteByte(buf, svc_stufftext);
+		MSG_WriteString(buf, va(vabuf, sizeof(vabuf), "\ncl_downloadfinished %lu %d\n", (unsigned long)len, crc));
+		return true;
+	}
+	return false;
 }
