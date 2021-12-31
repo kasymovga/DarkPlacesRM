@@ -438,7 +438,7 @@ extern cvar_t kex_compat;
 # define DP_OS_STR		"iphoneos"
 # define USE_GLES2		1
 # define DP_MOBILETOUCH	1
-#elif defined(__EMSCRIPTEN__) /* must come first because it also defines MACOSX */
+#elif defined(__EMSCRIPTEN__)
 # define DP_OS_NAME		"Web"
 # define DP_OS_STR		"Web"
 # define USE_GLES2		1
