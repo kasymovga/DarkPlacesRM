@@ -1786,7 +1786,6 @@ static void Host_Rate_BurstSize_f(void)
 	host_client->rate_burstsize = rate_burstsize;
 }
 
-#ifndef CONFIG_SV
 /*
 ==================
 Host_Kill_f
@@ -1805,7 +1804,6 @@ static void Host_Kill_f (void)
 	PRVM_serverglobaledict(self) = PRVM_EDICT_TO_PROG(host_client->edict);
 	prog->ExecuteProgram(prog, PRVM_serverfunction(ClientKill), "QC function ClientKill is missing");
 }
-#endif
 
 
 /*
@@ -3111,9 +3109,7 @@ void Host_InitCommands (void)
 	Cmd_AddCommand_WithClientCommand ("say", Host_Say_f, Host_Say_f, "send a chat message to everyone on the server");
 	Cmd_AddCommand_WithClientCommand ("say_team", Host_Say_Team_f, Host_Say_Team_f, "send a chat message to your team on the server");
 	Cmd_AddCommand_WithClientCommand ("tell", Host_Tell_f, Host_Tell_f, "send a chat message to only one person on the server");
-	#ifndef CONFIG_SV
 	Cmd_AddCommand_WithClientCommand ("kill", NULL, Host_Kill_f, "die instantly");
-	#endif
 	Cmd_AddCommand_WithClientCommand ("pause", Host_Pause_f, Host_Pause_f, "pause the game (if the server allows pausing)");
 	Cmd_AddCommand ("kick", Host_Kick_f, "kick a player off the server by number or name");
 	Cmd_AddCommand_WithClientCommand ("ping", Host_Ping_f, Host_Ping_f, "print ping times of all players on the server");
