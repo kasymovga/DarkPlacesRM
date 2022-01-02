@@ -1888,18 +1888,19 @@ static void GLES_Init(void)
 	vid.renderpath = RENDERPATH_GLES2;
 	vid.sRGBcapable2D = false;
 	vid.sRGBcapable3D = false;
-
 	// VorteX: set other info (maybe place them in VID_InitMode?)
-	extern cvar_t gl_info_vendor;
-	extern cvar_t gl_info_renderer;
-	extern cvar_t gl_info_version;
-	extern cvar_t gl_info_platform;
-	extern cvar_t gl_info_driver;
-	Cvar_SetQuick(&gl_info_vendor, gl_vendor);
-	Cvar_SetQuick(&gl_info_renderer, gl_renderer);
-	Cvar_SetQuick(&gl_info_version, gl_version);
-	Cvar_SetQuick(&gl_info_platform, gl_platform ? gl_platform : "");
-	Cvar_SetQuick(&gl_info_driver, gl_driver);
+	{
+		extern cvar_t gl_info_vendor;
+		extern cvar_t gl_info_renderer;
+		extern cvar_t gl_info_version;
+		extern cvar_t gl_info_platform;
+		extern cvar_t gl_info_driver;
+		Cvar_SetQuick(&gl_info_vendor, gl_vendor);
+		Cvar_SetQuick(&gl_info_renderer, gl_renderer);
+		Cvar_SetQuick(&gl_info_version, gl_version);
+		Cvar_SetQuick(&gl_info_platform, gl_platform ? gl_platform : "");
+		Cvar_SetQuick(&gl_info_driver, gl_driver);
+	}
 }
 #endif
 

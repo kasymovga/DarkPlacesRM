@@ -1002,7 +1002,9 @@ static void GL_BindUBO(int bufferobject)
 	}
 }
 
+#ifndef USE_GLES2
 static const GLuint drawbuffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+#endif
 int R_Mesh_CreateFramebufferObject(rtexture_t *depthtexture, rtexture_t *colortexture, rtexture_t *colortexture2, rtexture_t *colortexture3, rtexture_t *colortexture4)
 {
 	if (vid.support.arb_framebuffer_object)
@@ -1712,13 +1714,15 @@ void GL_Clear(int mask, const float *colorvalue, float depthvalue, int stencilva
 
 void GL_ReadPixelsBGRA(int x, int y, int width, int height, unsigned char *outpixels)
 {
-	CHECKGLERROR
 #ifndef GL_BGRA
 	int i;
 	int r;
 //	int g;
 	int b;
 //	int a;
+#endif
+	CHECKGLERROR
+#ifndef GL_BGRA
 	qglReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, outpixels);CHECKGLERROR
 	for (i = 0;i < width * height * 4;i += 4)
 	{

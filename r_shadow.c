@@ -5764,8 +5764,8 @@ void R_Shadow_DrawModelShadows(void)
 static void R_BeginCoronaQuery(rtlight_t *rtlight, float scale, qboolean usequery)
 {
 	float zdist;
-	vec3_t centerorigin;
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
+	vec3_t centerorigin;
 	float vertex3f[12];
 #endif
 	// if it's too close, skip it
@@ -5779,8 +5779,8 @@ static void R_BeginCoronaQuery(rtlight_t *rtlight, float scale, qboolean usequer
 		rtlight->corona_queryindex_allpixels = r_queries[r_numqueries++];
 		rtlight->corona_queryindex_visiblepixels = r_queries[r_numqueries++];
 		// we count potential samples in the middle of the screen, we count actual samples at the light location, this allows counting potential samples of off-screen lights
-		VectorMA(r_refdef.view.origin, zdist, r_refdef.view.forward, centerorigin);
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
+		VectorMA(r_refdef.view.origin, zdist, r_refdef.view.forward, centerorigin);
 		CHECKGLERROR
 		// NOTE: GL_DEPTH_TEST must be enabled or ATI won't count samples, so use GL_DepthFunc instead
 		qglBeginQueryARB(GL_SAMPLES_PASSED_ARB, rtlight->corona_queryindex_allpixels);
@@ -5807,12 +5807,11 @@ static void R_DrawCorona(rtlight_t *rtlight, float cscale, float scale)
 {
 	vec3_t color;
 	unsigned int occlude = 0;
-	GLint allpixels = 0, visiblepixels = 0;
-
 	// now we have to check the query result
 	if (rtlight->corona_queryindex_visiblepixels)
 	{
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
+		GLint allpixels = 0, visiblepixels = 0;
 		CHECKGLERROR
 		// See if we can use the GPU-side method to prevent implicit sync
 		if (vid.support.arb_query_buffer_object) {

@@ -1030,7 +1030,9 @@ static char *ShaderModeInfo_GetShaderText(shadermodeinfo_t *modeinfo, qboolean p
 static void R_GLSL_CompilePermutation(r_glsl_permutation_t *p, unsigned int mode, unsigned int permutation)
 {
 	int i;
+	#ifndef USE_GLES2
 	int ubibind;
+	#endif
 	int sampler;
 	shadermodeinfo_t *modeinfo = &shadermodeinfo[SHADERLANGUAGE_GLSL][mode];
 	char *sourcestring;
@@ -1305,8 +1307,8 @@ static void R_GLSL_CompilePermutation(r_glsl_permutation_t *p, unsigned int mode
 		// clear the uniform block bindings
 		p->ubibind_Skeletal_Transform12_UniformBlock = -1;
 		// bind the uniform blocks in use
-		ubibind = 0;
 #ifndef USE_GLES2 /* FIXME: GLES3 only */
+		ubibind = 0;
 		if (p->ubiloc_Skeletal_Transform12_UniformBlock >= 0) {p->ubibind_Skeletal_Transform12_UniformBlock = ubibind;qglUniformBlockBinding(p->program, p->ubiloc_Skeletal_Transform12_UniformBlock, ubibind);ubibind++;}
 #endif
 		// we're done compiling and setting up the shader, at least until it is used
