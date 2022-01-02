@@ -232,8 +232,6 @@ cvar_t developer_texturelogging = {0, "developer_texturelogging", "0", "produces
 
 cvar_t gl_lightmaps = {0, "gl_lightmaps", "0", "draws only lightmaps, no texture (for level designers), a value of 2 keeps normalmap shading"};
 
-cvar_t r_test = {0, "r_test", "0", "internal development use only, leave it alone (usually does nothing anyway)"};
-
 cvar_t r_batch_multidraw = {CVAR_SAVE, "r_batch_multidraw", "1", "issue multiple glDrawElements calls when rendering a batch of surfaces with the same texture (otherwise the index data is copied to make it one draw)"};
 cvar_t r_batch_multidraw_mintriangles = {CVAR_SAVE, "r_batch_multidraw_mintriangles", "0", "minimum number of triangles to activate multidraw path (copying small groups of triangles may be faster)"};
 cvar_t r_batch_debugdynamicvertexpath = {CVAR_SAVE, "r_batch_debugdynamicvertexpath",
@@ -3463,7 +3461,6 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_smoothnormals_areaweighting);
 	Cvar_RegisterVariable(&developer_texturelogging);
 	Cvar_RegisterVariable(&gl_lightmaps);
-	Cvar_RegisterVariable(&r_test);
 	Cvar_RegisterVariable(&r_batch_multidraw);
 	Cvar_RegisterVariable(&r_batch_multidraw_mintriangles);
 	Cvar_RegisterVariable(&r_batch_debugdynamicvertexpath);
@@ -5956,7 +5953,6 @@ static void R_SortEntities(void)
 R_RenderView
 ================
 */
-int dpsoftrast_test;
 extern cvar_t r_shadow_bouncegrid;
 void R_RenderView(void)
 {
@@ -5964,8 +5960,6 @@ void R_RenderView(void)
 	int fbo;
 	rtexture_t *depthtexture;
 	rtexture_t *colortexture;
-
-	dpsoftrast_test = r_test.integer;
 
 	if (r_timereport_active)
 		R_TimeReport("start");
@@ -8809,30 +8803,6 @@ void RSurf_DrawBatch(void)
 	// reject it here, before it hits glDraw.
 	if (rsurface.batchnumtriangles == 0)
 		return;
-#if 0
-	// batch debugging code
-	if (r_test.integer && rsurface.entity == r_refdef.scene.worldentity && rsurface.batchvertex3f == r_refdef.scene.worldentity->model->surfmesh.data_vertex3f)
-	{
-		int i;
-		int j;
-		int c;
-		const int *e;
-		e = rsurface.batchelement3i + rsurface.batchfirsttriangle*3;
-		for (i = 0;i < rsurface.batchnumtriangles*3;i++)
-		{
-			c = e[i];
-			for (j = 0;j < rsurface.entity->model->num_surfaces;j++)
-			{
-				if (c >= rsurface.modelsurfaces[j].num_firstvertex && c < (rsurface.modelsurfaces[j].num_firstvertex + rsurface.modelsurfaces[j].num_vertices))
-				{
-					if (rsurface.modelsurfaces[j].texture != rsurface.texture)
-						Sys_Error("RSurf_DrawBatch: index %i uses different texture (%s) than surface %i which it belongs to (which uses %s)\n", c, rsurface.texture->name, j, rsurface.modelsurfaces[j].texture->name);
-					break;
-				}
-			}
-		}
-	}
-#endif
 	if (rsurface.batchmultidraw)
 	{
 		// issue multiple draws rather than copying index data
