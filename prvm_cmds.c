@@ -634,15 +634,18 @@ void VM_localsound(prvm_prog_t *prog)
 	VM_SAFEPARMCOUNT(1,VM_localsound);
 
 	s = PRVM_G_STRING(OFS_PARM0);
-
+	#ifndef CONFIG_SV
 	if(!S_LocalSound (s))
 	{
+	#endif
 		PRVM_G_FLOAT(OFS_RETURN) = -4;
 		VM_Warning(prog, "VM_localsound: Failed to play %s for %s !\n", s, prog->name);
 		return;
+	#ifndef CONFIG_SV
 	}
 
 	PRVM_G_FLOAT(OFS_RETURN) = 1;
+	#endif
 }
 
 /*
@@ -1436,19 +1439,22 @@ string	precache_sound (string sample)
 */
 void VM_precache_sound(prvm_prog_t *prog)
 {
+	#ifndef CONFIG_SV
 	const char *s;
-
+	#endif
 	VM_SAFEPARMCOUNT(1, VM_precache_sound);
-
+	#ifndef CONFIG_SV
 	s = PRVM_G_STRING(OFS_PARM0);
+	#endif
 	PRVM_G_INT(OFS_RETURN) = PRVM_G_INT(OFS_PARM0);
 	//VM_CheckEmptyString(prog, s);
-
+	#ifndef CONFIG_SV
 	if(snd_initialized.integer && !S_PrecacheSound(s, true, true))
 	{
 		VM_Warning(prog, "VM_precache_sound: Failed to load %s for %s\n", s, prog->name);
 		return;
 	}
+	#endif
 }
 
 /*
@@ -3084,9 +3090,12 @@ float	getsoundtime(prvm_prog_t *prog)
 
 void VM_getsoundtime (prvm_prog_t *prog)
 {
-	int entnum, entchannel;
+	#ifndef CONFIG_SV
+	int entnum;
+	#endif
+	int entchannel;
 	VM_SAFEPARMCOUNT(2,VM_getsoundtime);
-
+	#ifndef CONFIG_SV
 	if (prog == SVVM_prog)
 		entnum = PRVM_NUM_FOR_EDICT(PRVM_G_EDICT(OFS_PARM0));
 	else if (prog == CLVM_prog)
@@ -3097,11 +3106,16 @@ void VM_getsoundtime (prvm_prog_t *prog)
 		PRVM_G_FLOAT(OFS_RETURN) = -1;
 		return;
 	}
+	#endif
 	entchannel = (int)PRVM_G_FLOAT(OFS_PARM1);
 	entchannel = CHAN_USER2ENGINE(entchannel);
 	if (!IS_CHAN(entchannel))
 		VM_Warning(prog, "VM_getsoundtime: %s: bad channel %i\n", prog->name, entchannel);
+	#ifndef CONFIG_SV
 	PRVM_G_FLOAT(OFS_RETURN) = (prvm_vec_t)S_GetEntChannelPosition(entnum, entchannel);
+	#else
+	PRVM_G_FLOAT(OFS_RETURN) = -1;
+	#endif
 }
 
 /*
@@ -3113,12 +3127,16 @@ string	soundlength (string sample)
 */
 void VM_soundlength (prvm_prog_t *prog)
 {
+	#ifndef CONFIG_SV
 	const char *s;
-
+	#endif
 	VM_SAFEPARMCOUNT(1, VM_soundlength);
-
+	#ifndef CONFIG_SV
 	s = PRVM_G_STRING(OFS_PARM0);
 	PRVM_G_FLOAT(OFS_RETURN) = S_SoundLength(s);
+	#else
+	PRVM_G_FLOAT(OFS_RETURN) = -1;
+	#endif
 }
 
 /*

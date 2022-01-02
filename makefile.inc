@@ -39,10 +39,6 @@ STRIP?=strip
 
 OBJ_SND_COMMON=snd_main.o snd_mem.o snd_mix.o snd_ogg.o snd_wav.o
 
-# No sound
-OBJ_SND_NULL=snd_null.o
-LIB_SND_NULL=
-
 # CD objects
 OBJ_CD_COMMON=cd_shared.o
 
@@ -153,7 +149,7 @@ endif
 # note that builddate.c is very intentionally not compiled to a .o before
 # being linked, because it should be recompiled every time an executable is
 # built to give the executable a proper date string
-OBJ_SV= builddate.c sys_sv.o $(OBJ_SV_THREAD) $(OBJ_SND_NULL) $(OBJ_COMMON)
+OBJ_SV= builddate.c sys_sv.o $(OBJ_SV_THREAD) $(OBJ_COMMON)
 OBJ_SDL= builddate.c sys_sdl.o vid_sdl.o thread_sdl.o $(OBJ_MENU) $(OBJ_SND_COMMON) snd_sdl.o $(OBJ_CD_COMMON) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON) $(OBJ_CL)
 
 

@@ -1616,12 +1616,9 @@ qboolean FS_ChangeGameDirs(int numgamedirs, char gamedirs[][MAX_QPATH], qboolean
 		CL_Disconnect_f();
 		cls.demonum = 0;
 	}
-	#endif
 	// unload all sounds so they will be reloaded from the new files as needed
 	S_UnloadAllSounds_f();
-
 	// close down the video subsystem, it will start up again when the config finishes...
-	#ifndef CONFIG_SV
 	VID_Stop();
 	vid_opened = false;
 	#endif

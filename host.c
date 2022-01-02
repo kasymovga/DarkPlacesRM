@@ -1550,8 +1550,9 @@ void Host_Shutdown(void)
 	isdown = true;
 
 	// be quiet while shutting down
+	#ifndef CONFIG_SV
 	S_StopAllSounds();
-
+	#endif
 	// end the server thread
 	if (svs.threaded)
 		SV_StopThread();
@@ -1584,8 +1585,8 @@ void Host_Shutdown(void)
 #ifdef CONFIG_CD
 	CDAudio_Shutdown ();
 #endif
-	#endif
 	S_Terminate ();
+	#endif
 	Curl_Shutdown ();
 	NetConn_Shutdown ();
 	//PR_Shutdown ();
@@ -1609,8 +1610,9 @@ void Host_Shutdown(void)
 	Crypto_Shutdown();
 
 	Host_UnlockSession();
-
+	#ifndef CONFIG_SV
 	S_Shutdown();
+	#endif
 	Con_Shutdown();
 	Memory_Shutdown();
 	Net_HttpServerShutdown();
