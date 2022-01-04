@@ -181,7 +181,7 @@ ifeq ($(DP_MAKE_TARGET), bsd)
 	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
 endif
 
-CFLAGS_WARNINGS=-Wall -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes -Wno-misleading-indentation
+CFLAGS_WARNINGS=-Wall -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes
 
 ifeq ($(DP_MAKE_TARGET), mingw)
 	TARGET=$(MINGWARCH)-w64-mingw32
