@@ -493,7 +493,6 @@ static void R_Shadow_SetShadowMode(void)
 			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
 			break;
 		}
@@ -614,7 +613,6 @@ static void r_shadow_start(void)
 		// these renderpaths do not currently have the code to display the bouncegrid, so disable it on them...
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -2043,7 +2041,6 @@ void R_Shadow_RenderMode_Begin(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		if (r_textureunits.integer >= 2 && vid.texunits >= 2 && r_shadow_texture3d.integer && r_shadow_attenuation3dtexture)
 			r_shadow_lightingrendermode = R_SHADOW_RENDERMODE_LIGHT_VERTEX3DATTEN;
 		else if (r_textureunits.integer >= 3 && vid.texunits >= 3)
@@ -5294,7 +5291,6 @@ void R_Shadow_PrepareLights(int fbo, rtexture_t *depthtexture, rtexture_t *color
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		r_shadow_usingdeferredprepass = false;
 		break;

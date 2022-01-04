@@ -1541,7 +1541,6 @@ void VID_UpdateGamma(qboolean force, int rampsize)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 	if(!vid_activewindow)

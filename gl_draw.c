@@ -1940,7 +1940,6 @@ void DrawQ_LineLoop (drawqueuemesh_t *mesh, int flags)
 		}
 #endif
 		break;
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		//Con_DPrintf("FIXME GLES2 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		return;
@@ -1975,7 +1974,6 @@ void DrawQ_Line (float width, float x1, float y1, float x2, float y2, float r, f
 		CHECKGLERROR
 #endif
 		break;
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		//Con_DPrintf("FIXME GLES2 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		return;
@@ -2004,7 +2002,6 @@ void DrawQ_Lines (float width, int numlines, int flags, qboolean hasalpha)
 		qglDrawArrays(GL_LINES, 0, numlines*2);
 		CHECKGLERROR
 		break;
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		//Con_DPrintf("FIXME GLES2 %s:%i %s\n", __FILE__, __LINE__, __FUNCTION__);
 		return;
@@ -2059,8 +2056,6 @@ void R_DrawGamma(void)
 		if (vid_usinghwgamma)
 			return;
 		break;
-	case RENDERPATH_GLES1:
-		return;
 	}
 	// all the blends ignore depth
 //	R_Mesh_ResetTextureState();

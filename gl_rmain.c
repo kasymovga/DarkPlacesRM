@@ -1395,7 +1395,6 @@ void R_GLSL_Restart_f(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -1478,7 +1477,6 @@ void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemod
 			R_Mesh_TexBind(r_glsl_permutation->tex_Texture_GammaRamps, r_texture_gammaramps);
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_Mesh_TexBind(0, first );
 		R_Mesh_TexCombine(0, GL_MODULATE, GL_MODULATE, 1, 1);
 		R_Mesh_TexMatrix(0, NULL);
@@ -1524,7 +1522,6 @@ void R_SetupShader_DepthOrShadow(qboolean notrippy, qboolean depthrgb, qboolean 
 #endif
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_Mesh_TexBind(0, 0);
 		R_Mesh_TexBind(1, 0);
 		break;
@@ -2175,7 +2172,6 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -2245,7 +2241,6 @@ void R_SetupShader_DeferredLight(const rtlight_t *rtlight)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -3142,7 +3137,6 @@ static void gl_main_start(void)
 #endif
 			break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		Cvar_SetValueQuick(&r_textureunits, vid.texunits);
 		Cvar_SetValueQuick(&gl_combine, 1);
 		Cvar_SetValueQuick(&r_glsl, 0);
@@ -3237,7 +3231,6 @@ static void gl_main_shutdown(void)
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
 		if (r_maxqueries)
@@ -4056,7 +4049,6 @@ void R_AnimCache_CacheVisibleEntities(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		wanttangents = false;
 		break;
 	}
@@ -4693,7 +4685,6 @@ void R_EntityMatrix(const matrix4x4_t *matrix)
 		{
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 			qglLoadMatrixf(gl_modelview16f);CHECKGLERROR
 #endif
@@ -5244,7 +5235,6 @@ static void R_Bloom_StartFrame(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		r_fb.usedepthtextures = false;
 		break;
@@ -5276,7 +5266,6 @@ static void R_Bloom_StartFrame(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		return;
 	}
 
@@ -5429,7 +5418,6 @@ static void R_Bloom_StartFrame(void)
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		break;
 	}
@@ -5725,7 +5713,6 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		if (r_refdef.viewblend[3] >= (1.0f / 256.0f))
 		{
 			// apply a color tint to the whole view
@@ -5882,7 +5869,6 @@ void R_UpdateVariables(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -8455,7 +8441,7 @@ void RSurf_PrepareVerticesForBatch(int batchneed, int texturenumsurfaces, const 
 //			rsurface.batchnormal3f = R_FrameData_Store(batchnumvertices * sizeof(float[3]), rsurface.batchnormal3f);
 //			rsurface.batchnormal3f_vertexbuffer = NULL;
 //			rsurface.batchnormal3f_bufferoffset = 0;
-			// sometimes we're on a renderpath that does not use vectors (GL11/GL13/GLES1)
+			// sometimes we're on a renderpath that does not use vectors (GL11/GL13)
 			if (!VectorLength2(rsurface.batchnormal3f + 3*rsurface.batchfirstvertex))
 				Mod_BuildNormals(rsurface.batchfirstvertex, batchnumvertices, batchnumtriangles, rsurface.batchvertex3f, rsurface.batchelement3i + 3 * rsurface.batchfirsttriangle, rsurface.batchnormal3f, r_smoothnormals_areaweighting.integer != 0);
 			if (!VectorLength2(rsurface.batchsvector3f + 3*rsurface.batchfirstvertex))
@@ -9696,7 +9682,6 @@ static void R_DrawWorldTextureSurfaceList(int texturenumsurfaces, const msurface
 		R_DrawTextureSurfaceList_GL20(texturenumsurfaces, texturesurfacelist, writedepth, prepass);
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_DrawTextureSurfaceList_GL13(texturenumsurfaces, texturesurfacelist, writedepth);
 		break;
 	case RENDERPATH_GL11:
@@ -9722,7 +9707,6 @@ static void R_DrawModelTextureSurfaceList(int texturenumsurfaces, const msurface
 		R_DrawTextureSurfaceList_GL20(texturenumsurfaces, texturesurfacelist, writedepth, prepass);
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_DrawTextureSurfaceList_GL13(texturenumsurfaces, texturesurfacelist, writedepth);
 		break;
 	case RENDERPATH_GL11:
@@ -9757,7 +9741,6 @@ static void R_DrawSurface_TransparentCallback(const entity_render_t *ent, const 
 			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 			RSurf_ActiveModelEntity(ent, true, false, false);
 			break;
 		}
@@ -11142,7 +11125,6 @@ void R_DrawModelSurfaces(entity_render_t *ent, qboolean skysurfaces, qboolean wr
 			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 			RSurf_ActiveModelEntity(ent, model->wantnormals, false, false);
 			break;
 		}
@@ -11157,7 +11139,6 @@ void R_DrawModelSurfaces(entity_render_t *ent, qboolean skysurfaces, qboolean wr
 			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 			RSurf_ActiveModelEntity(ent, true, false, false);
 			break;
 		}
