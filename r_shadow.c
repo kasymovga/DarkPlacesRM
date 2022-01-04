@@ -1439,6 +1439,7 @@ void R_Shadow_VolumeFromList(int numverts, int numtris, const float *invertex3f,
 			// increment stencil if frontface is infront of depthbuffer
 			GL_CullFace(r_refdef.view.cullface_front);
 			R_SetStencil(true, 255, GL_KEEP, GL_KEEP, GL_DECR, GL_ALWAYS, 128, 255);
+			R_Mesh_PrepareVertices_Vertex3f(outverts, shadowvertex3f, NULL, 0);
 			R_Mesh_Draw(0, outverts, 0, tris, shadowelements, NULL, 0, NULL, NULL, 0);
 			// decrement stencil if backface is infront of depthbuffer
 			GL_CullFace(r_refdef.view.cullface_back);
@@ -1449,6 +1450,7 @@ void R_Shadow_VolumeFromList(int numverts, int numtris, const float *invertex3f,
 			// decrement stencil if backface is behind depthbuffer
 			GL_CullFace(r_refdef.view.cullface_front);
 			R_SetStencil(true, 255, GL_KEEP, GL_DECR, GL_KEEP, GL_ALWAYS, 128, 255);
+			R_Mesh_PrepareVertices_Vertex3f(outverts, shadowvertex3f, NULL, 0);
 			R_Mesh_Draw(0, outverts, 0, tris, shadowelements, NULL, 0, NULL, NULL, 0);
 			// increment stencil if frontface is behind depthbuffer
 			GL_CullFace(r_refdef.view.cullface_back);
