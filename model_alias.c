@@ -1425,11 +1425,11 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
 	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
 	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
 	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
 	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
 	loadmodel->PointSuperContents = NULL;
 	loadmodel->AnimateVertices = Mod_MDL_AnimateVertices;
-	#endif
 	if (LittleLong(pinmodel->num_tris) < 1 || LittleLong(pinmodel->num_tris) > 65536)
 		Host_Error ("%s has invalid number of triangles: %i", loadmodel->name, LittleLong(pinmodel->num_tris));
 	if (LittleLong(pinmodel->num_xyz) < 1 || LittleLong(pinmodel->num_xyz) > 65536)
