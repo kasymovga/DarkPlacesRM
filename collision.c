@@ -1830,7 +1830,7 @@ static void Collision_ClipExtendFinish(extendtraceinfo_t *extendtraceinfo)
 
 void Collision_ClipToGenericEntity(trace_t *trace, dp_model_t *model, const frameblend_t *frameblend, const skeleton_t *skeleton, const vec3_t bodymins, const vec3_t bodymaxs, int bodysupercontents, matrix4x4_t *matrix, matrix4x4_t *inversematrix, const vec3_t tstart, const vec3_t mins, const vec3_t maxs, const vec3_t tend, int hitsupercontentsmask, int skipsupercontentsmask, float extend)
 {
-	vec3_t starttransformed, endtransformed;
+	vec3_t starttransformed, endtransformed, minstransformed, maxstransformed;
 	extendtraceinfo_t extendtraceinfo;
 	Collision_ClipExtendPrepare(&extendtraceinfo, trace, tstart, tend, extend);
 
@@ -1859,7 +1859,17 @@ void Collision_ClipToGenericEntity(trace_t *trace, dp_model_t *model, const fram
 			model->TraceBrush(model, frameblend, skeleton, trace, &thisbrush_start.brush, &thisbrush_end.brush, hitsupercontentsmask, skipsupercontentsmask);
 		}
 		else // this is only approximate if rotated, quite useless
-			model->TraceBox(model, frameblend, skeleton, trace, starttransformed, mins, maxs, endtransformed, hitsupercontentsmask, skipsupercontentsmask);
+		{
+			float scale = Matrix4x4_ScaleFromMatrix(inversematrix);
+			if (scale != 1)
+			{
+				VectorScale(mins, scale, minstransformed);
+				VectorScale(maxs, scale, maxstransformed);
+				model->TraceBox(model, frameblend, skeleton, trace, starttransformed, minstransformed, maxstransformed, endtransformed, hitsupercontentsmask, skipsupercontentsmask);
+			}
+			else
+				model->TraceBox(model, frameblend, skeleton, trace, starttransformed, mins, maxs, endtransformed, hitsupercontentsmask, skipsupercontentsmask);
+		}
 	}
 	else // and this requires that the transformation matrix doesn't have angles components, like SV_TraceBox ensures; FIXME may get called if a model is SOLID_BSP but has no TraceBox function
 		Collision_ClipTrace_Box(trace, bodymins, bodymaxs, starttransformed, mins, maxs, endtransformed, hitsupercontentsmask, skipsupercontentsmask, bodysupercontents, 0, NULL);
