@@ -2184,13 +2184,16 @@ static void SCR_DrawScreen (void)
 		r_refdef.view.frustum_y = tan(scr_fov.value * M_PI / 360.0) * (3.0/4.0) * cl.viewzoom;
 		r_refdef.view.frustum_x = r_refdef.view.frustum_y * (float)r_refdef.view.width / (float)r_refdef.view.height / vid_pixelheight.value;
 
-		r_refdef.view.frustum_x *= r_refdef.frustumscale_x;
-		r_refdef.view.frustum_y *= r_refdef.frustumscale_y;
-		r_refdef.view.ortho_x = atan(r_refdef.view.frustum_x) * (360.0 / M_PI); // abused as angle by VM_CL_R_SetView
-		r_refdef.view.ortho_y = atan(r_refdef.view.frustum_y) * (360.0 / M_PI); // abused as angle by VM_CL_R_SetView
-
 		if(!CL_VM_UpdateView(r_stereo_side ? 0.0 : max(0.0, cl.time - cl.oldtime)))
+		{
+			// update view blend
+			V_CalcViewBlend();
+			r_refdef.view.frustum_x *= r_refdef.frustumscale_x;
+			r_refdef.view.frustum_y *= r_refdef.frustumscale_y;
+			r_refdef.view.ortho_x = atan(r_refdef.view.frustum_x) * (360.0 / M_PI); // abused as angle by VM_CL_R_SetView
+			r_refdef.view.ortho_y = atan(r_refdef.view.frustum_y) * (360.0 / M_PI); // abused as angle by VM_CL_R_SetView
 			R_RenderView();
+		}
 	}
 
 	if (!r_stereo_sidebyside.integer && !r_stereo_horizontal.integer && !r_stereo_vertical.integer)

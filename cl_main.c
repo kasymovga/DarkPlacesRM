@@ -1891,9 +1891,6 @@ void CSQC_RelinkAllEntities (int drawmask)
 			CL_LinkNetworkEntity(&cl.viewent); // link gun model
 		CL_RelinkQWNails();
 	}
-
-	// update view blend
-	V_CalcViewBlend();
 }
 
 /*
