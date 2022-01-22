@@ -124,7 +124,7 @@ trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 	// list of entities to test for collisions
 	int numtouchedicts;
 	static prvm_edict_t *touchedicts[MAX_EDICTS];
-    int clipgroup;
+	int clipgroup;
 
 	//return SV_TraceBox(start, vec3_origin, vec3_origin, end, type, passedict, hitsupercontentsmask, skipsupercontentsmask);
 
@@ -225,7 +225,11 @@ trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 			pitchsign = SV_GetPitchSign(prog, touch);
 		}
 		if (model)
-			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2], pitchsign * PRVM_serveredictvector(touch, angles)[0], PRVM_serveredictvector(touch, angles)[1], PRVM_serveredictvector(touch, angles)[2], 1);
+		{
+			float scale = PRVM_serveredictfloat(touch, scale);
+			if (scale == 0) scale = 1;
+			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2], pitchsign * PRVM_serveredictvector(touch, angles)[0], PRVM_serveredictvector(touch, angles)[1], PRVM_serveredictvector(touch, angles)[2], scale);
+		}
 		else
 			Matrix4x4_CreateTranslate(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2]);
 		Matrix4x4_Invert_Simple(&imatrix, &matrix);
@@ -275,7 +279,7 @@ trace_t SV_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_
 	// list of entities to test for collisions
 	int numtouchedicts;
 	static prvm_edict_t *touchedicts[MAX_EDICTS];
-    int clipgroup;
+	int clipgroup;
 
 	if (VectorCompare(start, end))
 		return SV_TracePoint(start, type, passedict, hitsupercontentsmask, skipsupercontentsmask);
@@ -380,7 +384,11 @@ trace_t SV_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_
 			pitchsign = SV_GetPitchSign(prog, touch);
 		}
 		if (model)
-			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2], pitchsign * PRVM_serveredictvector(touch, angles)[0], PRVM_serveredictvector(touch, angles)[1], PRVM_serveredictvector(touch, angles)[2], 1);
+		{
+			float scale = PRVM_serveredictfloat(touch, scale);
+			if (scale == 0) scale = 1;
+			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2], pitchsign * PRVM_serveredictvector(touch, angles)[0], PRVM_serveredictvector(touch, angles)[1], PRVM_serveredictvector(touch, angles)[2], scale);
+		}
 		else
 			Matrix4x4_CreateTranslate(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2]);
 		Matrix4x4_Invert_Simple(&imatrix, &matrix);
@@ -439,7 +447,7 @@ trace_t SV_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, co
 	// list of entities to test for collisions
 	int numtouchedicts;
 	static prvm_edict_t *touchedicts[MAX_EDICTS];
-    int clipgroup;
+	int clipgroup;
 
 	if (VectorCompare(mins, maxs))
 	{
@@ -565,7 +573,11 @@ trace_t SV_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, co
 			pitchsign = SV_GetPitchSign(prog, touch);
 		}
 		if (model)
-			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2], pitchsign * PRVM_serveredictvector(touch, angles)[0], PRVM_serveredictvector(touch, angles)[1], PRVM_serveredictvector(touch, angles)[2], 1);
+		{
+			float scale = PRVM_serveredictfloat(touch, scale);
+			if (scale == 0) scale = 1;
+			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2], pitchsign * PRVM_serveredictvector(touch, angles)[0], PRVM_serveredictvector(touch, angles)[1], PRVM_serveredictvector(touch, angles)[2], scale);
+		}
 		else
 			Matrix4x4_CreateTranslate(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2]);
 		Matrix4x4_Invert_Simple(&imatrix, &matrix);
@@ -622,6 +634,7 @@ int SV_PointSuperContents(const vec3_t point)
 	// list of entities to test for collisions
 	int numtouchedicts;
 	static prvm_edict_t *touchedicts[MAX_EDICTS];
+	float scale;
 
 	// get world supercontents at this point
 	if (sv.worldmodel && sv.worldmodel->PointSuperContents)
@@ -651,7 +664,9 @@ int SV_PointSuperContents(const vec3_t point)
 		model = SV_GetModelFromEdict(touch);
 		if (!model || !model->PointSuperContents)
 			continue;
-		Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2], PRVM_serveredictvector(touch, angles)[0], PRVM_serveredictvector(touch, angles)[1], PRVM_serveredictvector(touch, angles)[2], 1);
+		scale = PRVM_serveredictfloat(touch, scale);
+		if (scale == 0) scale = 1;
+		Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_serveredictvector(touch, origin)[0], PRVM_serveredictvector(touch, origin)[1], PRVM_serveredictvector(touch, origin)[2], PRVM_serveredictvector(touch, angles)[0], PRVM_serveredictvector(touch, angles)[1], PRVM_serveredictvector(touch, angles)[2], scale);
 		Matrix4x4_Invert_Simple(&imatrix, &matrix);
 		Matrix4x4_Transform(&imatrix, point, transformed);
 		frame = (int)PRVM_serveredictfloat(touch, frame);
@@ -879,23 +894,31 @@ void SV_LinkEdict (prvm_edict_t *ent)
 	{
 		if (model != NULL)
 		{
+		float scale = PRVM_serveredictfloat(ent, scale);
+		if (scale == 0) scale = 1;
 			if (!model->TraceBox)
 				Con_DPrintf("edict %i: SOLID_BSP with non-collidable model\n", PRVM_NUM_FOR_EDICT(ent));
 
 			if (PRVM_serveredictvector(ent, angles)[0] || PRVM_serveredictvector(ent, angles)[2] || PRVM_serveredictvector(ent, avelocity)[0] || PRVM_serveredictvector(ent, avelocity)[2])
 			{
-				VectorAdd(PRVM_serveredictvector(ent, origin), model->rotatedmins, mins);
-				VectorAdd(PRVM_serveredictvector(ent, origin), model->rotatedmaxs, maxs);
+				VectorScale(model->rotatedmins, scale, mins);
+				VectorScale(model->rotatedmaxs, scale, maxs);
+				VectorAdd(PRVM_serveredictvector(ent, origin), mins, mins);
+				VectorAdd(PRVM_serveredictvector(ent, origin), maxs, maxs);
 			}
 			else if (PRVM_serveredictvector(ent, angles)[1] || PRVM_serveredictvector(ent, avelocity)[1])
 			{
-				VectorAdd(PRVM_serveredictvector(ent, origin), model->yawmins, mins);
-				VectorAdd(PRVM_serveredictvector(ent, origin), model->yawmaxs, maxs);
+				VectorScale(model->yawmins, scale, mins);
+				VectorScale(model->yawmaxs, scale, maxs);
+				VectorAdd(PRVM_serveredictvector(ent, origin), mins, mins);
+				VectorAdd(PRVM_serveredictvector(ent, origin), maxs, maxs);
 			}
 			else
 			{
-				VectorAdd(PRVM_serveredictvector(ent, origin), model->normalmins, mins);
-				VectorAdd(PRVM_serveredictvector(ent, origin), model->normalmaxs, maxs);
+				VectorScale(model->normalmins, scale, mins);
+				VectorScale(model->normalmaxs, scale, maxs);
+				VectorAdd(PRVM_serveredictvector(ent, origin), mins, mins);
+				VectorAdd(PRVM_serveredictvector(ent, origin), maxs, maxs);
 			}
 		}
 		else
