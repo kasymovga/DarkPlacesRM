@@ -501,6 +501,40 @@ static unsigned char *decode_image(downloadinfo *di, const char *content_type)
 }
 #endif
 
+static void Curl_EndDownload_Event(int error, const char *URL, const char *filename)
+{
+	prvm_prog_t *prog;
+	if((prog = SVVM_prog)->loaded)
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = error;
+		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, URL);
+		PRVM_G_INT(OFS_PARM2) = PRVM_SetTempString(prog, filename);
+		PRVM_G_FLOAT(OFS_PARM3) = numdownloads;
+		if(PRVM_serverfunction(curl_event))
+			prog->ExecuteProgram(prog, PRVM_serverfunction(curl_event), "");
+	}
+#ifndef CONFIG_SV
+	if((prog = CLVM_prog)->loaded)
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = error;
+		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, URL);
+		PRVM_G_INT(OFS_PARM2) = PRVM_SetTempString(prog, filename);
+		PRVM_G_FLOAT(OFS_PARM3) = numdownloads;
+		if(PRVM_clientfunction(curl_event))
+			prog->ExecuteProgram(prog, PRVM_clientfunction(curl_event), "");
+	}
+	if((prog = MVM_prog)->loaded)
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = error;
+		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, URL);
+		PRVM_G_INT(OFS_PARM2) = PRVM_SetTempString(prog, filename);
+		PRVM_G_FLOAT(OFS_PARM3) = numdownloads;
+		if(PRVM_menufunction(curl_event))
+			prog->ExecuteProgram(prog, PRVM_menufunction(curl_event), "");
+	}
+#endif
+}
+
 /*
 ====================
 Curl_EndDownload
@@ -633,6 +667,7 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 		di->next->prev = di->prev;
 
 	--numdownloads;
+	Curl_EndDownload_Event(status, di->url, di->filename);
 	if(di->forthismap)
 	{
 		if(ok)
@@ -1001,6 +1036,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 					qboolean already_loaded;
 					if(FS_AddPack(fn, &already_loaded, true))
 					{
+						Curl_EndDownload_Event(0, URL, fn);
 						Con_DPrintf("%s already exists, not downloading!\n", fn);
 						if(already_loaded)
 							Con_DPrintf("(pak was already loaded)\n");

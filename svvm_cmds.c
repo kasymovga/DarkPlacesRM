@@ -243,6 +243,7 @@ const char *vm_sv_extensions =
 "DP_RM_SETRENDERENTITY "
 "DP_RM_CULLTRACEMODE "
 "DP_RM_COLLISIONSCALE "
+"DP_RM_CURL_EVENT "
 //"EXT_CSQC " // not ready yet
 ;
 
