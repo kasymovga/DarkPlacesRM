@@ -1345,12 +1345,24 @@ FS_AddGameHierarchy
 static void FS_AddGameHierarchy (const char *dir)
 {
 	char vabuf[1024];
+	int i, n;
+	char extradirarg[12];
+	char fs_extradir[MAX_OSPATH];
 	// Add the common game directory
 	FS_AddBaseDirectory (va(vabuf, sizeof(vabuf), "%s/", fs_basedir));
 	FS_AddGameDirectory (va(vabuf, sizeof(vabuf), "%s%s/", fs_basedir, dir));
 	if (!fs_basesearchpath)
 		fs_basesearchpath = fs_searchpaths;
 
+	for (i = 0; i < 4; i++) {
+		//extradir1
+		dpsnprintf(extradirarg, sizeof(extradirarg), "-extradir%i", i);
+		*fs_extradir = 0;
+		if((n = COM_CheckParm(extradirarg)) && n < com_argc - 1)
+			dpsnprintf(fs_extradir, sizeof(fs_extradir), "%s/", com_argv[n + 1]);
+		if (*fs_extradir)
+			FS_AddGameDirectory(va(vabuf, sizeof(vabuf), "%s%s/", fs_extradir, dir));
+	}
 	if (*fs_userdir)
 		FS_AddGameDirectory(va(vabuf, sizeof(vabuf), "%s%s/", fs_userdir, dir));
 }
