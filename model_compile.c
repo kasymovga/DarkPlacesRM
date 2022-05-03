@@ -51,6 +51,8 @@
 #define EPSILON_TEXCOORD 0
 #endif
 
+static int scene_fps;
+static int scene_looping;
 static mempool_t *model_compile_memory_pool;
 static char *texturedir_name;
 static char *outputdir_name;
@@ -61,8 +63,9 @@ static char *scene_name_uppercase;
 static char *model_name_lowercase;
 static char *scene_name_lowercase;
 
-static FILE *headerfile = NULL;
-static FILE *qcheaderfile = NULL;
+static qfile_t *headerfile = NULL;
+static qfile_t *qcheaderfile = NULL;
+static qfile_t *framegroupsfile = NULL;
 
 static double modelorigin[3] = {0, 0, 0}, modelrotate = 0, modelscale = 1;
 
@@ -584,7 +587,7 @@ static int parseskeleton(void)
 	while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
 
 	if (frame >= baseframe && qcheaderfile)
-		fprintf(qcheaderfile, "$frame");
+		FS_Printf(qcheaderfile, "$frame");
 	for (frame = 0;frame < numframes;frame++)
 	{
 		if (!frames[frame].defined)
@@ -615,19 +618,23 @@ static int parseskeleton(void)
 			Con_Printf("duplicate frame named %s\n", frames[frame].name);
 		}
 		if (frame >= baseframe && headerfile)
-			fprintf(headerfile, "#define MODEL_%s_%s_%i %i\n", model_name_uppercase, scene_name_uppercase, frame - baseframe, frame);
+			FS_Printf(headerfile, "#define MODEL_%s_%s_%i %i\n", model_name_uppercase, scene_name_uppercase, frame - baseframe, frame);
 		if (frame >= baseframe && qcheaderfile)
-			fprintf(qcheaderfile, " %s_%i", scene_name_lowercase, frame - baseframe + 1);
+			FS_Printf(qcheaderfile, " %s_%i", scene_name_lowercase, frame - baseframe + 1);
 	}
 	if (headerfile)
 	{
-		fprintf(headerfile, "#define MODEL_%s_%s_START %i\n", model_name_uppercase, scene_name_uppercase, baseframe);
-		fprintf(headerfile, "#define MODEL_%s_%s_END %i\n", model_name_uppercase, scene_name_uppercase, numframes);
-		fprintf(headerfile, "#define MODEL_%s_%s_LENGTH %i\n", model_name_uppercase, scene_name_uppercase, numframes - baseframe);
-		fprintf(headerfile, "\n");
+		FS_Printf(headerfile, "#define MODEL_%s_%s_START %i\n", model_name_uppercase, scene_name_uppercase, baseframe);
+		FS_Printf(headerfile, "#define MODEL_%s_%s_END %i\n", model_name_uppercase, scene_name_uppercase, numframes);
+		FS_Printf(headerfile, "#define MODEL_%s_%s_LENGTH %i\n", model_name_uppercase, scene_name_uppercase, numframes - baseframe);
+		FS_Printf(headerfile, "\n");
+	}
+	if (framegroupsfile)
+	{
+		FS_Printf(framegroupsfile, "%i %i %i %i // %s\n", baseframe, numframes - baseframe, scene_fps, scene_looping, scene_name_lowercase);
 	}
 	if (qcheaderfile)
-		fprintf(qcheaderfile, "\n");
+		FS_Printf(qcheaderfile, "\n");
 	return 1;
 }
 
@@ -1503,33 +1510,50 @@ static int sc_scene(void)
 	if (!headerfile)
 	{
 		sprintf(filename, "%s%s.h", outputdir_name, model_name);
-		headerfile = fopen(filename, "w");
+		headerfile = FS_OpenRealFile(filename, "w", false);
 		if (headerfile)
 		{
-			fprintf(headerfile, "/*\n");
-			fprintf(headerfile, "Generated header file for %s\n", model_name);
-			fprintf(headerfile, "This file contains frame number definitions for use in code referencing the model, to make code more readable and maintainable.\n");
-			fprintf(headerfile, "*/\n");
-			fprintf(headerfile, "\n");
-			fprintf(headerfile, "#ifndef MODEL_%s_H\n", model_name_uppercase);
-			fprintf(headerfile, "#define MODEL_%s_H\n", model_name_uppercase);
-			fprintf(headerfile, "\n");
+			FS_Printf(headerfile, "/*\n");
+			FS_Printf(headerfile, "Generated header file for %s\n", model_name);
+			FS_Printf(headerfile, "This file contains frame number definitions for use in code referencing the model, to make code more readable and maintainable.\n");
+			FS_Printf(headerfile, "*/\n");
+			FS_Printf(headerfile, "\n");
+			FS_Printf(headerfile, "#ifndef MODEL_%s_H\n", model_name_uppercase);
+			FS_Printf(headerfile, "#define MODEL_%s_H\n", model_name_uppercase);
+			FS_Printf(headerfile, "\n");
 		}
 	}
 	if (!qcheaderfile)
 	{
 		sprintf(filename, "%s%s.qc", outputdir_name, model_name);
-		qcheaderfile = fopen(filename, "w");
+		qcheaderfile = FS_OpenRealFile(filename, "w", false);
 		if (qcheaderfile)
 		{
-			fprintf(qcheaderfile, "/*\n");
-			fprintf(qcheaderfile, "Generated header file for %s\n", model_name);
-			fprintf(qcheaderfile, "This file contains frame number definitions for use in code referencing the model, simply copy and paste into your qc file.\n");
-			fprintf(qcheaderfile, "*/\n");
-			fprintf(qcheaderfile, "\n");
+			FS_Printf(qcheaderfile, "/*\n");
+			FS_Printf(qcheaderfile, "Generated header file for %s\n", model_name);
+			FS_Printf(qcheaderfile, "This file contains frame number definitions for use in code referencing the model, simply copy and paste into your qc file.\n");
+			FS_Printf(qcheaderfile, "*/\n");
+			FS_Printf(qcheaderfile, "\n");
 		}
 	}
-	while (gettoken()[0] != '\n');
+	if (!framegroupsfile)
+	{
+		sprintf(filename, "%s%s.framegroups", outputdir_name, model_name);
+		framegroupsfile = FS_OpenRealFile(filename, "w", false);
+	}
+	scene_fps = 1;
+	scene_looping = 1;
+	while ((c = gettoken())[0] != '\n')
+	{
+		if (!strcmp(c, "fps"))
+		{
+			c = gettoken();
+			if (c[0] == '\n') break;
+			scene_fps = atoi(c);
+		}
+		if (!strcmp(c, "noloop"))
+			scene_looping = 0;
+	}
 	if (!parsemodelfile())
 	{
 		Con_Printf("sc_scene: parsemodelfile() failed\n");
@@ -1601,18 +1625,6 @@ static void processscript(void)
 		if (c[0] > ' ')
 			if (!processcommand(c))
 				return;
-	if (headerfile)
-	{
-		fprintf(headerfile, "#endif /*MODEL_%s_H*/\n", model_name_uppercase);
-		fclose(headerfile);
-		headerfile = NULL;
-	}
-	if (qcheaderfile)
-	{
-		fprintf(qcheaderfile, "\n// end of frame definitions for %s\n\n\n", model_name);
-		fclose(qcheaderfile);
-		qcheaderfile = NULL;
-	}
 	if (!addattachments())
 	{
 		freeframes();
@@ -1687,6 +1699,23 @@ int Mod_Compile_DPM_MD3(const char *script, const char *dir)
 	scriptend = scriptbytes + scriptsize;
 	if (*dir) dpsnprintf(outputdir_name, MAX_FILEPATH, "%s", dir);
 	processscript();
+	if (headerfile)
+	{
+		FS_Printf(headerfile, "#endif /*MODEL_%s_H*/\n", model_name_uppercase);
+		FS_Close(headerfile);
+		headerfile = NULL;
+	}
+	if (qcheaderfile)
+	{
+		FS_Printf(qcheaderfile, "\n// end of frame definitions for %s\n\n\n", model_name);
+		FS_Close(qcheaderfile);
+		qcheaderfile = NULL;
+	}
+	if (framegroupsfile)
+	{
+		FS_Close(framegroupsfile);
+		framegroupsfile = NULL;
+	}
 #if (_MSC_VER && _DEBUG)
 	Con_Printf("destroy any key\n");
 	getchar();
