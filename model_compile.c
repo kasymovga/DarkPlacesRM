@@ -51,7 +51,7 @@
 #define EPSILON_TEXCOORD 0
 #endif
 
-static int scene_fps;
+static float scene_fps;
 static int scene_looping;
 static mempool_t *model_compile_memory_pool;
 static char *texturedir_name;
@@ -630,7 +630,8 @@ static int parseskeleton(void)
 	}
 	if (framegroupsfile)
 	{
-		FS_Printf(framegroupsfile, "%i %i %i %i // %s\n", baseframe, numframes - baseframe, scene_fps, scene_looping, scene_name_lowercase);
+		if (baseframe > 0)
+			FS_Printf(framegroupsfile, "%i %i %.6f %i // %s\n", baseframe, numframes - baseframe, scene_fps, scene_looping, scene_name_lowercase);
 	}
 	if (qcheaderfile)
 		FS_Printf(qcheaderfile, "\n");
@@ -1527,7 +1528,7 @@ static int sc_scene(void)
 		{
 			c = gettoken();
 			if (c[0] == '\n') break;
-			scene_fps = atoi(c);
+			scene_fps = atof(c);
 		}
 		if (!strcmp(c, "noloop"))
 			scene_looping = 0;
