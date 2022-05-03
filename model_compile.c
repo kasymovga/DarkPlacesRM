@@ -500,7 +500,6 @@ static int parseskeleton(void)
 			if (frames[frame].defined)
 			{
 				Con_Printf("warning: duplicate frame\n");
-				Z_Free(frames[frame].bones);
 			}
 			sprintf(temp, "%s_%i", scene_name, i);
 			if (strlen(temp) > 31)
@@ -511,7 +510,7 @@ static int parseskeleton(void)
 			cleancopyname(frames[frame].name, temp, MAX_NAME);
 
 			frames[frame].numbones = numbones + numattachments + 1;
-			frames[frame].bones = Z_Malloc(frames[frame].numbones * sizeof(bonepose_t));
+			frames[frame].bones = Mem_Alloc(model_compile_memory_pool, frames[frame].numbones * sizeof(bonepose_t));
 			memset(frames[frame].bones, 0, frames[frame].numbones * sizeof(bonepose_t));
 			frames[frame].bones[frames[frame].numbones - 1].m[0][1] = 35324;
 			frames[frame].defined = 1;
@@ -612,7 +611,7 @@ static int parseskeleton(void)
 			frames[frame].defined = 1;
 			cleancopyname(frames[frame].name, temp, MAX_NAME);
 			frames[frame].numbones = numbones + numattachments + 1;
-			frames[frame].bones = Z_Malloc(frames[frame].numbones * sizeof(bonepose_t));
+			frames[frame].bones = Mem_Alloc(model_compile_memory_pool, frames[frame].numbones * sizeof(bonepose_t));
 			memcpy(frames[frame].bones, frames[frame - 1].bones, frames[frame].numbones * sizeof(bonepose_t));
 			frames[frame].bones[frames[frame].numbones - 1].m[0][1] = 35324;
 			Con_Printf("duplicate frame named %s\n", frames[frame].name);
@@ -656,27 +655,6 @@ int sentinelcheckframes(char *filename, int fileline)
 	return 1;
 }
 */
-
-static int freeframes(void)
-{
-	int i;
-	//sentinelcheckframes(__FILE__, __LINE__);
-	//Con_Printf("no errors were detected\n");
-	for (i = 0;i < numframes;i++)
-	{
-		if (frames[i].defined && frames[i].bones)
-		{
-			//fprintf(stdout, "freeing %s\n", frames[i].name);
-			//fflush(stdout);
-			//if (frames[i].bones[frames[i].numbones - 1].m[0][1] != 35324)
-			//	Con_Printf("freeframes: error on frame %s\n", frames[i].name);
-			//else
-				Z_Free(frames[i].bones);
-		}
-	}
-	numframes = 0;
-	return 1;
-}
 
 static int initframes(void)
 {
@@ -1627,22 +1605,18 @@ static void processscript(void)
 				return;
 	if (!addattachments())
 	{
-		freeframes();
 		return;
 	}
 	if (!keepallbones && !cleanupbones())
 	{
-		freeframes();
 		return;
 	}
 	if (!cleanupframes())
 	{
-		freeframes();
 		return;
 	}
 	if (!cleanupshadernames())
 	{
-		freeframes();
 		return;
 	}
 	fixrootbones();
@@ -1667,28 +1641,27 @@ static void processscript(void)
 	// write the model formats
 	writemodel_dpm();
 	writemodel_md3();
-	freeframes();
 }
 
 int Mod_Compile_DPM_MD3(const char *script, const char *dir)
 {
-	texturedir_name = Z_Malloc(MAX_FILEPATH);
-	outputdir_name = Z_Malloc(MAX_FILEPATH);
-	model_name = Z_Malloc(MAX_FILEPATH);
-	scene_name = Z_Malloc(MAX_FILEPATH);
-	model_name_uppercase = Z_Malloc(MAX_FILEPATH);
-	scene_name_uppercase = Z_Malloc(MAX_FILEPATH);
-	model_name_lowercase = Z_Malloc(MAX_FILEPATH);
-	scene_name_lowercase = Z_Malloc(MAX_FILEPATH);
-	attachments = Z_Malloc(sizeof(attachment) * MAX_ATTACHMENTS);
-	frames = Z_Malloc(sizeof(frame_t) * MAX_FRAMES);
-	bones = Z_Malloc(sizeof(bone_t) * MAX_BONES); // master bone list
+	model_compile_memory_pool = Mem_AllocPool("model_compile", 0, NULL);
+	texturedir_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	outputdir_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	model_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	scene_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	model_name_uppercase = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	scene_name_uppercase = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	model_name_lowercase = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	scene_name_lowercase = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	attachments = Mem_Alloc(model_compile_memory_pool, sizeof(attachment) * MAX_ATTACHMENTS);
+	frames = Mem_Alloc(model_compile_memory_pool, sizeof(frame_t) * MAX_FRAMES);
+	bones = Mem_Alloc(model_compile_memory_pool, sizeof(bone_t) * MAX_BONES); // master bone list
 	//shaders[MAX_SHADERS][32];
-	triangles = Z_Malloc(sizeof(triangle) * MAX_TRIS);
-	vertices = Z_Malloc(sizeof(tripoint) * MAX_VERTS);
-	bonematrix = Z_Malloc(sizeof(bonepose_t) * MAX_BONES);
-	vertremap = Z_Malloc(sizeof(int) * MAX_VERTS);
-	model_compile_memory_pool = Mem_AllocPool("smd_compile", 0, NULL);
+	triangles = Mem_Alloc(model_compile_memory_pool, sizeof(triangle) * MAX_TRIS);
+	vertices = Mem_Alloc(model_compile_memory_pool, sizeof(tripoint) * MAX_VERTS);
+	bonematrix = Mem_Alloc(model_compile_memory_pool, sizeof(bonepose_t) * MAX_BONES);
+	vertremap = Mem_Alloc(model_compile_memory_pool, sizeof(int) * MAX_VERTS);
 	scriptbytes = (char*)FS_LoadFile(script, model_compile_memory_pool, 0, &scriptsize);
 	if (!scriptbytes)
 	{
@@ -1721,21 +1694,6 @@ int Mod_Compile_DPM_MD3(const char *script, const char *dir)
 	getchar();
 #endif
 	Mem_FreePool(&model_compile_memory_pool);
-	Z_Free(texturedir_name);
-	Z_Free(outputdir_name);
-	Z_Free(model_name);
-	Z_Free(scene_name);
-	Z_Free(model_name_uppercase);
-	Z_Free(scene_name_uppercase);
-	Z_Free(model_name_lowercase);
-	Z_Free(scene_name_lowercase);
-	Z_Free(attachments);
-	Z_Free(frames);
-	Z_Free(bones);
-	Z_Free(triangles);
-	Z_Free(vertices);
-	Z_Free(bonematrix);
-	Z_Free(vertremap);
 	return 0;
 }
 
