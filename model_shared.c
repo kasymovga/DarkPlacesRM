@@ -3288,35 +3288,10 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "version 1\nnodes\n");
 	if (l > 0)
 		outbufferpos += l;
-	for (transformindex = 0;transformindex < model->num_bones;transformindex++)
+	if (model->num_bones)
 	{
-		if (outbufferpos >= outbuffermax >> 1)
-		{
-			outbuffermax *= 2;
-			oldbuffer = outbuffer;
-			outbuffer = (char *) Z_Malloc(outbuffermax);
-			memcpy(outbuffer, oldbuffer, outbufferpos);
-			Z_Free(oldbuffer);
-		}
-		countnodes++;
-		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i \"%s\" %3i\n", transformindex, model->data_bones[transformindex].name, model->data_bones[transformindex].parent);
-		if (l > 0)
-			outbufferpos += l;
-	}
-	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "end\nskeleton\n");
-	if (l > 0)
-		outbufferpos += l;
-	for (poseindex = 0;poseindex < numposes;poseindex++)
-	{
-		countframes++;
-		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "time %i\n", poseindex);
-		if (l > 0)
-			outbufferpos += l;
 		for (transformindex = 0;transformindex < model->num_bones;transformindex++)
 		{
-			float angles[3];
-			float mtest[4][3];
-			matrix4x4_t posematrix;
 			if (outbufferpos >= outbuffermax >> 1)
 			{
 				outbuffermax *= 2;
@@ -3325,71 +3300,103 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 				memcpy(outbuffer, oldbuffer, outbufferpos);
 				Z_Free(oldbuffer);
 			}
-
-			// strangely the smd angles are for a transposed matrix, so we
-			// have to generate a transposed matrix, then convert that...
-			if (writetriangles)
-			{
-				matrix4x4_t temp_matrix;
-				Matrix4x4_FromArray12FloatD3D(&temp_matrix, model->data_baseboneposeinverse + (12*transformindex));
-
-				if (model->data_bones[transformindex].parent >= 0)
-				{
-					matrix4x4_t temp_matrix1;
-					matrix4x4_t temp_matrix2;
-					matrix4x4_t temp_matrix3;
-					temp_matrix1 = temp_matrix;
-					Matrix4x4_FromArray12FloatD3D(&temp_matrix2, model->data_baseboneposeinverse + (12*model->data_bones[transformindex].parent));
-					Matrix4x4_Invert_Simple(&temp_matrix3, &temp_matrix2);
-					Matrix4x4_Concat(&temp_matrix, &temp_matrix1, &temp_matrix3);
-				}
-				Matrix4x4_Invert_Simple(&posematrix, &temp_matrix);
-
-			}
-			else
-				Matrix4x4_FromBonePose7s(&posematrix, model->num_posescale, model->data_poses7s + 7*(model->num_bones * (poseindex + firstpose) + transformindex));
-
-			Matrix4x4_ToArray12FloatGL(&posematrix, mtest[0]);
-			AnglesFromVectors(angles, mtest[0], mtest[2], false);
-			if (angles[0] >= 180) angles[0] -= 360;
-			if (angles[1] >= 180) angles[1] -= 360;
-			if (angles[2] >= 180) angles[2] -= 360;
-
-#if 0
-{
-			float a = DEG2RAD(angles[ROLL]);
-			float b = DEG2RAD(angles[PITCH]);
-			float c = DEG2RAD(angles[YAW]);
-			float cy, sy, cp, sp, cr, sr;
-			float test[4][3];
-			// smd matrix construction, for comparing
-			sy = sin(c);
-			cy = cos(c);
-			sp = sin(b);
-			cp = cos(b);
-			sr = sin(a);
-			cr = cos(a);
-
-			test[0][0] = cp*cy;
-			test[0][1] = cp*sy;
-			test[0][2] = -sp;
-			test[1][0] = sr*sp*cy+cr*-sy;
-			test[1][1] = sr*sp*sy+cr*cy;
-			test[1][2] = sr*cp;
-			test[2][0] = (cr*sp*cy+-sr*-sy);
-			test[2][1] = (cr*sp*sy+-sr*cy);
-			test[2][2] = cr*cp;
-			test[3][0] = pose[9];
-			test[3][1] = pose[10];
-			test[3][2] = pose[11];
-}
-#endif
-			l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i %f %f %f %f %f %f\n", transformindex, mtest[3][0], mtest[3][1], mtest[3][2], DEG2RAD(angles[ROLL]), DEG2RAD(angles[PITCH]), DEG2RAD(angles[YAW]));
+			countnodes++;
+			l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i \"%s\" %3i\n", transformindex, model->data_bones[transformindex].name, model->data_bones[transformindex].parent);
 			if (l > 0)
 				outbufferpos += l;
 		}
+		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "end\nskeleton\n");
+		if (l > 0)
+			outbufferpos += l;
+		for (poseindex = 0;poseindex < numposes;poseindex++)
+		{
+			countframes++;
+			l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "time %i\n", poseindex);
+			if (l > 0)
+				outbufferpos += l;
+			for (transformindex = 0;transformindex < model->num_bones;transformindex++)
+			{
+				float angles[3];
+				float mtest[4][3];
+				matrix4x4_t posematrix;
+				if (outbufferpos >= outbuffermax >> 1)
+				{
+					outbuffermax *= 2;
+					oldbuffer = outbuffer;
+					outbuffer = (char *) Z_Malloc(outbuffermax);
+					memcpy(outbuffer, oldbuffer, outbufferpos);
+					Z_Free(oldbuffer);
+				}
+
+				// strangely the smd angles are for a transposed matrix, so we
+				// have to generate a transposed matrix, then convert that...
+				if (writetriangles)
+				{
+					matrix4x4_t temp_matrix;
+					Matrix4x4_FromArray12FloatD3D(&temp_matrix, model->data_baseboneposeinverse + (12*transformindex));
+
+					if (model->data_bones[transformindex].parent >= 0)
+					{
+						matrix4x4_t temp_matrix1;
+						matrix4x4_t temp_matrix2;
+						matrix4x4_t temp_matrix3;
+						temp_matrix1 = temp_matrix;
+						Matrix4x4_FromArray12FloatD3D(&temp_matrix2, model->data_baseboneposeinverse + (12*model->data_bones[transformindex].parent));
+						Matrix4x4_Invert_Simple(&temp_matrix3, &temp_matrix2);
+						Matrix4x4_Concat(&temp_matrix, &temp_matrix1, &temp_matrix3);
+					}
+					Matrix4x4_Invert_Simple(&posematrix, &temp_matrix);
+
+				}
+				else
+					Matrix4x4_FromBonePose7s(&posematrix, model->num_posescale, model->data_poses7s + 7*(model->num_bones * (poseindex + firstpose) + transformindex));
+
+				Matrix4x4_ToArray12FloatGL(&posematrix, mtest[0]);
+				AnglesFromVectors(angles, mtest[0], mtest[2], false);
+				if (angles[0] >= 180) angles[0] -= 360;
+				if (angles[1] >= 180) angles[1] -= 360;
+				if (angles[2] >= 180) angles[2] -= 360;
+
+#if 0
+	{
+				float a = DEG2RAD(angles[ROLL]);
+				float b = DEG2RAD(angles[PITCH]);
+				float c = DEG2RAD(angles[YAW]);
+				float cy, sy, cp, sp, cr, sr;
+				float test[4][3];
+				// smd matrix construction, for comparing
+				sy = sin(c);
+				cy = cos(c);
+				sp = sin(b);
+				cp = cos(b);
+				sr = sin(a);
+				cr = cos(a);
+
+				test[0][0] = cp*cy;
+				test[0][1] = cp*sy;
+				test[0][2] = -sp;
+				test[1][0] = sr*sp*cy+cr*-sy;
+				test[1][1] = sr*sp*sy+cr*cy;
+				test[1][2] = sr*cp;
+				test[2][0] = (cr*sp*cy+-sr*-sy);
+				test[2][1] = (cr*sp*sy+-sr*cy);
+				test[2][2] = cr*cp;
+				test[3][0] = pose[9];
+				test[3][1] = pose[10];
+				test[3][2] = pose[11];
 	}
-	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "end\n");
+#endif
+				l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i %f %f %f %f %f %f\n", transformindex, mtest[3][0], mtest[3][1], mtest[3][2], DEG2RAD(angles[ROLL]), DEG2RAD(angles[PITCH]), DEG2RAD(angles[YAW]));
+				if (l > 0)
+					outbufferpos += l;
+			}
+		}
+		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "end\n");
+	}
+	else
+	{
+		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "  0 \"dummy\" -1\nend\nskeleton\ntime 0\n  0 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\nend\n");
+	}
 	if (l > 0)
 		outbufferpos += l;
 	if (writetriangles)
@@ -3419,8 +3426,8 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 					const float *v = model->surfmesh.data_vertex3f + index * 3;
 					const float *vn = model->surfmesh.data_normal3f + index * 3;
 					const float *vt = model->surfmesh.data_texcoordtexture2f + index * 2;
-					const int b = model->surfmesh.blends[index];
-					if (b < model->num_bones)
+					const int b = (model->num_bones ? model->surfmesh.blends[index] : 0);
+					if (b < model->num_bones || !model->num_bones)
 						l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i %f %f %f %f %f %f %f %f\n"                          , b, v[0], v[1], v[2], vn[0], vn[1], vn[2], vt[0], 1 - vt[1]);
 					else
 					{
@@ -3516,7 +3523,7 @@ static void Mod_Decompile_f(void)
 	}
 
 	// export SMD if possible (only for skeletal models)
-	if (mod->surfmesh.num_triangles && mod->num_bones)
+	if (mod->surfmesh.num_triangles/* && mod->num_bones*/)
 	{
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled/ref1.smd", basename);
 		Mod_Decompile_SMD(mod, outname, 0, 1, true);
@@ -3524,7 +3531,7 @@ static void Mod_Decompile_f(void)
 		if (l > 0) zymtextsize += l;
 		l = dpsnprintf(dpmtextbuffer + dpmtextsize, sizeof(dpmtextbuffer) - dpmtextsize, "outputdir .\nmodel out\nscale 1\norigin 0 0 0\nscene ref1.smd\n");
 		if (l > 0) dpmtextsize += l;
-		for (i = 0;i < mod->numframes;i = j)
+		for (i = 0;mod->num_bones && i < mod->numframes;i = j)
 		{
 			strlcpy(animname, mod->animscenes[i].name, sizeof(animname));
 			first = mod->animscenes[i].firstframe;
