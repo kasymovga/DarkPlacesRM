@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "image.h"
 #include "polygon.h"
+#include "model_compile.h"
 
 #ifndef CONFIG_SV
 #include "r_shadow.h"
@@ -3593,7 +3594,14 @@ static void Mod_Decompile_f(void)
 		if (zymtextsize)
 			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled/out_zym.txt", basename), zymtextbuffer, (fs_offset_t)zymtextsize);
 		if (dpmtextsize)
-			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled/out_dpm.txt", basename), dpmtextbuffer, (fs_offset_t)dpmtextsize);
+		{
+			char dpm_script_path[MAX_QPATH];
+			char dpm_dir_path[MAX_QPATH];
+			dpsnprintf(dpm_script_path, sizeof(dpm_script_path), "%s_decompiled/out_dpm.txt", basename);
+			dpsnprintf(dpm_dir_path, sizeof(dpm_dir_path), "%s_decompiled/", basename);
+			FS_WriteFile(dpm_script_path, dpmtextbuffer, (fs_offset_t)dpmtextsize);
+			Mod_Compile_DPM_MD3(dpm_script_path, dpm_dir_path);
+		}
 		if (framegroupstextsize)
 			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled.framegroups", basename), framegroupstextbuffer, (fs_offset_t)framegroupstextsize);
 	}

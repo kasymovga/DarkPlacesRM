@@ -135,7 +135,8 @@ OBJ_COMMON= \
 	sys_shared.o \
 	zone.o \
 	slre.o \
-	geoip.o
+	geoip.o \
+	model_compile.o
 
 OBJ_MENU= \
 	menu.o \
