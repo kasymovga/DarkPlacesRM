@@ -3165,6 +3165,7 @@ static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const cha
 	const msurface_t *surface;
 	const int maxtextures = 256;
 	char *texturenames = (char *) Z_Malloc(maxtextures * MAX_QPATH);
+	const char *mtlfilename_short;
 	dp_model_t *submodel;
 
 	// construct the mtllib file
@@ -3204,7 +3205,11 @@ static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const cha
 
 	// construct the obj file
 	outbufferpos = 0;
-	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "# model exported from %s by darkplaces engine\n# %i vertices, %i faces, %i surfaces\nmtllib %s\n", originalfilename, countvertices, countfaces, countsurfaces, mtlfilename);
+	if ((mtlfilename_short = strrchr(mtlfilename, '/')))
+		mtlfilename_short++;
+	else
+		mtlfilename_short = mtlfilename;
+	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "# model exported from %s by darkplaces engine\n# %i vertices, %i faces, %i surfaces\nmtllib %s\n", originalfilename, countvertices, countfaces, countsurfaces, mtlfilename_short);
 	if (l > 0)
 		outbufferpos += l;
 
