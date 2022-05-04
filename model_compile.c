@@ -55,7 +55,8 @@ static float scene_fps;
 static int scene_looping;
 static mempool_t *model_compile_memory_pool;
 static char *texturedir_name;
-static char *outputdir_name;
+static const char *workdir_name;
+static const char *model_path;
 static char *model_name;
 static char *scene_name;
 static char *model_name_uppercase;
@@ -65,9 +66,10 @@ static char *scene_name_lowercase;
 
 static qfile_t *headerfile = NULL;
 static qfile_t *qcheaderfile = NULL;
-static qfile_t *framegroupsfile = NULL;
+static qfile_t *framegroupsfile_dpm = NULL;
+static qfile_t *framegroupsfile_md3 = NULL;
 
-static double modelorigin[3] = {0, 0, 0}, modelrotate = 0, modelscale = 1;
+static double modelorigin[3], modelrotate, modelscale;
 
 // this makes it keep all bones, not removing unused ones (as they might be used for attachments)
 static int keepallbones = 1;
@@ -157,8 +159,7 @@ static double VectorDistance2D(const double *v1, const double *v2)
 	return sqrt((v2[0]-v1[0])*(v2[0]-v1[0])+(v2[1]-v1[1])*(v2[1]-v1[1]));
 }
 
-char *scriptbytes, *scriptend;
-fs_offset_t scriptsize;
+const char *scriptbytes;
 
 /*
 int scriptfiles = 0;
@@ -628,10 +629,22 @@ static int parseskeleton(void)
 		FS_Printf(headerfile, "#define MODEL_%s_%s_LENGTH %i\n", model_name_uppercase, scene_name_uppercase, numframes - baseframe);
 		FS_Printf(headerfile, "\n");
 	}
-	if (framegroupsfile)
+	if (baseframe > 0)
 	{
-		if (baseframe > 0)
-			FS_Printf(framegroupsfile, "%i %i %.6f %i // %s\n", baseframe, numframes - baseframe, scene_fps, scene_looping, scene_name_lowercase);
+		if (!framegroupsfile_dpm)
+		{
+			dpsnprintf(temp, sizeof(temp), "%s.dpm.framegroups", model_path);
+			framegroupsfile_dpm = FS_OpenRealFile(temp, "w", false);
+		}
+		if (!framegroupsfile_md3)
+		{
+			dpsnprintf(temp, sizeof(temp), "%s.md3.framegroups", model_path);
+			framegroupsfile_md3 = FS_OpenRealFile(temp, "w", false);
+		}
+		if (framegroupsfile_md3)
+			FS_Printf(framegroupsfile_md3, "%i %i %.6f %i // %s\n", baseframe, numframes - baseframe, scene_fps, scene_looping, scene_name_lowercase);
+		if (framegroupsfile_dpm)
+			FS_Printf(framegroupsfile_dpm, "%i %i %.6f %i // %s\n", baseframe, numframes - baseframe, scene_fps, scene_looping, scene_name_lowercase);
 	}
 	if (qcheaderfile)
 		FS_Printf(qcheaderfile, "\n");
@@ -1221,14 +1234,14 @@ static void fixrootbones(void)
 	}
 }
 
-static char *token;
+static const char *token;
 
-static void inittokens(char *script)
+static void inittokens(const char *script)
 {
 	token = script;
 }
 
-static char tokenbuffer[1024];
+static char *tokenbuffer;
 
 static char *gettoken(void)
 {
@@ -1358,25 +1371,6 @@ static int sc_attachment(void)
 	return 1;
 }
 
-static int sc_outputdir(void)
-{
-	char *c;
-	if (outputdir_name[0]) {
-		while (gettoken()[0] != '\n');
-		return 1;
-	}
-	c = gettoken();
-	if (!c)
-		return 0;
-	if (!isfilename(c))
-		return 0;
-	strlcpy(outputdir_name, c, sizeof(outputdir_name));
-	chopextension(outputdir_name);
-	if (strlen(outputdir_name) && outputdir_name[strlen(outputdir_name) - 1] != '/')
-		strlcat(outputdir_name, "/", sizeof(outputdir_name));
-	return 1;
-}
-
 static int sc_model(void)
 {
 	char *c = gettoken();
@@ -1474,7 +1468,7 @@ static int sc_scene(void)
 		return 0;
 	if (!isfilename(c))
 		return 0;
-	dpsnprintf(filename, sizeof(filename), "%s%s", outputdir_name, c);
+	dpsnprintf(filename, sizeof(filename), "%s%s", workdir_name, c);
 	modelfile = (char*)FS_LoadFile(filename, model_compile_memory_pool, 0, NULL);
 	if (!modelfile)
 	{
@@ -1488,7 +1482,7 @@ static int sc_scene(void)
 	Con_Printf("parsing scene %s\n", scene_name);
 	if (!headerfile)
 	{
-		sprintf(filename, "%s%s.h", outputdir_name, model_name);
+		sprintf(filename, "%s.h", model_path);
 		headerfile = FS_OpenRealFile(filename, "w", false);
 		if (headerfile)
 		{
@@ -1504,7 +1498,7 @@ static int sc_scene(void)
 	}
 	if (!qcheaderfile)
 	{
-		sprintf(filename, "%s%s.qc", outputdir_name, model_name);
+		sprintf(filename, "%s.qc", model_path);
 		qcheaderfile = FS_OpenRealFile(filename, "w", false);
 		if (qcheaderfile)
 		{
@@ -1514,11 +1508,6 @@ static int sc_scene(void)
 			FS_Printf(qcheaderfile, "*/\n");
 			FS_Printf(qcheaderfile, "\n");
 		}
-	}
-	if (!framegroupsfile)
-	{
-		sprintf(filename, "%s%s.framegroups", outputdir_name, model_name);
-		framegroupsfile = FS_OpenRealFile(filename, "w", false);
 	}
 	scene_fps = 1;
 	scene_looping = 1;
@@ -1555,7 +1544,7 @@ static int sc_nothing(void)
 static sccommand sc_commands[] =
 {
 	{"attachment", sc_attachment},
-	{"outputdir", sc_outputdir},
+	{"outputdir", sc_comment},
 	{"model", sc_model},
 	{"texturedir", sc_texturedir},
 	{"origin", sc_origin},
@@ -1644,17 +1633,22 @@ static void processscript(void)
 	writemodel_md3();
 }
 
-int Mod_Compile_DPM_MD3(const char *script, const char *dir)
+int Mod_Compile_DPM_MD3(const char *script, const char *workdir, const char *outpath)
 {
+	modelscale = 1;
+	modelrotate = 0;
+	modelorigin[0] = 0;
+	modelorigin[1] = 0;
+	modelorigin[2] = 0;
 	model_compile_memory_pool = Mem_AllocPool("model_compile", 0, NULL);
 	texturedir_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
-	outputdir_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
 	model_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
 	scene_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
 	model_name_uppercase = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
 	scene_name_uppercase = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
 	model_name_lowercase = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
 	scene_name_lowercase = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
+	tokenbuffer = Mem_Alloc(model_compile_memory_pool, 1024);
 	attachments = Mem_Alloc(model_compile_memory_pool, sizeof(attachment) * MAX_ATTACHMENTS);
 	frames = Mem_Alloc(model_compile_memory_pool, sizeof(frame_t) * MAX_FRAMES);
 	bones = Mem_Alloc(model_compile_memory_pool, sizeof(bone_t) * MAX_BONES); // master bone list
@@ -1663,15 +1657,9 @@ int Mod_Compile_DPM_MD3(const char *script, const char *dir)
 	vertices = Mem_Alloc(model_compile_memory_pool, sizeof(tripoint) * MAX_VERTS);
 	bonematrix = Mem_Alloc(model_compile_memory_pool, sizeof(bonepose_t) * MAX_BONES);
 	vertremap = Mem_Alloc(model_compile_memory_pool, sizeof(int) * MAX_VERTS);
-	scriptbytes = (char*)FS_LoadFile(script, model_compile_memory_pool, 0, &scriptsize);
-	if (!scriptbytes)
-	{
-		Con_Printf("unable to read script file\n");
-		Mem_FreePool(&model_compile_memory_pool);
-		return 0;
-	}
-	scriptend = scriptbytes + scriptsize;
-	if (*dir) dpsnprintf(outputdir_name, MAX_FILEPATH, "%s", dir);
+	scriptbytes = script;
+	workdir_name = workdir;
+	model_path = outpath;
 	processscript();
 	if (headerfile)
 	{
@@ -1685,10 +1673,15 @@ int Mod_Compile_DPM_MD3(const char *script, const char *dir)
 		FS_Close(qcheaderfile);
 		qcheaderfile = NULL;
 	}
-	if (framegroupsfile)
+	if (framegroupsfile_md3)
 	{
-		FS_Close(framegroupsfile);
-		framegroupsfile = NULL;
+		FS_Close(framegroupsfile_md3);
+		framegroupsfile_md3 = NULL;
+	}
+	if (framegroupsfile_dpm)
+	{
+		FS_Close(framegroupsfile_dpm);
+		framegroupsfile_dpm = NULL;
 	}
 #if (_MSC_VER && _DEBUG)
 	Con_Printf("destroy any key\n");
@@ -2022,7 +2015,7 @@ static int writemodel_dpm(void)
 	putbelong(filesize);
 	putsetposition(filesize);
 
-	sprintf(filename, "%s%s.dpm", outputdir_name, model_name);
+	sprintf(filename, "%s.dpm", model_path);
 	FS_WriteFile(filename, outputbuffer, filesize);
 	Con_Printf("wrote file %s (size %5ik)\n", filename, (filesize + 1023) >> 10);
 
@@ -2268,7 +2261,7 @@ static int writemodel_md3(void)
 
 	filesize = pos_end;
 
-	sprintf(filename, "%s%s.md3", outputdir_name, model_name);
+	sprintf(filename, "%s.md3", model_path);
 	FS_WriteFile(filename, outputbuffer, filesize);
 	Con_Printf("wrote file %s (size %5ik)\n", filename, (filesize + 1023) >> 10);
 

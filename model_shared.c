@@ -3480,10 +3480,8 @@ static void Mod_Decompile_f(void)
 	char animname2[MAX_QPATH];
 	char zymtextbuffer[16384];
 	char dpmtextbuffer[16384];
-	char framegroupstextbuffer[16384];
 	int zymtextsize = 0;
 	int dpmtextsize = 0;
-	int framegroupstextsize = 0;
 	char vabuf[1024];
 
 	if (Cmd_Argc() != 2)
@@ -3590,11 +3588,6 @@ static void Mod_Decompile_f(void)
 				l = dpsnprintf(dpmtextbuffer + dpmtextsize, sizeof(dpmtextbuffer) - dpmtextsize, "scene %s.smd fps %g %s\n", animname, mod->animscenes[i].framerate, mod->animscenes[i].loop ? "" : " noloop");
 				if (l > 0) dpmtextsize += l;
 			}
-			if (framegroupstextsize < (int)sizeof(framegroupstextbuffer) - 100)
-			{
-				l = dpsnprintf(framegroupstextbuffer + framegroupstextsize, sizeof(framegroupstextbuffer) - framegroupstextsize, "%d %d %f %d // %s\n", first, count, mod->animscenes[i].framerate, mod->animscenes[i].loop, animname);
-				if (l > 0) framegroupstextsize += l;
-			}
 		}
 		if (zymtextsize)
 			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled/out_zym.txt", basename), zymtextbuffer, (fs_offset_t)zymtextsize);
@@ -3605,10 +3598,8 @@ static void Mod_Decompile_f(void)
 			dpsnprintf(dpm_script_path, sizeof(dpm_script_path), "%s_decompiled/out_dpm.txt", basename);
 			dpsnprintf(dpm_dir_path, sizeof(dpm_dir_path), "%s_decompiled/", basename);
 			FS_WriteFile(dpm_script_path, dpmtextbuffer, (fs_offset_t)dpmtextsize);
-			Mod_Compile_DPM_MD3(dpm_script_path, dpm_dir_path);
+			Mod_Compile_DPM_MD3(dpmtextbuffer, dpm_dir_path, va(vabuf, sizeof(vabuf), "%s_decompiled", basename));
 		}
-		if (framegroupstextsize)
-			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled.framegroups", basename), framegroupstextbuffer, (fs_offset_t)framegroupstextsize);
 	}
 }
 
