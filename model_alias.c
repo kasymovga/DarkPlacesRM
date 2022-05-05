@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "image.h"
+#include "model_compile.h"
 #ifndef CONFIG_SV
 #include "r_shadow.h"
 #else
@@ -4132,4 +4133,53 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
+}
+
+void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
+{
+	char file_path[MAX_QPATH];
+	char dir_path[MAX_QPATH];
+	char short_name[MAX_QPATH];
+	char script[16384];
+	char *c;
+	char temp[MAX_QPATH];
+	char temp2[MAX_QPATH];
+	int l;
+	int noloop;
+	float fps;
+	const char *opts;
+	mempool_t *mem;
+	strlcpy(file_path, mod->name, sizeof(file_path));
+	if ((c = strrchr(file_path, '.'))) c[0] = '\0';
+	strlcpy(dir_path, mod->name, sizeof(dir_path));
+	if ((c = strrchr(dir_path, '/'))) c[1] = '\0';
+	else dir_path[0] = '\0';
+	strlcpy(short_name, FS_FileWithoutPath(mod->name), sizeof(short_name));
+	if ((c = strrchr(short_name, '.'))) c[0] = '\0';
+	dpsnprintf(script, sizeof(script),
+			"model %s\nscene %s\n", short_name, FS_FileWithoutPath(mod->name));
+	for (int i = 1; i < 1000; i++)
+	{
+		fps = 10;
+		noloop = 0;
+		dpsnprintf(temp, sizeof(temp), "%s_anim%i.smd", file_path, i);
+		if (!FS_FileExists(temp)) break;
+		dpsnprintf(temp2, sizeof(temp2), "%s.opts", temp);
+		mem = Mem_AllocPool("smd_load", 0, NULL);
+		if ((opts = (const char*)FS_LoadFile(temp2, mem, FALSE, NULL)))
+			sscanf(opts, "%f %i", &fps, &noloop);
+		Mem_FreePool(&mem);
+		l = strlen(script);
+		dpsnprintf(temp, sizeof(temp), "%s_anim%i.smd", short_name, i);
+		dpsnprintf(&script[l], sizeof(script) - l,
+				"scene %s fps=%.6f%s\n", temp, fps, (noloop ? " noloop" : ""));
+	}
+	Con_Printf("script=%s", script);
+	dpsnprintf(temp, sizeof(temp), "%s_compiled", file_path);
+	Mod_Compile_DPM_MD3(script, dir_path, temp);
+	dpsnprintf(temp, sizeof(temp), "%s_compiled.dpm", file_path);
+	strlcpy(temp2, mod->name, sizeof(temp2));
+	strlcpy(mod->name, temp, sizeof(mod->name));
+	Mod_LoadModel(mod, false, false);
+	strlcpy(mod->name, temp2, sizeof(mod->name));
 }

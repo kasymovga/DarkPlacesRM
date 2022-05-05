@@ -522,6 +522,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		else if (!memcmp(buf, "ACTRHEAD", 8)) Mod_PSKMODEL_Load(mod, buf, bufend);
 		else if (!memcmp(buf, "INTERQUAKEMODEL", 16)) Mod_INTERQUAKEMODEL_Load(mod, buf, bufend);
 		else if (num == BSPVERSION || num == 30 || !memcmp(buf, "BSP2", 4) || !memcmp(buf, "2PSB", 4)) Mod_Q1BSP_Load(mod, buf, bufend);
+		else if (!strcasecmp(FS_FileExtension(mod->name), "smd")) Mod_SMD_Load(mod, buf, bufend);
 		else Con_Printf("Mod_LoadModel: model \"%s\" is of unknown/unsupported type\n", mod->name);
 		Mem_Free(buf);
 
@@ -3529,7 +3530,11 @@ static void Mod_Decompile_f(void)
 	// export SMD if possible (only for skeletal models)
 	if (mod->surfmesh.num_triangles/* && mod->num_bones*/)
 	{
+		int animnum = 0;
+		char opts[128];
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled/ref1.smd", basename);
+		Mod_Decompile_SMD(mod, outname, 0, 1, true);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.smd", basename);
 		Mod_Decompile_SMD(mod, outname, 0, 1, true);
 		l = dpsnprintf(zymtextbuffer + zymtextsize, sizeof(zymtextbuffer) - zymtextsize, "output out.zym\nscale 1\norigin 0 0 0\nmesh ref1.smd\n");
 		if (l > 0) zymtextsize += l;
@@ -3537,6 +3542,7 @@ static void Mod_Decompile_f(void)
 		if (l > 0) dpmtextsize += l;
 		for (i = 0;mod->num_bones && i < mod->numframes;i = j)
 		{
+			animnum++;
 			strlcpy(animname, mod->animscenes[i].name, sizeof(animname));
 			first = mod->animscenes[i].firstframe;
 			if (mod->animscenes[i].framecount > 1)
@@ -3578,6 +3584,11 @@ static void Mod_Decompile_f(void)
 			}
 			dpsnprintf(outname, sizeof(outname), "%s_decompiled/%s.smd", basename, animname);
 			Mod_Decompile_SMD(mod, outname, first, count, false);
+			dpsnprintf(outname, sizeof(outname), "%s_decompiled_anim%i.smd", basename, animnum);
+			Mod_Decompile_SMD(mod, outname, first, count, false);
+			dpsnprintf(outname, sizeof(outname), "%s_decompiled_anim%i.smd.opts", basename, animnum);
+			dpsnprintf(opts, sizeof(opts), "%.6f %i", (float)mod->animscenes[i].framerate, !mod->animscenes[i].loop);
+			FS_WriteFile(outname, opts, strlen(opts));
 			if (zymtextsize < (int)sizeof(zymtextbuffer) - 100)
 			{
 				l = dpsnprintf(zymtextbuffer + zymtextsize, sizeof(zymtextbuffer) - zymtextsize, "scene %s.smd fps %g %s\n", animname, mod->animscenes[i].framerate, mod->animscenes[i].loop ? "" : " noloop");

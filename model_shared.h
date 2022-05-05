@@ -1245,6 +1245,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend);
+void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend);
 
 #endif	// MODEL_SHARED_H
 
