@@ -63,6 +63,9 @@ static char *model_name_uppercase;
 static char *scene_name_uppercase;
 static char *model_name_lowercase;
 static char *scene_name_lowercase;
+static unsigned char *outputbuffer;
+static unsigned char *output;
+static unsigned int output_overflow;
 
 static qfile_t *headerfile = NULL;
 static qfile_t *qcheaderfile = NULL;
@@ -1641,6 +1644,8 @@ int Mod_Compile_DPM_MD3(const char *script, const char *workdir, const char *out
 	modelorigin[1] = 0;
 	modelorigin[2] = 0;
 	model_compile_memory_pool = Mem_AllocPool("model_compile", 0, NULL);
+	outputbuffer = Mem_Alloc(model_compile_memory_pool, MAX_FILESIZE);
+	output_overflow = 0;
 	texturedir_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
 	model_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
 	scene_name = Mem_Alloc(model_compile_memory_pool, MAX_FILEPATH);
@@ -1725,11 +1730,14 @@ int shadertriscurrent[MAX_SHADERS];
 int shadertris[MAX_TRIS];
 */
 
-static unsigned char *output;
-static unsigned char outputbuffer[MAX_FILESIZE];
-
 static void putstring(char *in, int length)
 {
+	if (output + length >= outputbuffer + MAX_FILESIZE)
+	{
+		output_overflow = 1;
+		output += length;
+		return;
+	}
 	while (*in && length)
 	{
 		*output++ = *in++;
@@ -1743,6 +1751,12 @@ static void putstring(char *in, int length)
 /*
 static void putnulls(int num)
 {
+	if (output + num >= outputbuffer + MAX_FILESIZE)
+	{
+		output_overflow = 1;
+		output += num;
+		return;
+	}
 	while (num--)
 		*output++ = 0;
 }
@@ -1750,12 +1764,24 @@ static void putnulls(int num)
 
 static void putbyte(int num)
 {
+	if (output + 1 >= outputbuffer + MAX_FILESIZE)
+	{
+		output_overflow = 1;
+		output += 1;
+		return;
+	}
 	*output++ = num;
 }
 
 /*
 static void putbeshort(int num)
 {
+	if (output + 2 >= outputbuffer + MAX_FILESIZE)
+	{
+		output_overflow = 1;
+		output += 2;
+		return;
+	}
 	*output++ = ((num >>  8) & 0xFF);
 	*output++ = ((num >>  0) & 0xFF);
 }
@@ -1763,6 +1789,12 @@ static void putbeshort(int num)
 
 static void putbelong(int num)
 {
+	if (output + 4 >= outputbuffer + MAX_FILESIZE)
+	{
+		output_overflow = 1;
+		output += 4;
+		return;
+	}
 	*output++ = ((num >> 24) & 0xFF);
 	*output++ = ((num >> 16) & 0xFF);
 	*output++ = ((num >>  8) & 0xFF);
@@ -1787,12 +1819,24 @@ static void putbefloat(double num)
 
 static void putleshort(int num)
 {
+	if (output + 2 >= outputbuffer + MAX_FILESIZE)
+	{
+		output_overflow = 1;
+		output += 2;
+		return;
+	}
 	*output++ = ((num >>  0) & 0xFF);
 	*output++ = ((num >>  8) & 0xFF);
 }
 
 static void putlelong(int num)
 {
+	if (output + 4 >= outputbuffer + MAX_FILESIZE)
+	{
+		output_overflow = 1;
+		output += 4;
+		return;
+	}
 	*output++ = ((num >>  0) & 0xFF);
 	*output++ = ((num >>  8) & 0xFF);
 	*output++ = ((num >> 16) & 0xFF);
@@ -2016,8 +2060,13 @@ static int writemodel_dpm(void)
 	putsetposition(filesize);
 
 	sprintf(filename, "%s.dpm", model_path);
-	FS_WriteFile(filename, outputbuffer, filesize);
-	Con_Printf("wrote file %s (size %5ik)\n", filename, (filesize + 1023) >> 10);
+	if (!output_overflow)
+	{
+		FS_WriteFile(filename, outputbuffer, filesize);
+		Con_Printf("wrote file %s (size %5ik)\n", filename, (filesize + 1023) >> 10);
+	}
+	else
+		Con_Printf("wrote file %s (size %5ik) - failed, too big\n", filename, (filesize + 1023) >> 10);
 
 	return 1;
 }
@@ -2262,8 +2311,14 @@ static int writemodel_md3(void)
 	filesize = pos_end;
 
 	sprintf(filename, "%s.md3", model_path);
-	FS_WriteFile(filename, outputbuffer, filesize);
-	Con_Printf("wrote file %s (size %5ik)\n", filename, (filesize + 1023) >> 10);
+	if (!output_overflow)
+	{
+		FS_WriteFile(filename, outputbuffer, filesize);
+		Con_Printf("wrote file %s (size %5ik)\n", filename, (filesize + 1023) >> 10);
+	}
+	else
+		Con_Printf("wrote file %s (size %5ik) - failed, too big\n", filename, (filesize + 1023) >> 10);
+
 
 	return 1;
 }
