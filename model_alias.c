@@ -4148,6 +4148,8 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	int noloop;
 	float fps;
 	const char *opts;
+	char *skin;
+	int skinsize;
 	mempool_t *mem;
 	strlcpy(file_path, mod->name, sizeof(file_path));
 	if ((c = strrchr(file_path, '.'))) c[0] = '\0';
@@ -4174,8 +4176,18 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		dpsnprintf(&script[l], sizeof(script) - l,
 				"scene %s fps=%.6f%s\n", temp, fps, (noloop ? " noloop" : ""));
 	}
-	Con_Printf("script=%s", script);
 	dpsnprintf(temp, sizeof(temp), "%s_compiled", file_path);
+	for (int i = 0; i < 256; i++)
+	{
+		dpsnprintf(temp2, sizeof(temp2), "%s_%i.skin", mod->name, i);
+		if (skin)
+		{
+			dpsnprintf(temp2, sizeof(temp2), "%s.dpm_%i.skin", temp, i);
+			FS_WriteFile(temp2, skin, skinsize);
+			dpsnprintf(temp2, sizeof(temp2), "%s.md3_%i.skin", temp, i);
+			FS_WriteFile(temp2, skin, skinsize);
+		}
+	}
 	Mod_Compile_DPM_MD3(script, dir_path, temp);
 	dpsnprintf(temp, sizeof(temp), "%s_compiled.dpm", file_path);
 	strlcpy(temp2, mod->name, sizeof(temp2));

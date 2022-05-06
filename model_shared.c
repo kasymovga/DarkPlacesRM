@@ -3151,12 +3151,30 @@ void Mod_BuildVBOs(void)
 }
 #endif
 
+static void Mod_Decompile_Skin(dp_model_t *model, const char *filename)
+{
+	char skinbuffer[16384];
+	int skinbuffer_pos = 0;
+	int surfaceindex;
+	const msurface_t *surface;
+	for (surfaceindex = 0, surface = model->data_surfaces;surfaceindex < model->num_surfaces;surfaceindex++, surface++)
+	{
+		if (surface->texture && surface->texture->name[0])
+			dpsnprintf(skinbuffer + skinbuffer_pos, sizeof(skinbuffer) - skinbuffer_pos, "shader%i,%s\n", surfaceindex, surface->texture->name);
+		else
+			dpsnprintf(skinbuffer + skinbuffer_pos, sizeof(skinbuffer) - skinbuffer_pos, "//shader%i,null\n", surfaceindex);
+
+		skinbuffer_pos += strlen(skinbuffer + skinbuffer_pos);
+	}
+	FS_WriteFile(filename, skinbuffer, skinbuffer_pos);
+}
+
 extern cvar_t mod_obj_orientation;
 static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const char *mtlfilename, const char *originalfilename)
 {
 	int submodelindex, vertexindex, surfaceindex, triangleindex, textureindex, countvertices = 0, countsurfaces = 0, countfaces = 0, counttextures = 0;
 	int a, b, c;
-	const char *texname;
+	char texname[64];
 	const int *e;
 	const float *v, *vn, *vt;
 	size_t l;
@@ -3178,7 +3196,7 @@ static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const cha
 		countsurfaces++;
 		countvertices += surface->num_vertices;
 		countfaces += surface->num_triangles;
-		texname = (surface->texture && surface->texture->name[0]) ? surface->texture->name : "default";
+		dpsnprintf(texname, sizeof(texname), "shader%i", surfaceindex);
 		for (textureindex = 0;textureindex < counttextures;textureindex++)
 			if (!strcmp(texturenames + textureindex * MAX_QPATH, texname))
 				break;
@@ -3424,7 +3442,7 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 					memcpy(outbuffer, oldbuffer, outbufferpos);
 					Z_Free(oldbuffer);
 				}
-				l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%s\n", surface->texture && surface->texture->name[0] ? surface->texture->name : "default.bmp");
+				l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "shader%i\n", surfaceindex);
 				if (l > 0)
 					outbufferpos += l;
 				for (cornerindex = 0;cornerindex < 3;cornerindex++)
@@ -3525,6 +3543,8 @@ static void Mod_Decompile_f(void)
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled.obj", basename);
 		dpsnprintf(mtlname, sizeof(mtlname), "%s_decompiled.mtl", basename);
 		Mod_Decompile_OBJ(mod, outname, mtlname, inname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.obj_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
 	}
 
 	// export SMD if possible (only for skeletal models)
@@ -3534,8 +3554,18 @@ static void Mod_Decompile_f(void)
 		char opts[128];
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled/ref1.smd", basename);
 		Mod_Decompile_SMD(mod, outname, 0, 1, true);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled/out.md3_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled/out.dpm_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled.smd", basename);
 		Mod_Decompile_SMD(mod, outname, 0, 1, true);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.dpm_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.md3_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.smd_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
 		l = dpsnprintf(zymtextbuffer + zymtextsize, sizeof(zymtextbuffer) - zymtextsize, "output out.zym\nscale 1\norigin 0 0 0\nmesh ref1.smd\n");
 		if (l > 0) zymtextsize += l;
 		l = dpsnprintf(dpmtextbuffer + dpmtextsize, sizeof(dpmtextbuffer) - dpmtextsize, "outputdir .\nmodel out\nscale 1\norigin 0 0 0\nscene ref1.smd\n");
