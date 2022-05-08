@@ -3548,7 +3548,7 @@ static void Mod_Decompile_f(void)
 	}
 
 	// export SMD if possible (only for skeletal models)
-	if (mod->surfmesh.num_triangles/* && mod->num_bones*/)
+	if (mod->surfmesh.num_triangles)
 	{
 		int animnum = 0;
 		char opts[128];
@@ -3560,6 +3560,9 @@ static void Mod_Decompile_f(void)
 		Mod_Decompile_Skin(mod, outname);
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled.smd", basename);
 		Mod_Decompile_SMD(mod, outname, 0, 1, true);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.smd.opts", basename);
+		dpsnprintf(opts, sizeof(opts), "1 0 0 0 0 // scale rotate origin-x origin-y origin-z");
+		FS_WriteFile(outname, opts, strlen(opts));
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled.dpm_0.skin", basename);
 		Mod_Decompile_Skin(mod, outname);
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled.md3_0.skin", basename);
@@ -3617,7 +3620,7 @@ static void Mod_Decompile_f(void)
 			dpsnprintf(outname, sizeof(outname), "%s_decompiled_anim%i.smd", basename, animnum);
 			Mod_Decompile_SMD(mod, outname, first, count, false);
 			dpsnprintf(outname, sizeof(outname), "%s_decompiled_anim%i.smd.opts", basename, animnum);
-			dpsnprintf(opts, sizeof(opts), "%.6f %i", (float)mod->animscenes[i].framerate, !mod->animscenes[i].loop);
+			dpsnprintf(opts, sizeof(opts), "%.6f %i // framerate noloop", (float)mod->animscenes[i].framerate, !mod->animscenes[i].loop);
 			FS_WriteFile(outname, opts, strlen(opts));
 			if (zymtextsize < (int)sizeof(zymtextbuffer) - 100)
 			{

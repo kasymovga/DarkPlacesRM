@@ -4148,8 +4148,11 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	int noloop;
 	float fps;
 	const char *opts;
-	char *skin;
-	int skinsize;
+	const char *skin;
+	fs_offset_t skinsize;
+	float model_origin[3] = {0, 0, 0};
+	float model_rotate = 0;
+	float model_scale = 1;
 	mempool_t *mem;
 	strlcpy(file_path, mod->name, sizeof(file_path));
 	if ((c = strrchr(file_path, '.'))) c[0] = '\0';
@@ -4158,8 +4161,15 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	else dir_path[0] = '\0';
 	strlcpy(short_name, FS_FileWithoutPath(mod->name), sizeof(short_name));
 	if ((c = strrchr(short_name, '.'))) c[0] = '\0';
+	//SMD mesh
+	dpsnprintf(temp, sizeof(temp), "%s.opts", mod->name);
+	mem = Mem_AllocPool("smd_load", 0, NULL);
+	if ((opts = (const char*)FS_LoadFile(temp, mem, FALSE, NULL)))
+		sscanf(opts, "%f %f %f %f %f", &model_scale, &model_rotate, &model_origin[0], &model_origin[1], &model_origin[2]);
+	Mem_FreePool(&mem);
 	dpsnprintf(script, sizeof(script),
-			"model %s\nscene %s\n", short_name, FS_FileWithoutPath(mod->name));
+			"model %s\nscene %s\nscale %f\nrotate %f\norigin %f %f %f\n", short_name, FS_FileWithoutPath(mod->name), model_scale, model_rotate, model_origin[0], model_origin[1], model_origin[2]);
+	//SMD animation scenes
 	for (int i = 1; i < 1000; i++)
 	{
 		fps = 10;
@@ -4174,12 +4184,15 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		l = strlen(script);
 		dpsnprintf(temp, sizeof(temp), "%s_anim%i.smd", short_name, i);
 		dpsnprintf(&script[l], sizeof(script) - l,
-				"scene %s fps=%.6f%s\n", temp, fps, (noloop ? " noloop" : ""));
+				"scene %s fps %.6f%s\n", temp, fps, (noloop ? " noloop" : ""));
 	}
+	//Skins
 	dpsnprintf(temp, sizeof(temp), "%s_compiled", file_path);
 	for (int i = 0; i < 256; i++)
 	{
 		dpsnprintf(temp2, sizeof(temp2), "%s_%i.skin", mod->name, i);
+		mem = Mem_AllocPool("smd_load", 0, NULL);
+		skin = (const char*)FS_LoadFile(temp2, mem, FALSE, &skinsize);
 		if (skin)
 		{
 			dpsnprintf(temp2, sizeof(temp2), "%s.dpm_%i.skin", temp, i);
@@ -4187,8 +4200,11 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			dpsnprintf(temp2, sizeof(temp2), "%s.md3_%i.skin", temp, i);
 			FS_WriteFile(temp2, skin, skinsize);
 		}
+		Mem_FreePool(&mem);
 	}
+	//Compilation
 	Mod_Compile_DPM_MD3(script, dir_path, temp);
+	//Model
 	dpsnprintf(temp, sizeof(temp), "%s_compiled.dpm", file_path);
 	strlcpy(temp2, mod->name, sizeof(temp2));
 	strlcpy(mod->name, temp, sizeof(mod->name));
