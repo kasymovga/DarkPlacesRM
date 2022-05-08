@@ -4144,7 +4144,7 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	char *c;
 	char temp[MAX_QPATH];
 	char temp2[MAX_QPATH];
-	int l;
+	int i, l;
 	int noloop;
 	float fps;
 	const char *opts;
@@ -4170,7 +4170,7 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	dpsnprintf(script, sizeof(script),
 			"model %s\nscene %s\nscale %f\nrotate %f\norigin %f %f %f\n", short_name, FS_FileWithoutPath(mod->name), model_scale, model_rotate, model_origin[0], model_origin[1], model_origin[2]);
 	//SMD animation scenes
-	for (int i = 1; i < 1000; i++)
+	for (i = 1; i < 1000; i++)
 	{
 		fps = 10;
 		noloop = 0;
@@ -4188,7 +4188,7 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 	//Skins
 	dpsnprintf(temp, sizeof(temp), "%s_compiled", file_path);
-	for (int i = 0; i < 256; i++)
+	for (i = 0; i < 256; i++)
 	{
 		dpsnprintf(temp2, sizeof(temp2), "%s_%i.skin", mod->name, i);
 		mem = Mem_AllocPool("smd_load", 0, NULL);
