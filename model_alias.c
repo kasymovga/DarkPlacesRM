@@ -4168,7 +4168,7 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		sscanf(opts, "%f %f %f %f %f", &model_scale, &model_rotate, &model_origin[0], &model_origin[1], &model_origin[2]);
 	Mem_FreePool(&mem);
 	dpsnprintf(script, sizeof(script),
-			"model %s\nscene %s\nscale %f\nrotate %f\norigin %f %f %f\n", short_name, FS_FileWithoutPath(mod->name), model_scale, model_rotate, model_origin[0], model_origin[1], model_origin[2]);
+			"model %s\nscale %f\nrotate %f\norigin %f %f %f\nscene %s\n", short_name, model_scale, model_rotate, model_origin[0], model_origin[1], model_origin[2], FS_FileWithoutPath(mod->name));
 	//SMD animation scenes
 	for (i = 1; i < 1000; i++)
 	{
