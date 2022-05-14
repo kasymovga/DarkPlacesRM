@@ -1493,7 +1493,7 @@ static void SV_PrepareEntitiesForSending(void)
 
 #define MAX_LINEOFSIGHTTRACES 64
 
-qboolean SV_CanSeeBox(int numtraces, vec_t enlarge, vec3_t eye, vec3_t entboxmins, vec3_t entboxmaxs)
+qboolean SV_CanSeeBox(int numtraces, vec_t enlarge, vec3_t eye, vec3_t entboxmins, vec3_t entboxmaxs, qboolean slow)
 {
 	prvm_prog_t *prog = SVVM_prog;
 	float pitchsign;
@@ -1576,7 +1576,7 @@ qboolean SV_CanSeeBox(int numtraces, vec_t enlarge, vec3_t eye, vec3_t entboxmin
 	{
 		// check world occlusion
 		if (sv.worldmodel && sv.worldmodel->brush.TraceLineOfSight)
-			if (!sv.worldmodel->brush.TraceLineOfSight(sv.worldmodel, eye, endpoints[traceindex]))
+			if (!sv.worldmodel->brush.TraceLineOfSight(sv.worldmodel, eye, endpoints[traceindex], slow))
 				continue;
 		for (touchindex = 0;touchindex < numtouchedicts;touchindex++)
 		{
@@ -1591,7 +1591,7 @@ qboolean SV_CanSeeBox(int numtraces, vec_t enlarge, vec3_t eye, vec3_t entboxmin
 				// see if the ray hits this entity
 				Matrix4x4_Transform(&imatrix, eye, starttransformed);
 				Matrix4x4_Transform(&imatrix, endpoints[traceindex], endtransformed);
-				if (!model->brush.TraceLineOfSight(model, starttransformed, endtransformed))
+				if (!model->brush.TraceLineOfSight(model, starttransformed, endtransformed, slow))
 				{
 					blocked++;
 					break;
@@ -1728,20 +1728,21 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 				if(samples > 0 && culltracemode != CULLTRACEMODE_NONE)
 				{
 					int eyeindex;
-					for (eyeindex = 0;eyeindex < sv.writeentitiestoclient_numeyes;eyeindex++)
-						if(SV_CanSeeBox(samples, enlarge, sv.writeentitiestoclient_eyes[eyeindex], ed->priv.server->cullmins, ed->priv.server->cullmaxs))
-							break;
-					if(eyeindex < sv.writeentitiestoclient_numeyes)
-						svs.clients[sv.writeentitiestoclient_clientnumber].visibletime[s->number] =
-							realtime + (
-								culltracemode == CULLTRACEMODE_PLAYER
-									? sv_cullentities_trace_delay_players.value
-									: sv_cullentities_trace_delay.value
-							);
-					else if (realtime > svs.clients[sv.writeentitiestoclient_clientnumber].visibletime[s->number])
-					{
-						sv.writeentitiestoclient_stats_culled_trace++;
-						return;
+					float trace_delay = (culltracemode == CULLTRACEMODE_PLAYER ?
+							sv_cullentities_trace_delay_players.value :
+							sv_cullentities_trace_delay.value);
+					if (svs.clients[sv.writeentitiestoclient_clientnumber].visibletime[s->number] - trace_delay * 0.5 <= realtime) {
+						for (eyeindex = 0;eyeindex < sv.writeentitiestoclient_numeyes;eyeindex++)
+							if(SV_CanSeeBox(samples, enlarge, sv.writeentitiestoclient_eyes[eyeindex], ed->priv.server->cullmins, ed->priv.server->cullmaxs, culltracemode == CULLTRACEMODE_PLAYER))
+								break;
+						if(eyeindex < sv.writeentitiestoclient_numeyes)
+							svs.clients[sv.writeentitiestoclient_clientnumber].visibletime[s->number] =
+								realtime + trace_delay * 1.5;
+						else if (realtime > svs.clients[sv.writeentitiestoclient_clientnumber].visibletime[s->number])
+						{
+							sv.writeentitiestoclient_stats_culled_trace++;
+							return;
+						}
 					}
 				}
 			}
@@ -1812,7 +1813,7 @@ static void SV_AddCameraEyes(void)
 		for(k = 0; k < sv.writeentitiestoclient_numeyes; ++k)
 		if(eye_levels[k] <= MAX_EYE_RECURSION)
 		{
-			if(SV_CanSeeBox(sv_cullentities_trace_samples.integer, sv_cullentities_trace_enlarge.value, sv.writeentitiestoclient_eyes[k], mi, ma))
+			if(SV_CanSeeBox(sv_cullentities_trace_samples.integer, sv_cullentities_trace_enlarge.value, sv.writeentitiestoclient_eyes[k], mi, ma, false))
 			{
 				eye_levels[sv.writeentitiestoclient_numeyes] = eye_levels[k] + 1;
 				VectorCopy(camera_origins[j], sv.writeentitiestoclient_eyes[sv.writeentitiestoclient_numeyes]);
@@ -1873,7 +1874,7 @@ static void SV_WriteEntitiesToClient(client_t *client, prvm_edict_t *clent, size
 		vec_t predtime = bound(0, host_client->ping, sv_cullentities_trace_prediction_time.value);
 		vec3_t predeye;
 		VectorMA(eye, predtime, PRVM_serveredictvector(camera, velocity), predeye);
-		if (SV_CanSeeBox(1, 0, eye, predeye, predeye))
+		if (SV_CanSeeBox(1, 0, eye, predeye, predeye, false))
 		{
 			VectorCopy(predeye, sv.writeentitiestoclient_eyes[sv.writeentitiestoclient_numeyes]);
 			sv.writeentitiestoclient_numeyes++;

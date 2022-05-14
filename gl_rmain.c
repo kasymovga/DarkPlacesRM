@@ -4207,14 +4207,14 @@ static qboolean R_CanSeeBox(int numsamples, vec_t enlarge, vec3_t eye, vec3_t en
 	// try center
 	VectorCopy(eye, start);
 	VectorMAM(0.5f, boxmins, 0.5f, boxmaxs, end);
-	if (model->brush.TraceLineOfSight(model, start, end))
+	if (model->brush.TraceLineOfSight(model, start, end, false))
 		return true;
 
 	// try various random positions
 	for (i = 0;i < numsamples;i++)
 	{
 		VectorSet(end, lhrandom(boxmins[0], boxmaxs[0]), lhrandom(boxmins[1], boxmaxs[1]), lhrandom(boxmins[2], boxmaxs[2]));
-		if (model->brush.TraceLineOfSight(model, start, end))
+		if (model->brush.TraceLineOfSight(model, start, end, false))
 			return true;
 	}
 
