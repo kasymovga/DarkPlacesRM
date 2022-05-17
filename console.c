@@ -155,6 +155,7 @@ static char qfont_table[256] = {
 */
 static void SanitizeString(char *in, char *out)
 {
+	Uchar c;
 	while(*in)
 	{
 		if(*in == STRING_COLOR_TAG)
@@ -193,9 +194,22 @@ static void SanitizeString(char *in, char *out)
 			else if (*in != STRING_COLOR_TAG)
 				--in;
 		}
-		*out = qfont_table[*(unsigned char*)in];
-		++in;
-		++out;
+		if (utf8_enable.integer)
+		{
+			c = u8_getchar(in, (const char **)&in);
+			if (c >= 0xE000 && c < 0xE100) c -= 0xE000;
+			if (c < 256)
+				c = qfont_table[c];
+
+			if (c)
+				out += u8_fromchar(c, out, 8);
+		}
+		else
+		{
+			*out = qfont_table[*(unsigned char*)in];
+			++in;
+			++out;
+		}
 	}
 	*out = 0;
 }
