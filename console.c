@@ -153,12 +153,14 @@ static char qfont_table[256] = {
 	SanitizeString strips color tags from the string in
 	and writes the result on string out
 */
-static void SanitizeString(char *in, char *out)
+static void SanitizeString(char *in, char *out, qboolean stripcolors)
 {
 	Uchar c;
+	int len;
+	char buf[8];
 	while(*in)
 	{
-		if(*in == STRING_COLOR_TAG)
+		if(*in == STRING_COLOR_TAG && stripcolors)
 		{
 			++in;
 			if(!*in)
@@ -202,7 +204,11 @@ static void SanitizeString(char *in, char *out)
 				c = qfont_table[c];
 
 			if (c)
-				out += u8_fromchar(c, out, 8);
+			{
+				len = u8_fromchar(c, buf, 8);
+				memcpy(out, buf, len);
+				out += len;
+			}
 		}
 		else
 		{
@@ -638,20 +644,13 @@ void Log_ConPrint (const char *msg)
 	// If a log file is available
 	if (logfile != NULL)
 	{
-		if (log_file_stripcolors.integer)
-		{
-			// sanitize msg
-			size_t len = strlen(msg);
-			char* sanitizedmsg = (char*)Mem_Alloc(tempmempool, len + 1);
-			memcpy (sanitizedmsg, msg, len);
-			SanitizeString(sanitizedmsg, sanitizedmsg); // SanitizeString's in pointer is always ahead of the out pointer, so this should work.
-			FS_Print (logfile, sanitizedmsg);
-			Mem_Free(sanitizedmsg);
-		}
-		else 
-		{
-			FS_Print (logfile, msg);
-		}
+		// sanitize msg
+		size_t len = strlen(msg);
+		char* sanitizedmsg = (char*)Mem_Alloc(tempmempool, len + 1);
+		memcpy (sanitizedmsg, msg, len);
+		SanitizeString(sanitizedmsg, sanitizedmsg, log_file_stripcolors.integer); // SanitizeString's in pointer is always ahead of the out pointer, so this should work.
+		FS_Print (logfile, sanitizedmsg);
+		Mem_Free(sanitizedmsg);
 	}
 
 	inprogress = false;
@@ -832,20 +831,13 @@ static void Con_ConDump_f (void)
 	if (con_mutex) Thread_LockMutex(con_mutex);
 	for(i = 0; i < CON_LINES_COUNT; ++i)
 	{
-		if (condump_stripcolors.integer)
-		{
-			// sanitize msg
-			size_t len = CON_LINES(i).len;
-			char* sanitizedmsg = (char*)Mem_Alloc(tempmempool, len + 1);
-			memcpy (sanitizedmsg, CON_LINES(i).start, len);
-			SanitizeString(sanitizedmsg, sanitizedmsg); // SanitizeString's in pointer is always ahead of the out pointer, so this should work.
-			FS_Write(file, sanitizedmsg, strlen(sanitizedmsg));
-			Mem_Free(sanitizedmsg);
-		}
-		else 
-		{
-			FS_Write(file, CON_LINES(i).start, CON_LINES(i).len);
-		}
+		// sanitize msg
+		size_t len = CON_LINES(i).len;
+		char* sanitizedmsg = (char*)Mem_Alloc(tempmempool, len + 1);
+		memcpy (sanitizedmsg, CON_LINES(i).start, len);
+		SanitizeString(sanitizedmsg, sanitizedmsg, condump_stripcolors.integer); // SanitizeString's in pointer is always ahead of the out pointer, so this should work.
+		FS_Write(file, sanitizedmsg, strlen(sanitizedmsg));
+		Mem_Free(sanitizedmsg);
 		FS_Write(file, "\n", 1);
 	}
 	if (con_mutex) Thread_UnlockMutex(con_mutex);
@@ -2452,7 +2444,7 @@ static int Nicks_CompleteCountPossible(char *line, int pos, char *s, qboolean is
 		if(!cl.scores[p].name[0])
 			continue;
 
-		SanitizeString(cl.scores[p].name, name);
+		SanitizeString(cl.scores[p].name, name, true);
 		//Con_Printf(" ^2Sanitized: ^7%s -> %s", cl.scores[p].name, name);
 
 		if(!name[0])
