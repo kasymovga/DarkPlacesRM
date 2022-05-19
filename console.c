@@ -205,9 +205,13 @@ static void SanitizeString(char *in, char *out, qboolean stripcolors)
 
 			if (c)
 			{
-				len = u8_fromchar(c, buf, 8);
-				memcpy(out, buf, len);
-				out += len;
+				if (c < 128) {
+					*out = c;
+					out++;
+				} else if ((len = u8_fromchar(c, buf, 8)) > 0) {
+					memcpy(out, buf, len);
+					out += len;
+				}
 			}
 		}
 		else
