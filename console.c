@@ -526,10 +526,19 @@ static const char* Log_Timestamp (const char *desc)
 
 static void Log_Open (void)
 {
+	char logfile_path[MAX_QPATH];
 	if (logfile != NULL || log_file.string[0] == '\0')
 		return;
 
-	logfile = FS_OpenRealFile(log_file.string, "a", false);
+	if (strcasecmp(FS_FileExtension(log_file.string), "log"))
+	{
+		FS_StripExtension(log_file.string, logfile_path, sizeof(logfile_path));
+		strlcat(logfile_path, ".log", sizeof(logfile_path));
+	}
+	else
+		strlcpy(logfile_path, log_file.string, sizeof(logfile_path));
+
+	logfile = FS_OpenRealFile(logfile_path, "a", false);
 	if (logfile != NULL)
 	{
 		strlcpy (crt_log_file, log_file.string, sizeof (crt_log_file));
@@ -821,15 +830,27 @@ static void Con_ConDump_f (void)
 {
 	int i;
 	qfile_t *file;
+	char filename[MAX_QPATH];
+	const char* filename_unsafe;
 	if (Cmd_Argc() != 2)
 	{
 		Con_Printf("usage: condump <filename>\n");
 		return;
 	}
-	file = FS_OpenRealFile(Cmd_Argv(1), "w", false);
+	filename_unsafe = Cmd_Argv(1);
+	if (strcasecmp(FS_FileExtension(filename_unsafe), "condump"))
+	{
+		FS_StripExtension(filename_unsafe, filename, sizeof(filename));
+		strlcat(filename, ".condump", sizeof(filename));
+		Con_Printf("condump: change file name from %s to %s\n", filename_unsafe, filename);
+	}
+	else
+		strlcpy(filename, filename_unsafe, sizeof(filename));
+
+	file = FS_OpenRealFile(filename, "w", false);
 	if (!file)
 	{
-		Con_Printf("condump: unable to write file \"%s\"\n", Cmd_Argv(1));
+		Con_Printf("condump: unable to write file \"%s\"\n", filename);
 		return;
 	}
 	if (con_mutex) Thread_LockMutex(con_mutex);
