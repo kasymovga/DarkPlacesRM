@@ -1079,8 +1079,10 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 		// URL scheme (so one can't read local files using file://)
 		if(strncmp(URL, "http://", 7) && strncmp(URL, "ftp://", 6) && strncmp(URL, "https://", 8))
 		{
-			Con_Printf("Curl_Begin(\"%s\"): nasty URL scheme rejected\n", URL);
 			if (curl_mutex) Thread_UnlockMutex(curl_mutex);
+			if (strchr(URL, '/'))
+				Con_Printf("Curl_Begin(\"%s\"): nasty URL scheme rejected\n", URL);
+			Curl_EndDownload_Event(CURL_DOWNLOAD_FAILED , URL, name);
 			return false;
 		}
 
