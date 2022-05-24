@@ -129,6 +129,7 @@ Cmd_Centerprint_f
 Print something to the center of the screen using SCR_Centerprint
 ============
 */
+#ifndef CONFIG_SV
 static void Cmd_Centerprint_f (void)
 {
 	char msg[MAX_INPUTLINE];
@@ -164,6 +165,7 @@ static void Cmd_Centerprint_f (void)
 		SCR_CenterPrint(msg);
 	}
 }
+#endif
 
 /*
 =============================================================================
@@ -1445,7 +1447,9 @@ void Cmd_Init_Commands (void)
 	Cmd_AddCommand ("echo",Cmd_Echo_f, "print a message to the console (useful in scripts)");
 	Cmd_AddCommand ("alias",Cmd_Alias_f, "create a script function (parameters are passed in as $X (being X a number), $* for all parameters, $X- for all parameters starting from $X). Without arguments show the list of all alias");
 	Cmd_AddCommand ("unalias",Cmd_UnAlias_f, "remove an alias");
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("cmd", Cmd_ForwardToServer, "send a console commandline to the server (used by some mods)");
+	#endif
 	Cmd_AddCommand ("wait", Cmd_Wait_f, "make script execution wait for next rendered frame");
 	Cmd_AddCommand ("set", Cvar_Set_f, "create or change the value of a console variable");
 	Cmd_AddCommand ("seta", Cvar_SetA_f, "create or change the value of a console variable that will be saved to config.cfg");
@@ -1465,7 +1469,9 @@ void Cmd_Init_Commands (void)
 	Cmd_AddCommand ("cvar_resettodefaults_nosaveonly", Cvar_ResetToDefaults_NoSaveOnly_f, "sets all non-saved cvars to their locked default values (variables that will not be saved to config.cfg)");
 	Cmd_AddCommand ("cvar_resettodefaults_saveonly", Cvar_ResetToDefaults_SaveOnly_f, "sets all saved cvars to their locked default values (variables that will be saved to config.cfg)");
 
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("cprint", Cmd_Centerprint_f, "print something at the screen center");
+	#endif
 	Cmd_AddCommand ("defer", Cmd_Defer_f, "execute a command in the future");
 
 	// DRESK - 5/14/06
@@ -1880,8 +1886,10 @@ void Cmd_ExecuteString (const char *text, cmd_source_t src, qboolean lockmutex)
 	{
 		if (!strcasecmp (cmd_argv[0],cmd->name))
 		{
+			#ifndef CONFIG_SV
 			if (cmd->csqcfunc && CL_VM_ConsoleCommand (text))	//[515]: csqc
 				goto done;
+			#endif
 			switch (src)
 			{
 			case src_command:
@@ -1889,12 +1897,14 @@ void Cmd_ExecuteString (const char *text, cmd_source_t src, qboolean lockmutex)
 					cmd->consolefunction ();
 				else if (cmd->clientfunction)
 				{
+					#ifndef CONFIG_SV
 					if (cls.state == ca_connected)
 					{
 						// forward remote commands to the server for execution
 						Cmd_ForwardToServer();
 					}
 					else
+					#endif
 						Con_Printf("Can not send command \"%s\", not connected.\n", Cmd_Argv(0));
 				}
 				else
@@ -1952,6 +1962,7 @@ Cmd_ForwardStringToServer
 Sends an entire command string over to the server, unprocessed
 ===================
 */
+#ifndef CONFIG_SV
 void Cmd_ForwardStringToServer (const char *s)
 {
 	char temp[128];
@@ -2098,6 +2109,7 @@ void Cmd_ForwardToServer (void)
 		return;
 	Cmd_ForwardStringToServer(s);
 }
+#endif
 
 
 /*

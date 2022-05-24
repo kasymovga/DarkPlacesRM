@@ -232,8 +232,6 @@ cvar_t developer_texturelogging = {0, "developer_texturelogging", "0", "produces
 
 cvar_t gl_lightmaps = {0, "gl_lightmaps", "0", "draws only lightmaps, no texture (for level designers), a value of 2 keeps normalmap shading"};
 
-cvar_t r_test = {0, "r_test", "0", "internal development use only, leave it alone (usually does nothing anyway)"};
-
 cvar_t r_batch_multidraw = {CVAR_SAVE, "r_batch_multidraw", "1", "issue multiple glDrawElements calls when rendering a batch of surfaces with the same texture (otherwise the index data is copied to make it one draw)"};
 cvar_t r_batch_multidraw_mintriangles = {CVAR_SAVE, "r_batch_multidraw_mintriangles", "0", "minimum number of triangles to activate multidraw path (copying small groups of triangles may be faster)"};
 cvar_t r_batch_debugdynamicvertexpath = {CVAR_SAVE, "r_batch_debugdynamicvertexpath",
@@ -1032,7 +1030,9 @@ static char *ShaderModeInfo_GetShaderText(shadermodeinfo_t *modeinfo, qboolean p
 static void R_GLSL_CompilePermutation(r_glsl_permutation_t *p, unsigned int mode, unsigned int permutation)
 {
 	int i;
+	#ifndef USE_GLES2
 	int ubibind;
+	#endif
 	int sampler;
 	shadermodeinfo_t *modeinfo = &shadermodeinfo[SHADERLANGUAGE_GLSL][mode];
 	char *sourcestring;
@@ -1307,8 +1307,8 @@ static void R_GLSL_CompilePermutation(r_glsl_permutation_t *p, unsigned int mode
 		// clear the uniform block bindings
 		p->ubibind_Skeletal_Transform12_UniformBlock = -1;
 		// bind the uniform blocks in use
-		ubibind = 0;
 #ifndef USE_GLES2 /* FIXME: GLES3 only */
+		ubibind = 0;
 		if (p->ubiloc_Skeletal_Transform12_UniformBlock >= 0) {p->ubibind_Skeletal_Transform12_UniformBlock = ubibind;qglUniformBlockBinding(p->program, p->ubiloc_Skeletal_Transform12_UniformBlock, ubibind);ubibind++;}
 #endif
 		// we're done compiling and setting up the shader, at least until it is used
@@ -1395,7 +1395,6 @@ void R_GLSL_Restart_f(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -1478,7 +1477,6 @@ void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemod
 			R_Mesh_TexBind(r_glsl_permutation->tex_Texture_GammaRamps, r_texture_gammaramps);
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_Mesh_TexBind(0, first );
 		R_Mesh_TexCombine(0, GL_MODULATE, GL_MODULATE, 1, 1);
 		R_Mesh_TexMatrix(0, NULL);
@@ -1524,7 +1522,6 @@ void R_SetupShader_DepthOrShadow(qboolean notrippy, qboolean depthrgb, qboolean 
 #endif
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_Mesh_TexBind(0, 0);
 		R_Mesh_TexBind(1, 0);
 		break;
@@ -2175,7 +2172,6 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -2245,7 +2241,6 @@ void R_SetupShader_DeferredLight(const rtlight_t *rtlight)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -3142,7 +3137,6 @@ static void gl_main_start(void)
 #endif
 			break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		Cvar_SetValueQuick(&r_textureunits, vid.texunits);
 		Cvar_SetValueQuick(&gl_combine, 1);
 		Cvar_SetValueQuick(&r_glsl, 0);
@@ -3237,7 +3231,6 @@ static void gl_main_shutdown(void)
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
 		if (r_maxqueries)
@@ -3463,7 +3456,6 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_smoothnormals_areaweighting);
 	Cvar_RegisterVariable(&developer_texturelogging);
 	Cvar_RegisterVariable(&gl_lightmaps);
-	Cvar_RegisterVariable(&r_test);
 	Cvar_RegisterVariable(&r_batch_multidraw);
 	Cvar_RegisterVariable(&r_batch_multidraw_mintriangles);
 	Cvar_RegisterVariable(&r_batch_debugdynamicvertexpath);
@@ -4057,7 +4049,6 @@ void R_AnimCache_CacheVisibleEntities(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		wanttangents = false;
 		break;
 	}
@@ -4216,14 +4207,14 @@ static qboolean R_CanSeeBox(int numsamples, vec_t enlarge, vec3_t eye, vec3_t en
 	// try center
 	VectorCopy(eye, start);
 	VectorMAM(0.5f, boxmins, 0.5f, boxmaxs, end);
-	if (model->brush.TraceLineOfSight(model, start, end))
+	if (model->brush.TraceLineOfSight(model, start, end, false))
 		return true;
 
 	// try various random positions
 	for (i = 0;i < numsamples;i++)
 	{
 		VectorSet(end, lhrandom(boxmins[0], boxmaxs[0]), lhrandom(boxmins[1], boxmaxs[1]), lhrandom(boxmins[2], boxmaxs[2]));
-		if (model->brush.TraceLineOfSight(model, start, end))
+		if (model->brush.TraceLineOfSight(model, start, end, false))
 			return true;
 	}
 
@@ -4694,7 +4685,6 @@ void R_EntityMatrix(const matrix4x4_t *matrix)
 		{
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 			qglLoadMatrixf(gl_modelview16f);CHECKGLERROR
 #endif
@@ -5245,7 +5235,6 @@ static void R_Bloom_StartFrame(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		r_fb.usedepthtextures = false;
 		break;
@@ -5277,7 +5266,6 @@ static void R_Bloom_StartFrame(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		return;
 	}
 
@@ -5430,7 +5418,6 @@ static void R_Bloom_StartFrame(void)
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		break;
 	}
@@ -5726,7 +5713,6 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		if (r_refdef.viewblend[3] >= (1.0f / 256.0f))
 		{
 			// apply a color tint to the whole view
@@ -5883,7 +5869,6 @@ void R_UpdateVariables(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -5956,7 +5941,6 @@ static void R_SortEntities(void)
 R_RenderView
 ================
 */
-int dpsoftrast_test;
 extern cvar_t r_shadow_bouncegrid;
 void R_RenderView(void)
 {
@@ -5964,8 +5948,6 @@ void R_RenderView(void)
 	int fbo;
 	rtexture_t *depthtexture;
 	rtexture_t *colortexture;
-
-	dpsoftrast_test = r_test.integer;
 
 	if (r_timereport_active)
 		R_TimeReport("start");
@@ -8459,7 +8441,7 @@ void RSurf_PrepareVerticesForBatch(int batchneed, int texturenumsurfaces, const 
 //			rsurface.batchnormal3f = R_FrameData_Store(batchnumvertices * sizeof(float[3]), rsurface.batchnormal3f);
 //			rsurface.batchnormal3f_vertexbuffer = NULL;
 //			rsurface.batchnormal3f_bufferoffset = 0;
-			// sometimes we're on a renderpath that does not use vectors (GL11/GL13/GLES1)
+			// sometimes we're on a renderpath that does not use vectors (GL11/GL13)
 			if (!VectorLength2(rsurface.batchnormal3f + 3*rsurface.batchfirstvertex))
 				Mod_BuildNormals(rsurface.batchfirstvertex, batchnumvertices, batchnumtriangles, rsurface.batchvertex3f, rsurface.batchelement3i + 3 * rsurface.batchfirsttriangle, rsurface.batchnormal3f, r_smoothnormals_areaweighting.integer != 0);
 			if (!VectorLength2(rsurface.batchsvector3f + 3*rsurface.batchfirstvertex))
@@ -8809,30 +8791,6 @@ void RSurf_DrawBatch(void)
 	// reject it here, before it hits glDraw.
 	if (rsurface.batchnumtriangles == 0)
 		return;
-#if 0
-	// batch debugging code
-	if (r_test.integer && rsurface.entity == r_refdef.scene.worldentity && rsurface.batchvertex3f == r_refdef.scene.worldentity->model->surfmesh.data_vertex3f)
-	{
-		int i;
-		int j;
-		int c;
-		const int *e;
-		e = rsurface.batchelement3i + rsurface.batchfirsttriangle*3;
-		for (i = 0;i < rsurface.batchnumtriangles*3;i++)
-		{
-			c = e[i];
-			for (j = 0;j < rsurface.entity->model->num_surfaces;j++)
-			{
-				if (c >= rsurface.modelsurfaces[j].num_firstvertex && c < (rsurface.modelsurfaces[j].num_firstvertex + rsurface.modelsurfaces[j].num_vertices))
-				{
-					if (rsurface.modelsurfaces[j].texture != rsurface.texture)
-						Sys_Error("RSurf_DrawBatch: index %i uses different texture (%s) than surface %i which it belongs to (which uses %s)\n", c, rsurface.texture->name, j, rsurface.modelsurfaces[j].texture->name);
-					break;
-				}
-			}
-		}
-	}
-#endif
 	if (rsurface.batchmultidraw)
 	{
 		// issue multiple draws rather than copying index data
@@ -9724,7 +9682,6 @@ static void R_DrawWorldTextureSurfaceList(int texturenumsurfaces, const msurface
 		R_DrawTextureSurfaceList_GL20(texturenumsurfaces, texturesurfacelist, writedepth, prepass);
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_DrawTextureSurfaceList_GL13(texturenumsurfaces, texturesurfacelist, writedepth);
 		break;
 	case RENDERPATH_GL11:
@@ -9750,7 +9707,6 @@ static void R_DrawModelTextureSurfaceList(int texturenumsurfaces, const msurface
 		R_DrawTextureSurfaceList_GL20(texturenumsurfaces, texturesurfacelist, writedepth, prepass);
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_DrawTextureSurfaceList_GL13(texturenumsurfaces, texturesurfacelist, writedepth);
 		break;
 	case RENDERPATH_GL11:
@@ -9785,7 +9741,6 @@ static void R_DrawSurface_TransparentCallback(const entity_render_t *ent, const 
 			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 			RSurf_ActiveModelEntity(ent, true, false, false);
 			break;
 		}
@@ -11170,7 +11125,6 @@ void R_DrawModelSurfaces(entity_render_t *ent, qboolean skysurfaces, qboolean wr
 			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 			RSurf_ActiveModelEntity(ent, model->wantnormals, false, false);
 			break;
 		}
@@ -11185,7 +11139,6 @@ void R_DrawModelSurfaces(entity_render_t *ent, qboolean skysurfaces, qboolean wr
 			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 			RSurf_ActiveModelEntity(ent, true, false, false);
 			break;
 		}

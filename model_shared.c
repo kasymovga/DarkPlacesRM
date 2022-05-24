@@ -24,8 +24,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "image.h"
-#include "r_shadow.h"
 #include "polygon.h"
+#include "model_compile.h"
+
+#ifndef CONFIG_SV
+#include "r_shadow.h"
 
 cvar_t r_enableshadowvolumes = {CVAR_SAVE, "r_enableshadowvolumes", "1", "Enables use of Stencil Shadow Volume shadowing methods, saves some memory if turned off"};
 cvar_t r_mipskins = {CVAR_SAVE, "r_mipskins", "0", "mipmaps model skins so they render faster in the distance and do not display noise artifacts, can cause discoloration of skins if they contain undesirable border colors"};
@@ -39,6 +42,7 @@ cvar_t mod_generatelightmaps_gridsamples = {CVAR_SAVE, "mod_generatelightmaps_gr
 cvar_t mod_generatelightmaps_lightmapradius = {CVAR_SAVE, "mod_generatelightmaps_lightmapradius", "16", "sampling area around each lightmap pixel"};
 cvar_t mod_generatelightmaps_vertexradius = {CVAR_SAVE, "mod_generatelightmaps_vertexradius", "16", "sampling area around each vertex"};
 cvar_t mod_generatelightmaps_gridradius = {CVAR_SAVE, "mod_generatelightmaps_gridradius", "64", "sampling area around each lightgrid cell center"};
+#endif
 
 dp_model_t *loadmodel;
 
@@ -60,12 +64,12 @@ typedef struct q3shader_data_s
 } q3shader_data_t;
 static q3shader_data_t* q3shader_data;
 
+#ifndef CONFIG_SV
 static void mod_start(void)
 {
 	int i, count;
 	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
-
 	SCR_PushLoadingScreen(false, "Loading models", 1.0);
 	count = 0;
 	for (i = 0;i < nummodels;i++)
@@ -122,7 +126,6 @@ static void mod_newmap(void)
 				R_SkinFrame_MarkUsed(mod->brush.alphaskyskinframe);
 		}
 	}
-
 	if (!cl_stainmaps_clearonload.integer)
 		return;
 
@@ -143,6 +146,7 @@ static void mod_newmap(void)
 		}
 	}
 }
+#endif
 
 /*
 ===============
@@ -152,7 +156,9 @@ Mod_Init
 static void Mod_Print(void);
 static void Mod_Precache (void);
 static void Mod_Decompile_f(void);
+#ifndef CONFIG_SV
 static void Mod_GenerateLightmaps_f(void);
+#endif
 void Mod_Init (void)
 {
 	mod_mempool = Mem_AllocPool("modelinfo", 0, NULL);
@@ -161,7 +167,7 @@ void Mod_Init (void)
 	Mod_BrushInit();
 	Mod_AliasInit();
 	Mod_SpriteInit();
-
+	#ifndef CONFIG_SV
 	Cvar_RegisterVariable(&r_enableshadowvolumes);
 	Cvar_RegisterVariable(&r_mipskins);
 	Cvar_RegisterVariable(&r_mipnormalmaps);
@@ -175,17 +181,22 @@ void Mod_Init (void)
 	Cvar_RegisterVariable(&mod_generatelightmaps_lightmapradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_vertexradius);
 	Cvar_RegisterVariable(&mod_generatelightmaps_gridradius);
+	#endif
 
 	Cmd_AddCommand ("modellist", Mod_Print, "prints a list of loaded models");
 	Cmd_AddCommand ("modelprecache", Mod_Precache, "load a model");
 	Cmd_AddCommand ("modeldecompile", Mod_Decompile_f, "exports a model in several formats for editing purposes");
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("mod_generatelightmaps", Mod_GenerateLightmaps_f, "rebuilds lighting on current worldmodel");
+	#endif
 }
 
+#ifndef CONFIG_SV
 void Mod_RenderInit(void)
 {
 	R_RegisterModule("Models", mod_start, mod_shutdown, mod_newmap, NULL, NULL);
 }
+#endif
 
 void Mod_UnloadModel (dp_model_t *mod)
 {
@@ -201,6 +212,7 @@ void Mod_UnloadModel (dp_model_t *mod)
 	used = mod->used;
 	if (mod->mempool)
 	{
+		#ifndef CONFIG_SV
 		if (mod->surfmesh.data_element3i_indexbuffer)
 			R_Mesh_DestroyMeshBuffer(mod->surfmesh.data_element3i_indexbuffer);
 		mod->surfmesh.data_element3i_indexbuffer = NULL;
@@ -210,9 +222,12 @@ void Mod_UnloadModel (dp_model_t *mod)
 		if (mod->surfmesh.vbo_vertexbuffer)
 			R_Mesh_DestroyMeshBuffer(mod->surfmesh.vbo_vertexbuffer);
 		mod->surfmesh.vbo_vertexbuffer = NULL;
+		#endif
 	}
 	// free textures/memory attached to the model
+	#ifndef CONFIG_SV
 	R_FreeTexturePool(&mod->texturepool);
+	#endif
 	Mem_FreePool(&mod->mempool);
 	// clear the struct to make it available
 	memset(mod, 0, sizeof(dp_model_t));
@@ -223,11 +238,12 @@ void Mod_UnloadModel (dp_model_t *mod)
 	mod->loaded = false;
 }
 
+#ifndef CONFIG_SV
 static void R_Model_Null_Draw(entity_render_t *ent)
 {
 	return;
 }
-
+#endif
 
 typedef void (*mod_framegroupify_parsegroups_t) (unsigned int i, int start, int len, float fps, qboolean loop, const char *name, void *pass);
 
@@ -411,7 +427,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 		mod->modeldatatypestring = "null";
 		mod->type = mod_null;
+		#ifndef CONFIG_SV
 		mod->Draw = R_Model_Null_Draw;
+		#endif
 		mod->numframes = 2;
 		mod->numskins = 1;
 
@@ -451,9 +469,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 	if (developer_loading.integer)
 		Con_Printf("loading model %s\n", mod->name);
-	
+	#ifndef CONFIG_SV
 	SCR_PushLoadingScreen(true, mod->name, 1);
-
+	#endif
 	// LordHavoc: unload the existing model in this slot (if there is one)
 	if (mod->loaded || mod->mempool)
 		Mod_UnloadModel(mod);
@@ -504,6 +522,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		else if (!memcmp(buf, "ACTRHEAD", 8)) Mod_PSKMODEL_Load(mod, buf, bufend);
 		else if (!memcmp(buf, "INTERQUAKEMODEL", 16)) Mod_INTERQUAKEMODEL_Load(mod, buf, bufend);
 		else if (num == BSPVERSION || num == 30 || !memcmp(buf, "BSP2", 4) || !memcmp(buf, "2PSB", 4)) Mod_Q1BSP_Load(mod, buf, bufend);
+		else if (!strcasecmp(FS_FileExtension(mod->name), "smd")) Mod_SMD_Load(mod, buf, bufend);
 		else Con_Printf("Mod_LoadModel: model \"%s\" is of unknown/unsupported type\n", mod->name);
 		Mem_Free(buf);
 
@@ -515,8 +534,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 			Mod_FrameGroupify(mod, (const char *)buf);
 			Mem_Free(buf);
 		}
-
+		#ifndef CONFIG_SV
 		Mod_BuildVBOs();
+		#endif
 	}
 	else if (crash)
 	{
@@ -526,9 +546,9 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 	// no fatal errors occurred, so this model is ready to use.
 	mod->loaded = true;
-
+	#ifndef CONFIG_SV
 	SCR_PopLoadingScreen(false);
-
+	#endif
 	return mod;
 }
 
@@ -573,8 +593,9 @@ dp_model_t *Mod_FindName(const char *name, const char *parentname)
 		parentname = "";
 
 	// if we're not dedicatd, the renderer calls will crash without video
+	#ifndef CONFIG_SV
 	Host_StartVideo();
-
+	#endif
 	nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 
 	if (!name[0])
@@ -630,8 +651,9 @@ void Mod_Reload(void)
 	int i, count;
 	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
-
+	#ifndef CONFIG_SV
 	SCR_PushLoadingScreen(false, "Reloading models", 1.0);
+	#endif
 	count = 0;
 	for (i = 0;i < nummodels;i++)
 		if ((mod = (dp_model_t *) Mem_ExpandableArray_RecordAtIndex(&models, i)) && mod->name[0] && mod->name[0] != '*' && mod->used)
@@ -639,11 +661,17 @@ void Mod_Reload(void)
 	for (i = 0;i < nummodels;i++)
 		if ((mod = (dp_model_t *) Mem_ExpandableArray_RecordAtIndex(&models, i)) && mod->name[0] && mod->name[0] != '*' && mod->used)
 		{
+			#ifndef CONFIG_SV
 			SCR_PushLoadingScreen(true, mod->name, 1.0 / count);
+			#endif
 			Mod_LoadModel(mod, true, true);
+			#ifndef CONFIG_SV
 			SCR_PopLoadingScreen(false);
+			#endif
 		}
+	#ifndef CONFIG_SV
 	SCR_PopLoadingScreen(false);
+	#endif
 }
 
 unsigned char *mod_base;
@@ -683,7 +711,11 @@ Mod_Precache
 static void Mod_Precache(void)
 {
 	if (Cmd_Argc() == 2)
-		Mod_ForName(Cmd_Argv(1), false, true, Cmd_Argv(1)[0] == '*' ? cl.model_name[1] : NULL);
+		Mod_ForName(Cmd_Argv(1), false, true,
+				#ifndef CONFIG_SV
+				Cmd_Argv(1)[0] == '*' ? cl.model_name[1] :
+				#endif
+				NULL);
 	else
 		Con_Print("usage: modelprecache <filename>\n");
 }
@@ -768,7 +800,9 @@ void Mod_BuildTriangleNeighbors(int *neighbors, const int *elements, int numtria
 		}
 
 		// also send a keepalive here (this can take a while too!)
+		#ifndef CONFIG_SV
 		CL_KeepaliveMessage(false);
+		#endif
 	}
 	// free the allocated buffer
 	Mem_Free(edgehashentries);
@@ -1197,17 +1231,21 @@ void Mod_ShadowMesh_AddMesh(mempool_t *mempool, shadowmesh_t *mesh, rtexture_t *
 	}
 
 	// the triangle calculation can take a while, so let's do a keepalive here
+	#ifndef CONFIG_SV
 	CL_KeepaliveMessage(false);
+	#endif
 }
 
 shadowmesh_t *Mod_ShadowMesh_Begin(mempool_t *mempool, int maxverts, int maxtriangles, rtexture_t *map_diffuse, rtexture_t *map_specular, rtexture_t *map_normal, int light, int neighbors, int expandable)
 {
 	// the preparation before shadow mesh initialization can take a while, so let's do a keepalive here
+	#ifndef CONFIG_SV
 	CL_KeepaliveMessage(false);
-
+	#endif
 	return Mod_ShadowMesh_Alloc(mempool, maxverts, maxtriangles, map_diffuse, map_specular, map_normal, light, neighbors, expandable);
 }
 
+#ifndef CONFIG_SV
 static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 {
 	if (!mesh || !mesh->numverts)
@@ -1246,6 +1284,7 @@ static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 		Mem_Free(mem);
 	}
 }
+#endif
 
 shadowmesh_t *Mod_ShadowMesh_Finish(mempool_t *mempool, shadowmesh_t *firstmesh, qboolean light, qboolean neighbors, qboolean createvbo)
 {
@@ -1265,15 +1304,18 @@ shadowmesh_t *Mod_ShadowMesh_Finish(mempool_t *mempool, shadowmesh_t *firstmesh,
 				for (i = 0;i < newmesh->numtriangles*3;i++)
 					newmesh->element3s[i] = newmesh->element3i[i];
 			}
+			#ifndef CONFIG_SV
 			if (createvbo)
 				Mod_ShadowMesh_CreateVBOs(newmesh, mempool);
+			#endif
 		}
 		Mem_Free(mesh);
 	}
 
 	// this can take a while, so let's do a keepalive here
+	#ifndef CONFIG_SV
 	CL_KeepaliveMessage(false);
-
+	#endif
 	return firstmesh;
 }
 
@@ -1295,9 +1337,12 @@ void Mod_ShadowMesh_CalcBBox(shadowmesh_t *firstmesh, vec3_t mins, vec3_t maxs, 
 		}
 		for (i = 0, v = mesh->vertex3f;i < mesh->numverts;i++, v += 3)
 		{
-			if (nmins[0] > v[0]) nmins[0] = v[0];if (nmaxs[0] < v[0]) nmaxs[0] = v[0];
-			if (nmins[1] > v[1]) nmins[1] = v[1];if (nmaxs[1] < v[1]) nmaxs[1] = v[1];
-			if (nmins[2] > v[2]) nmins[2] = v[2];if (nmaxs[2] < v[2]) nmaxs[2] = v[2];
+			if (nmins[0] > v[0]) nmins[0] = v[0];
+			if (nmaxs[0] < v[0]) nmaxs[0] = v[0];
+			if (nmins[1] > v[1]) nmins[1] = v[1];
+			if (nmaxs[1] < v[1]) nmaxs[1] = v[1];
+			if (nmins[2] > v[2]) nmins[2] = v[2];
+			if (nmaxs[2] < v[2]) nmaxs[2] = v[2];
 		}
 	}
 	// calculate center and radius
@@ -1331,12 +1376,14 @@ void Mod_ShadowMesh_Free(shadowmesh_t *mesh)
 	shadowmesh_t *nextmesh;
 	for (;mesh;mesh = nextmesh)
 	{
+		#ifndef CONFIG_SV
 		if (mesh->element3i_indexbuffer)
 			R_Mesh_DestroyMeshBuffer(mesh->element3i_indexbuffer);
 		if (mesh->element3s_indexbuffer)
 			R_Mesh_DestroyMeshBuffer(mesh->element3s_indexbuffer);
 		if (mesh->vbo_vertexbuffer)
 			R_Mesh_DestroyMeshBuffer(mesh->vbo_vertexbuffer);
+		#endif
 		nextmesh = mesh->next;
 		Mem_Free(mesh);
 	}
@@ -1764,8 +1811,10 @@ void Mod_LoadQ3Shaders(void)
 					layer->rgbgen.rgbgen = Q3RGBGEN_IDENTITY;
 					layer->alphagen.alphagen = Q3ALPHAGEN_IDENTITY;
 					layer->tcgen.tcgen = Q3TCGEN_TEXTURE;
+					#ifndef CONFIG_SV
 					layer->blendfunc[0] = GL_ONE;
 					layer->blendfunc[1] = GL_ZERO;
+					#endif
 					while (COM_ParseToken_QuakeC(&text, false))
 					{
 						if (!strcasecmp(com_token, "}"))
@@ -1798,6 +1847,7 @@ void Mod_LoadQ3Shaders(void)
 						}
 						if (numparameters >= 2 && !strcasecmp(parameter[0], "blendfunc"))
 						{
+							#ifndef CONFIG_SV
 							if (numparameters == 2)
 							{
 								if (!strcasecmp(parameter[1], "add"))
@@ -1850,6 +1900,7 @@ void Mod_LoadQ3Shaders(void)
 										layer->blendfunc[k] = GL_ONE; // default in case of parsing error
 								}
 							}
+							#endif
 						}
 						if (numparameters >= 2 && !strcasecmp(parameter[0], "alphafunc"))
 							layer->alphatest = true;
@@ -1993,7 +2044,7 @@ void Mod_LoadQ3Shaders(void)
 								shader.layers[0].texflags |= TEXF_ALPHA;
 						}
 					}
-
+					#ifndef CONFIG_SV
 					if(mod_q3shader_force_addalpha.integer)
 					{
 						// for a long while, DP treated GL_ONE GL_ONE as GL_SRC_ALPHA GL_ONE
@@ -2001,10 +2052,11 @@ void Mod_LoadQ3Shaders(void)
 						if(layer->blendfunc[0] == GL_ONE && layer->blendfunc[1] == GL_ONE)
 							layer->blendfunc[0] = GL_SRC_ALPHA;
 					}
-					
+					#endif
 					layer->texflags = 0;
 					if (layer->alphatest)
 						layer->texflags |= TEXF_ALPHA;
+					#ifndef CONFIG_SV
 					switch(layer->blendfunc[0])
 					{
 						case GL_SRC_ALPHA:
@@ -2019,6 +2071,7 @@ void Mod_LoadQ3Shaders(void)
 							layer->texflags |= TEXF_ALPHA;
 							break;
 					}
+					#endif
 					if (!(shader.surfaceparms & Q3SURFACEPARM_NOMIPMAPS))
 						layer->texflags |= TEXF_MIPMAP;
 					if (!(shader.textureflags & Q3TEXTUREFLAG_NOPICMIP))
@@ -2391,6 +2444,7 @@ q3shaderinfo_t *Mod_LookupQ3Shader(const char *name)
 	return NULL;
 }
 
+#ifndef CONFIG_SV
 texture_shaderpass_t *Mod_CreateShaderPass(skinframe_t *skinframe)
 {
 	texture_shaderpass_t *shaderpass = (texture_shaderpass_t *)Mem_Alloc(loadmodel->mempool, sizeof(*shaderpass));
@@ -2817,6 +2871,7 @@ nothing                GL_ZERO GL_ONE
 	texture->backgroundcurrentskinframe = texture->backgroundshaderpass ? texture->backgroundshaderpass->skinframes[0] : NULL;
 	return success;
 }
+#endif
 
 skinfile_t *Mod_LoadSkinFiles(void)
 {
@@ -3033,6 +3088,7 @@ void Mod_MakeSortedSurfaces(dp_model_t *mod)
 	Mem_Free(numsurfacesfortexture);
 }
 
+#ifndef CONFIG_SV
 void Mod_BuildVBOs(void)
 {
 	if (!loadmodel->surfmesh.num_vertices)
@@ -3093,13 +3149,32 @@ void Mod_BuildVBOs(void)
 		Mem_Free(mem);
 	}
 }
+#endif
+
+static void Mod_Decompile_Skin(dp_model_t *model, const char *filename)
+{
+	char skinbuffer[16384];
+	int skinbuffer_pos = 0;
+	int surfaceindex;
+	const msurface_t *surface;
+	for (surfaceindex = 0, surface = model->data_surfaces;surfaceindex < model->num_surfaces;surfaceindex++, surface++)
+	{
+		if (surface->texture && surface->texture->name[0])
+			dpsnprintf(skinbuffer + skinbuffer_pos, sizeof(skinbuffer) - skinbuffer_pos, "shader%i,%s\n", surfaceindex, surface->texture->name);
+		else
+			dpsnprintf(skinbuffer + skinbuffer_pos, sizeof(skinbuffer) - skinbuffer_pos, "//shader%i,null\n", surfaceindex);
+
+		skinbuffer_pos += strlen(skinbuffer + skinbuffer_pos);
+	}
+	FS_WriteFile(filename, skinbuffer, skinbuffer_pos);
+}
 
 extern cvar_t mod_obj_orientation;
 static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const char *mtlfilename, const char *originalfilename)
 {
 	int submodelindex, vertexindex, surfaceindex, triangleindex, textureindex, countvertices = 0, countsurfaces = 0, countfaces = 0, counttextures = 0;
 	int a, b, c;
-	const char *texname;
+	char texname[64];
 	const int *e;
 	const float *v, *vn, *vt;
 	size_t l;
@@ -3109,6 +3184,7 @@ static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const cha
 	const msurface_t *surface;
 	const int maxtextures = 256;
 	char *texturenames = (char *) Z_Malloc(maxtextures * MAX_QPATH);
+	const char *mtlfilename_short;
 	dp_model_t *submodel;
 
 	// construct the mtllib file
@@ -3120,7 +3196,7 @@ static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const cha
 		countsurfaces++;
 		countvertices += surface->num_vertices;
 		countfaces += surface->num_triangles;
-		texname = (surface->texture && surface->texture->name[0]) ? surface->texture->name : "default";
+		dpsnprintf(texname, sizeof(texname), "shader%i", surfaceindex);
 		for (textureindex = 0;textureindex < counttextures;textureindex++)
 			if (!strcmp(texturenames + textureindex * MAX_QPATH, texname))
 				break;
@@ -3148,7 +3224,11 @@ static void Mod_Decompile_OBJ(dp_model_t *model, const char *filename, const cha
 
 	// construct the obj file
 	outbufferpos = 0;
-	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "# model exported from %s by darkplaces engine\n# %i vertices, %i faces, %i surfaces\nmtllib %s\n", originalfilename, countvertices, countfaces, countsurfaces, mtlfilename);
+	if ((mtlfilename_short = strrchr(mtlfilename, '/')))
+		mtlfilename_short++;
+	else
+		mtlfilename_short = mtlfilename;
+	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "# model exported from %s by darkplaces engine\n# %i vertices, %i faces, %i surfaces\nmtllib %s\n", originalfilename, countvertices, countfaces, countsurfaces, mtlfilename_short);
 	if (l > 0)
 		outbufferpos += l;
 
@@ -3233,35 +3313,10 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "version 1\nnodes\n");
 	if (l > 0)
 		outbufferpos += l;
-	for (transformindex = 0;transformindex < model->num_bones;transformindex++)
+	if (model->num_bones)
 	{
-		if (outbufferpos >= outbuffermax >> 1)
-		{
-			outbuffermax *= 2;
-			oldbuffer = outbuffer;
-			outbuffer = (char *) Z_Malloc(outbuffermax);
-			memcpy(outbuffer, oldbuffer, outbufferpos);
-			Z_Free(oldbuffer);
-		}
-		countnodes++;
-		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i \"%s\" %3i\n", transformindex, model->data_bones[transformindex].name, model->data_bones[transformindex].parent);
-		if (l > 0)
-			outbufferpos += l;
-	}
-	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "end\nskeleton\n");
-	if (l > 0)
-		outbufferpos += l;
-	for (poseindex = 0;poseindex < numposes;poseindex++)
-	{
-		countframes++;
-		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "time %i\n", poseindex);
-		if (l > 0)
-			outbufferpos += l;
 		for (transformindex = 0;transformindex < model->num_bones;transformindex++)
 		{
-			float angles[3];
-			float mtest[4][3];
-			matrix4x4_t posematrix;
 			if (outbufferpos >= outbuffermax >> 1)
 			{
 				outbuffermax *= 2;
@@ -3270,71 +3325,103 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 				memcpy(outbuffer, oldbuffer, outbufferpos);
 				Z_Free(oldbuffer);
 			}
-
-			// strangely the smd angles are for a transposed matrix, so we
-			// have to generate a transposed matrix, then convert that...
-			if (writetriangles)
-			{
-				matrix4x4_t temp_matrix;
-				Matrix4x4_FromArray12FloatD3D(&temp_matrix, model->data_baseboneposeinverse + (12*transformindex));
-
-				if (model->data_bones[transformindex].parent >= 0)
-				{
-					matrix4x4_t temp_matrix1;
-					matrix4x4_t temp_matrix2;
-					matrix4x4_t temp_matrix3;
-					temp_matrix1 = temp_matrix;
-					Matrix4x4_FromArray12FloatD3D(&temp_matrix2, model->data_baseboneposeinverse + (12*model->data_bones[transformindex].parent));
-					Matrix4x4_Invert_Simple(&temp_matrix3, &temp_matrix2);
-					Matrix4x4_Concat(&temp_matrix, &temp_matrix1, &temp_matrix3);
-				}
-				Matrix4x4_Invert_Simple(&posematrix, &temp_matrix);
-
-			}
-			else
-				Matrix4x4_FromBonePose7s(&posematrix, model->num_posescale, model->data_poses7s + 7*(model->num_bones * (poseindex + firstpose) + transformindex));
-
-			Matrix4x4_ToArray12FloatGL(&posematrix, mtest[0]);
-			AnglesFromVectors(angles, mtest[0], mtest[2], false);
-			if (angles[0] >= 180) angles[0] -= 360;
-			if (angles[1] >= 180) angles[1] -= 360;
-			if (angles[2] >= 180) angles[2] -= 360;
-
-#if 0
-{
-			float a = DEG2RAD(angles[ROLL]);
-			float b = DEG2RAD(angles[PITCH]);
-			float c = DEG2RAD(angles[YAW]);
-			float cy, sy, cp, sp, cr, sr;
-			float test[4][3];
-			// smd matrix construction, for comparing
-			sy = sin(c);
-			cy = cos(c);
-			sp = sin(b);
-			cp = cos(b);
-			sr = sin(a);
-			cr = cos(a);
-
-			test[0][0] = cp*cy;
-			test[0][1] = cp*sy;
-			test[0][2] = -sp;
-			test[1][0] = sr*sp*cy+cr*-sy;
-			test[1][1] = sr*sp*sy+cr*cy;
-			test[1][2] = sr*cp;
-			test[2][0] = (cr*sp*cy+-sr*-sy);
-			test[2][1] = (cr*sp*sy+-sr*cy);
-			test[2][2] = cr*cp;
-			test[3][0] = pose[9];
-			test[3][1] = pose[10];
-			test[3][2] = pose[11];
-}
-#endif
-			l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i %f %f %f %f %f %f\n", transformindex, mtest[3][0], mtest[3][1], mtest[3][2], DEG2RAD(angles[ROLL]), DEG2RAD(angles[PITCH]), DEG2RAD(angles[YAW]));
+			countnodes++;
+			l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i \"%s\" %3i\n", transformindex, model->data_bones[transformindex].name, model->data_bones[transformindex].parent);
 			if (l > 0)
 				outbufferpos += l;
 		}
+		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "end\nskeleton\n");
+		if (l > 0)
+			outbufferpos += l;
+		for (poseindex = 0;poseindex < numposes;poseindex++)
+		{
+			countframes++;
+			l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "time %i\n", poseindex);
+			if (l > 0)
+				outbufferpos += l;
+			for (transformindex = 0;transformindex < model->num_bones;transformindex++)
+			{
+				float angles[3];
+				float mtest[4][3];
+				matrix4x4_t posematrix;
+				if (outbufferpos >= outbuffermax >> 1)
+				{
+					outbuffermax *= 2;
+					oldbuffer = outbuffer;
+					outbuffer = (char *) Z_Malloc(outbuffermax);
+					memcpy(outbuffer, oldbuffer, outbufferpos);
+					Z_Free(oldbuffer);
+				}
+
+				// strangely the smd angles are for a transposed matrix, so we
+				// have to generate a transposed matrix, then convert that...
+				if (writetriangles)
+				{
+					matrix4x4_t temp_matrix;
+					Matrix4x4_FromArray12FloatD3D(&temp_matrix, model->data_baseboneposeinverse + (12*transformindex));
+
+					if (model->data_bones[transformindex].parent >= 0)
+					{
+						matrix4x4_t temp_matrix1;
+						matrix4x4_t temp_matrix2;
+						matrix4x4_t temp_matrix3;
+						temp_matrix1 = temp_matrix;
+						Matrix4x4_FromArray12FloatD3D(&temp_matrix2, model->data_baseboneposeinverse + (12*model->data_bones[transformindex].parent));
+						Matrix4x4_Invert_Simple(&temp_matrix3, &temp_matrix2);
+						Matrix4x4_Concat(&temp_matrix, &temp_matrix1, &temp_matrix3);
+					}
+					Matrix4x4_Invert_Simple(&posematrix, &temp_matrix);
+
+				}
+				else
+					Matrix4x4_FromBonePose7s(&posematrix, model->num_posescale, model->data_poses7s + 7*(model->num_bones * (poseindex + firstpose) + transformindex));
+
+				Matrix4x4_ToArray12FloatGL(&posematrix, mtest[0]);
+				AnglesFromVectors(angles, mtest[0], mtest[2], false);
+				if (angles[0] >= 180) angles[0] -= 360;
+				if (angles[1] >= 180) angles[1] -= 360;
+				if (angles[2] >= 180) angles[2] -= 360;
+
+#if 0
+	{
+				float a = DEG2RAD(angles[ROLL]);
+				float b = DEG2RAD(angles[PITCH]);
+				float c = DEG2RAD(angles[YAW]);
+				float cy, sy, cp, sp, cr, sr;
+				float test[4][3];
+				// smd matrix construction, for comparing
+				sy = sin(c);
+				cy = cos(c);
+				sp = sin(b);
+				cp = cos(b);
+				sr = sin(a);
+				cr = cos(a);
+
+				test[0][0] = cp*cy;
+				test[0][1] = cp*sy;
+				test[0][2] = -sp;
+				test[1][0] = sr*sp*cy+cr*-sy;
+				test[1][1] = sr*sp*sy+cr*cy;
+				test[1][2] = sr*cp;
+				test[2][0] = (cr*sp*cy+-sr*-sy);
+				test[2][1] = (cr*sp*sy+-sr*cy);
+				test[2][2] = cr*cp;
+				test[3][0] = pose[9];
+				test[3][1] = pose[10];
+				test[3][2] = pose[11];
 	}
-	l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "end\n");
+#endif
+				l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i %f %f %f %f %f %f\n", transformindex, mtest[3][0], mtest[3][1], mtest[3][2], DEG2RAD(angles[ROLL]), DEG2RAD(angles[PITCH]), DEG2RAD(angles[YAW]));
+				if (l > 0)
+					outbufferpos += l;
+			}
+		}
+		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "end\n");
+	}
+	else
+	{
+		l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "  0 \"dummy\" -1\nend\nskeleton\ntime 0\n  0 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000\nend\n");
+	}
 	if (l > 0)
 		outbufferpos += l;
 	if (writetriangles)
@@ -3355,7 +3442,7 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 					memcpy(outbuffer, oldbuffer, outbufferpos);
 					Z_Free(oldbuffer);
 				}
-				l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%s\n", surface->texture && surface->texture->name[0] ? surface->texture->name : "default.bmp");
+				l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "shader%i\n", surfaceindex);
 				if (l > 0)
 					outbufferpos += l;
 				for (cornerindex = 0;cornerindex < 3;cornerindex++)
@@ -3364,8 +3451,8 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 					const float *v = model->surfmesh.data_vertex3f + index * 3;
 					const float *vn = model->surfmesh.data_normal3f + index * 3;
 					const float *vt = model->surfmesh.data_texcoordtexture2f + index * 2;
-					const int b = model->surfmesh.blends[index];
-					if (b < model->num_bones)
+					const int b = (model->num_bones ? model->surfmesh.blends[index] : 0);
+					if (b < model->num_bones || !model->num_bones)
 						l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i %f %f %f %f %f %f %f %f\n"                          , b, v[0], v[1], v[2], vn[0], vn[1], vn[2], vt[0], 1 - vt[1]);
 					else
 					{
@@ -3412,10 +3499,8 @@ static void Mod_Decompile_f(void)
 	char animname2[MAX_QPATH];
 	char zymtextbuffer[16384];
 	char dpmtextbuffer[16384];
-	char framegroupstextbuffer[16384];
 	int zymtextsize = 0;
 	int dpmtextsize = 0;
-	int framegroupstextsize = 0;
 	char vabuf[1024];
 
 	if (Cmd_Argc() != 2)
@@ -3427,12 +3512,17 @@ static void Mod_Decompile_f(void)
 	strlcpy(inname, Cmd_Argv(1), sizeof(inname));
 	FS_StripExtension(inname, basename, sizeof(basename));
 
-	mod = Mod_ForName(inname, false, true, inname[0] == '*' ? cl.model_name[1] : NULL);
+	mod = Mod_ForName(inname, false, true,
+			#ifndef CONFIG_SV
+			inname[0] == '*' ? cl.model_name[1] :
+			#endif
+			NULL);
 	if (!mod)
 	{
 		Con_Print("No such model\n");
 		return;
 	}
+	#ifndef CONFIG_SV
 	if (mod->brush.submodel)
 	{
 		// if we're decompiling a submodel, be sure to give it a proper name based on its parent
@@ -3440,6 +3530,7 @@ static void Mod_Decompile_f(void)
 		dpsnprintf(basename, sizeof(basename), "%s/%s", outname, mod->name);
 		outname[0] = 0;
 	}
+	#endif
 	if (!mod->surfmesh.num_triangles)
 	{
 		Con_Print("Empty model (or sprite)\n");
@@ -3452,19 +3543,39 @@ static void Mod_Decompile_f(void)
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled.obj", basename);
 		dpsnprintf(mtlname, sizeof(mtlname), "%s_decompiled.mtl", basename);
 		Mod_Decompile_OBJ(mod, outname, mtlname, inname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.obj_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
 	}
 
 	// export SMD if possible (only for skeletal models)
-	if (mod->surfmesh.num_triangles && mod->num_bones)
+	if (mod->surfmesh.num_triangles)
 	{
+		int animnum = 0;
+		char opts[128];
 		dpsnprintf(outname, sizeof(outname), "%s_decompiled/ref1.smd", basename);
 		Mod_Decompile_SMD(mod, outname, 0, 1, true);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled/out.md3_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled/out.dpm_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.smd", basename);
+		Mod_Decompile_SMD(mod, outname, 0, 1, true);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.smd.opts", basename);
+		dpsnprintf(opts, sizeof(opts), "1 0 0 0 0 // scale rotate origin-x origin-y origin-z");
+		FS_WriteFile(outname, opts, strlen(opts));
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.dpm_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.md3_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
+		dpsnprintf(outname, sizeof(outname), "%s_decompiled.smd_0.skin", basename);
+		Mod_Decompile_Skin(mod, outname);
 		l = dpsnprintf(zymtextbuffer + zymtextsize, sizeof(zymtextbuffer) - zymtextsize, "output out.zym\nscale 1\norigin 0 0 0\nmesh ref1.smd\n");
 		if (l > 0) zymtextsize += l;
 		l = dpsnprintf(dpmtextbuffer + dpmtextsize, sizeof(dpmtextbuffer) - dpmtextsize, "outputdir .\nmodel out\nscale 1\norigin 0 0 0\nscene ref1.smd\n");
 		if (l > 0) dpmtextsize += l;
-		for (i = 0;i < mod->numframes;i = j)
+		for (i = 0;mod->num_bones && i < mod->numframes;i = j)
 		{
+			animnum++;
 			strlcpy(animname, mod->animscenes[i].name, sizeof(animname));
 			first = mod->animscenes[i].firstframe;
 			if (mod->animscenes[i].framecount > 1)
@@ -3506,6 +3617,11 @@ static void Mod_Decompile_f(void)
 			}
 			dpsnprintf(outname, sizeof(outname), "%s_decompiled/%s.smd", basename, animname);
 			Mod_Decompile_SMD(mod, outname, first, count, false);
+			dpsnprintf(outname, sizeof(outname), "%s_decompiled_anim%i.smd", basename, animnum);
+			Mod_Decompile_SMD(mod, outname, first, count, false);
+			dpsnprintf(outname, sizeof(outname), "%s_decompiled_anim%i.smd.opts", basename, animnum);
+			dpsnprintf(opts, sizeof(opts), "%.6f %i // framerate noloop", (float)mod->animscenes[i].framerate, !mod->animscenes[i].loop);
+			FS_WriteFile(outname, opts, strlen(opts));
 			if (zymtextsize < (int)sizeof(zymtextbuffer) - 100)
 			{
 				l = dpsnprintf(zymtextbuffer + zymtextsize, sizeof(zymtextbuffer) - zymtextsize, "scene %s.smd fps %g %s\n", animname, mod->animscenes[i].framerate, mod->animscenes[i].loop ? "" : " noloop");
@@ -3516,21 +3632,22 @@ static void Mod_Decompile_f(void)
 				l = dpsnprintf(dpmtextbuffer + dpmtextsize, sizeof(dpmtextbuffer) - dpmtextsize, "scene %s.smd fps %g %s\n", animname, mod->animscenes[i].framerate, mod->animscenes[i].loop ? "" : " noloop");
 				if (l > 0) dpmtextsize += l;
 			}
-			if (framegroupstextsize < (int)sizeof(framegroupstextbuffer) - 100)
-			{
-				l = dpsnprintf(framegroupstextbuffer + framegroupstextsize, sizeof(framegroupstextbuffer) - framegroupstextsize, "%d %d %f %d // %s\n", first, count, mod->animscenes[i].framerate, mod->animscenes[i].loop, animname);
-				if (l > 0) framegroupstextsize += l;
-			}
 		}
 		if (zymtextsize)
 			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled/out_zym.txt", basename), zymtextbuffer, (fs_offset_t)zymtextsize);
 		if (dpmtextsize)
-			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled/out_dpm.txt", basename), dpmtextbuffer, (fs_offset_t)dpmtextsize);
-		if (framegroupstextsize)
-			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled.framegroups", basename), framegroupstextbuffer, (fs_offset_t)framegroupstextsize);
+		{
+			char dpm_script_path[MAX_QPATH];
+			char dpm_dir_path[MAX_QPATH];
+			dpsnprintf(dpm_script_path, sizeof(dpm_script_path), "%s_decompiled/out_dpm.txt", basename);
+			dpsnprintf(dpm_dir_path, sizeof(dpm_dir_path), "%s_decompiled/", basename);
+			FS_WriteFile(dpm_script_path, dpmtextbuffer, (fs_offset_t)dpmtextsize);
+			Mod_Compile_DPM_MD3(dpmtextbuffer, dpm_dir_path, va(vabuf, sizeof(vabuf), "%s_decompiled", basename));
+		}
 	}
 }
 
+#ifndef CONFIG_SV
 void Mod_AllocLightmap_Init(mod_alloclightmap_state_t *state, mempool_t *mempool, int width, int height)
 {
 	int y;
@@ -4514,3 +4631,4 @@ static void Mod_GenerateLightmaps_f(void)
 	}
 	Mod_GenerateLightmaps(cl.worldmodel);
 }
+#endif

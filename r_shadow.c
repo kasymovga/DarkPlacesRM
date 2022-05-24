@@ -306,7 +306,7 @@ cvar_t r_shadow_realtime_world_compile = {0, "r_shadow_realtime_world_compile", 
 cvar_t r_shadow_realtime_world_compileshadow = {0, "r_shadow_realtime_world_compileshadow", "1", "enables compilation of shadows from world lights for higher performance rendering"};
 cvar_t r_shadow_realtime_world_compilesvbsp = {0, "r_shadow_realtime_world_compilesvbsp", "1", "enables svbsp optimization during compilation (slower than compileportalculling but more exact)"};
 cvar_t r_shadow_scissor = {0, "r_shadow_scissor", "1", "use scissor optimization of light rendering (restricts rendering to the portion of the screen affected by the light)"};
-cvar_t r_shadow_shadowmapping = {CVAR_SAVE, "r_shadow_shadowmapping", "1", "enables use of shadowmapping (depth texture sampling) instead of stencil shadow volumes, requires gl_fbo 1"};
+cvar_t r_shadow_shadowmapping = {CVAR_SAVE, "r_shadow_shadowmapping", "1", "enables use of shadowmapping (depth texture sampling) instead of stencil shadow volumes"};
 cvar_t r_shadow_shadowmapping_filterquality = {CVAR_SAVE, "r_shadow_shadowmapping_filterquality", "-1", "shadowmap filter modes: -1 = auto-select, 0 = no filtering, 1 = bilinear, 2 = bilinear 2x2 blur (fast), 3 = 3x3 blur (moderate), 4 = 4x4 blur (slow)"};
 cvar_t r_shadow_shadowmapping_useshadowsampler = {CVAR_SAVE, "r_shadow_shadowmapping_useshadowsampler", "1", "whether to use sampler2DShadow if available"};
 cvar_t r_shadow_shadowmapping_depthbits = {CVAR_SAVE, "r_shadow_shadowmapping_depthbits", "24", "requested minimum shadowmap texture depth bits"};
@@ -493,7 +493,6 @@ static void R_Shadow_SetShadowMode(void)
 			break;
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
 			break;
 		}
@@ -614,7 +613,6 @@ static void r_shadow_start(void)
 		// these renderpaths do not currently have the code to display the bouncegrid, so disable it on them...
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 }
@@ -714,13 +712,19 @@ static void r_shadow_shutdown(void)
 static void r_shadow_newmap(void)
 {
 	r_shadow_bouncegrid_state.highpixels = NULL;
-	if (r_shadow_bouncegrid_state.blurpixels[0]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]); r_shadow_bouncegrid_state.blurpixels[0] = NULL;
-	if (r_shadow_bouncegrid_state.blurpixels[1]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]); r_shadow_bouncegrid_state.blurpixels[1] = NULL;
-	if (r_shadow_bouncegrid_state.u8pixels) Mem_Free(r_shadow_bouncegrid_state.u8pixels); r_shadow_bouncegrid_state.u8pixels = NULL;
-	if (r_shadow_bouncegrid_state.fp16pixels) Mem_Free(r_shadow_bouncegrid_state.fp16pixels); r_shadow_bouncegrid_state.fp16pixels = NULL;
-	if (r_shadow_bouncegrid_state.splatpaths) Mem_Free(r_shadow_bouncegrid_state.splatpaths); r_shadow_bouncegrid_state.splatpaths = NULL;
+	if (r_shadow_bouncegrid_state.blurpixels[0]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]);
+	r_shadow_bouncegrid_state.blurpixels[0] = NULL;
+	if (r_shadow_bouncegrid_state.blurpixels[1]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]);
+	r_shadow_bouncegrid_state.blurpixels[1] = NULL;
+	if (r_shadow_bouncegrid_state.u8pixels) Mem_Free(r_shadow_bouncegrid_state.u8pixels);
+	r_shadow_bouncegrid_state.u8pixels = NULL;
+	if (r_shadow_bouncegrid_state.fp16pixels) Mem_Free(r_shadow_bouncegrid_state.fp16pixels);
+	r_shadow_bouncegrid_state.fp16pixels = NULL;
+	if (r_shadow_bouncegrid_state.splatpaths) Mem_Free(r_shadow_bouncegrid_state.splatpaths);
+	r_shadow_bouncegrid_state.splatpaths = NULL;
 	r_shadow_bouncegrid_state.maxsplatpaths = 0;
-	if (r_shadow_bouncegrid_state.texture)    R_FreeTexture(r_shadow_bouncegrid_state.texture);r_shadow_bouncegrid_state.texture = NULL;
+	if (r_shadow_bouncegrid_state.texture)    R_FreeTexture(r_shadow_bouncegrid_state.texture);
+	r_shadow_bouncegrid_state.texture = NULL;
 	if (r_shadow_lightcorona)                 R_SkinFrame_MarkUsed(r_shadow_lightcorona);
 	if (r_editlights_sprcursor)               R_SkinFrame_MarkUsed(r_editlights_sprcursor);
 	if (r_editlights_sprlight)                R_SkinFrame_MarkUsed(r_editlights_sprlight);
@@ -1439,6 +1443,7 @@ void R_Shadow_VolumeFromList(int numverts, int numtris, const float *invertex3f,
 			// increment stencil if frontface is infront of depthbuffer
 			GL_CullFace(r_refdef.view.cullface_front);
 			R_SetStencil(true, 255, GL_KEEP, GL_KEEP, GL_DECR, GL_ALWAYS, 128, 255);
+			R_Mesh_PrepareVertices_Vertex3f(outverts, shadowvertex3f, NULL, 0);
 			R_Mesh_Draw(0, outverts, 0, tris, shadowelements, NULL, 0, NULL, NULL, 0);
 			// decrement stencil if backface is infront of depthbuffer
 			GL_CullFace(r_refdef.view.cullface_back);
@@ -1449,6 +1454,7 @@ void R_Shadow_VolumeFromList(int numverts, int numtris, const float *invertex3f,
 			// decrement stencil if backface is behind depthbuffer
 			GL_CullFace(r_refdef.view.cullface_front);
 			R_SetStencil(true, 255, GL_KEEP, GL_DECR, GL_KEEP, GL_ALWAYS, 128, 255);
+			R_Mesh_PrepareVertices_Vertex3f(outverts, shadowvertex3f, NULL, 0);
 			R_Mesh_Draw(0, outverts, 0, tris, shadowelements, NULL, 0, NULL, NULL, 0);
 			// increment stencil if frontface is behind depthbuffer
 			GL_CullFace(r_refdef.view.cullface_back);
@@ -2041,7 +2047,6 @@ void R_Shadow_RenderMode_Begin(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		if (r_textureunits.integer >= 2 && vid.texunits >= 2 && r_shadow_texture3d.integer && r_shadow_attenuation3dtexture)
 			r_shadow_lightingrendermode = R_SHADOW_RENDERMODE_LIGHT_VERTEX3DATTEN;
 		else if (r_textureunits.integer >= 3 && vid.texunits >= 3)
@@ -2699,13 +2704,19 @@ static void R_Shadow_BounceGrid_UpdateSpacing(void)
 	numpixels = r_shadow_bouncegrid_state.pixelsperband*r_shadow_bouncegrid_state.pixelbands;
 	if (r_shadow_bouncegrid_state.numpixels != numpixels)
 	{
-		if (r_shadow_bouncegrid_state.texture) R_FreeTexture(r_shadow_bouncegrid_state.texture);r_shadow_bouncegrid_state.texture = NULL;
+		if (r_shadow_bouncegrid_state.texture) R_FreeTexture(r_shadow_bouncegrid_state.texture);
+		r_shadow_bouncegrid_state.texture = NULL;
 		r_shadow_bouncegrid_state.highpixels = NULL;
-		if (r_shadow_bouncegrid_state.blurpixels[0]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]); r_shadow_bouncegrid_state.blurpixels[0] = NULL;
-		if (r_shadow_bouncegrid_state.blurpixels[1]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]); r_shadow_bouncegrid_state.blurpixels[1] = NULL;
-		if (r_shadow_bouncegrid_state.u8pixels) Mem_Free(r_shadow_bouncegrid_state.u8pixels); r_shadow_bouncegrid_state.u8pixels = NULL;
-		if (r_shadow_bouncegrid_state.fp16pixels) Mem_Free(r_shadow_bouncegrid_state.fp16pixels); r_shadow_bouncegrid_state.fp16pixels = NULL;
-		if (r_shadow_bouncegrid_state.splatpaths) Mem_Free(r_shadow_bouncegrid_state.splatpaths); r_shadow_bouncegrid_state.splatpaths = NULL;
+		if (r_shadow_bouncegrid_state.blurpixels[0]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]);
+		r_shadow_bouncegrid_state.blurpixels[0] = NULL;
+		if (r_shadow_bouncegrid_state.blurpixels[1]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]);
+		r_shadow_bouncegrid_state.blurpixels[1] = NULL;
+		if (r_shadow_bouncegrid_state.u8pixels) Mem_Free(r_shadow_bouncegrid_state.u8pixels);
+		r_shadow_bouncegrid_state.u8pixels = NULL;
+		if (r_shadow_bouncegrid_state.fp16pixels) Mem_Free(r_shadow_bouncegrid_state.fp16pixels);
+		r_shadow_bouncegrid_state.fp16pixels = NULL;
+		if (r_shadow_bouncegrid_state.splatpaths) Mem_Free(r_shadow_bouncegrid_state.splatpaths);
+		r_shadow_bouncegrid_state.splatpaths = NULL;
 		r_shadow_bouncegrid_state.maxsplatpaths = 0;
 		r_shadow_bouncegrid_state.numpixels = numpixels;
 	}
@@ -5292,7 +5303,6 @@ void R_Shadow_PrepareLights(int fbo, rtexture_t *depthtexture, rtexture_t *color
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 	case RENDERPATH_GLES2:
 		r_shadow_usingdeferredprepass = false;
 		break;
@@ -5764,8 +5774,8 @@ void R_Shadow_DrawModelShadows(void)
 static void R_BeginCoronaQuery(rtlight_t *rtlight, float scale, qboolean usequery)
 {
 	float zdist;
-	vec3_t centerorigin;
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
+	vec3_t centerorigin;
 	float vertex3f[12];
 #endif
 	// if it's too close, skip it
@@ -5779,8 +5789,8 @@ static void R_BeginCoronaQuery(rtlight_t *rtlight, float scale, qboolean usequer
 		rtlight->corona_queryindex_allpixels = r_queries[r_numqueries++];
 		rtlight->corona_queryindex_visiblepixels = r_queries[r_numqueries++];
 		// we count potential samples in the middle of the screen, we count actual samples at the light location, this allows counting potential samples of off-screen lights
-		VectorMA(r_refdef.view.origin, zdist, r_refdef.view.forward, centerorigin);
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
+		VectorMA(r_refdef.view.origin, zdist, r_refdef.view.forward, centerorigin);
 		CHECKGLERROR
 		// NOTE: GL_DEPTH_TEST must be enabled or ATI won't count samples, so use GL_DepthFunc instead
 		qglBeginQueryARB(GL_SAMPLES_PASSED_ARB, rtlight->corona_queryindex_allpixels);
@@ -5807,12 +5817,11 @@ static void R_DrawCorona(rtlight_t *rtlight, float cscale, float scale)
 {
 	vec3_t color;
 	unsigned int occlude = 0;
-	GLint allpixels = 0, visiblepixels = 0;
-
 	// now we have to check the query result
 	if (rtlight->corona_queryindex_visiblepixels)
 	{
 #if defined(GL_SAMPLES_PASSED_ARB) && !defined(USE_GLES2)
+		GLint allpixels = 0, visiblepixels = 0;
 		CHECKGLERROR
 		// See if we can use the GPU-side method to prevent implicit sync
 		if (vid.support.arb_query_buffer_object) {

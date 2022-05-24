@@ -194,10 +194,11 @@ float	getserverlistindexforkey(string key)
 #include "quakedef.h"
 #include "progdefs.h"
 #include "progsvm.h"
+#ifndef CONFIG_SV
 #include "clprogdefs.h"
 #include "mprogdefs.h"
-
 #include "cl_video.h"
+#endif
 
 //============================================================================
 // nice helper macros

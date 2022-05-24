@@ -28,6 +28,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "utf8lib.h"
 
+cvar_t cl_rollspeed = {0, "cl_rollspeed", "200", "how much strafing is necessary to tilt the view"};
+cvar_t cl_rollangle = {0, "cl_rollangle", "2.0", "how much to tilt the view when strafing"};
 cvar_t registered = {0, "registered","0", "indicates if this is running registered quake (whether gfx/pop.lmp was found)"};
 cvar_t cmdline = {0, "cmdline","0", "contains commandline the engine was launched with"};
 
@@ -1590,6 +1592,8 @@ void COM_Init_Commands (void)
 	int i, j, n;
 	char com_cmdline[MAX_INPUTLINE];
 
+	Cvar_RegisterVariable(&cl_rollspeed);
+	Cvar_RegisterVariable(&cl_rollangle);
 	Cvar_RegisterVariable (&registered);
 	Cvar_RegisterVariable (&cmdline);
 
@@ -2281,4 +2285,34 @@ size_t base64_encode(unsigned char *buf, size_t buflen, size_t outbuflen)
 		base64_3to4(buf + 3*i, buf + 4*i, (int)(buflen - 3*i));
 	}
 	return blocks * 4;
+}
+
+/*
+===============
+V_CalcRoll
+
+Used by view and sv_user
+===============
+*/
+float V_CalcRoll (const vec3_t angles, const vec3_t velocity)
+{
+	vec3_t	right;
+	float	sign;
+	float	side;
+	float	value;
+
+	AngleVectors (angles, NULL, right, NULL);
+	side = DotProduct (velocity, right);
+	sign = side < 0 ? -1 : 1;
+	side = fabs(side);
+
+	value = cl_rollangle.value;
+
+	if (side < cl_rollspeed.value)
+		side = side * value / cl_rollspeed.value;
+	else
+		side = value;
+
+	return side*sign;
+
 }

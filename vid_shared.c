@@ -170,7 +170,7 @@ cvar_t vid_sRGB_fallback = {CVAR_SAVE, "vid_sRGB_fallback", "0", "do an approxim
 
 cvar_t vid_touchscreen = {0, "vid_touchscreen", "0", "Use touchscreen-style input (no mouse grab, track mouse motion only while button is down, screen areas for mimicing joystick axes and buttons"};
 cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "shows the platform's screen keyboard for text entry, can be set by csqc or menu qc if it wants to receive text input, does nothing if the platform has no screen keyboard"};
-cvar_t vid_touchscreen_active = {1, "vid_touchscreen_active", "1", "activate/deactivate touchscreen controls" };
+cvar_t vid_touchscreen_active = {0, "vid_touchscreen_active", "1", "activate/deactivate touchscreen controls" };
 cvar_t vid_stick_mouse = {CVAR_SAVE, "vid_stick_mouse", "0", "have the mouse stuck in the center of the screen" };
 cvar_t vid_resizable = {CVAR_SAVE, "vid_resizable", "0", "0: window not resizable, 1: resizable, 2: window can be resized but the framebuffer isn't adjusted" };
 cvar_t vid_desktopfullscreen = {CVAR_SAVE, "vid_desktopfullscreen", "0", "force desktop resolution for fullscreen; also use some OS dependent tricks for better fullscreen integration"};
@@ -1541,7 +1541,6 @@ void VID_UpdateGamma(qboolean force, int rampsize)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		break;
 	}
 	if(!vid_activewindow)

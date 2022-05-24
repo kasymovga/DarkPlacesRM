@@ -242,6 +242,8 @@ const char *vm_sv_extensions =
 "DP_RM_GEOIP "
 "DP_RM_SETRENDERENTITY "
 "DP_RM_CULLTRACEMODE "
+"DP_RM_COLLISIONSCALE "
+"DP_RM_CURL_EVENT "
 //"EXT_CSQC " // not ready yet
 ;
 
@@ -2467,7 +2469,11 @@ void SV_GetEntityMatrix (prvm_prog_t *prog, prvm_edict_t *ent, matrix4x4_t *out,
 		scale = 1.0f;
 
 	if (viewmatrix)
-		Matrix4x4_CreateFromQuakeEntity(out, PRVM_serveredictvector(ent, origin)[0], PRVM_serveredictvector(ent, origin)[1], PRVM_serveredictvector(ent, origin)[2] + PRVM_serveredictvector(ent, view_ofs)[2], PRVM_serveredictvector(ent, v_angle)[0], PRVM_serveredictvector(ent, v_angle)[1], PRVM_serveredictvector(ent, v_angle)[2], scale * cl_viewmodel_scale.value);
+		Matrix4x4_CreateFromQuakeEntity(out, PRVM_serveredictvector(ent, origin)[0], PRVM_serveredictvector(ent, origin)[1], PRVM_serveredictvector(ent, origin)[2] + PRVM_serveredictvector(ent, view_ofs)[2], PRVM_serveredictvector(ent, v_angle)[0], PRVM_serveredictvector(ent, v_angle)[1], PRVM_serveredictvector(ent, v_angle)[2], scale
+		#ifndef CONFIG_SV
+		* cl_viewmodel_scale.value
+		#endif
+		);
 	else
 	{
 		pitchsign = SV_GetPitchSign(prog, ent);

@@ -1633,7 +1633,6 @@ void V_StartPitchDrift (void);
 void V_StopPitchDrift (void);
 
 void V_Init (void);
-float V_CalcRoll (const vec3_t angles, const vec3_t velocity);
 void V_UpdateBlends (void);
 void V_ParseDamage (void);
 

@@ -254,6 +254,7 @@ void BuildGammaTable16(float prescale, float gamma, float scale, float base, flo
 	}
 }
 
+#ifndef CONFIG_SV
 static void Palette_Shutdown(void)
 {
 }
@@ -261,6 +262,7 @@ static void Palette_Shutdown(void)
 static void Palette_NewMap(void)
 {
 }
+#endif
 
 static void Palette_Load(void)
 {
@@ -365,7 +367,9 @@ static void Palette_Load(void)
 
 void Palette_Init(void)
 {
+	#ifndef CONFIG_SV
 	R_RegisterModule("Palette", Palette_Load, Palette_Shutdown, Palette_NewMap, NULL, NULL);
+	#endif
 	Cvar_RegisterVariable(&r_colormap_palette);
 	Palette_Load();
 }

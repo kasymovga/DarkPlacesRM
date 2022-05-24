@@ -105,8 +105,6 @@ typedef struct ft2_settings_s
 	float outline, blur, shadowx, shadowy, shadowz;
 } ft2_settings_t;
 
-#define MAX_FONT_SIZES 16
-#define MAX_FONT_FALLBACKS 3
 typedef struct dp_font_s
 {
 	rtexture_t *tex;
@@ -145,13 +143,6 @@ extern dp_fonts_t dp_fonts;
 #define FONT_MENU        (&dp_fonts.f[7]) // should be fixed width
 #define FONT_USER(i)     (&dp_fonts.f[8+i]) // userdefined fonts
 #define MAX_USERFONTS    (dp_fonts.maxsize - 8)
-
-// shared color tag printing constants
-#define STRING_COLOR_TAG			'^'
-#define STRING_COLOR_DEFAULT		7
-#define STRING_COLOR_DEFAULT_STR	"^7"
-#define STRING_COLOR_RGB_TAG_CHAR	'x'
-#define STRING_COLOR_RGB_TAG		"^x"
 
 // all of these functions will set r_defdef.draw2dstage if not in 2D rendering mode (and of course prepare for 2D rendering in that case)
 

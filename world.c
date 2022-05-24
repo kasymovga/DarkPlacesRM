@@ -1820,10 +1820,12 @@ static void World_Physics_Frame_BodyToEntity(world_t *world, prvm_edict_t *ed)
 		{
 			pitchsign = SV_GetPitchSign(prog, ed);
 		}
+		#ifndef CONFIG_SV
 		else if(prog == CLVM_prog)
 		{
 			pitchsign = CL_GetPitchSign(prog, ed);
 		}
+		#endif
 		angles[PITCH] *= pitchsign;
 		avelocity[PITCH] *= pitchsign;
 	}
@@ -2207,8 +2209,10 @@ static void World_Physics_Frame_BodyFromEntity(world_t *world, prvm_edict_t *ed)
 		modelindex = (int)PRVM_gameedictfloat(ed, modelindex);
 		if (world == &sv.world)
 			model = SV_GetModelByIndex(modelindex);
+		#ifndef CONFIG_SV
 		else if (world == &cl.world)
 			model = CL_GetModelByIndex(modelindex);
+		#endif
 		else
 			model = NULL;
 		if (model)
@@ -2704,10 +2708,12 @@ treatasbox:
 		{
 			pitchsign = SV_GetPitchSign(prog, ed);
 		}
+		#ifndef CONFIG_SV
 		else if(prog == CLVM_prog)
 		{
 			pitchsign = CL_GetPitchSign(prog, ed);
 		}
+		#endif
 		qangles[PITCH] *= pitchsign;
 		qavelocity[PITCH] *= pitchsign;
 

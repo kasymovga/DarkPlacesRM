@@ -20,6 +20,7 @@ cvar_t collision_triangle_bevelsides = {0, "collision_triangle_bevelsides", "0",
 cvar_t collision_triangle_axialsides = {0, "collision_triangle_axialsides", "1", "generate axially-aligned edge planes on triangles - otherwise use perpendicular edge planes"};
 cvar_t collision_triangle_directional = {0, "collision_triangle_directional", "-1", "check trace direction for triangles: -1 compatible behavior, 0 disable, 1 enable"};
 cvar_t collision_brush_buffer_extra_multiplier = {0, "collision_brush_buffer_extra_multiplier", "1", "Multiplier for memory amount using for build brush collisions. 1 or less is for compatible behavior. >1 can prevent issues with brushes which have too many sides."};
+cvar_t collision_surfaceflagsmerge = {0, "collision_surfaceflagsmerge", "1", "Merge surface flags if they overlapped"};
 
 mempool_t *collision_mempool;
 
@@ -36,6 +37,7 @@ void Collision_Init (void)
 	Cvar_RegisterVariable(&collision_triangle_axialsides);
 	Cvar_RegisterVariable(&collision_triangle_directional);
 	Cvar_RegisterVariable(&collision_brush_buffer_extra_multiplier);
+	Cvar_RegisterVariable(&collision_surfaceflagsmerge);
 	collision_mempool = Mem_AllocPool("collision cache", 0, NULL);
 	Collision_Cache_Init(collision_mempool);
 }
@@ -688,7 +690,8 @@ void Collision_TraceBrushBrushFloat(trace_t *trace, const colbrushf_t *trace_sta
 					// existing collision data, we don't care about this
 					// collision
 					if (enterfrac2 >= trace->fraction)
-						return;
+						if (!collision_surfaceflagsmerge.integer || enterfrac2 > trace->fraction)
+							return;
 					ie = 1.0f - enterfrac;
 					newimpactplane[0] = startplane[0] * ie + endplane[0] * enterfrac;
 					newimpactplane[1] = startplane[1] * ie + endplane[1] * enterfrac;
@@ -749,7 +752,10 @@ void Collision_TraceBrushBrushFloat(trace_t *trace, const colbrushf_t *trace_sta
 		if ((trace->hitsupercontentsmask & other_start->supercontents) && !(trace->skipsupercontentsmask & other_start->supercontents))
 		{
 			trace->hitsupercontents = other_start->supercontents;
-			trace->hitq3surfaceflags = hitq3surfaceflags;
+			if (collision_surfaceflagsmerge.integer && ((enterfrac2 < 0 && trace->fraction == 0) || (enterfrac2 == trace->fraction))) {
+				trace->hitq3surfaceflags |= hitq3surfaceflags;
+			} else
+				trace->hitq3surfaceflags = hitq3surfaceflags;
 			trace->hittexture = hittexture;
 			trace->fraction = bound(0, enterfrac2, 1);
 			if (newimpactplane[0] || newimpactplane[1] || newimpactplane[2])
@@ -1622,7 +1628,11 @@ static collision_cachedtrace_t *Collision_Cache_Lookup(dp_model_t *model, const 
 	collision_cachedtrace_parameters_t params;
 	// all non-cached traces use the same index
 	if (!collision_cache.integer)
+	{
+		#ifndef CONFIG_SV
 		r_refdef.stats[r_stat_photoncache_traced]++;
+		#endif
+	}
 	else
 	{
 		// cached trace lookup
@@ -1669,12 +1679,16 @@ static collision_cachedtrace_t *Collision_Cache_Lookup(dp_model_t *model, const 
 			)
 				continue;
 			// found a matching trace in the cache
+			#ifndef CONFIG_SV
 			r_refdef.stats[r_stat_photoncache_cached]++;
+			#endif
 			cached->valid = true;
 			collision_cachedtrace_arrayused[index] = collision_cachedtrace_sequence;
 			return cached;
 		}
+		#ifndef CONFIG_SV
 		r_refdef.stats[r_stat_photoncache_traced]++;
+		#endif
 		// find an unused cache entry
 		for (index = collision_cachedtrace_firstfree, range = collision_cachedtrace_max;index < range;index++)
 			if (collision_cachedtrace_arrayused[index] == 0)
@@ -1816,7 +1830,7 @@ static void Collision_ClipExtendFinish(extendtraceinfo_t *extendtraceinfo)
 
 void Collision_ClipToGenericEntity(trace_t *trace, dp_model_t *model, const frameblend_t *frameblend, const skeleton_t *skeleton, const vec3_t bodymins, const vec3_t bodymaxs, int bodysupercontents, matrix4x4_t *matrix, matrix4x4_t *inversematrix, const vec3_t tstart, const vec3_t mins, const vec3_t maxs, const vec3_t tend, int hitsupercontentsmask, int skipsupercontentsmask, float extend)
 {
-	vec3_t starttransformed, endtransformed;
+	vec3_t starttransformed, endtransformed, minstransformed, maxstransformed;
 	extendtraceinfo_t extendtraceinfo;
 	Collision_ClipExtendPrepare(&extendtraceinfo, trace, tstart, tend, extend);
 
@@ -1845,7 +1859,17 @@ void Collision_ClipToGenericEntity(trace_t *trace, dp_model_t *model, const fram
 			model->TraceBrush(model, frameblend, skeleton, trace, &thisbrush_start.brush, &thisbrush_end.brush, hitsupercontentsmask, skipsupercontentsmask);
 		}
 		else // this is only approximate if rotated, quite useless
-			model->TraceBox(model, frameblend, skeleton, trace, starttransformed, mins, maxs, endtransformed, hitsupercontentsmask, skipsupercontentsmask);
+		{
+			float scale = Matrix4x4_ScaleFromMatrix(inversematrix);
+			if (scale != 1)
+			{
+				VectorScale(mins, scale, minstransformed);
+				VectorScale(maxs, scale, maxstransformed);
+				model->TraceBox(model, frameblend, skeleton, trace, starttransformed, minstransformed, maxstransformed, endtransformed, hitsupercontentsmask, skipsupercontentsmask);
+			}
+			else
+				model->TraceBox(model, frameblend, skeleton, trace, starttransformed, mins, maxs, endtransformed, hitsupercontentsmask, skipsupercontentsmask);
+		}
 	}
 	else // and this requires that the transformation matrix doesn't have angles components, like SV_TraceBox ensures; FIXME may get called if a model is SOLID_BSP but has no TraceBox function
 		Collision_ClipTrace_Box(trace, bodymins, bodymaxs, starttransformed, mins, maxs, endtransformed, hitsupercontentsmask, skipsupercontentsmask, bodysupercontents, 0, NULL);

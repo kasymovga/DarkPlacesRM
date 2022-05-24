@@ -8,7 +8,7 @@ This program is free software; you can redistribute it and/or blah blah blah I d
 
 #include "quakedef.h"
 #include "irc.h"
-#include "ft2.h"
+#include "utf8lib.h"
 
 // cvars
 cvar_t irc_initialized = {CVAR_READONLY, "irc_initialized", "0", "Indicates that the IRC module has been successfully initialized"};

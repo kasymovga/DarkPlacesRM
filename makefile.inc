@@ -39,60 +39,68 @@ STRIP?=strip
 
 OBJ_SND_COMMON=snd_main.o snd_mem.o snd_mix.o snd_ogg.o snd_wav.o
 
-# No sound
-OBJ_SND_NULL=snd_null.o
-LIB_SND_NULL=
-
 # CD objects
 OBJ_CD_COMMON=cd_shared.o
 
 ###### Common objects and flags #####
 
-# Common objects
-OBJ_COMMON= \
-	cd_shared.o \
-	cl_input.o \
-	cl_main.o \
+OBJ_CL= \
 	gl_backend.o \
 	gl_rmain.o \
 	gl_textures.o \
-	discord.o \
-	crypto.o \
-	host.o \
-	irc.o \
-	mathlib.o \
+	cl_input.o \
 	r_shadow.o \
 	sbar.o \
-	image.o \
-	sv_main.o \
-	vid_shared.o \
-	world.o \
-	keys.o \
-	bih.o \
-	crypto.o \
-	cl_collision.o \
-	cl_demo.o \
-	cl_dyntexture.o \
-	cl_parse.o \
 	cl_particles.o \
 	cl_screen.o \
 	cl_video.o \
 	clvm_cmds.o \
+	gl_draw.o \
+	gl_rsurf.o \
+	meshqueue.o \
+	r_explosion.o \
+	r_lerpanim.o \
+	r_lightning.o \
+	r_modules.o \
+	r_sky.o \
+	r_sprites.o \
+	vid_shared.o \
+	ft2.o \
+	csprogs.o \
+	cl_parse.o \
+	cl_main.o \
+	cl_demo.o \
+	keys.o \
+	timedemo.o \
+	wad.o \
+	cl_dyntexture.o \
+	cl_collision.o \
+	discord.o \
+	dpvsimpledecode.o \
+	view.o \
+
+# Common objects
+OBJ_COMMON= \
+	palette.o \
+	crypto.o \
+	host.o \
+	irc.o \
+	mathlib.o \
+	image.o \
+	sv_main.o \
+	world.o \
+	bih.o \
+	crypto.o \
 	cmd.o \
 	collision.o \
 	common.o \
 	console.o \
-	csprogs.o \
 	curves.o \
 	cvar.o \
-	dpvsimpledecode.o \
 	filematch.o \
 	fractalnoise.o \
 	fs.o \
-	ft2.o \
 	utf8lib.o \
-	gl_draw.o \
-	gl_rsurf.o \
 	hmac.o \
 	host_cmd.o \
 	image_png.o \
@@ -101,7 +109,6 @@ OBJ_COMMON= \
 	libcurl.o \
 	matrixlib.o \
 	mdfour.o \
-	meshqueue.o \
 	mod_skeletal_animatevertices_sse.o \
 	mod_skeletal_animatevertices_generic.o \
 	model_alias.o \
@@ -110,19 +117,12 @@ OBJ_COMMON= \
 	model_sprite.o \
 	net_httpserver.o \
 	netconn.o \
-	palette.o \
 	polygon.o \
 	protocol.o \
 	prvm_cmds.o \
 	prvm_edict.o \
 	prvm_exec.o \
 	random.o \
-	r_explosion.o \
-	r_lerpanim.o \
-	r_lightning.o \
-	r_modules.o \
-	r_sky.o \
-	r_sprites.o \
 	sha256.o \
 	siphash.o \
 	stats.o \
@@ -133,12 +133,10 @@ OBJ_COMMON= \
 	svbsp.o \
 	svvm_cmds.o \
 	sys_shared.o \
-	timedemo.o \
-	view.o \
-	wad.o \
 	zone.o \
 	slre.o \
-	geoip.o
+	geoip.o \
+	model_compile.o
 
 OBJ_MENU= \
 	menu.o \
@@ -152,14 +150,14 @@ endif
 # note that builddate.c is very intentionally not compiled to a .o before
 # being linked, because it should be recompiled every time an executable is
 # built to give the executable a proper date string
-OBJ_SV= builddate.c sys_sv.o vid_null.o $(OBJ_SV_THREAD) $(OBJ_SND_NULL) $(OBJ_COMMON)
-OBJ_SDL= builddate.c sys_sdl.o vid_sdl.o thread_sdl.o $(OBJ_MENU) $(OBJ_SND_COMMON) snd_sdl.o $(OBJ_CD_COMMON) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON)
+OBJ_SV= builddate.c sys_sv.o $(OBJ_SV_THREAD) $(OBJ_COMMON)
+OBJ_SDL= builddate.c sys_sdl.o vid_sdl.o thread_sdl.o $(OBJ_MENU) $(OBJ_SND_COMMON) snd_sdl.o $(OBJ_CD_COMMON) $(OBJ_VIDEO_CAPTURE) $(OBJ_COMMON) $(OBJ_CL)
 
 
 # Compilation
 CFLAGS_COMMON=$(CFLAGS_MAKEDEP) $(CFLAGS_FS) $(CFLAGS_WARNINGS) $(CFLAGS_LIBZ) $(CFLAGS_LIBJPEG) $(CFLAGS_LIBPNG) $(CFLAGS_NET) $(CFLAGS_LIBMICROHTTPD) -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -I../../../
-CFLAGS_CLIENT=-DCONFIG_MENU -DCONFIG_CD $(CFLAGS_VIDEO_CAPTURE) $(CFLAGS_OGGVORBIS) $(CFLAGS_FREETYPE)
-CFLAGS_SERVER=
+CFLAGS_CLIENT=-DCONFIG_MENU -DCONFIG_CD $(CFLAGS_VIDEO_CAPTURE) $(CFLAGS_OGGVORBIS) $(CFLAGS_FREETYPE) $(CFLAGS_GL)
+CFLAGS_SERVER=-DCONFIG_SV
 CFLAGS_DEBUG=-ggdb
 CFLAGS_PROFILE=-g -pg -ggdb -fprofile-arcs
 CFLAGS_RELEASE=
@@ -191,7 +189,7 @@ LDFLAGS_PROFILE=-g -pg -fprofile-arcs $(OPTIM_RELEASE) -DSVNREVISION=`{ test -d 
 LDFLAGS_RELEASE=$(OPTIM_RELEASE) -DSVNREVISION=`{ test -d .svn && svnversion; } || { test -d .git && git describe --always; } || echo -` -DBUILDTYPE=release
 
 LDFLAGS_COMMONSV=$(LIB_ODE) $(LIB_Z) $(LIB_JPEG) $(LIB_PNG) $(LIB_CRYPTO) $(LIB_CRYPTO_RIJNDAEL) $(LIB_LIBMICROHTTPD)
-LDFLAGS_COMMONCL=$(LIB_OGGVORBIS) $(LIB_FREETYPE)
+LDFLAGS_COMMONCL=$(LIB_OGGVORBIS) $(LIB_FREETYPE) $(LIB_GL)
 
 ##### UNIX specific variables #####
 

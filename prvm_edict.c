@@ -2630,8 +2630,8 @@ fail:
 	}
 
     arrayext = PRVM_ED_FindGlobal(prog, "__ext__fasttrackarrays");
-    if(arrayext)
-        PRVM_ED_ParseEpair(prog, NULL, arrayext, "1", false);
+	if(arrayext)
+		PRVM_ED_ParseEpair(prog, NULL, arrayext, "1", false);
 
 	prog->loaded = TRUE;
 

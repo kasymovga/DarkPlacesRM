@@ -485,7 +485,9 @@ typedef struct server_cryptoconnect_s
 server_cryptoconnect_t;
 static server_cryptoconnect_t cryptoconnects[MAX_CRYPTOCONNECTS];
 
+#ifndef CONFIG_SV
 static int cdata_id = 0;
+#endif
 typedef struct
 {
 	d0_blind_id_t *id;
@@ -611,6 +613,7 @@ static qboolean Crypto_ClearHostKey(lhnetaddress_t *peeraddress)
 	return found;
 }
 
+#ifndef CONFIG_SV
 static void Crypto_StoreHostKey(lhnetaddress_t *peeraddress, const char *keystring, qboolean complain)
 {
 	char buf[128];
@@ -709,6 +712,7 @@ static void Crypto_StoreHostKey(lhnetaddress_t *peeraddress, const char *keystri
 	hk->issigned = issigned;
 	crypto_storedhostkey_hashtable[hashindex] = hk;
 }
+#endif
 
 qboolean Crypto_RetrieveHostKey(lhnetaddress_t *peeraddress, int *keyid, char *keyfp, size_t keyfplen, char *idfp, size_t idfplen, int *aeslevel, qboolean *issigned)
 {
@@ -1035,9 +1039,10 @@ void Crypto_Shutdown(void)
 			CLEAR_CDATA;
 		}
 		memset(cryptoconnects, 0, sizeof(cryptoconnects));
+		#ifndef CONFIG_SV
 		crypto = &cls.crypto;
 		CLEAR_CDATA;
-
+		#endif
 		Crypto_UnloadKeys();
 
 		qd0_blind_id_SHUTDOWN();
@@ -2070,6 +2075,7 @@ int Crypto_ServerParsePacket(const char *data_in, size_t len_in, char *data_out,
 	return ret;
 }
 
+#ifndef CONFIG_SV
 static int Crypto_ClientError(char *data_out, size_t *len_out, const char *msg)
 {
 	dpsnprintf(data_out, *len_out, "reject %s", msg);
@@ -2604,6 +2610,7 @@ int Crypto_ClientParsePacket(const char *data_in, size_t len_in, char *data_out,
 
 	return CRYPTO_NOMATCH;
 }
+#endif
 
 size_t Crypto_SignData(const void *data, size_t datasize, int keyid, void *signed_data, size_t signed_size)
 {

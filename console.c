@@ -28,7 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "thread.h"
 
 // for u8_encodech
-#include "ft2.h"
+#include "utf8lib.h"
 
 float con_cursorspeed = 4;
 
@@ -153,11 +153,14 @@ static char qfont_table[256] = {
 	SanitizeString strips color tags from the string in
 	and writes the result on string out
 */
-static void SanitizeString(char *in, char *out)
+static void SanitizeString(char *in, char *out, qboolean stripcolors)
 {
+	Uchar c;
+	int len;
+	char buf[8];
 	while(*in)
 	{
-		if(*in == STRING_COLOR_TAG)
+		if(*in == STRING_COLOR_TAG && stripcolors)
 		{
 			++in;
 			if(!*in)
@@ -193,9 +196,30 @@ static void SanitizeString(char *in, char *out)
 			else if (*in != STRING_COLOR_TAG)
 				--in;
 		}
-		*out = qfont_table[*(unsigned char*)in];
-		++in;
-		++out;
+		if (utf8_enable.integer)
+		{
+			c = u8_getchar(in, (const char **)&in);
+			if (c >= 0xE000 && c < 0xE100) c -= 0xE000;
+			if (c < 256)
+				c = qfont_table[c];
+
+			if (c)
+			{
+				if (c < 128) {
+					*out = c;
+					out++;
+				} else if ((len = u8_fromchar(c, buf, 8)) > 0) {
+					memcpy(out, buf, len);
+					out += len;
+				}
+			}
+		}
+		else
+		{
+			*out = qfont_table[*(unsigned char*)in];
+			++in;
+			++out;
+		}
 	}
 	*out = 0;
 }
@@ -235,6 +259,7 @@ Notifies the console code about the current time
 went backwards)
 ================
 */
+#ifndef CONFIG_SV
 void ConBuffer_FixTimes(conbuffer_t *buf)
 {
 	int i;
@@ -248,6 +273,7 @@ void ConBuffer_FixTimes(conbuffer_t *buf)
 		}
 	}
 }
+#endif
 
 /*
 ================
@@ -333,9 +359,9 @@ void ConBuffer_AddLine(conbuffer_t *buf, const char *line, int len, int mask)
 	// developer_memory 1 during shutdown prints while conbuffer_t is being freed
 	if (!buf->active)
 		return;
-
+	#ifndef CONFIG_SV
 	ConBuffer_FixTimes(buf);
-
+	#endif
 	if(len >= buf->textsize)
 	{
 		// line too large?
@@ -354,7 +380,9 @@ void ConBuffer_AddLine(conbuffer_t *buf, const char *line, int len, int mask)
 	p = &CONBUFFER_LINES_LAST(buf);
 	p->start = putpos;
 	p->len = len;
+	#ifndef CONFIG_SV
 	p->addtime = cl.time;
+	#endif
 	p->mask = mask;
 	p->height = -1; // calculate when needed
 }
@@ -498,10 +526,19 @@ static const char* Log_Timestamp (const char *desc)
 
 static void Log_Open (void)
 {
+	char logfile_path[MAX_QPATH];
 	if (logfile != NULL || log_file.string[0] == '\0')
 		return;
 
-	logfile = FS_OpenRealFile(log_file.string, "a", false);
+	if (strcasecmp(FS_FileExtension(log_file.string), "log"))
+	{
+		FS_StripExtension(log_file.string, logfile_path, sizeof(logfile_path));
+		strlcat(logfile_path, ".log", sizeof(logfile_path));
+	}
+	else
+		strlcpy(logfile_path, log_file.string, sizeof(logfile_path));
+
+	logfile = FS_OpenRealFile(logfile_path, "a", false);
 	if (logfile != NULL)
 	{
 		strlcpy (crt_log_file, log_file.string, sizeof (crt_log_file));
@@ -620,20 +657,13 @@ void Log_ConPrint (const char *msg)
 	// If a log file is available
 	if (logfile != NULL)
 	{
-		if (log_file_stripcolors.integer)
-		{
-			// sanitize msg
-			size_t len = strlen(msg);
-			char* sanitizedmsg = (char*)Mem_Alloc(tempmempool, len + 1);
-			memcpy (sanitizedmsg, msg, len);
-			SanitizeString(sanitizedmsg, sanitizedmsg); // SanitizeString's in pointer is always ahead of the out pointer, so this should work.
-			FS_Print (logfile, sanitizedmsg);
-			Mem_Free(sanitizedmsg);
-		}
-		else 
-		{
-			FS_Print (logfile, msg);
-		}
+		// sanitize msg
+		size_t len = strlen(msg);
+		char* sanitizedmsg = (char*)Mem_Alloc(tempmempool, len + 1);
+		memcpy (sanitizedmsg, msg, len);
+		SanitizeString(sanitizedmsg, sanitizedmsg, log_file_stripcolors.integer); // SanitizeString's in pointer is always ahead of the out pointer, so this should work.
+		FS_Print (logfile, sanitizedmsg);
+		Mem_Free(sanitizedmsg);
 	}
 
 	inprogress = false;
@@ -676,6 +706,7 @@ CONSOLE
 Con_ToggleConsole_f
 ================
 */
+#ifndef CONFIG_SV
 void Con_ToggleConsole_f (void)
 {
 	if (COM_CheckParm ("-noconsole"))
@@ -778,6 +809,7 @@ void Con_CheckResize (void)
 	Con_ClearNotify();
 	con_backscroll = 0;
 }
+#endif
 
 //[515]: the simplest command ever
 //LordHavoc: not so simple after I made it print usage...
@@ -798,34 +830,39 @@ static void Con_ConDump_f (void)
 {
 	int i;
 	qfile_t *file;
+	char filename[MAX_QPATH];
+	const char* filename_unsafe;
 	if (Cmd_Argc() != 2)
 	{
 		Con_Printf("usage: condump <filename>\n");
 		return;
 	}
-	file = FS_OpenRealFile(Cmd_Argv(1), "w", false);
+	filename_unsafe = Cmd_Argv(1);
+	if (strcasecmp(FS_FileExtension(filename_unsafe), "condump"))
+	{
+		FS_StripExtension(filename_unsafe, filename, sizeof(filename));
+		strlcat(filename, ".condump", sizeof(filename));
+		Con_Printf("condump: change file name from %s to %s\n", filename_unsafe, filename);
+	}
+	else
+		strlcpy(filename, filename_unsafe, sizeof(filename));
+
+	file = FS_OpenRealFile(filename, "w", false);
 	if (!file)
 	{
-		Con_Printf("condump: unable to write file \"%s\"\n", Cmd_Argv(1));
+		Con_Printf("condump: unable to write file \"%s\"\n", filename);
 		return;
 	}
 	if (con_mutex) Thread_LockMutex(con_mutex);
 	for(i = 0; i < CON_LINES_COUNT; ++i)
 	{
-		if (condump_stripcolors.integer)
-		{
-			// sanitize msg
-			size_t len = CON_LINES(i).len;
-			char* sanitizedmsg = (char*)Mem_Alloc(tempmempool, len + 1);
-			memcpy (sanitizedmsg, CON_LINES(i).start, len);
-			SanitizeString(sanitizedmsg, sanitizedmsg); // SanitizeString's in pointer is always ahead of the out pointer, so this should work.
-			FS_Write(file, sanitizedmsg, strlen(sanitizedmsg));
-			Mem_Free(sanitizedmsg);
-		}
-		else 
-		{
-			FS_Write(file, CON_LINES(i).start, CON_LINES(i).len);
-		}
+		// sanitize msg
+		size_t len = CON_LINES(i).len;
+		char* sanitizedmsg = (char*)Mem_Alloc(tempmempool, len + 1);
+		memcpy (sanitizedmsg, CON_LINES(i).start, len);
+		SanitizeString(sanitizedmsg, sanitizedmsg, condump_stripcolors.integer); // SanitizeString's in pointer is always ahead of the out pointer, so this should work.
+		FS_Write(file, sanitizedmsg, strlen(sanitizedmsg));
+		Mem_Free(sanitizedmsg);
 		FS_Write(file, "\n", 1);
 	}
 	if (con_mutex) Thread_UnlockMutex(con_mutex);
@@ -895,10 +932,12 @@ void Con_Init (void)
 	Cvar_RegisterVariable (&condump_stripcolors);
 
 	// register our commands
+	#ifndef CONFIG_SV
 	Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f, "opens or closes the console");
 	Cmd_AddCommand ("messagemode", Con_MessageMode_f, "input a chat message to say to everyone");
 	Cmd_AddCommand ("messagemode2", Con_MessageMode2_f, "input a chat message to say to only your team");
 	Cmd_AddCommand ("commandmode", Con_CommandMode_f, "input a console command");
+	#endif
 	Cmd_AddCommand ("clear", Con_Clear_f, "clear console history");
 	Cmd_AddCommand ("maps", Con_Maps_f, "list information about available maps");
 	Cmd_AddCommand ("condump", Con_ConDump_f, "output console history to a file (see also log_file)");
@@ -924,6 +963,7 @@ All console printing must go through this in order to be displayed
 If no console is visible, the notify window will pop up.
 ================
 */
+#ifndef CONFIG_SV
 static void Con_PrintToHistory(const char *txt, int mask)
 {
 	// process:
@@ -968,6 +1008,7 @@ static void Con_PrintToHistory(const char *txt, int mask)
 		}
 	}
 }
+#endif
 
 char Con_Qfont_Translate(unsigned char c) {
     return qfont_table[c];
@@ -1155,6 +1196,7 @@ void Con_MaskPrint(int additionalmask, const char *msg)
 			if (*msg == 1 || *msg == 2 || *msg == 3)
 			{
 				// play talk wav
+				#ifndef CONFIG_SV
 				if (*msg == 1)
 				{
 					if (con_chatsound.value)
@@ -1175,7 +1217,7 @@ void Con_MaskPrint(int additionalmask, const char *msg)
 						}
 					}
 				}
-				
+				#endif
 				// Send to chatbox for say/tell (1) and messages (3)
 				// 3 is just so that a message can be sent to the chatbox without a sound.
 				if (*msg == 1 || *msg == 3)
@@ -1203,10 +1245,12 @@ void Con_MaskPrint(int additionalmask, const char *msg)
 			// send to log file
 			Log_ConPrint(line);
 			// send to scrollable buffer
+			#ifndef CONFIG_SV
 			if (con_initialized && cls.state != ca_dedicated)
 			{
 				Con_PrintToHistory(line, mask);
 			}
+			#endif
 			// send to terminal or dedicated server window
 			if (!sys_nostdout)
 			if (developer.integer || !(mask & CON_MASK_DEVELOPER))
@@ -1509,6 +1553,7 @@ The input line scrolls horizontally if typing goes beyond the right edge
 Modified by EvilTypeGuy eviltypeguy@qeradiant.com
 ================
 */
+#ifndef CONFIG_SV
 static void Con_DrawInput (void)
 {
 	int		y;
@@ -2100,6 +2145,7 @@ void Con_DrawConsole (int lines)
 	r_draw2d_force = false;
 	if (con_mutex) Thread_UnlockMutex(con_mutex);
 }
+#endif
 
 /*
 GetMapList
@@ -2283,6 +2329,7 @@ endcomplete:
 	MEGA Thanks to Taniwha
 
 */
+#ifndef CONFIG_SV
 void Con_DisplayList(const char **list)
 {
 	int i = 0, pos = 0, len = 0, maxlen = 0, width = (con_linewidth - 4);
@@ -2422,7 +2469,7 @@ static int Nicks_CompleteCountPossible(char *line, int pos, char *s, qboolean is
 		if(!cl.scores[p].name[0])
 			continue;
 
-		SanitizeString(cl.scores[p].name, name);
+		SanitizeString(cl.scores[p].name, name, true);
 		//Con_Printf(" ^2Sanitized: ^7%s -> %s", cl.scores[p].name, name);
 
 		if(!name[0])
@@ -3057,4 +3104,4 @@ done:
 		if (list[i])
 			Mem_Free((void *)list[i]);
 }
-
+#endif

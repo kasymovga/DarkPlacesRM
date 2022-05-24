@@ -985,8 +985,10 @@ unsigned char *loadimagepixelsbgra (const char *filename, qboolean complain, qbo
 	char vabuf[1024];
 	//if (developer_memorydebug.integer)
 	//	Mem_CheckSentinelsGlobal();
+	#ifndef CONFIG_SV
 	if (developer_texturelogging.integer)
 		Log_Printf("textures.log", "%s\n", filename);
+	#endif
 	Image_StripImageExtension(filename, basename, sizeof(basename)); // strip filename extensions to allow replacement by other types
 	// replace *'s with #, so commandline utils don't get confused when dealing with the external files
 	for (c = basename;*c;c++)
@@ -1084,13 +1086,15 @@ unsigned char *loadimagepixelsbgra (const char *filename, qboolean complain, qbo
 	}
 
 	// texture loading can take a while, so make sure we're sending keepalives
+	#ifndef CONFIG_SV
 	CL_KeepaliveMessage(false);
-
+	#endif
 	//if (developer_memorydebug.integer)
 	//	Mem_CheckSentinelsGlobal();
 	return NULL;
 }
 
+#ifndef CONFIG_SV
 extern cvar_t gl_picmip;
 rtexture_t *loadtextureimage (rtexturepool_t *pool, const char *filename, qboolean complain, int flags, qboolean allowFixtrans, qboolean sRGB)
 {
@@ -1103,6 +1107,7 @@ rtexture_t *loadtextureimage (rtexturepool_t *pool, const char *filename, qboole
 	Mem_Free(data);
 	return rt;
 }
+#endif
 
 int fixtransparentpixels(unsigned char *data, int w, int h)
 {

@@ -3283,6 +3283,13 @@ static void VM_CL_R_RenderScene (prvm_prog_t *prog)
 	// csqc supplies its own view matrix
 	CL_UpdateViewEntities();
 
+	// update view blend
+	V_CalcViewBlend();
+	r_refdef.view.frustum_x *= r_refdef.frustumscale_x;
+	r_refdef.view.frustum_y *= r_refdef.frustumscale_y;
+	r_refdef.view.ortho_x = atan(r_refdef.view.frustum_x) * (360.0 / M_PI); // abused as angle by VM_CL_R_SetView
+	r_refdef.view.ortho_y = atan(r_refdef.view.frustum_y) * (360.0 / M_PI); // abused as angle by VM_CL_R_SetView
+
 	// now draw stuff!
 	R_RenderView();
 

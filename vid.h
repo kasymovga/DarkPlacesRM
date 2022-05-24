@@ -33,7 +33,6 @@ typedef enum renderpath_e
 	RENDERPATH_GL11,
 	RENDERPATH_GL13,
 	RENDERPATH_GL20,
-	RENDERPATH_GLES1,
 	RENDERPATH_GLES2
 }
 renderpath_t;

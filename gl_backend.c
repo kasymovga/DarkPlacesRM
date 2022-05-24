@@ -118,7 +118,6 @@ cvar_t gl_vbo_dynamicindex = {CVAR_SAVE, "gl_vbo_dynamicindex",
 "0",
 #endif
 "make use of GL_ARB_vertex_buffer_object extension when rendering dynamic (animated/procedural) geometry such as text and particles"};
-cvar_t gl_fbo = {CVAR_SAVE, "gl_fbo", "1", "make use of GL_ARB_framebuffer_object extension to enable shadowmaps and other features using pixel formats different from the framebuffer"};
 
 cvar_t v_flipped = {0, "v_flipped", "0", "mirror the screen (poor man's left handed mode)"};
 qboolean v_flipped_state = false;
@@ -352,7 +351,6 @@ static void R_Mesh_SetUseVBO(void)
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
 	case RENDERPATH_GL20:
-	case RENDERPATH_GLES1:
 		gl_state.usevbo_staticvertex = (vid.support.arb_vertex_buffer_object && gl_vbo.integer) || vid.forcevbo;
 		gl_state.usevbo_staticindex = (vid.support.arb_vertex_buffer_object && (gl_vbo.integer == 1 || gl_vbo.integer == 3)) || vid.forcevbo;
 		gl_state.usevbo_dynamicvertex = (vid.support.arb_vertex_buffer_object && gl_vbo_dynamicvertex.integer && gl_vbo.integer) || vid.forcevbo;
@@ -939,7 +937,6 @@ void R_SetViewport(const r_viewport_t *v)
 	{
 	case RENDERPATH_GL13:
 	case RENDERPATH_GL11:
-	case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 		{
 			float m[16];
@@ -1002,7 +999,9 @@ static void GL_BindUBO(int bufferobject)
 	}
 }
 
+#ifndef USE_GLES2
 static const GLuint drawbuffers[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+#endif
 int R_Mesh_CreateFramebufferObject(rtexture_t *depthtexture, rtexture_t *colortexture, rtexture_t *colortexture2, rtexture_t *colortexture3, rtexture_t *colortexture4)
 {
 	if (vid.support.arb_framebuffer_object)
@@ -1192,7 +1191,6 @@ static void GL_Backend_ResetState(void)
 	{
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 		CHECKGLERROR
 
@@ -1339,7 +1337,6 @@ void GL_ClientActiveTexture(unsigned int num)
 		{
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 			if (qglActiveTexture)
 			{
@@ -1565,7 +1562,6 @@ void GL_AlphaTest(int state)
 		{
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 #ifdef GL_ALPHA_TEST
 			// only fixed function uses alpha test, other paths use pixel kill capability in shaders
 			CHECKGLERROR
@@ -1595,7 +1591,6 @@ void GL_AlphaToCoverage(qboolean state)
 		{
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
 			break;
 		case RENDERPATH_GL20:
@@ -1642,7 +1637,6 @@ void GL_Color(float cr, float cg, float cb, float ca)
 		{
 		case RENDERPATH_GL11:
 		case RENDERPATH_GL13:
-		case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 			CHECKGLERROR
 			qglColor4f(gl_state.color4f[0], gl_state.color4f[1], gl_state.color4f[2], gl_state.color4f[3]);
@@ -1712,13 +1706,15 @@ void GL_Clear(int mask, const float *colorvalue, float depthvalue, int stencilva
 
 void GL_ReadPixelsBGRA(int x, int y, int width, int height, unsigned char *outpixels)
 {
-	CHECKGLERROR
 #ifndef GL_BGRA
 	int i;
 	int r;
 //	int g;
 	int b;
 //	int a;
+#endif
+	CHECKGLERROR
+#ifndef GL_BGRA
 	qglReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, outpixels);CHECKGLERROR
 	for (i = 0;i < width * height * 4;i += 4)
 	{
@@ -2273,7 +2269,6 @@ void R_Mesh_Draw(int firstvertex, int numvertices, int firsttriangle, int numtri
 				CHECKGLERROR
 			}
 			break;
-		case RENDERPATH_GLES1:
 		case RENDERPATH_GLES2:
 			// GLES does not have glDrawRangeElements so this is a bit shorter than the GL20 path
 			if (bufferobject3s)
@@ -2456,7 +2451,6 @@ void R_Mesh_VertexPointer(int components, int gltype, size_t stride, const void 
 	{
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 		if (gl_state.pointer_vertex_components != components || gl_state.pointer_vertex_gltype != gltype || gl_state.pointer_vertex_stride != stride || gl_state.pointer_vertex_pointer != pointer || gl_state.pointer_vertex_vertexbuffer != vertexbuffer || gl_state.pointer_vertex_offset != bufferoffset)
 		{
@@ -2501,7 +2495,6 @@ void R_Mesh_ColorPointer(int components, int gltype, size_t stride, const void *
 	{
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 		CHECKGLERROR
 		if (pointer)
@@ -2594,7 +2587,6 @@ void R_Mesh_TexCoordPointer(unsigned int unitnum, int components, int gltype, si
 	{
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 #ifndef USE_GLES2
 		CHECKGLERROR
 		if (pointer)
@@ -2740,7 +2732,6 @@ void R_Mesh_TexBind(unsigned int unitnum, rtexture_t *tex)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		unit->texture = tex;
 		tex2d = 0;
 		tex3d = 0;
@@ -2878,7 +2869,6 @@ void R_Mesh_TexCombine(unsigned int unitnum, int combinergb, int combinealpha, i
 		// do nothing
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		// GL_ARB_texture_env_combine
 		if (!combinergb)
 			combinergb = GL_MODULATE;
@@ -2966,7 +2956,6 @@ void R_Mesh_ResetTextureState(void)
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		for (unitnum = 0;unitnum < vid.texunits;unitnum++)
 		{
 			R_Mesh_TexCombine(unitnum, GL_MODULATE, GL_MODULATE, 1, 1);
@@ -3015,7 +3004,6 @@ void R_Mesh_PrepareVertices_Vertex3f(int numvertices, const float *vertex3f, con
 		}
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		if (vertexbuffer)
 		{
 			R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, vertexbuffer, bufferoffset);
@@ -3116,7 +3104,6 @@ void R_Mesh_PrepareVertices_Generic_Arrays(int numvertices, const float *vertex3
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, NULL, 0);
 		R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), color4f, NULL, 0);
 		R_Mesh_TexCoordPointer(0, 2, GL_FLOAT, sizeof(float[2]), texcoord2f, NULL, 0);
@@ -3167,7 +3154,6 @@ void R_Mesh_PrepareVertices_Generic(int numvertices, const r_vertexgeneric_t *ve
 		}
 		break;
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		if (vertexbuffer)
 		{
 			R_Mesh_VertexPointer(     3, GL_FLOAT        , sizeof(*vertex), vertex->vertex3f          , vertexbuffer, bufferoffset + (int)((unsigned char *)vertex->vertex3f           - (unsigned char *)vertex));
@@ -3256,7 +3242,6 @@ void R_Mesh_PrepareVertices_Mesh_Arrays(int numvertices, const float *vertex3f, 
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
-	case RENDERPATH_GLES1:
 		R_Mesh_VertexPointer(3, GL_FLOAT, sizeof(float[3]), vertex3f, NULL, 0);
 		R_Mesh_ColorPointer(4, GL_FLOAT, sizeof(float[4]), color4f, NULL, 0);
 		R_Mesh_TexCoordPointer(0, 2, GL_FLOAT, sizeof(float[2]), texcoordtexture2f, NULL, 0);

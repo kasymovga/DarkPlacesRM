@@ -181,7 +181,7 @@ ifeq ($(DP_MAKE_TARGET), bsd)
 	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
 endif
 
-CFLAGS_WARNINGS=-Wall -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes -Wno-misleading-indentation
+CFLAGS_WARNINGS=-Wall -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes
 
 ifeq ($(DP_MAKE_TARGET), mingw)
 	TARGET=$(MINGWARCH)-w64-mingw32
@@ -218,6 +218,11 @@ endif
 ifeq ($(DP_LIBMICROHTTPD),shared)
 	CFLAGS_LIBMICROHTTPD=-DUSE_LIBMICROHTTPD `pkg-config --cflags libmicrohttpd`
 	LIB_LIBMICROHTTPD=`pkg-config --libs libmicrohttpd`
+endif
+
+ifdef DP_GLES2
+	CFLAGS_GL=-DUSE_GLES2
+	LIB_GL=-lGLESv2
 endif
 
 # set these to "" if you want to use dynamic loading instead

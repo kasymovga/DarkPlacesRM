@@ -1510,7 +1510,9 @@ rtexture_t *R_LoadTextureDDSFile(rtexturepool_t *rtexturepool, const char *filen
 	//int dds_flags;
 	textype_t textype;
 	int bytesperblock, bytesperpixel;
+	#ifdef GL_TEXTURE_MAX_LEVEL
 	int mipcomplete;
+	#endif
 	gltexture_t *glt;
 	gltexturepool_t *pool = (gltexturepool_t *)rtexturepool;
 	textypeinfo_t *texinfo;
@@ -2149,8 +2151,9 @@ rtexture_t *R_LoadTextureDDSFile(rtexturepool_t *rtexturepool, const char *filen
 	qglBindTexture(gltexturetypeenums[glt->texturetype], glt->texnum);CHECKGLERROR
 	// upload the texture
 	// we need to restore the texture binding after finishing the upload
+	#ifdef GL_TEXTURE_MAX_LEVEL
 	mipcomplete = false;
-
+	#endif
 	for (mip = 0;mip <= dds_miplevels;mip++) // <= to include the not-counted "largest" miplevel
 	{
 		unsigned char *upload_mippixels = mippixels;
@@ -2185,7 +2188,9 @@ rtexture_t *R_LoadTextureDDSFile(rtexturepool_t *rtexturepool, const char *filen
 		mippixels += mipsize;
 		if (mipwidth <= 1 && mipheight <= 1)
 		{
+			#ifdef GL_TEXTURE_MAX_LEVEL
 			mipcomplete = true;
+			#endif
 			break;
 		}
 		if (mipwidth > 1)

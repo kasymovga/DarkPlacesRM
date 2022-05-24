@@ -57,6 +57,7 @@ void Mod_SpriteInit (void)
 	Cvar_RegisterVariable(&r_track_sprites_scaleh);
 }
 
+#ifndef CONFIG_SV
 static void Mod_SpriteSetupTexture(texture_t *texture, skinframe_t *skinframe, qboolean fullbright, qboolean additive)
 {
 	if (!skinframe)
@@ -75,7 +76,9 @@ static void Mod_SpriteSetupTexture(texture_t *texture, skinframe_t *skinframe, q
 	else if (skinframe->hasalpha)
 		texture->basematerialflags |= MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_NOSHADOW;
 	texture->currentmaterialflags = texture->basematerialflags;
+	#ifndef CONFIG_SV
 	texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(skinframe);
+	#endif
 	texture->currentskinframe = skinframe;
 	texture->surfaceflags = 0;
 	texture->supercontents = SUPERCONTENTS_SOLID;
@@ -100,7 +103,9 @@ static void Mod_Sprite_SharedSetup(const unsigned char *datapointer, int version
 	float				modelradius, interval;
 	char				name[MAX_QPATH], fogname[MAX_QPATH];
 	const void			*startframes;
+	#ifndef CONFIG_SV
 	int                 texflags = (r_mipsprites.integer ? TEXF_MIPMAP : 0) | ((gl_texturecompression.integer && gl_texturecompression_sprites.integer) ? TEXF_COMPRESS : 0) | TEXF_ISSPRITE | TEXF_PICMIP | TEXF_ALPHA | TEXF_CLAMP;
+	#endif
 	modelradius = 0;
 
 	if (loadmodel->numframes < 1)
@@ -204,6 +209,7 @@ static void Mod_Sprite_SharedSetup(const unsigned char *datapointer, int version
 			if (modelradius < x + y)
 				modelradius = x + y;
 
+			#ifndef CONFIG_SV
 			if (cls.state != ca_dedicated)
 			{
 				skinframe = NULL;
@@ -244,7 +250,7 @@ static void Mod_Sprite_SharedSetup(const unsigned char *datapointer, int version
 					skinframe = R_SkinFrame_LoadMissing();
 				Mod_SpriteSetupTexture(&loadmodel->data_textures[realframes], skinframe, fullbright, additive);
 			}
-
+			#endif
 			if (version == SPRITE32_VERSION)
 				datapointer += width * height * 4;
 			else //if (version == SPRITE_VERSION || version == SPRITEHL_VERSION)
@@ -262,6 +268,7 @@ static void Mod_Sprite_SharedSetup(const unsigned char *datapointer, int version
 	loadmodel->radius = modelradius;
 	loadmodel->radius2 = modelradius * modelradius;
 }
+#endif
 
 void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 {
@@ -273,7 +280,7 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->modeldatatypestring = "SPR1";
 
 	loadmodel->type = mod_sprite;
-
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->Draw = R_Model_Sprite_Draw;
 	loadmodel->DrawDepth = NULL;
@@ -281,7 +288,7 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->DrawShadowVolume = NULL;
 	loadmodel->DrawLight = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
-
+	#endif
 	version = LittleLong(((dsprite_t *)buffer)->version);
 	if (version == SPRITE_VERSION || version == SPRITE32_VERSION)
 	{
@@ -293,8 +300,9 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->numframes = LittleLong (pinqsprite->numframes);
 		loadmodel->sprite.sprnum_type = LittleLong (pinqsprite->type);
 		loadmodel->synctype = (synctype_t)LittleLong (pinqsprite->synctype);
-
+		#ifndef CONFIG_SV
 		Mod_Sprite_SharedSetup(datapointer, LittleLong (pinqsprite->version), NULL, false);
+		#endif
 	}
 	else if (version == SPRITEHL_VERSION)
 	{
@@ -364,8 +372,9 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			Host_Error("Mod_IDSP_Load: unknown texFormat (%i, should be 0, 1, 2, or 3)", i);
 			return;
 		}
-
+		#ifndef CONFIG_SV
 		Mod_Sprite_SharedSetup(datapointer, LittleLong (pinhlsprite->version), (unsigned int *)(&palette[0][0]), rendermode == SPRHL_ADDITIVE);
+		#endif
 	}
 	else
 		Host_Error("Mod_IDSP_Load: %s has wrong version number (%i). Only %i (quake), %i (HalfLife), and %i (sprite32) supported",
@@ -381,16 +390,17 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 {
 	int i, version;
-	qboolean fullbright;
 	const dsprite2_t *pinqsprite;
-	skinframe_t *skinframe;
 	float modelradius;
+	#ifndef CONFIG_SV
+	qboolean fullbright;
+	skinframe_t *skinframe;
 	int texflags = (r_mipsprites.integer ? TEXF_MIPMAP : 0) | TEXF_ISSPRITE | TEXF_PICMIP | TEXF_COMPRESS | TEXF_ALPHA | TEXF_CLAMP;
-
+	#endif
 	loadmodel->modeldatatypestring = "SPR2";
 
 	loadmodel->type = mod_sprite;
-
+	#ifndef CONFIG_SV
 	loadmodel->DrawSky = NULL;
 	loadmodel->Draw = R_Model_Sprite_Draw;
 	loadmodel->DrawDepth = NULL;
@@ -398,7 +408,7 @@ void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->DrawShadowVolume = NULL;
 	loadmodel->DrawLight = NULL;
 	loadmodel->DrawAddWaterPlanes = NULL;
-
+	#endif
 	pinqsprite = (dsprite2_t *)buffer;
 
 	version = LittleLong(pinqsprite->version);
@@ -412,11 +422,12 @@ void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->synctype = ST_SYNC;
 
 	// LordHavoc: hack to allow sprites to be non-fullbright
+	#ifndef CONFIG_SV
 	fullbright = true;
 	for (i = 0;i < MAX_QPATH && loadmodel->name[i];i++)
 		if (loadmodel->name[i] == '!')
 			fullbright = false;
-
+	#endif
 	loadmodel->animscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * loadmodel->numframes);
 	loadmodel->sprite.sprdata_frames = (mspriteframe_t *)Mem_Alloc(loadmodel->mempool, sizeof(mspriteframe_t) * loadmodel->numframes);
 	loadmodel->num_textures = loadmodel->numframes;
@@ -457,7 +468,7 @@ void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (modelradius < x + y)
 			modelradius = x + y;
 	}
-
+	#ifndef CONFIG_SV
 	if (cls.state != ca_dedicated)
 	{
 		for (i = 0;i < loadmodel->numframes;i++)
@@ -472,7 +483,7 @@ void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			Mod_SpriteSetupTexture(&loadmodel->data_textures[i], skinframe, fullbright, false);
 		}
 	}
-
+	#endif
 	modelradius = sqrt(modelradius);
 	for (i = 0;i < 3;i++)
 	{

@@ -134,23 +134,31 @@ void CL_LinkEdict(prvm_edict_t *ent)
 
 		if( model != NULL )
 		{
+			float scale = PRVM_clientedictfloat(ent, scale);
+			if (scale == 0) scale = 1;
 			if (!model->TraceBox)
 				Con_DPrintf("edict %i: SOLID_BSP with non-collidable model\n", PRVM_NUM_FOR_EDICT(ent));
 
 			if (PRVM_clientedictvector(ent, angles)[0] || PRVM_clientedictvector(ent, angles)[2] || PRVM_clientedictvector(ent, avelocity)[0] || PRVM_clientedictvector(ent, avelocity)[2])
 			{
-				VectorAdd(PRVM_clientedictvector(ent, origin), model->rotatedmins, mins);
-				VectorAdd(PRVM_clientedictvector(ent, origin), model->rotatedmaxs, maxs);
+				VectorScale(model->rotatedmins, scale, mins);
+				VectorScale(model->rotatedmaxs, scale, maxs);
+				VectorAdd(PRVM_clientedictvector(ent, origin), mins, mins);
+				VectorAdd(PRVM_clientedictvector(ent, origin), maxs, maxs);
 			}
 			else if (PRVM_clientedictvector(ent, angles)[1] || PRVM_clientedictvector(ent, avelocity)[1])
 			{
-				VectorAdd(PRVM_clientedictvector(ent, origin), model->yawmins, mins);
-				VectorAdd(PRVM_clientedictvector(ent, origin), model->yawmaxs, maxs);
+				VectorScale(model->yawmins, scale, mins);
+				VectorScale(model->yawmaxs, scale, maxs);
+				VectorAdd(PRVM_clientedictvector(ent, origin), mins, mins);
+				VectorAdd(PRVM_clientedictvector(ent, origin), maxs, maxs);
 			}
 			else
 			{
-				VectorAdd(PRVM_clientedictvector(ent, origin), model->normalmins, mins);
-				VectorAdd(PRVM_clientedictvector(ent, origin), model->normalmaxs, maxs);
+				VectorScale(model->normalmins, scale, mins);
+				VectorScale(model->normalmaxs, scale, maxs);
+				VectorAdd(PRVM_clientedictvector(ent, origin), mins, mins);
+				VectorAdd(PRVM_clientedictvector(ent, origin), maxs, maxs);
 			}
 		}
 		else
@@ -393,7 +401,11 @@ skipnetworkplayers:
 		if ((int) PRVM_clientedictfloat(touch, solid) == SOLID_BSP || type == MOVE_HITMODEL)
 			model = CL_GetModelFromEdict(touch);
 		if (model)
-			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2], PRVM_clientedictvector(touch, angles)[0], PRVM_clientedictvector(touch, angles)[1], PRVM_clientedictvector(touch, angles)[2], 1);
+		{
+			float scale = PRVM_clientedictfloat(touch, scale);
+			if (scale == 0) scale = 1;
+			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2], PRVM_clientedictvector(touch, angles)[0], PRVM_clientedictvector(touch, angles)[1], PRVM_clientedictvector(touch, angles)[2], scale);
+		}
 		else
 			Matrix4x4_CreateTranslate(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2]);
 		Matrix4x4_Invert_Simple(&imatrix, &matrix);
@@ -611,7 +623,11 @@ skipnetworkplayers:
 		if ((int) PRVM_clientedictfloat(touch, solid) == SOLID_BSP || type == MOVE_HITMODEL)
 			model = CL_GetModelFromEdict(touch);
 		if (model)
-			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2], PRVM_clientedictvector(touch, angles)[0], PRVM_clientedictvector(touch, angles)[1], PRVM_clientedictvector(touch, angles)[2], 1);
+		{
+			float scale = PRVM_clientedictfloat(touch, scale);
+			if (scale == 0) scale = 1;
+			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2], PRVM_clientedictvector(touch, angles)[0], PRVM_clientedictvector(touch, angles)[1], PRVM_clientedictvector(touch, angles)[2], scale);
+		}
 		else
 			Matrix4x4_CreateTranslate(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2]);
 		Matrix4x4_Invert_Simple(&imatrix, &matrix);
@@ -856,7 +872,11 @@ skipnetworkplayers:
 		if ((int) PRVM_clientedictfloat(touch, solid) == SOLID_BSP || type == MOVE_HITMODEL)
 			model = CL_GetModelFromEdict(touch);
 		if (model)
-			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2], PRVM_clientedictvector(touch, angles)[0], PRVM_clientedictvector(touch, angles)[1], PRVM_clientedictvector(touch, angles)[2], 1);
+		{
+			float scale = PRVM_clientedictfloat(touch, scale);
+			if (scale == 0) scale = 1;
+			Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2], PRVM_clientedictvector(touch, angles)[0], PRVM_clientedictvector(touch, angles)[1], PRVM_clientedictvector(touch, angles)[2], scale);
+		}
 		else
 			Matrix4x4_CreateTranslate(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2]);
 		Matrix4x4_Invert_Simple(&imatrix, &matrix);
@@ -900,6 +920,7 @@ trace_t CL_Cache_TraceLineSurfaces(const vec3_t start, const vec3_t end, int typ
 	// list of entities to test for collisions
 	int numtouchedicts;
 	static prvm_edict_t *touchedicts[MAX_EDICTS];
+	float scale;
 
 	VectorCopy(start, clipstart);
 	VectorCopy(end, clipend);
@@ -964,7 +985,9 @@ trace_t CL_Cache_TraceLineSurfaces(const vec3_t start, const vec3_t end, int typ
 			continue;
 		if (type == MOVE_NOMONSTERS && PRVM_clientedictfloat(touch, solid) != SOLID_BSP)
 			continue;
-		Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2], PRVM_clientedictvector(touch, angles)[0], PRVM_clientedictvector(touch, angles)[1], PRVM_clientedictvector(touch, angles)[2], 1);
+		scale = PRVM_clientedictfloat(touch, scale);
+		if (scale == 0) scale = 1;
+		Matrix4x4_CreateFromQuakeEntity(&matrix, PRVM_clientedictvector(touch, origin)[0], PRVM_clientedictvector(touch, origin)[1], PRVM_clientedictvector(touch, origin)[2], PRVM_clientedictvector(touch, angles)[0], PRVM_clientedictvector(touch, angles)[1], PRVM_clientedictvector(touch, angles)[2], scale);
 		Matrix4x4_Invert_Simple(&imatrix, &matrix);
 		Collision_Cache_ClipLineToGenericEntitySurfaces(&trace, model, &matrix, &imatrix, clipstart, clipend, hitsupercontentsmask, skipsupercontentsmask);
 		Collision_CombineTraces(&cliptrace, &trace, (void *)touch, PRVM_clientedictfloat(touch, solid) == SOLID_BSP);

@@ -1232,35 +1232,34 @@ Key_Message (int key, int ascii, qboolean down)
     const dp_chat_fakekey_t fake_backspace[] = {{K_LEFTARROW, 0, true}, {K_DEL, 0, true}};
     const dp_chat_fakekey_t fake_del[] = {{K_DEL, 0, true}};
 
-    if(key == 133 && ascii == 0) // Added by Izy (izy from izysoftware.com)
-        chat_modifiers.ctrl = down;
-    if(key == 147 && ascii == 0 && down) // Added by Izy (izy from izysoftware.com)
-        chat_modifiers.ins = chat_modifiers.ins == false;
+	if(key == 133 && ascii == 0) // Added by Izy (izy from izysoftware.com)
+		chat_modifiers.ctrl = down;
+	if(key == 147 && ascii == 0 && down) // Added by Izy (izy from izysoftware.com)
+		chat_modifiers.ins = chat_modifiers.ins == false;
 
-    if(down == false) // Izy's Patch
-        return;
+	if(down == false) // Izy's Patch
+		return;
 
 	if (key == K_ENTER || ascii == 10 || ascii == 13)
 	{
-        
-        switch(chat_mode)
-        {
-            case DP_CHAT_MODE_COMMAND:
-                // not Cbuf_AddText to allow semiclons in args; however, this allows no variables then. Use aliases!
-    			Cmd_ExecuteString(chat_buffer, src_command, true);
-                break;
-            case DP_CHAT_MODE_SAY:
-			    Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "%s %s", "say", chat_buffer));
-                break;
-            case DP_CHAT_MODE_SAYTEAM:
-			    Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "%s %s", "say_team", chat_buffer));
-                break;
-        }
+		switch(chat_mode)
+		{
+			case DP_CHAT_MODE_COMMAND:
+				// not Cbuf_AddText to allow semiclons in args; however, this allows no variables then. Use aliases!
+				Cmd_ExecuteString(chat_buffer, src_command, true);
+				break;
+			case DP_CHAT_MODE_SAY:
+				Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "%s %s", "say", chat_buffer));
+				break;
+			case DP_CHAT_MODE_SAYTEAM:
+				Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "%s %s", "say_team", chat_buffer));
+				break;
+		}
 
 		key_dest = key_game;
 		chat_bufferlen = chat_cursor = 0;
 		chat_buffer[0] = 0;
-        Key_Message_Reset_All_Modifiers(); // Izy
+		Key_Message_Reset_All_Modifiers(); // Izy
 		return;
 	}
 

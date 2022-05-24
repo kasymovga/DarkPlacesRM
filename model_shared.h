@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifndef MODEL_SHARED_H
 #define MODEL_SHARED_H
+#include "matrixlib.h"
 
 typedef enum synctype_e {ST_SYNC=0, ST_RAND } synctype_t;
 
@@ -832,7 +833,7 @@ typedef struct model_brush_s
 	void (*AmbientSoundLevelsForPoint)(struct model_s *model, const vec3_t p, unsigned char *out, int outsize);
 	void (*RoundUpToHullSize)(struct model_s *cmodel, const vec3_t inmins, const vec3_t inmaxs, vec3_t outmins, vec3_t outmaxs);
 	// trace a line of sight through this model (returns false if the line if sight is definitely blocked)
-	qboolean (*TraceLineOfSight)(struct model_s *model, const vec3_t start, const vec3_t end);
+	qboolean (*TraceLineOfSight)(struct model_s *model, const vec3_t start, const vec3_t end, qboolean slow);
 
 	char skybox[MAX_QPATH];
 
@@ -1213,7 +1214,7 @@ void Mod_CollisionBIH_TraceLine(dp_model_t *model, const struct frameblend_s *fr
 void Mod_CollisionBIH_TraceBox(dp_model_t *model, const struct frameblend_s *frameblend, const skeleton_t *skeleton, struct trace_s *trace, const vec3_t start, const vec3_t boxmins, const vec3_t boxmaxs, const vec3_t end, int hitsupercontentsmask, int skipsupercontentsmask);
 void Mod_CollisionBIH_TraceBrush(dp_model_t *model, const struct frameblend_s *frameblend, const skeleton_t *skeleton, struct trace_s *trace, struct colbrushf_s *start, struct colbrushf_s *end, int hitsupercontentsmask, int skipsupercontentsmask);
 void Mod_CollisionBIH_TracePoint_Mesh(dp_model_t *model, const struct frameblend_s *frameblend, const skeleton_t *skeleton, struct trace_s *trace, const vec3_t start, int hitsupercontentsmask, int skipsupercontentsmask);
-qboolean Mod_CollisionBIH_TraceLineOfSight(struct model_s *model, const vec3_t start, const vec3_t end);
+qboolean Mod_CollisionBIH_TraceLineOfSight(struct model_s *model, const vec3_t start, const vec3_t end, qboolean slow);
 int Mod_CollisionBIH_PointSuperContents(struct model_s *model, int frame, const vec3_t point);
 int Mod_CollisionBIH_PointSuperContents_Mesh(struct model_s *model, int frame, const vec3_t point);
 bih_t *Mod_MakeCollisionBIH(dp_model_t *model, qboolean userendersurfaces, bih_t *out);
@@ -1244,6 +1245,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend);
+void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend);
 
 #endif	// MODEL_SHARED_H
 
