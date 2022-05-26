@@ -3650,6 +3650,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 
 				// find the search start location
 				prevCvarName = MSG_ReadString(&sv_message, sv_readstring, sizeof(sv_readstring));
+				Cvar_LockThreadMutex();
 				var = Cvar_FindVarAfter(prevCvarName, CVAR_NOTIFY);
 
 				// send the response
@@ -3662,6 +3663,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 					MSG_WriteString(&sv_message, var->name);
 					MSG_WriteString(&sv_message, var->string);
 				}
+				Cvar_UnlockThreadMutex();
 				StoreBigLong(sv_message.data, NETFLAG_CTL | (sv_message.cursize & NETFLAG_LENGTH_MASK));
 				NetConn_Write(mysocket, sv_message.data, sv_message.cursize, peeraddress);
 				SZ_Clear(&sv_message);

@@ -719,8 +719,10 @@ static void Cmd_Toggle_f(void)
 	else
 	{ // Correct Arguments Specified
 		// Acquire Potential CVar
-		cvar_t* cvCVar = Cvar_FindVar( Cmd_Argv(1) );
-		
+		cvar_t* cvCVar;
+
+		Cvar_LockThreadMutex();
+		cvCVar = Cvar_FindVar( Cmd_Argv(1) );
 		if(cvCVar != NULL)
 		{ // Valid CVar
 			if(cvCVar->flags & CVAR_READONLY) {
@@ -781,6 +783,7 @@ static void Cmd_Toggle_f(void)
 		{ // Invalid CVar
 			Con_Printf("ERROR : CVar '%s' not found\n", Cmd_Argv(1) );
 		}
+		Cvar_UnlockThreadMutex();
 	}
 }
 
@@ -1188,6 +1191,7 @@ static qboolean Cmd_PreprocessString( const char *intext, char *outtext, unsigne
 	in = intext;
 	outlen = 0;
 
+	Cvar_LockThreadMutex();
 	while( *in && outlen < maxoutlen ) {
 		if( *in == '$' ) {
 			// this is some kind of expansion, see what comes after the $
@@ -1291,6 +1295,7 @@ static qboolean Cmd_PreprocessString( const char *intext, char *outtext, unsigne
 		else 
 			outtext[outlen++] = *in++;
 	}
+	Cvar_UnlockThreadMutex();
 	outtext[outlen] = 0;
 	return true;
 }

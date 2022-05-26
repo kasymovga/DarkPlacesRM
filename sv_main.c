@@ -4098,6 +4098,7 @@ void SV_StartThread(void)
 	svs.threadstop = false;
 	svs.threadmutex = Thread_CreateMutex();
 	svs.thread = Thread_CreateThread(SV_ThreadFunc, NULL);
+	Cvar_EnableThreads();
 }
 
 void SV_StopThread(void)
@@ -4108,6 +4109,7 @@ void SV_StopThread(void)
 	Thread_WaitThread(svs.thread, 0);
 	Thread_DestroyMutex(svs.threadmutex);
 	svs.threaded = false;
+	Cvar_DisableThreads();
 }
 #endif
 

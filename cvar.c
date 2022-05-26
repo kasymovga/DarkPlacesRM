@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "siphash.h"
+#include "thread.h"
 
 #include <time.h>
 
@@ -39,10 +40,11 @@ static inline uint64_t siphash_Block(const char* name, const size_t len) {
     return res;
 }
 
+static void *cvar_mutex;
+
 void Cvar_InitTable(void) {
     uint64_t tmp = 0;
     int i;
-
     for(i=0; i<16; ++i) {
         if(0 == i) {
             tmp = (uint64_t)clock();
@@ -134,16 +136,36 @@ Cvar_VariableValue
 float Cvar_VariableValueOr (const char *var_name, float def)
 {
 	cvar_t *var;
+	float r;
 
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	var = Cvar_FindVar (var_name);
 	if (!var)
-		return def;
-	return atof (var->string);
+		r = def;
+	else
+		r = atof (var->string);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+	return r;
 }
 
 float Cvar_VariableValue (const char *var_name)
 {
 	return Cvar_VariableValueOr(var_name, 0);
+}
+
+float Cvar_VariableValue_NotPrivate (const char *var_name)
+{
+	cvar_t *var;
+	float r;
+
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+	var = Cvar_FindVar (var_name);
+	if (!var || (var->flags & CVAR_PRIVATE))
+		r = 0;
+	else
+		r = atof (var->string);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+	return r;
 }
 
 /*
@@ -164,6 +186,16 @@ const char *Cvar_VariableStringOr (const char *var_name, const char *def)
 const char *Cvar_VariableString (const char *var_name)
 {
 	return Cvar_VariableStringOr(var_name, cvar_null_string);
+}
+
+int Cvar_VariableString_NotPrivate_TempString (prvm_prog_t *prog, const char *var_name)
+{
+	int r;
+
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+	r = PRVM_SetTempString(prog, Cvar_VariableStringOr(var_name, cvar_null_string));
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+	return r;
 }
 
 /*
@@ -351,8 +383,10 @@ static void Cvar_UpdateAutoCvar(cvar_t *var)
 void Cvar_UpdateAllAutoCvars(void)
 {
 	cvar_t *var;
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (var = cvar_vars ; var ; var = var->next)
 		Cvar_UpdateAutoCvar(var);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *var, char *oldvalue) {
@@ -367,7 +401,6 @@ static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *var, char *oldvalue) {
 
 static void Cvar_NotifyAllProgs(cvar_t *var, char *oldvalue) {
     int i;
-
     for(i = 0; i < PRVM_PROG_MAX; ++i) {
         prvm_prog_t *prog = &prvm_prog_list[i];
         if(prog->loaded)
@@ -475,7 +508,6 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 	}
 	#endif
 	Cvar_UpdateAutoCvar(var);
-
     if(oldval) { // CVAR_WATCHED
         Cvar_NotifyAllProgs(var, oldval);
         Z_Free(oldval);
@@ -489,17 +521,19 @@ void Cvar_SetQuick (cvar_t *var, const char *value)
 		Con_Print("Cvar_SetQuick: var == NULL\n");
 		return;
 	}
-
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	if (developer_extra.integer)
 		Con_DPrintf("Cvar_SetQuick({\"%s\", \"%s\", %i, \"%s\"}, \"%s\");\n", var->name, var->string, var->flags, var->defstring, value);
 
 	Cvar_SetQuick_Internal(var, value);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 void Cvar_Set (const char *var_name, const char *value)
 {
 	cvar_t *var;
 
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	if(!strcmp(var_name, "r_glsl")) {
 		Con_Printf("Cvar_Set: Attempted to set %s, updating vid_gl20 instead to preserve Nexuiz compatibility\n", var_name);
 		var = Cvar_FindVar("vid_gl20");
@@ -509,9 +543,11 @@ void Cvar_Set (const char *var_name, const char *value)
 	if (var == NULL)
 	{
 		Con_Printf("Cvar_Set: variable %s not found\n", var_name);
-		return;
+		goto finish;
 	}
 	Cvar_SetQuick(var, value);
+finish:
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 /*
@@ -522,12 +558,14 @@ Cvar_SetValue
 void Cvar_SetValueQuick(cvar_t *var, float value)
 {
 	char val[MAX_INPUTLINE];
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 
 	if ((float)((int)value) == value)
 		dpsnprintf(val, sizeof(val), "%i", (int)value);
 	else
 		dpsnprintf(val, sizeof(val), "%f", value);
 	Cvar_SetQuick(var, val);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 void Cvar_SetValue(const char *var_name, float value)
@@ -538,7 +576,9 @@ void Cvar_SetValue(const char *var_name, float value)
 		dpsnprintf(val, sizeof(val), "%i", (int)value);
 	else
 		dpsnprintf(val, sizeof(val), "%f", value);
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	Cvar_Set(var_name, val);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 /*
@@ -556,6 +596,7 @@ void Cvar_RegisterVariable (cvar_t *variable)
 	size_t alloclen;
 	int i;
 
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	if (developer_extra.integer)
 		Con_DPrintf("Cvar_RegisterVariable({\"%s\", \"%s\", %i});\n", variable->name, variable->string, variable->flags);
 
@@ -602,7 +643,7 @@ void Cvar_RegisterVariable (cvar_t *variable)
 		}
 		else
 			Con_DPrintf("Can't register variable %s, already defined\n", variable->name);
-		return;
+		goto finish;
 	}
 
 // copy the value off, because future sets will Z_Free it
@@ -634,6 +675,8 @@ void Cvar_RegisterVariable (cvar_t *variable)
 	hashindex = siphash_Block(variable->name, strlen(variable->name)) % CVAR_HASHSIZE;
 	variable->nextonhashchain = cvar_hashtable[hashindex];
 	cvar_hashtable[hashindex] = variable;
+finish:
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 /*
@@ -734,17 +777,20 @@ Handles variable inspection and changing from the console
 qboolean	Cvar_Command (void)
 {
 	cvar_t			*v;
+	qboolean r = false;
 
 // check variables
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	v = Cvar_FindVar (Cmd_Argv(0));
 	if (!v)
-		return false;
+		goto finish;
 
+	r = true;
 // perform a variable print or set
 	if (Cmd_Argc() == 1)
 	{
 		Con_Printf("\"%s\" is \"%s\" [\"%s\"]\n", v->name, ((v->flags & CVAR_PRIVATE) ? "********"/*hunter2*/ : v->string), v->defstring);
-		return true;
+		goto finish;
 	}
 
 	if (developer_extra.integer)
@@ -753,21 +799,25 @@ qboolean	Cvar_Command (void)
 	if (v->flags & CVAR_READONLY && strcmp(v->name, "r_glsl"))
 	{
 		Con_Printf("%s is read-only\n", v->name);
-		return true;
+		goto finish;
 	}
 	Cvar_Set (v->name, Cmd_Argv(1));
 	if (developer_extra.integer)
 		Con_DPrint("\n");
-	return true;
+finish:
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+	return r;
 }
 
 
 void Cvar_UnlockDefaults (void)
 {
 	cvar_t *var;
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	// unlock the default values of all cvars
 	for (var = cvar_vars ; var ; var = var->next)
 		var->flags &= ~CVAR_DEFAULTSET;
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 
@@ -775,6 +825,7 @@ void Cvar_LockDefaults_f (void)
 {
 	cvar_t *var;
 	// lock in the default values of all cvars
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (var = cvar_vars ; var ; var = var->next)
 	{
 		if (!(var->flags & CVAR_DEFAULTSET))
@@ -789,11 +840,13 @@ void Cvar_LockDefaults_f (void)
 			memcpy((char *)var->defstring, var->string, alloclen);
 		}
 	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 void Cvar_SaveInitState(void)
 {
 	cvar_t *c;
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (c = cvar_vars;c;c = c->next)
 	{
 		c->initstate = true;
@@ -804,6 +857,7 @@ void Cvar_SaveInitState(void)
 		c->initinteger = c->integer;
 		VectorCopy(c->vector, c->initvector);
 	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 void Cvar_RestoreInitState(void)
@@ -811,6 +865,7 @@ void Cvar_RestoreInitState(void)
 	int hashindex;
 	cvar_t *c, **cp;
 	cvar_t *c2, **cp2;
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (cp = &cvar_vars;(c = *cp);)
 	{
 		if (c->initstate)
@@ -881,15 +936,18 @@ void Cvar_RestoreInitState(void)
 			Z_Free(c);
 		}
 	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 void Cvar_ResetToDefaults_All_f (void)
 {
 	cvar_t *var;
 	// restore the default values of all cvars
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (var = cvar_vars ; var ; var = var->next)
 		if((var->flags & CVAR_NORESETTODEFAULTS) == 0)
 			Cvar_SetQuick(var, var->defstring);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 
@@ -897,19 +955,23 @@ void Cvar_ResetToDefaults_NoSaveOnly_f (void)
 {
 	cvar_t *var;
 	// restore the default values of all cvars
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (var = cvar_vars ; var ; var = var->next)
 		if ((var->flags & (CVAR_NORESETTODEFAULTS | CVAR_SAVE)) == 0)
 			Cvar_SetQuick(var, var->defstring);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 
 void Cvar_ResetToDefaults_SaveOnly_f (void)
 {
 	cvar_t *var;
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	// restore the default values of all cvars
 	for (var = cvar_vars ; var ; var = var->next)
 		if ((var->flags & (CVAR_NORESETTODEFAULTS | CVAR_SAVE)) == CVAR_SAVE)
 			Cvar_SetQuick(var, var->defstring);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 
@@ -926,6 +988,7 @@ void Cvar_WriteVariables (qfile_t *f)
 	cvar_t	*var;
 	char buf1[MAX_INPUTLINE], buf2[MAX_INPUTLINE];
 
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	// don't save cvars that match their default value
 	for (var = cvar_vars ; var ; var = var->next)
 		if ((var->flags & CVAR_SAVE) && (strcmp(var->string, var->defstring) || ((var->flags & CVAR_ALLOCATED) && !(var->flags & CVAR_DEFAULTSET))))
@@ -934,6 +997,7 @@ void Cvar_WriteVariables (qfile_t *f)
 			Cmd_QuoteString(buf2, sizeof(buf2), var->string, "\"\\$", false);
 			FS_Printf(f, "%s\"%s\" \"%s\"\n", var->flags & CVAR_ALLOCATED ? "seta " : "", buf1, buf2);
 		}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 
@@ -966,6 +1030,7 @@ void Cvar_List_f (void)
 	}
 
 	count = 0;
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (cvar = cvar_vars; cvar; cvar = cvar->next)
 	{
 		if (len && (ispattern ? !matchpattern_with_separator(cvar->name, partial, false, "", false) : strncmp (partial,cvar->name,len)))
@@ -974,6 +1039,7 @@ void Cvar_List_f (void)
 		Con_Printf("%s is \"%s\" [\"%s\"] %s\n", cvar->name, ((cvar->flags & CVAR_PRIVATE) ? "********"/*hunter2*/ : cvar->string), cvar->defstring, cvar->description);
 		count++;
 	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 
 	if (len)
 	{
@@ -995,15 +1061,16 @@ void Cvar_Set_f (void)
 	if (Cmd_Argc() < 3)
 	{
 		Con_Printf("Set: wrong number of parameters, usage: set <variablename> <value> [<description>]\n");
-		return;
+		goto finish;
 	}
 
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
 	if (cvar && cvar->flags & CVAR_READONLY && strcmp(cvar->name, "r_glsl"))
 	{
 		Con_Printf("Set: %s is read-only\n", cvar->name);
-		return;
+		goto finish;
 	}
 
 	if (developer_extra.integer)
@@ -1011,6 +1078,8 @@ void Cvar_Set_f (void)
 
 	// all looks ok, create/modify the cvar
 	Cvar_Get(Cmd_Argv(1), Cmd_Argv(2), 0, Cmd_Argc() > 3 ? Cmd_Argv(3) : NULL);
+finish:
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 void Cvar_SetA_f (void)
@@ -1024,12 +1093,13 @@ void Cvar_SetA_f (void)
 		return;
 	}
 
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
 	if (cvar && cvar->flags & CVAR_READONLY && strcmp(cvar->name, "r_glsl"))
 	{
 		Con_Printf("SetA: %s is read-only\n", cvar->name);
-		return;
+		goto finish;
 	}
 
 	if (developer_extra.integer)
@@ -1037,6 +1107,8 @@ void Cvar_SetA_f (void)
 
 	// all looks ok, create/modify the cvar
 	Cvar_Get(Cmd_Argv(1), Cmd_Argv(2), CVAR_SAVE, Cmd_Argc() > 3 ? Cmd_Argv(3) : NULL);
+finish:
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 void Cvar_Del_f (void)
@@ -1049,6 +1121,7 @@ void Cvar_Del_f (void)
 		Con_Printf("Del: wrong number of parameters, useage: unset <variablename1> [<variablename2> ...]\n");
 		return;
 	}
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for(i = 1; i < Cmd_Argc(); ++i)
 	{
 		cvar = Cvar_FindVarLink(Cmd_Argv(i), &parent, &link, &prev);
@@ -1091,6 +1164,7 @@ void Cvar_Del_f (void)
 		Z_Free((char *)cvar->defstring);
 		Z_Free(cvar);
 	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
 #ifdef FILLALLCVARSWITHRUBBISH
@@ -1112,6 +1186,7 @@ void Cvar_FillAll_f()
 		n = -n;
 	buf = Z_Malloc(n + 1);
 	buf[n] = 0;
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for(var = cvar_vars; var; var = var->next)
 	{
 		for(i = 0, p = buf, q = var->name; i < n; ++i)
@@ -1126,6 +1201,29 @@ void Cvar_FillAll_f()
 		}
 		Cvar_SetQuick(var, buf);
 	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 	Z_Free(buf);
 }
 #endif /* FILLALLCVARSWITHRUBBISH */
+#ifndef CONFIG_SV
+void Cvar_EnableThreads(void)
+{
+	cvar_mutex = Thread_CreateMutex();
+}
+
+void Cvar_DisableThreads(void)
+{
+	Thread_DestroyMutex(cvar_mutex);
+	cvar_mutex = NULL;
+}
+
+void Cvar_LockThreadMutex(void)
+{
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+}
+
+void Cvar_UnlockThreadMutex(void)
+{
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+}
+#endif

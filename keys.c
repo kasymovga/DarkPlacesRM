@@ -854,7 +854,9 @@ Key_Console (int key, int unicode)
 		// Enhanced command completion
 		// by EvilTypeGuy eviltypeguy@qeradiant.com
 		// Thanks to Fett, Taniwha
+		Cvar_LockThreadMutex();
 		Con_CompleteCommandLine();
+		Cvar_UnlockThreadMutex();
 		return;
 	}
 
@@ -1127,7 +1129,11 @@ Key_Console (int key, int unicode)
 		// text zoom reset
 		if (key == '0' || key == K_KP_INS)
 		{
-			Cvar_SetValueQuick(&con_textsize, atoi(Cvar_VariableDefString("con_textsize")));
+			int deftextsize;
+			Cvar_LockThreadMutex();
+			deftextsize = atoi(Cvar_VariableDefString("con_textsize"));
+			Cvar_UnlockThreadMutex();
+			Cvar_SetValueQuick(&con_textsize, deftextsize);
 			return;
 		}
 	}

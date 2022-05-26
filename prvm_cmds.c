@@ -680,13 +680,6 @@ void VM_localcmd(prvm_prog_t *prog)
 	Cbuf_AddText(string);
 }
 
-static qboolean PRVM_Cvar_ReadOk(const char *string)
-{
-	cvar_t *cvar;
-	cvar = Cvar_FindVar(string);
-	return ((cvar) && ((cvar->flags & CVAR_PRIVATE) == 0));
-}
-
 /*
 =================
 VM_cvar
@@ -700,7 +693,7 @@ void VM_cvar(prvm_prog_t *prog)
 	VM_SAFEPARMCOUNTRANGE(1,8,VM_cvar);
 	VM_VarString(prog, 0, string, sizeof(string));
 	VM_CheckEmptyString(prog, string);
-	PRVM_G_FLOAT(OFS_RETURN) = PRVM_Cvar_ReadOk(string) ? Cvar_VariableValue(string) : 0;
+	PRVM_G_FLOAT(OFS_RETURN) = Cvar_VariableValue_NotPrivate(string);
 }
 
 /*
@@ -739,14 +732,12 @@ void VM_cvar_type(prvm_prog_t *prog)
 	VM_SAFEPARMCOUNTRANGE(1,8,VM_cvar_type);
 	VM_VarString(prog, 0, string, sizeof(string));
 	VM_CheckEmptyString(prog, string);
+	Cvar_LockThreadMutex();
 	cvar = Cvar_FindVar(string);
-
-
 	if(!cvar) {
-		PRVM_G_FLOAT(OFS_RETURN) = 0;
-		return;
+		ret = 0;
+		goto finish;
 	}
-
 	ret = CVAR_TYPEFLAG_EXISTS;
 	if(cvar->flags & CVAR_SAVE)
 		ret |= CVAR_TYPEFLAG_SAVED;
@@ -763,6 +754,8 @@ void VM_cvar_type(prvm_prog_t *prog)
     if(cvar->flags & CVAR_WATCHED)
         ret |= CVAR_TYPEFLAG_WATCHED;
 
+finish:
+	Cvar_UnlockThreadMutex();
 	PRVM_G_FLOAT(OFS_RETURN) = ret;
 }
 
@@ -800,16 +793,17 @@ void VM_cvar_altertype(prvm_prog_t *prog) {
 
     cvarname = PRVM_G_STRING(OFS_PARM0);
     VM_CheckEmptyString(prog, cvarname);
+    Cvar_LockThreadMutex();
     cvar = Cvar_FindVar(cvarname);
 
     if(!cvar) {
         Con_Printf("VM_cvar_altertype: cvar \"%s\" not found\n", cvarname);
-        return;
+        goto finish;
     }
 
     if(!(cvar->flags & CVAR_ALLOCATED)) {
         Con_Printf("VM_cvar_altertype: attempted to modify an engine cvar \"%s\"\n", cvarname);
-        return;
+        goto finish;
     }
 
     setflags = (int)PRVM_G_FLOAT(OFS_PARM1);
@@ -817,18 +811,20 @@ void VM_cvar_altertype(prvm_prog_t *prog) {
 
     if(setflags & CVAR_TYPEFLAGS_ALTERFORBIDDEN) {
         Con_Printf("VM_cvar_altertype: bad flags: %i\n", setflags);
-        return;
+        goto finish;
     }
 
     if(unsetflags & CVAR_TYPEFLAGS_ALTERFORBIDDEN) {
         Con_Printf("VM_cvar_altertype: bad flags: %i\n", unsetflags);
-        return;
+        goto finish;
     }
 
     cvar->flags |= typeflags_to_cvarflags(setflags);
     cvar->flags &= ~typeflags_to_cvarflags(unsetflags);
-
     PRVM_G_FLOAT(OFS_RETURN) = 1;
+
+finish:
+	Cvar_UnlockThreadMutex();
 }
 
 #undef CVAR_TYPEFLAG_EXISTS
@@ -855,7 +851,7 @@ void VM_cvar_string(prvm_prog_t *prog)
 	VM_SAFEPARMCOUNTRANGE(1,8,VM_cvar_string);
 	VM_VarString(prog, 0, string, sizeof(string));
 	VM_CheckEmptyString(prog, string);
-	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, PRVM_Cvar_ReadOk(string) ? Cvar_VariableString(string) : "");
+	PRVM_G_INT(OFS_RETURN) = Cvar_VariableString_NotPrivate_TempString(prog, string);
 }
 
 
@@ -1816,19 +1812,21 @@ void VM_registercvar(prvm_prog_t *prog)
 		return;
 
 // first check to see if it has already been defined
+	Cvar_LockThreadMutex();
 	if (Cvar_FindVar (name))
-		return;
+		goto finish;
 
 // check for overlap with a command
 	if (Cmd_Exists (name))
 	{
 		VM_Warning(prog, "VM_registercvar: %s is a command\n", name);
-		return;
+		goto finish;
 	}
 
 	Cvar_Get(name, value, flags, NULL);
-
 	PRVM_G_FLOAT(OFS_RETURN) = 1; // success
+finish:
+	Cvar_UnlockThreadMutex();
 }
 
 

@@ -1178,13 +1178,17 @@ static void PRVM_ED_EdictGet_f(void)
 	s = PRVM_UglyValueString(prog, (etype_t)key->type, v, valuebuf, sizeof(valuebuf));
 	if(Cmd_Argc() == 5)
 	{
-		cvar_t *cvar = Cvar_FindVar(Cmd_Argv(4));
+		cvar_t *cvar;
+		Cvar_LockThreadMutex();
+		cvar = Cvar_FindVar(Cmd_Argv(4));
 		if (cvar && cvar->flags & CVAR_READONLY)
 		{
 			Con_Printf("prvm_edictget: %s is read-only\n", cvar->name);
+			Cvar_UnlockThreadMutex();
 			goto fail;
 		}
 		Cvar_Get(Cmd_Argv(4), s, 0, NULL);
+		Cvar_UnlockThreadMutex();
 	}
 	else
 		Con_Printf("%s\n", s);
@@ -1221,13 +1225,17 @@ static void PRVM_ED_GlobalGet_f(void)
 	s = PRVM_UglyValueString(prog, (etype_t)key->type, v, valuebuf, sizeof(valuebuf));
 	if(Cmd_Argc() == 4)
 	{
-		cvar_t *cvar = Cvar_FindVar(Cmd_Argv(3));
+		cvar_t *cvar;
+		Cvar_LockThreadMutex();
+		cvar = Cvar_FindVar(Cmd_Argv(3));
 		if (cvar && cvar->flags & CVAR_READONLY)
 		{
 			Con_Printf("prvm_globalget: %s is read-only\n", cvar->name);
+			Cvar_UnlockThreadMutex();
 			goto fail;
 		}
 		Cvar_Get(Cmd_Argv(3), s, 0, NULL);
+		Cvar_UnlockThreadMutex();
 	}
 	else
 		Con_Printf("%s\n", s);
@@ -2541,6 +2549,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 		}
 	}
 
+	Cvar_LockThreadMutex();
 	for (cvar = cvar_vars; cvar; cvar = cvar->next)
 		cvar->globaldefindex[prog - prvm_prog_list] = -1;
 
@@ -2633,6 +2642,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 fail:
 		;
 	}
+	Cvar_UnlockThreadMutex();
 
     arrayext = PRVM_ED_FindGlobal(prog, "__ext__fasttrackarrays");
 	if(arrayext)

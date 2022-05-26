@@ -114,7 +114,9 @@ static void Host_Status_f (void)
 	for (players = 0, i = 0;i < svs.maxclients;i++)
 		if (svs.clients[i].active)
 			players++;
+	Cvar_LockThreadMutex();
 	print ("host:     %s\n", Cvar_VariableString ("hostname"));
+	Cvar_UnlockThreadMutex();
 	print ("version:  DarkPlacesRM " DP_OS_NAME " build %s (Running %s)\n", buildstring, gamenetworkfiltername);
 	print ("protocol: %i (%s)\n", Protocol_NumberForEnum(sv.protocol), Protocol_NameForEnum(sv.protocol));
 	print ("map:      %s\n", sv.name);
@@ -2550,6 +2552,7 @@ static void Host_SendCvar_f (void)
 	#ifndef CONFIG_SV
 	if (cls.state == ca_connected)
 	{
+		Cvar_LockThreadMutex();
 		c = Cvar_FindVar(cvarname);
 		// LordHavoc: if there is no such cvar or if it is private, send a
 		// reply indicating that it has no value
@@ -2557,6 +2560,7 @@ static void Host_SendCvar_f (void)
 			Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "sentcvar %s", cvarname));
 		else
 			Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "sentcvar %s \"%s\"", c->name, c->string));
+		Cvar_UnlockThreadMutex();
 		return;
 	}
 	#endif
