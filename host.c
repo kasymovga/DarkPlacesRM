@@ -790,6 +790,7 @@ void Host_Main(void)
 			}
 			else if(svs.perf_acc_realtime > 5)
 			{
+				prvm_prog_t *prog = SVVM_prog;
 				svs.perf_cpuload = 1 - svs.perf_acc_sleeptime / svs.perf_acc_realtime;
 				svs.perf_lost = svs.perf_acc_lost / svs.perf_acc_realtime;
 				if(svs.perf_acc_offset_samples > 0)
@@ -801,6 +802,16 @@ void Host_Main(void)
 				if(svs.perf_lost > 0 && developer_extra.integer)
 					if(playing) // only complain if anyone is looking
 						Con_DPrintf("Server can't keep up: %s\n", Host_TimingReport(vabuf, sizeof(vabuf)));
+
+				if(prog->loaded && PRVM_serverfunction(perf_event))
+				{
+					PRVM_G_FLOAT(OFS_PARM0) = svs.perf_cpuload;
+					PRVM_G_FLOAT(OFS_PARM1) = svs.perf_lost;
+					PRVM_G_FLOAT(OFS_PARM2) = svs.perf_offset_avg;
+					PRVM_G_FLOAT(OFS_PARM3) = svs.perf_offset_max;
+					PRVM_G_FLOAT(OFS_PARM4) = svs.perf_offset_sdev;
+					prog->ExecuteProgram(prog, PRVM_serverfunction(perf_event), "");
+				}
 				svs.perf_acc_realtime = svs.perf_acc_sleeptime = svs.perf_acc_lost = svs.perf_acc_offset = svs.perf_acc_offset_squared = svs.perf_acc_offset_max = svs.perf_acc_offset_samples = 0;
 			}
 		}
