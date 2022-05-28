@@ -772,8 +772,10 @@ void Host_Main(void)
 		#endif
 		sv_timer += deltacleantime;
 
+		#ifndef CONFIG_SV
 		if (!svs.threaded)
 		{
+		#endif
 			svs.perf_acc_realtime += deltacleantime;
 
 			// Look for clients who have spawned
@@ -803,8 +805,9 @@ void Host_Main(void)
 						Con_DPrintf("Server can't keep up: %s\n", Host_TimingReport(vabuf, sizeof(vabuf)));
 				svs.perf_acc_realtime = svs.perf_acc_sleeptime = svs.perf_acc_lost = svs.perf_acc_offset = svs.perf_acc_offset_squared = svs.perf_acc_offset_max = svs.perf_acc_offset_samples = 0;
 			}
+		#ifndef CONFIG_SV
 		}
-
+		#endif
 		if (slowmo.value < 0.00001 && slowmo.value != 0)
 			Cvar_SetValue("slowmo", 0);
 		if (host_framerate.value < 0.00001 && host_framerate.value != 0)
@@ -832,7 +835,11 @@ void Host_Main(void)
 
 		// receive packets on each main loop iteration, as the main loop may
 		// be undersleeping due to select() detecting a new packet
-		if (sv.active && !svs.threaded)
+		if (sv.active
+				#ifndef CONFIG_SV
+				&& !svs.threaded
+				#endif
+				)
 			NetConn_ServerFrame();
 
 		Curl_Run();
@@ -888,7 +895,11 @@ void Host_Main(void)
 				wait = 1; // because we cast to int
 
 			time0 = Sys_DirtyTime();
-			if (sv_checkforpacketsduringsleep.integer && !sys_usenoclockbutbenchmark.integer && !svs.threaded) {
+			if (sv_checkforpacketsduringsleep.integer && !sys_usenoclockbutbenchmark.integer
+					#ifndef CONFIG_SV
+					&& !svs.threaded
+					#endif
+					) {
 				NetConn_SleepMicroseconds((int)wait);
 				#ifndef CONFIG_SV
 				if (cls.state != ca_dedicated)
@@ -900,7 +911,9 @@ void Host_Main(void)
 				Sys_Sleep((int)wait);
 			delta = Sys_DirtyTime() - time0;
 			if (delta < 0 || delta >= 1800) delta = 0;
+			#ifndef CONFIG_SV
 			if (!svs.threaded)
+			#endif
 				svs.perf_acc_sleeptime += delta;
 //			R_TimeReport("sleep");
 #ifdef __EMSCRIPTEN__
@@ -916,7 +929,9 @@ void Host_Main(void)
 		#endif
 		if (sv_timer > 0.1)
 		{
+			#ifndef CONFIG_SV
 			if (!svs.threaded)
+			#endif
 				svs.perf_acc_lost += (sv_timer - 0.1);
 			sv_timer = 0.1;
 		}
@@ -930,7 +945,11 @@ void Host_Main(void)
 	//-------------------
 
 		// limit the frametime steps to no more than 100ms each
-		if (sv.active && sv_timer > 0 && !svs.threaded)
+		if (sv.active && sv_timer > 0
+				#ifndef CONFIG_SV
+				&& !svs.threaded
+				#endif
+				)
 		{
 			// execute one or more server frames, with an upper limit on how much
 			// execution time to spend on server frames to avoid freezing the game if
@@ -1172,7 +1191,9 @@ void Host_Main(void)
 		#endif
 		if (sv_timer >= 0)
 		{
+			#ifndef CONFIG_SV
 			if (!svs.threaded)
+			#endif
 				svs.perf_acc_lost += sv_timer;
 			sv_timer = 0;
 		}
@@ -1552,13 +1573,11 @@ void Host_Shutdown(void)
 	// be quiet while shutting down
 	#ifndef CONFIG_SV
 	S_StopAllSounds();
-	#endif
 	// end the server thread
 	if (svs.threaded)
 		SV_StopThread();
 
 	// disconnect client from server if active
-	#ifndef CONFIG_SV
 	CL_Disconnect();
 	#endif
 	// shut down local server if active
@@ -1597,8 +1616,8 @@ void Host_Shutdown(void)
 		VID_Shutdown();
 		DP_Discord_Shutdown();
 	}
-	#endif
 	SV_StopThread();
+	#endif
 	Thread_Shutdown();
 	Cmd_Shutdown();
 	#ifndef CONFIG_SV

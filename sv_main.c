@@ -165,8 +165,9 @@ cvar_t sv_areadebug = {0, "sv_areadebug", "0", "disables physics culling for deb
 cvar_t sys_ticrate = {CVAR_SAVE, "sys_ticrate","0.0138889", "how long a server frame is in seconds, 0.05 is 20fps server rate, 0.1 is 10fps (can not be set higher than 0.1), 0 runs as many server frames as possible (makes games against bots a little smoother, overwhelms network players), 0.0138889 matches QuakeWorld physics"};
 cvar_t teamplay = {CVAR_NOTIFY, "teamplay","0", "teamplay mode, values depend on mod but typically 0 = no teams, 1 = no team damage no self damage, 2 = team damage and self damage, some mods support 3 = no team damage but can damage self"};
 cvar_t timelimit = {CVAR_NOTIFY, "timelimit","0", "ends level at this time (in minutes)"};
+#ifndef CONFIG_SV
 cvar_t sv_threaded = {0, "sv_threaded", "0", "enables a separate thread for server code, improving performance, especially when hosting a game while playing, EXPERIMENTAL, may be crashy"};
-
+#endif
 cvar_t saved1 = {CVAR_SAVE, "saved1", "0", "unused cvar in quake that is saved to config.cfg on exit, can be used by mods"};
 cvar_t saved2 = {CVAR_SAVE, "saved2", "0", "unused cvar in quake that is saved to config.cfg on exit, can be used by mods"};
 cvar_t saved3 = {CVAR_SAVE, "saved3", "0", "unused cvar in quake that is saved to config.cfg on exit, can be used by mods"};
@@ -580,8 +581,9 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sys_ticrate);
 	Cvar_RegisterVariable (&teamplay);
 	Cvar_RegisterVariable (&timelimit);
+	#ifndef CONFIG_SV
 	Cvar_RegisterVariable (&sv_threaded);
-
+	#endif
 	Cvar_RegisterVariable (&saved1);
 	Cvar_RegisterVariable (&saved2);
 	Cvar_RegisterVariable (&saved3);
@@ -2937,6 +2939,7 @@ int SV_ModelIndex(const char *s, int precachemode)
 				}
 				else
 				{
+					#ifndef CONFIG_SV
 					if (svs.threaded)
 					{
 						// this is running on the server thread, we can't load a model here (it would crash on renderer calls), so only look it up, the svc_precache will cause it to be loaded when it reaches the client
@@ -2944,9 +2947,12 @@ int SV_ModelIndex(const char *s, int precachemode)
 					}
 					else
 					{
+					#endif
 						// running single threaded, so we can load the model here
 						sv.models[i] = Mod_ForName (sv.model_precache[i], true, false, s[0] == '*' ? sv.worldname : NULL);
+					#ifndef CONFIG_SV
 					}
+					#endif
 					MSG_WriteByte(&sv.reliable_datagram, svc_precache);
 					MSG_WriteShort(&sv.reliable_datagram, i);
 					MSG_WriteString(&sv.reliable_datagram, filename);
@@ -3944,6 +3950,7 @@ static void SV_VM_Setup(void)
 	SV_Prepare_CSQC();
 }
 
+#ifndef CONFIG_SV
 extern cvar_t host_maxwait;
 extern cvar_t host_framerate;
 static int SV_ThreadFunc(void *voiddata)
@@ -4112,6 +4119,7 @@ void SV_StopThread(void)
 	Thread_DestroyMutex(svs.threadmutex);
 	svs.threaded = false;
 }
+#endif
 
 // returns true if the packet is valid, false if end of file is reached
 // used for dumping the CSQC download into demo files

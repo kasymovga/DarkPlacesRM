@@ -58,11 +58,13 @@ typedef struct server_static_s
     size_t csqc_progsize_alt_deflated;
     unsigned char *csqc_progdata_alt_deflated;
 
+	#ifndef CONFIG_SV
 	// independent server thread (when running client)
 	qboolean threaded; // true if server is running on separate thread
 	qboolean volatile threadstop;
 	void *threadmutex;
 	void *thread;
+	#endif
 } server_static_t;
 
 //=============================================================================
@@ -612,10 +614,15 @@ const char *Host_TimingReport(char *buf, size_t buflen); ///< for output in Host
 int SV_GetPitchSign(prvm_prog_t *prog, prvm_edict_t *ent);
 void SV_GetEntityMatrix(prvm_prog_t *prog, prvm_edict_t *ent, matrix4x4_t *out, qboolean viewmatrix);
 
+#ifndef CONFIG_SV
 void SV_StartThread(void);
 void SV_StopThread(void);
 #define SV_LockThreadMutex() (void)(svs.threaded ? Thread_LockMutex(svs.threadmutex) : 0)
 #define SV_UnlockThreadMutex() (void)(svs.threaded ? Thread_UnlockMutex(svs.threadmutex) : 0)
+#else
+#define SV_LockThreadMutex() 
+#define SV_UnlockThreadMutex() 
+#endif
 
 void VM_CustomStats_Clear(void);
 void VM_SV_UpdateCustomStats(client_t *client, prvm_edict_t *ent, sizebuf_t *msg, int *stats);
