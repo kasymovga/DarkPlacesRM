@@ -2474,6 +2474,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 			}
 		}
 	}
+	Cvar_LockThreadMutex();
 	if(*prvm_language.string)
 	// in CSQC we really shouldn't be able to change how stuff works... sorry for now
 	// later idea: include a list of authorized .po file checksums with the csprogs
@@ -2548,8 +2549,6 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 			}
 		}
 	}
-
-	Cvar_LockThreadMutex();
 	for (cvar = cvar_vars; cvar; cvar = cvar->next)
 		cvar->globaldefindex[prog - prvm_prog_list] = -1;
 
@@ -3430,6 +3429,7 @@ static qboolean PRVM_IsEdictRelevant(prvm_prog_t *prog, prvm_edict_t *edict)
 		return true; // world or clients
 	if (edict->priv.required->freetime <= prog->inittime)
 		return true; // created during startup
+	Cvar_LockThreadMutex();
 	if (prog == SVVM_prog)
 	{
 		if(PRVM_serveredictfloat(edict, solid)) // can block other stuff, or is a trigger?
@@ -3446,7 +3446,10 @@ static qboolean PRVM_IsEdictRelevant(prvm_prog_t *prog, prvm_edict_t *edict)
 		if(*prvm_leaktest_ignore_classnames.string)
 		{
 			if(strstr(va(vabuf, sizeof(vabuf), " %s ", prvm_leaktest_ignore_classnames.string), va(vabuf2, sizeof(vabuf2), " %s ", PRVM_GetString(prog, PRVM_serveredictstring(edict, classname)))))
+			{
+				Cvar_UnlockThreadMutex();
 				return true;
+			}
 		}
 	}
 	else if (prog == CLVM_prog)
@@ -3464,13 +3467,17 @@ static qboolean PRVM_IsEdictRelevant(prvm_prog_t *prog, prvm_edict_t *edict)
 		if(*prvm_leaktest_ignore_classnames.string)
 		{
 			if(strstr(va(vabuf, sizeof(vabuf), " %s ", prvm_leaktest_ignore_classnames.string), va(vabuf2, sizeof(vabuf2), " %s ", PRVM_GetString(prog, PRVM_clientedictstring(edict, classname)))))
+			{
+				Cvar_UnlockThreadMutex();
 				return true;
+			}
 		}
 	}
 	else
 	{
 		// menu prog does not have classnames
 	}
+	Cvar_UnlockThreadMutex();
 	return false;
 }
 

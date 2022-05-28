@@ -461,6 +461,7 @@ void CDAudio_StartPlaylist(qboolean resume)
 	char trackname[MAX_QPATH];
 	CDAudio_Stop();
 	index = music_playlist_index.integer;
+	Cvar_LockThreadMutex();
 	if (index >= 0 && index < MAX_PLAYLISTS && bgmvolume.value > 0)
 	{
 		list = music_playlist_list[index].string;
@@ -520,6 +521,7 @@ void CDAudio_StartPlaylist(qboolean resume)
 			}
 		}
 	}
+	Cvar_UnlockThreadMutex();
 	music_playlist_playing = music_playlist_active >= 0 ? 1 : -1;
 }
 

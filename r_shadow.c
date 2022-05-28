@@ -5488,7 +5488,7 @@ void R_Shadow_PrepareModelShadows(void)
 	size = 2 * r_shadow_shadowmapmaxsize;
 	scale = r_shadow_shadowmapping_precision.value * r_shadows_shadowmapscale.value;
 	radius = 0.5f * size / scale;
-
+	Cvar_LockThreadMutex();
 	Math_atov(r_shadows_throwdirection.string, prvmshadowdir);
 	VectorCopy(prvmshadowdir, shadowdir);
 	VectorNormalize(shadowdir);
@@ -5501,6 +5501,7 @@ void R_Shadow_PrepareModelShadows(void)
 	VectorNormalize(shadowforward);
 	CrossProduct(shadowdir, shadowforward, shadowright);
 	Math_atov(r_shadows_focus.string, prvmshadowfocus);
+	Cvar_UnlockThreadMutex();
 	VectorCopy(prvmshadowfocus, shadowfocus);
 	VectorM(shadowfocus[0], r_refdef.view.right, shadoworigin);
 	VectorMA(shadoworigin, shadowfocus[1], r_refdef.view.up, shadoworigin);
@@ -5571,11 +5572,12 @@ static void R_Shadow_DrawModelShadowMaps(void)
 	r_shadow_modelshadowmap_texturescale[2] = r_shadow_shadowmapatlas_modelshadows_x;
 	r_shadow_modelshadowmap_texturescale[3] = r_shadow_shadowmapatlas_modelshadows_y;
 	r_shadow_usingshadowmaportho = true;
-
+	Cvar_LockThreadMutex();
 	Math_atov(r_shadows_throwdirection.string, prvmshadowdir);
 	VectorCopy(prvmshadowdir, shadowdir);
 	VectorNormalize(shadowdir);
 	Math_atov(r_shadows_focus.string, prvmshadowfocus);
+	Cvar_UnlockThreadMutex();
 	VectorCopy(prvmshadowfocus, shadowfocus);
 	VectorM(shadowfocus[0], r_refdef.view.right, shadoworigin);
 	VectorMA(shadoworigin, shadowfocus[1], r_refdef.view.up, shadoworigin);
@@ -5677,7 +5679,9 @@ void R_Shadow_DrawModelShadows(void)
 	// get shadow dir
 	if (r_shadows.integer == 2)
 	{
+		Cvar_LockThreadMutex();
 		Math_atov(r_shadows_throwdirection.string, prvmshadowdir);
+		Cvar_UnlockThreadMutex();
 		VectorCopy(prvmshadowdir, shadowdir);
 		VectorNormalize(shadowdir);
 	}

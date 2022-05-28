@@ -1157,7 +1157,9 @@ static void Host_Name_f (void)
 	{
 		if (cmd_source == src_command)
 		{
+			Cvar_LockThreadMutex();
 			Con_Printf("name: %s\n", cl_name.string);
+			Cvar_UnlockThreadMutex();
 		}
 		return;
 	}
@@ -1175,7 +1177,9 @@ static void Host_Name_f (void)
 		if (strlen(newNameSource) >= sizeof(newName)) // overflowed
 		{
 			Con_Printf("Your name is longer than %i chars! It has been truncated.\n", (int) (sizeof(newName) - 1));
+			Cvar_LockThreadMutex();
 			Con_Printf("name: %s\n", cl_name.string);
+			Cvar_UnlockThreadMutex();
 		}
 		return;
 	}
@@ -1287,7 +1291,9 @@ static void Host_Playermodel_f (void)
 	{
 		if (cmd_source == src_command)
 		{
+			Cvar_LockThreadMutex();
 			Con_Printf("\"playermodel\" is \"%s\"\n", cl_playermodel.string);
+			Cvar_UnlockThreadMutex();
 		}
 		return;
 	}
@@ -1347,7 +1353,9 @@ static void Host_Playerskin_f (void)
 	{
 		if (cmd_source == src_command)
 		{
+			Cvar_LockThreadMutex();
 			Con_Printf("\"playerskin\" is \"%s\"\n", cl_playerskin.string);
+			Cvar_UnlockThreadMutex();
 		}
 		return;
 	}
@@ -1445,10 +1453,15 @@ static void Host_Say(qboolean teamonly)
 		dpsnprintf (text, sizeof(text), "\001%s: %s", host_client->name, p1);
 	else if (!fromServer && teamonly)
 		dpsnprintf (text, sizeof(text), "\001(%s): %s", host_client->name, p1);
-	else if(*(sv_adminnick.string))
-		dpsnprintf (text, sizeof(text), "\001<%s> %s", sv_adminnick.string, p1);
 	else
-		dpsnprintf (text, sizeof(text), "\001<%s> %s", hostname.string, p1);
+	{
+		Cvar_LockThreadMutex();
+		if(*(sv_adminnick.string))
+			dpsnprintf (text, sizeof(text), "\001<%s> %s", sv_adminnick.string, p1);
+		else
+			dpsnprintf (text, sizeof(text), "\001<%s> %s", hostname.string, p1);
+		Cvar_UnlockThreadMutex();
+	}
 	p2 = text + strlen(text);
 	while ((const char *)p2 > (const char *)text && (p2[-1] == '\r' || p2[-1] == '\n' || (p2[-1] == '\"' && quoted)))
 	{
@@ -1516,11 +1529,15 @@ static void Host_Tell_f(void)
 	// note this uses the chat prefix \001
 	if (!fromServer)
 		dpsnprintf (text, sizeof(text), "\001%s tells you: ", host_client->name);
-	else if(*(sv_adminnick.string))
-		dpsnprintf (text, sizeof(text), "\001<%s tells you> ", sv_adminnick.string);
 	else
-		dpsnprintf (text, sizeof(text), "\001<%s tells you> ", hostname.string);
-
+	{
+		Cvar_LockThreadMutex();
+		if(*(sv_adminnick.string))
+			dpsnprintf (text, sizeof(text), "\001<%s tells you> ", sv_adminnick.string);
+		else
+			dpsnprintf (text, sizeof(text), "\001<%s tells you> ", hostname.string);
+		Cvar_UnlockThreadMutex();
+	}
 	p1 = Cmd_Args();
 	p2 = p1 + strlen(p1);
 	// remove the target name
@@ -1850,10 +1867,15 @@ static void Host_Pause_f (void)
 	sv.paused ^= 1;
 	if (cmd_source != src_command)
 		SV_BroadcastPrintf("%s %spaused the game\n", host_client->name, sv.paused ? "" : "un");
-	else if(*(sv_adminnick.string))
-		SV_BroadcastPrintf("%s %spaused the game\n", sv_adminnick.string, sv.paused ? "" : "un");
 	else
-		SV_BroadcastPrintf("%s %spaused the game\n", hostname.string, sv.paused ? "" : "un");
+	{
+		Cvar_LockThreadMutex();
+		if(*(sv_adminnick.string))
+			SV_BroadcastPrintf("%s %spaused the game\n", sv_adminnick.string, sv.paused ? "" : "un");
+		else
+			SV_BroadcastPrintf("%s %spaused the game\n", hostname.string, sv.paused ? "" : "un");
+		Cvar_UnlockThreadMutex();
+	}
 	// send notification to all clients
 	MSG_WriteByte(&sv.reliable_datagram, svc_setpause);
 	MSG_WriteByte(&sv.reliable_datagram, sv.paused);
@@ -1876,7 +1898,9 @@ static void Host_PModel_f (void)
 	{
 		if (cmd_source == src_command)
 		{
+			Cvar_LockThreadMutex();
 			Con_Printf("\"pmodel\" is \"%s\"\n", cl_pmodel.string);
+			Cvar_UnlockThreadMutex();
 		}
 		return;
 	}
@@ -2145,6 +2169,7 @@ static void Host_Kick_f (void)
 
 	if (i < svs.maxclients)
 	{
+		Cvar_LockThreadMutex();
 		if (cmd_source == src_command)
 		{
 			#ifndef CONFIG_SV
@@ -2161,8 +2186,10 @@ static void Host_Kick_f (void)
 
 		// can't kick yourself!
 		if (host_client == save)
+		{
+			Cvar_UnlockThreadMutex();
 			return;
-
+		}
 		if (Cmd_Argc() > 2)
 		{
 			message = Cmd_Args();
@@ -2181,6 +2208,7 @@ static void Host_Kick_f (void)
 			SV_ClientPrintf("Kicked by %s: %s\n", who, message);
 		else
 			SV_ClientPrintf("Kicked by %s\n", who);
+		Cvar_UnlockThreadMutex();
 		SV_DropClient (false); // kicked
 	}
 
@@ -2629,9 +2657,10 @@ static void Host_PQRcon_f (void)
 		Con_Printf("%s: Usage: %s command\n", Cmd_Argv(0), Cmd_Argv(0));
 		return;
 	}
-
+	Cvar_LockThreadMutex();
 	if (!rcon_password.string || !rcon_password.string[0] || rcon_secure.integer > 0)
 	{
+		Cvar_UnlockThreadMutex();
 		Con_Printf ("You must set rcon_password before issuing an pqrcon command, and rcon_secure must be 0.\n");
 		return;
 	}
@@ -2646,6 +2675,7 @@ static void Host_PQRcon_f (void)
 		if (!rcon_address.string[0])
 		{
 			Con_Printf ("You must either be connected, or set the rcon_address cvar to issue rcon commands\n");
+			Cvar_UnlockThreadMutex();
 			return;
 		}
 		LHNETADDRESS_FromString(&cls.rcon_address, rcon_address.string, sv_netport.integer);
@@ -2666,6 +2696,7 @@ static void Host_PQRcon_f (void)
 		NetConn_Write(mysocket, buf.data, buf.cursize, &cls.rcon_address);
 		SZ_Clear(&buf);
 	}
+	Cvar_UnlockThreadMutex();
 }
 
 //=============================================================================
@@ -2691,16 +2722,18 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 		Con_Printf("%s: Usage: %s command\n", Cmd_Argv(0), Cmd_Argv(0));
 		return;
 	}
-
+	Cvar_LockThreadMutex();
 	if (!rcon_password.string || !rcon_password.string[0])
 	{
 		Con_Printf ("You must set rcon_password before issuing an rcon command.\n");
+		Cvar_UnlockThreadMutex();
 		return;
 	}
 
     if (!Cmd_Args())
     {
         Con_Printf ("Usage: rcon <command>\n");
+		Cvar_UnlockThreadMutex();
         return;
     }
 
@@ -2714,6 +2747,7 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 		if (!rcon_address.string[0])
 		{
 			Con_Printf ("You must either be connected, or set the rcon_address cvar to issue rcon commands\n");
+			Cvar_UnlockThreadMutex();
 			return;
 		}
 		LHNETADDRESS_FromString(&cls.rcon_address, rcon_address.string, sv_netport.integer);
@@ -2765,6 +2799,7 @@ static void Host_Rcon_f (void) // credit: taken from QuakeWorld
 			NetConn_WriteString(mysocket, buf, &cls.rcon_address);
 		}
 	}
+	Cvar_UnlockThreadMutex();
 }
 
 /*

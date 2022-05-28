@@ -469,8 +469,10 @@ void DP_Discord_Start(void) {
 		Con_Printf("Discord dll not loaded\n");
 		return;
 	}
+	Cvar_LockThreadMutex();
 	strlcpy(discord_game_command, integration_discord_game_command.string, sizeof(discord_game_command));
 	discord_client_id = atoll(integration_discord_client_id.string);
+	Cvar_UnlockThreadMutex();
 	discord_mutex = Thread_CreateMutex();
 	discord_thread = Thread_CreateThread(Discord_Thread, NULL);
 	Con_Printf("Discord initialized\n");

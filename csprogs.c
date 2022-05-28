@@ -962,7 +962,7 @@ void CL_VM_Init (void)
 	// expect csqc on the next server
 
     requiredcrc = csqc_progcrc_alt.integer;
-
+	Cvar_LockThreadMutex();
     if(requiredcrc < 0) {
     	requiredcrc = csqc_progcrc.integer;
     	requiredsize = csqc_progsize.integer;
@@ -979,8 +979,10 @@ void CL_VM_Init (void)
 
 	// if the server is not requesting a csprogs, then we're done here
 	if (requiredcrc < 0)
+	{
+		Cvar_UnlockThreadMutex();
 		return;
-
+	}
 	// see if the requested csprogs.dat file matches the requested crc
 	if (!cls.demoplayback || csqc_usedemoprogs.integer)
 	{
@@ -1013,6 +1015,7 @@ void CL_VM_Init (void)
 			{
 				Con_Printf("^1Warning: Your %s is not the same version as the demo was recorded with (CRC/size are %i/%i but should be %i/%i)\n", csprogsname, csprogsdatacrc, (int)csprogsdatasize, requiredcrc, requiredsize);
 				// Mem_Free(csprogsdata);
+				// Cvar_UnlockThreadMutex();
 				// return;
 				// We WANT to continue here, and play the demo with different csprogs!
 				// After all, this is just a warning. Sure things may go wrong from here.
@@ -1022,6 +1025,7 @@ void CL_VM_Init (void)
 				Mem_Free(csprogsdata);
 				Con_Printf("^1Your %s is not the same version as the server (CRC is %i/%i but should be %i/%i)\n", csprogsname, csprogsdatacrc, (int)csprogsdatasize, requiredcrc, requiredsize);
 				CL_Disconnect();
+				Cvar_UnlockThreadMutex();
 				return;
 			}
 		}
@@ -1036,6 +1040,7 @@ void CL_VM_Init (void)
 				Con_Printf("CL_VM_Init: server requires CSQC, but \"%s\" wasn't found\n", csprogsname);
 			CL_Disconnect();
 		}
+		Cvar_UnlockThreadMutex();
 		return;
 	}
 
@@ -1074,6 +1079,7 @@ void CL_VM_Init (void)
 		if(!sv.active)
 			CL_Disconnect();
 		Mem_Free(csprogsdata);
+		Cvar_UnlockThreadMutex();
 		return;
 	}
 
@@ -1102,7 +1108,7 @@ void CL_VM_Init (void)
 		}
 	}
 	Mem_Free(csprogsdata);
-
+	Cvar_UnlockThreadMutex();
 	// check if OP_STATE animation is possible in this dat file
 	if (prog->fieldoffsets.nextthink >= 0 && prog->fieldoffsets.frame >= 0 && prog->fieldoffsets.think >= 0 && prog->globaloffsets.self >= 0)
 		prog->flag |= PRVM_OP_STATE;

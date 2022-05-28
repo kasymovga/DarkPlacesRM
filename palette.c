@@ -319,12 +319,12 @@ static void Palette_Load(void)
 		out[i*4+0] = texturegammaramp[palette_rgb[i][2]];
 		out[i*4+3] = 255;
 	}
-
+	Cvar_LockThreadMutex();
 	if(*r_colormap_palette.string)
 		palfile = (unsigned char *)FS_LoadFile (r_colormap_palette.string, tempmempool, false, &filesize);
 	else
 		palfile = NULL;
-
+	Cvar_UnlockThreadMutex();
 	if (palfile && filesize >= 48*2)
 	{
 		memcpy(palette_rgb_shirtcolormap[0], palfile, 48);

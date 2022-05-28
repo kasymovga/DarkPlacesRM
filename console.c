@@ -451,8 +451,10 @@ static void Log_DestBuffer_Flush_NoLock(void)
 {
 	lhnetaddress_t log_dest_addr;
 	lhnetsocket_t *log_dest_socket;
-	const char *s = log_dest_udp.string;
+	const char *s;
 	qboolean have_opened_temp_sockets = false;
+	Cvar_LockThreadMutex();
+	s = log_dest_udp.string;
 	if(s) if(log_dest_buffer_pos > 5)
 	{
 		++log_dest_buffer_appending;
@@ -478,6 +480,7 @@ static void Log_DestBuffer_Flush_NoLock(void)
 			NetConn_CloseServerPorts();
 		--log_dest_buffer_appending;
 	}
+	Cvar_UnlockThreadMutex();
 	log_dest_buffer_pos = 0;
 }
 
@@ -527,9 +530,12 @@ static const char* Log_Timestamp (const char *desc)
 static void Log_Open (void)
 {
 	char logfile_path[MAX_QPATH];
+	Cvar_LockThreadMutex();
 	if (logfile != NULL || log_file.string[0] == '\0')
+	{
+		Cvar_UnlockThreadMutex();
 		return;
-
+	}
 	if (strcasecmp(FS_FileExtension(log_file.string), "log"))
 	{
 		FS_StripExtension(log_file.string, logfile_path, sizeof(logfile_path));
@@ -544,6 +550,7 @@ static void Log_Open (void)
 		strlcpy (crt_log_file, log_file.string, sizeof (crt_log_file));
 		FS_Print (logfile, Log_Timestamp ("Log started"));
 	}
+	Cvar_UnlockThreadMutex();
 }
 
 /*
@@ -585,6 +592,8 @@ void Log_Start (void)
 		{
 			if (logfile != NULL)
 				FS_Write (logfile, temp, logq_ind);
+
+			Cvar_LockThreadMutex();
 			if(*log_dest_udp.string)
 			{
 				for(pos = 0; pos < logq_ind; )
@@ -598,6 +607,7 @@ void Log_Start (void)
 					pos += n;
 				}
 			}
+			Cvar_UnlockThreadMutex();
 		}
 		Mem_Free (temp);
 		logq_ind = 0;
@@ -648,11 +658,13 @@ void Log_ConPrint (const char *msg)
 	}
 
 	// Check if log_file has changed
+	Cvar_LockThreadMutex();
 	if (strcmp (crt_log_file, log_file.string) != 0)
 	{
 		Log_Close ();
 		Log_Open ();
 	}
+	Cvar_UnlockThreadMutex();
 
 	// If a log file is available
 	if (logfile != NULL)
@@ -1079,6 +1091,7 @@ static void Con_Rcon_AddChar(int c)
 	// if this print is in response to an rcon command, add the character
 	// to the rcon redirect buffer
 
+	Cvar_LockThreadMutex();
 	if (rcon_redirect_dest)
 	{
 		rcon_redirect_buffer[rcon_redirect_bufferpos++] = c;
@@ -1095,7 +1108,7 @@ static void Con_Rcon_AddChar(int c)
 	}
 	else
 		log_dest_buffer_pos = 0;
-
+	Cvar_UnlockThreadMutex();
 	--log_dest_buffer_appending;
 }
 
@@ -1185,7 +1198,13 @@ void Con_MaskPrint(int additionalmask, const char *msg)
 		// if this is the beginning of a new line, print timestamp
 		if (index == 0)
 		{
-			const char *timestamp = timestamps.integer ? Sys_TimeString(timeformat.string) : "";
+			const char *timestamp = "";
+			if (timestamps.integer)
+			{
+				Cvar_LockThreadMutex();
+				timestamp = Sys_TimeString(timeformat.string);
+				Cvar_UnlockThreadMutex();
+			}
 			// reset the color
 			// FIXME: 1. perhaps we should use a terminal system 2. use a constant instead of 7!
 			line[index++] = STRING_COLOR_TAG;
@@ -1809,12 +1828,13 @@ void Con_DrawNotify (void)
 
 	// GAME_NEXUIZ: center, otherwise left justify
 	align = con_notifyalign.value;
+	Cvar_LockThreadMutex();
 	if(!*con_notifyalign.string) // empty string, evaluated to 0 above
 	{
 		if(IS_OLDNEXUIZ_DERIVED(gamemode))
 			align = 0.5;
 	}
-
+	Cvar_UnlockThreadMutex();
 	if(numChatlines || !con_chatrect.integer)
 	{
 		if(chatpos == 0)
@@ -2954,6 +2974,7 @@ void Con_CompleteCommandLine (void)
 				{
 					const char *p, *q;
 					unsigned int matchchars;
+					Cvar_LockThreadMutex();
 					if(resultbuf.numstrings == 0 && dirbuf.numstrings == 1)
 					{
 						dpsnprintf(t, sizeof(t), "%s/", dirbuf.strings[0]);
@@ -2996,7 +3017,7 @@ void Con_CompleteCommandLine (void)
 						// the unique prefix
 						strlcpy(t, (resultbuf.numstrings > 0 ? resultbuf : dirbuf).strings[0], min(matchchars + 1, sizeof(t)));
 					}
-
+					Cvar_UnlockThreadMutex();
 					// first move the cursor
 					key_linepos += (int)strlen(t) - (int)strlen(s);
 

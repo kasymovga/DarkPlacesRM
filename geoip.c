@@ -77,10 +77,11 @@ static qboolean GeoIP_OpenDB(void) {
     }
 
     geoip_database = Mem_Alloc(geoip_mempool, sizeof(MMDB_s));
-
+	Cvar_LockThreadMutex();
     if((status = MMDB_open(geoip_db_file.string, 0, geoip_database)) == MMDB_SUCCESS) {
         Cvar_SetQuick(&geoip_initialized, "1");
         GeoIP_Printf("Loaded database from %s\n", geoip_db_file.string);
+		Cvar_UnlockThreadMutex();
         return true;
     }
 
@@ -89,7 +90,7 @@ static qboolean GeoIP_OpenDB(void) {
     } else {
         GeoIP_Printf("Can't open database %s: %s\n", geoip_db_file.string, MMDB_strerror(status));
     }
-
+	Cvar_LockThreadMutex();
     Mem_Free(geoip_database);
     geoip_database = NULL;
     Cvar_SetQuick(&geoip_initialized, "0");

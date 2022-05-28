@@ -734,6 +734,7 @@ static void QW_CL_RequestNextDownload(void)
 		S_ClearUsed();
 
 		// precache any sounds used by the client
+		Cvar_LockThreadMutex();
 		cl.sfx_wizhit = S_PrecacheSound(cl_sound_wizardhit.string, false, true);
 		cl.sfx_knighthit = S_PrecacheSound(cl_sound_hknighthit.string, false, true);
 		cl.sfx_tink1 = S_PrecacheSound(cl_sound_tink1.string, false, true);
@@ -741,6 +742,7 @@ static void QW_CL_RequestNextDownload(void)
 		cl.sfx_ric2 = S_PrecacheSound(cl_sound_ric2.string, false, true);
 		cl.sfx_ric3 = S_PrecacheSound(cl_sound_ric3.string, false, true);
 		cl.sfx_r_exp3 = S_PrecacheSound(cl_sound_r_exp3.string, false, true);
+		Cvar_UnlockThreadMutex();
 
 		// sounds used by the game
 		for (i = 1;i < MAX_SOUNDS && cl.sound_name[i][0];i++)
@@ -1123,6 +1125,7 @@ static void CL_BeginDownloads(qboolean aborteddownload)
 		cl.downloadcsqc = false;
 
         if(cls.netcon && !sv.active && cl_serverextension_download.integer) {
+			Cvar_LockThreadMutex();
             if(csqc_progcrc_alt.integer >= 0) {
                 if(csqc_progname_alt.string && csqc_progname_alt.string[0]
                     && (FS_CRCFile(csqc_progname_alt.string, &progsize) != csqc_progcrc_alt.integer || ((int)progsize != csqc_progsize_alt.integer && csqc_progsize_alt.integer != -1))
@@ -1133,6 +1136,8 @@ static void CL_BeginDownloads(qboolean aborteddownload)
                         Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname_alt.string));
                     else
                         Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname_alt.string));
+
+                    Cvar_UnlockThreadMutex();
                     return;
                 }
             } else if(csqc_progname.string
@@ -1146,8 +1151,10 @@ static void CL_BeginDownloads(qboolean aborteddownload)
                     Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname.string));
                 else
                     Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname.string));
+				Cvar_UnlockThreadMutex();
                 return;
             }
+			Cvar_UnlockThreadMutex();
         }
 	}
 
@@ -1443,6 +1450,7 @@ static void CL_StopDownload(int size, int crc)
 			// save to disk only if we don't already have it
 			// (this is mainly for playing back demos)
 			existingcrc = FS_CRCFile(cls.qw_downloadname, &existingsize);
+			Cvar_LockThreadMutex();
 			if (existingsize || IS_NEXUIZ_DERIVED(gamemode) || !strcmp(cls.qw_downloadname, csqc_progname.string) || !strcmp(cls.qw_downloadname, csqc_progname_alt.string))
 				// let csprogs ALWAYS go to dlcache, to prevent "viral csprogs"; also, never put files outside dlcache for Nexuiz/Xonotic
 			{
@@ -1480,6 +1488,7 @@ static void CL_StopDownload(int size, int crc)
 				if (!strcasecmp(extension, "pak") || !strcasecmp(extension, "pk3") || !strcasecmp(extension, "cgf"))
 					FS_Rescan();
 			}
+			Cvar_UnlockThreadMutex();
 		}
 	}
 	else if (cls.qw_downloadmemory && size)
@@ -1595,6 +1604,7 @@ static void CL_SendPlayerInfo(void)
 {
 	char vabuf[1024];
 	MSG_WriteByte (&cls.netcon->message, clc_stringcmd);
+	Cvar_LockThreadMutex();
 	MSG_WriteString (&cls.netcon->message, va(vabuf, sizeof(vabuf), "name \"%s\"", cl_name.string));
 
 	MSG_WriteByte (&cls.netcon->message, clc_stringcmd);
@@ -1621,6 +1631,7 @@ static void CL_SendPlayerInfo(void)
 		MSG_WriteByte (&cls.netcon->message, clc_stringcmd);
 		MSG_WriteString (&cls.netcon->message, va(vabuf, sizeof(vabuf), "playerskin %s", cl_playerskin.string));
 	}
+	Cvar_UnlockThreadMutex();
 }
 
 /*
@@ -1908,6 +1919,7 @@ static void CL_ParseServerInfo (void)
 		S_ClearUsed();
 
 		// precache any sounds used by the client
+		Cvar_LockThreadMutex();
 		cl.sfx_wizhit = S_PrecacheSound(cl_sound_wizardhit.string, false, true);
 		cl.sfx_knighthit = S_PrecacheSound(cl_sound_hknighthit.string, false, true);
 		cl.sfx_tink1 = S_PrecacheSound(cl_sound_tink1.string, false, true);
@@ -1915,7 +1927,7 @@ static void CL_ParseServerInfo (void)
 		cl.sfx_ric2 = S_PrecacheSound(cl_sound_ric2.string, false, true);
 		cl.sfx_ric3 = S_PrecacheSound(cl_sound_ric3.string, false, true);
 		cl.sfx_r_exp3 = S_PrecacheSound(cl_sound_r_exp3.string, false, true);
-
+		Cvar_UnlockThreadMutex();
 		// sounds used by the game
 		for (i = 1;i < MAX_SOUNDS && cl.sound_name[i][0];i++)
 			cl.sound_precache[i] = S_PrecacheSound(cl.sound_name[i], true, true);
@@ -1947,7 +1959,9 @@ static void CL_ParseServerInfo (void)
 			}
 
 			// start a new demo file
+			Cvar_LockThreadMutex();
 			dpsnprintf (demofile, sizeof(demofile), "%s_%s.dem", Sys_TimeString (cl_autodemo_nameformat.string), cl.worldbasename);
+			Cvar_UnlockThreadMutex();
 
 			Con_Printf ("Auto-recording to %s.\n", demofile);
 
@@ -3065,9 +3079,11 @@ static void CL_IPLog_Add(const char *address, const char *name, qboolean checkex
 		// add it to the iplog.txt file
 		// TODO: this ought to open the one in the userpath version of the base
 		// gamedir, not the current gamedir
+		Cvar_LockThreadMutex();
 		Log_Printf(cl_iplog_name.string, "%s %s\n", address, name);
 		if (developer_extra.integer)
 			Con_DPrintf("CL_IPLog_Add: appending this line to %s: %s %s\n", cl_iplog_name.string, address, name);
+		Cvar_UnlockThreadMutex();
 	}
 }
 
@@ -3082,7 +3098,9 @@ static void CL_IPLog_Load(void)
 	cl_iplog_loaded = true;
 	// TODO: this ought to open the one in the userpath version of the base
 	// gamedir, not the current gamedir
+	Cvar_LockThreadMutex();
 	filedata = FS_LoadFile(cl_iplog_name.string, tempmempool, true, &filesize);
+	Cvar_UnlockThreadMutex();
 	if (!filedata)
 		return;
 	text = (char *)filedata;
@@ -3109,7 +3127,11 @@ static void CL_IPLog_Load(void)
 		if (address[0] && line[i])
 			CL_IPLog_Add(address, line + i, false, false);
 		else
+		{
+			Cvar_LockThreadMutex();
 			Con_Printf("%s:%i: could not parse address and name:\n%s\n", cl_iplog_name.string, linenumber, line);
+			Cvar_UnlockThreadMutex();
+		}
 	}
 }
 

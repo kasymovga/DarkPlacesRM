@@ -801,10 +801,13 @@ static qboolean Crypto_SavePubKeyTextFile(int i)
 
 	if(!pubkeys_havepriv[i])
 		return false;
+	Cvar_LockThreadMutex();
 	f = FS_SysOpen(va(vabuf, sizeof(vabuf), "%skey_%d-public-fp%s.txt", *fs_userdir ? fs_userdir : fs_basedir, i, sessionid.string), "w", false);
 	if(!f)
+	{
+		Cvar_UnlockThreadMutex();
 		return false;
-
+	}
 	// we ignore errors for this file, as it's not necessary to have
 	FS_Printf(f, "ID-Fingerprint: %s\n", pubkeys_priv_fp64[i]);
 	FS_Printf(f, "ID-Is-Signed: %s\n", pubkeys_havesig[i] ? "yes" : "no");
@@ -817,6 +820,7 @@ static qboolean Crypto_SavePubKeyTextFile(int i)
 	FS_Printf(f, "\n");
 	FS_Printf(f, "However, NEVER share the accompanying SECRET ID file called\n");
 	FS_Printf(f, "key_%d.d0si%s, as doing so would compromise security!\n", i, sessionid.string);
+	Cvar_UnlockThreadMutex();
 	FS_Close(f);
 
 	return true;
@@ -869,6 +873,7 @@ void Crypto_LoadKeys(void)
 			if(qd0_blind_id_fingerprint64_public_key(pubkeys[i], pubkeys_fp64[i], &len2)) // keeps final NUL
 			{
 				Con_Printf("Loaded public key key_%d.d0pk (fingerprint: %s)\n", i, pubkeys_fp64[i]);
+				Cvar_LockThreadMutex();
 				len = Crypto_LoadFile(va(vabuf, sizeof(vabuf), "key_%d.d0si%s", i, sessionid.string), buf, sizeof(buf), true);
 				if(len)
 				{
@@ -908,6 +913,7 @@ void Crypto_LoadKeys(void)
 						}
 					}
 				}
+				Cvar_UnlockThreadMutex();
 			}
 			else
 			{
@@ -1175,9 +1181,10 @@ static void Crypto_KeyGen_Finished(int code, size_t length_received, unsigned ch
 		SV_UnlockThreadMutex();
 		return;
 	}
-
+	Cvar_LockThreadMutex();
 	FS_CreatePath(va(vabuf, sizeof(vabuf), "%skey_%d.d0si%s", *fs_userdir ? fs_userdir : fs_basedir, keygen_i, sessionid.string));
 	f = FS_SysOpen(va(vabuf, sizeof(vabuf), "%skey_%d.d0si%s", *fs_userdir ? fs_userdir : fs_basedir, keygen_i, sessionid.string), "wb", false);
+	Cvar_UnlockThreadMutex();
 	if(!f)
 	{
 		Con_Printf("Cannot open key_%d.d0si%s\n", keygen_i, sessionid.string);
@@ -1189,9 +1196,9 @@ static void Crypto_KeyGen_Finished(int code, size_t length_received, unsigned ch
 	FS_Close(f);
 
 	Crypto_SavePubKeyTextFile(keygen_i);
-
+	Cvar_LockThreadMutex();
 	Con_Printf("Saved to key_%d.d0si%s\n", keygen_i, sessionid.string);
-
+	Cvar_UnlockThreadMutex();
 	Crypto_BuildIdString();
 
 	keygen_i = -1;
@@ -1297,12 +1304,13 @@ static void Crypto_KeyGen_f(void)
 			SV_UnlockThreadMutex();
 			return;
 		}
-
+		Cvar_LockThreadMutex();
 		FS_CreatePath(va(vabuf, sizeof(vabuf), "%skey_%d.d0si%s", *fs_userdir ? fs_userdir : fs_basedir, keygen_i, sessionid.string));
 		f = FS_SysOpen(va(vabuf, sizeof(vabuf), "%skey_%d.d0si%s", *fs_userdir ? fs_userdir : fs_basedir, keygen_i, sessionid.string), "wb", false);
 		if(!f)
 		{
 			Con_Printf("Cannot open key_%d.d0si%s\n", keygen_i, sessionid.string);
+			Cvar_UnlockThreadMutex();
 			keygen_i = -1;
 			SV_UnlockThreadMutex();
 			return;
@@ -1313,6 +1321,7 @@ static void Crypto_KeyGen_f(void)
 		Crypto_SavePubKeyTextFile(keygen_i);
 
 		Con_Printf("Saved unsigned key to key_%d.d0si%s\n", keygen_i, sessionid.string);
+		Cvar_UnlockThreadMutex();
 	}
 	p[0] = buf;
 	l[0] = sizeof(buf);
@@ -1376,7 +1385,9 @@ static void Crypto_Keys_f(void)
 			Con_Printf("%2d: public key key_%d.d0pk (fingerprint: %s)\n", i, i, pubkeys_fp64[i]);
 			if(pubkeys_havepriv[i])
 			{
+				Cvar_LockThreadMutex();
 				Con_Printf("    private ID key_%d.d0si%s (public key fingerprint: %s)\n", i, sessionid.string, pubkeys_priv_fp64[i]);
+				Cvar_UnlockThreadMutex();
 				if(!pubkeys_havesig[i])
 					Con_Printf("    NOTE: this ID has not yet been signed!\n");
 			}

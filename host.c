@@ -832,6 +832,7 @@ void Host_Main(void)
 			Cvar_SetValue("host_framerate", 0);
 
 		// keep the random time dependent, but not when playing demos/benchmarking
+		Cvar_LockThreadMutex();
 		if(!*sv_random_seed.string
 				#ifndef CONFIG_SV
 				&& !cls.demoplayback
@@ -840,7 +841,7 @@ void Host_Main(void)
 			xrand();
             rand();
         }
-
+		Cvar_UnlockThreadMutex();
 		// get new key events
 		#ifndef CONFIG_SV
 		Key_EventQueue_Unblock();
@@ -1286,7 +1287,10 @@ void Host_LockSession(void)
 	if(locksession.integer != 0 && !COM_CheckParm("-readonly"))
 	{
 		char vabuf[1024];
-		char *p = va(vabuf, sizeof(vabuf), "%slock%s", *fs_userdir ? fs_userdir : fs_basedir, sessionid.string);
+		char *p;
+		Cvar_LockThreadMutex();
+		p = va(vabuf, sizeof(vabuf), "%slock%s", *fs_userdir ? fs_userdir : fs_basedir, sessionid.string);
+		Cvar_UnlockThreadMutex();
 		FS_CreatePath(p);
 		locksession_fh = FS_SysOpen(p, "wl", false);
 		// TODO maybe write the pid into the lockfile, while we are at it? may help server management tools

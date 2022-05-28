@@ -939,12 +939,16 @@ void Sbar_ShowFPS(void)
 	}
 	if (showtime.integer)
 	{
+		Cvar_LockThreadMutex();
 		strlcpy(timestring, Sys_TimeString(showtime_format.string), sizeof(timestring));
+		Cvar_UnlockThreadMutex();
 		fps_strings++;
 	}
 	if (showdate.integer)
 	{
+		Cvar_LockThreadMutex();
 		strlcpy(datestring, Sys_TimeString(showdate_format.string), sizeof(datestring));
+		Cvar_UnlockThreadMutex();
 		fps_strings++;
 	}
 	if (showblur.integer)

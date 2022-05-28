@@ -1004,6 +1004,15 @@ void Mod_BuildAliasSkinsFromSkinFiles(texture_t *skin, skinfile_t *skinfile, con
 
 #define BOUNDI(VALUE,MIN,MAX) if (VALUE < MIN || VALUE >= MAX) MODEL_LOAD_ERROR("invalid ##VALUE (%d exceeds %d - %d)", VALUE, MIN, MAX);
 #define BOUNDF(VALUE,MIN,MAX) if (VALUE < MIN || VALUE >= MAX) MODEL_LOAD_ERROR("invalid ##VALUE (%f exceeds %f - %f)", VALUE, MIN, MAX);
+static void Mod_ForceAnimate(void)
+{
+	Cvar_LockThreadMutex();
+	if(mod_alias_force_animated.string[0])
+		loadmodel->surfmesh.isanimated = mod_alias_force_animated.integer != 0;
+
+	Cvar_UnlockThreadMutex();
+}
+
 void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 {
 	int i, j, version, totalskins, skinwidth, skinheight, groupframes, groupskins, numverts;
@@ -1355,8 +1364,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	surface->num_firstvertex = 0;
 	surface->num_vertices = loadmodel->surfmesh.num_vertices;
 
-	if(mod_alias_force_animated.string[0])
-		loadmodel->surfmesh.isanimated = mod_alias_force_animated.integer != 0;
+	Mod_ForceAnimate();
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -1635,8 +1643,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
 	Mod_Alias_MorphMesh_CompileFrames();
-	if(mod_alias_force_animated.string[0])
-		loadmodel->surfmesh.isanimated = mod_alias_force_animated.integer != 0;
+	Mod_ForceAnimate();
 
 	surface = loadmodel->data_surfaces;
 	surface->texture = loadmodel->data_textures;
@@ -1847,8 +1854,7 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
 	Mod_FreeSkinFiles(skinfiles);
 	Mod_MakeSortedSurfaces(loadmodel);
-	if(mod_alias_force_animated.string[0])
-		loadmodel->surfmesh.isanimated = mod_alias_force_animated.integer != 0;
+	Mod_ForceAnimate();
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -2256,8 +2262,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
-	if(mod_alias_force_animated.string[0])
-		loadmodel->surfmesh.isanimated = mod_alias_force_animated.integer != 0;
+	Mod_ForceAnimate();
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -2663,8 +2668,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
-	if(mod_alias_force_animated.string[0])
-		loadmodel->surfmesh.isanimated = mod_alias_force_animated.integer != 0;
+	Mod_ForceAnimate();
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -3350,8 +3354,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
-	if(mod_alias_force_animated.string[0])
-		loadmodel->surfmesh.isanimated = mod_alias_force_animated.integer != 0;
+	Mod_ForceAnimate();
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -3743,8 +3746,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 
 	loadmodel->surfmesh.isanimated = loadmodel->num_bones > 1 || loadmodel->numframes > 1 || (loadmodel->animscenes && loadmodel->animscenes[0].framecount > 1);
-	if(mod_alias_force_animated.string[0])
-		loadmodel->surfmesh.isanimated = mod_alias_force_animated.integer != 0;
+	Mod_ForceAnimate();
 
 	biggestorigin = 0;
 	if (header.version == 1)

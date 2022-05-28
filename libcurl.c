@@ -808,6 +808,7 @@ static void CheckPendingDownloads(void)
 #endif
 						if(!ua)
 							ua = "";
+						Cvar_LockThreadMutex();
 						if(*cl_curl_useragent_append.string)
 							ua = va(vabuf, sizeof(vabuf), "%s%s%s",
 								ua,
@@ -816,6 +817,7 @@ static void CheckPendingDownloads(void)
 									: "",
 								cl_curl_useragent_append.string);
 						qcurl_easy_setopt(di->curle, CURLOPT_USERAGENT, ua);
+						Cvar_UnlockThreadMutex();
 					}
 					else
 						qcurl_easy_setopt(di->curle, CURLOPT_USERAGENT, "");
@@ -1837,7 +1839,7 @@ static const char *Curl_FindPackURL(const char *filename)
 	if(buf)
 		Z_Free(buf);
 
-	if (sv_curl_defaulturl.string[0])
+	if (sv_curl_defaulturl.string[0]) //Cvar_LockThreadMutex() was called in Curl_SendRequirements()
 		return sv_curl_defaulturl.string;
 
 	return Net_HttpServerUrl();
@@ -1909,7 +1911,6 @@ static qboolean Curl_SendRequirement(const char *filename, qboolean foundone, ch
 	p = strrchr(thispack, '/');
 	if(p)
 		thispack = p + 1;
-
 	packurl = Curl_FindPackURL(thispack);
 	if(!packurl || !packurl[0]) packurl = "udp:/";
 
@@ -1928,10 +1929,8 @@ static qboolean Curl_SendRequirement(const char *filename, qboolean foundone, ch
 		strlcat(sendbuffer, packurl, sendbuffer_len);
 		strlcat(sendbuffer, thispack, sendbuffer_len);
 		strlcat(sendbuffer, "\n", sendbuffer_len);
-
 		return true;
 	}
-
 	return false;
 }
 void Curl_SendRequirements(void)
@@ -1945,10 +1944,12 @@ void Curl_SendRequirements(void)
 	for(req = requirements; req; req = req->next)
 		foundone = Curl_SendRequirement(req->filename, foundone, sendbuffer, sizeof(sendbuffer)) || foundone;
 
+	Cvar_LockThreadMutex();
 	p = sv_curl_serverpackages.string;
 	while(COM_ParseToken_Simple(&p, false, false, true))
 		foundone = Curl_SendRequirement(com_token, foundone, sendbuffer, sizeof(sendbuffer)) || foundone;
 
+	Cvar_UnlockThreadMutex();
 	if(foundone)
 		strlcat(sendbuffer, "curl --finish_autodownload\n", sizeof(sendbuffer));
 

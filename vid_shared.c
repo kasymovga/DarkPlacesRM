@@ -589,7 +589,9 @@ qboolean GL_CheckExtension(const char *minglver_or_ext, const dllfunction_t *fun
 	if (failed)
 		return false;
 	// VorteX: add to found extension list
+	Cvar_LockThreadMutex();
 	dpsnprintf(extstr, sizeof(extstr), "%s %s ", gl_info_extensions.string, minglver_or_ext);
+	Cvar_UnlockThreadMutex();
 	Cvar_SetQuick(&gl_info_extensions, extstr);
 
 	Con_DPrint("enabled\n");

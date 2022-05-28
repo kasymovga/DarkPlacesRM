@@ -244,7 +244,9 @@ void Net_HttpServerStart(void)
 const char *Net_HttpServerUrl(void) {
 #ifdef USE_LIBMICROHTTPD
 	if (mhd_daemon) {
+		Cvar_LockThreadMutex();
 		dpsnprintf(net_http_server_url_data, 64, "http://%s:%i/", net_http_server_host.string, net_http_server_port);
+		Cvar_UnlockThreadMutex();
 		return net_http_server_url_data;
 	}
 #endif //USE_LIBMICROHTTPD

@@ -183,6 +183,7 @@ void NetConn_UpdateFavorites(void)
 	const char *p;
 	nFavorites = 0;
 	nFavorites_idfp = 0;
+	Cvar_LockThreadMutex();
 	p = net_slist_favorites.string;
 	while((size_t) nFavorites < sizeof(favorites) / sizeof(*favorites) && COM_ParseToken_Console(&p))
 	{
@@ -199,6 +200,7 @@ void NetConn_UpdateFavorites(void)
 				++nFavorites;
 		}
 	}
+	Cvar_UnlockThreadMutex();
 }
 
 #define MAX_EXTRASERVERS 2048
@@ -212,6 +214,7 @@ void NetConn_UpdateExtra(void)
 	const char *p;
 	nExtra = 0;
 	nExtra_idfp = 0;
+	Cvar_LockThreadMutex();
 	p = net_slist_extra.string;
 	while((size_t) nExtra < sizeof(extra) / sizeof(*extra) && COM_ParseToken_Console(&p))
 	{
@@ -228,6 +231,7 @@ void NetConn_UpdateExtra(void)
 				++nExtra;
 		}
 	}
+	Cvar_UnlockThreadMutex();
 }
 
 /// helper function to insert a value into the viewset
@@ -1037,10 +1041,12 @@ void NetConn_OpenClientPorts(void)
 	else
 		Con_Printf("Client using port %i\n", port);
 	NetConn_OpenClientPort(NULL, LHNETADDRESSTYPE_LOOP, 2);
+	Cvar_LockThreadMutex();
 	NetConn_OpenClientPort(net_address.string, LHNETADDRESSTYPE_INET4, port);
 #ifndef NOSUPPORTIPV6
 	NetConn_OpenClientPort(net_address_ipv6.string, LHNETADDRESSTYPE_INET6, port);
 #endif
+	Cvar_UnlockThreadMutex();
 }
 
 void NetConn_CloseServerPorts(void)
@@ -1112,12 +1118,15 @@ void NetConn_OpenServerPorts(int opennetports)
 	#endif
 	if (opennetports)
 	{
+		qboolean ip4success;
+		Cvar_LockThreadMutex();
 #ifndef NOSUPPORTIPV6
-		qboolean ip4success = NetConn_OpenServerPort(net_address.string, LHNETADDRESSTYPE_INET4, port, 100);
+		ip4success = NetConn_OpenServerPort(net_address.string, LHNETADDRESSTYPE_INET4, port, 100);
 		NetConn_OpenServerPort(net_address_ipv6.string, LHNETADDRESSTYPE_INET6, port, ip4success ? 1 : 100);
 #else
 		NetConn_OpenServerPort(net_address.string, LHNETADDRESSTYPE_INET4, port, 100);
 #endif
+		Cvar_UnlockThreadMutex();
 	}
 	if (sv_numsockets == 0)
 		Host_Error(NULL, "NetConn_OpenServerPorts: unable to open any ports!");
@@ -1933,7 +1942,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				int n;
 				dpsnprintf(argbuf, sizeof(argbuf), "%s %s", string + 10, cls.rcon_commands[i]);
 				memcpy(buf, "\377\377\377\377srcon HMAC-MD4 CHALLENGE ", 29);
-
+				Cvar_LockThreadMutex();
 				e = strchr(rcon_password.string, ' ');
 				n = e ? e-rcon_password.string : (int)strlen(rcon_password.string);
 
@@ -1960,9 +1969,10 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 								if (!LHNETADDRESS_Compare(peeraddress, &cls.rcon_addresses[l]))
 									cls.rcon_timeout[l] = realtime + rcon_secure_challengetimeout.value;
 					}
-
+					Cvar_UnlockThreadMutex();
 					return true; // we used up the challenge, so we can't use this oen for connecting now anyway
 				}
+				Cvar_UnlockThreadMutex();
 			}
 		}
 		if (length >= 10 && !memcmp(string, "challenge ", 10) && cls.connect_trying)
@@ -2619,6 +2629,7 @@ static qboolean NetConn_BuildStatusResponse(const char* challenge, char* out_msg
 
 	/// \TODO: we should add more information for the full status string
 	crypto_idstring = Crypto_GetInfoResponseDataString();
+	Cvar_LockThreadMutex();
 	length = dpsnprintf(out_msg, out_size,
 						"\377\377\377\377%s\x0A"
 						"\\gamename\\%s\\modname\\%s\\gameversion\\%d\\sv_maxclients\\%d"
@@ -2634,7 +2645,7 @@ static qboolean NetConn_BuildStatusResponse(const char* challenge, char* out_msg
 						challenge ? "\\challenge\\" : "", challenge ? challenge : "",
 						crypto_idstring ? "\\d0_blind_id\\" : "", crypto_idstring ? crypto_idstring : "",
 						fullstatus ? "\n" : "");
-
+	Cvar_UnlockThreadMutex();
 	// Make sure it fits in the buffer
 	if (length < 0)
 		goto bad;
@@ -2865,7 +2876,7 @@ static qboolean plaintext_matching(lhnetaddress_t *peeraddress, const char *pass
 }
 
 /// returns a string describing the user level, or NULL for auth failure
-static const char *RCon_Authenticate(lhnetaddress_t *peeraddress, const char *password, const char *s, const char *endpos, rcon_matchfunc_t comparator, const char *cs, int cslen)
+static const char *_RCon_Authenticate(lhnetaddress_t *peeraddress, const char *password, const char *s, const char *endpos, rcon_matchfunc_t comparator, const char *cs, int cslen)
 {
 	const char *text, *userpass_start, *userpass_end, *userpass_startpass;
 	static char buf[MAX_INPUTLINE];
@@ -2961,6 +2972,15 @@ allow:
 		return va(vabuf, sizeof(vabuf), "%srcon (username %.*s)", restricted ? "restricted " : "", (int)(userpass_startpass-userpass_start), userpass_start);
 
 	return va(vabuf, sizeof(vabuf), "%srcon", restricted ? "restricted " : "");
+}
+
+static const char *RCon_Authenticate(lhnetaddress_t *peeraddress, const char *password, const char *s, const char *endpos, rcon_matchfunc_t comparator, const char *cs, int cslen)
+{
+	const char *r;
+	Cvar_LockThreadMutex();
+	r = _RCon_Authenticate(peeraddress, password, s, endpos, comparator, cs, cslen);
+	Cvar_UnlockThreadMutex();
+	return r;
 }
 
 static void RCon_Execute(lhnetsocket_t *mysocket, lhnetaddress_t *peeraddress, const char *addressstring2, const char *userlevel, const char *s, const char *endpos, qboolean proquakeprotocol)
@@ -3149,10 +3169,12 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 
 			if(!(islocal || sv_public.integer > -2))
 			{
+				Cvar_LockThreadMutex();
 				if (developer_extra.integer)
 					Con_Printf("Datagram_ParseConnectionless: sending \"reject %s\" to %s.\n", sv_public_rejectreason.string, addressstring2);
 				memcpy(response, "\377\377\377\377", 4);
 				dpsnprintf(response+4, sizeof(response)-4, "reject %s", sv_public_rejectreason.string);
+				Cvar_UnlockThreadMutex();
 				NetConn_WriteString(mysocket, response, peeraddress);
 				return true;
 			}
@@ -3441,6 +3463,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				Con_DPrintf("Datagram_ParseConnectionless: received CCREQ_CONNECT from %s.\n", addressstring2);
 			if(!(islocal || sv_public.integer > -2))
 			{
+				Cvar_LockThreadMutex();
 				if (developer_extra.integer)
 					Con_DPrintf("Datagram_ParseConnectionless: sending CCREP_REJECT \"%s\" to %s.\n", sv_public_rejectreason.string, addressstring2);
 				SZ_Clear(&sv_message);
@@ -3448,6 +3471,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				MSG_WriteLong(&sv_message, 0);
 				MSG_WriteByte(&sv_message, CCREP_REJECT);
 				MSG_WriteUnterminatedString(&sv_message, sv_public_rejectreason.string);
+				Cvar_UnlockThreadMutex();
 				MSG_WriteString(&sv_message, "\n");
 				StoreBigLong(sv_message.data, NETFLAG_CTL | (sv_message.cursize & NETFLAG_LENGTH_MASK));
 				NetConn_Write(mysocket, sv_message.data, sv_message.cursize, peeraddress);
@@ -3581,7 +3605,9 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				MSG_WriteByte(&sv_message, CCREP_SERVER_INFO);
 				LHNETADDRESS_ToString(LHNET_AddressFromSocket(mysocket), myaddressstring, sizeof(myaddressstring), true);
 				MSG_WriteString(&sv_message, myaddressstring);
+				Cvar_LockThreadMutex();
 				MSG_WriteString(&sv_message, hostname.string);
+				Cvar_UnlockThreadMutex();
 				MSG_WriteString(&sv_message, sv.name);
 				// How many clients are there?
 				for (i = 0, numclients = 0;i < svs.maxclients;i++)
@@ -3789,6 +3815,7 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 				dpsnprintf(request+4, sizeof(request)-4, "%s %s %u empty full%s", cmdname, gamenetworkfiltername, NET_PROTOCOL_VERSION, extraoptions);
 
 				// search internet
+				Cvar_LockThreadMutex();
 				for (masternum = 0;sv_masters[masternum].name;masternum++)
 				{
 					if (sv_masters[masternum].string && sv_masters[masternum].string[0] && LHNETADDRESS_FromString(&masteraddress, sv_masters[masternum].string, DPMASTER_PORT) && LHNETADDRESS_GetAddressType(&masteraddress) == af)
@@ -3797,6 +3824,7 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 						NetConn_WriteString(cl_sockets[i], request, &masteraddress);
 					}
 				}
+				Cvar_UnlockThreadMutex();
 
 				// search favorite servers
 				for(j = 0; j < nFavorites; ++j)
@@ -3846,6 +3874,7 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 				// search internet
 				for (masternum = 0;sv_qwmasters[masternum].name;masternum++)
 				{
+					Cvar_LockThreadMutex();
 					if (sv_qwmasters[masternum].string && LHNETADDRESS_FromString(&masteraddress, sv_qwmasters[masternum].string, QWMASTER_PORT) && LHNETADDRESS_GetAddressType(&masteraddress) == LHNETADDRESS_GetAddressType(LHNET_AddressFromSocket(cl_sockets[i])))
 					{
 						if (m_state != m_slist)
@@ -3857,6 +3886,7 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 						masterquerycount++;
 						NetConn_Write(cl_sockets[i], request, (int)strlen(request) + 1, &masteraddress);
 					}
+					Cvar_UnlockThreadMutex();
 				}
 
 				// search favorite servers
@@ -3922,9 +3952,11 @@ void NetConn_Heartbeat(int priority)
 	if (sv.active && sv_public.integer > 0 && svs.maxclients >= 2 && (priority > 1 || realtime > nextheartbeattime))
 	{
 		nextheartbeattime = realtime + sv_heartbeatperiod.value;
+		Cvar_LockThreadMutex();
 		for (masternum = 0;sv_masters[masternum].name;masternum++)
 			if (sv_masters[masternum].string && sv_masters[masternum].string[0] && LHNETADDRESS_FromString(&masteraddress, sv_masters[masternum].string, DPMASTER_PORT) && (mysocket = NetConn_ChooseServerSocketForAddress(&masteraddress)))
 				NetConn_WriteString(mysocket, "\377\377\377\377heartbeat DarkPlaces\x0A", &masteraddress);
+		Cvar_UnlockThreadMutex();
 	}
 }
 

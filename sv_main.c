@@ -963,8 +963,9 @@ void SV_SendServerinfo (client_t *client)
 		for(i = 0; ipaddress[i]; ++i)
 			if(!isalnum(ipaddress[i]))
 				ipaddress[i] = '-';
+		Cvar_LockThreadMutex();
 		dpsnprintf (demofile, sizeof(demofile), "%s_%s_%d_%s.dem", Sys_TimeString (sv_autodemo_perclient_nameformat.string), sv.worldbasename, PRVM_NUM_FOR_EDICT(client->edict), ipaddress);
-
+		Cvar_UnlockThreadMutex();
 		SV_StartDemoRecording(client, demofile, -1);
 		SV_WriteNetnameIntoDemo(client);
 	}
@@ -3254,9 +3255,11 @@ static void SV_Prepare_CSQC_Internal(const char *csqc_prognamecvar, char *csqc_p
 
 static void SV_Prepare_CSQC(void) {
     Con_DPrintf("Preparing csqc\n");
+	Cvar_LockThreadMutex();
     SV_Prepare_CSQC_Internal(csqc_progname.string, sv.csqc_progname, &svs.csqc_progdata, &sv.csqc_progsize, &sv.csqc_progcrc, &svs.csqc_progdata_deflated, &svs.csqc_progsize_deflated);
     Con_DPrintf("Preparing alt csqc\n");
     SV_Prepare_CSQC_Internal(csqc_progname_alt.string, sv.csqc_progname_alt, &svs.csqc_progdata_alt, &sv.csqc_progsize_alt, &sv.csqc_progcrc_alt, &svs.csqc_progdata_alt_deflated, &svs.csqc_progsize_alt_deflated);
+	Cvar_UnlockThreadMutex();
 }
 
 /*
@@ -3356,8 +3359,10 @@ void SV_SpawnServer (const char *server)
 	Collision_Cache_Reset(true);
 
 	// let's not have any servers with no name
+	Cvar_LockThreadMutex();
 	if (hostname.string[0] == 0)
 		Cvar_Set ("hostname", "UNNAMED");
+	Cvar_UnlockThreadMutex();
 	#ifndef CONFIG_SV
 	scr_centertime_off = 0;
 	#endif
@@ -3412,13 +3417,13 @@ void SV_SpawnServer (const char *server)
 	Cvar_SetValue("halflifebsp", worldmodel->brush.ishlbsp);
 	Cvar_SetValue("sv_mapformat_is_quake2", worldmodel->brush.isq2bsp);
 	Cvar_SetValue("sv_mapformat_is_quake3", worldmodel->brush.isq3bsp);
-
+	Cvar_LockThreadMutex();
 	if(*sv_random_seed.string)
 	{
 		srand(sv_random_seed.integer);
 		Con_Printf("NOTE: random seed is %d; use for debugging/benchmarking only!\nUnset sv_random_seed to get real random numbers again.\n", sv_random_seed.integer);
 	}
-
+	Cvar_UnlockThreadMutex();
 	SV_VM_Setup();
 
 	sv.active = true;
@@ -3432,7 +3437,7 @@ void SV_SpawnServer (const char *server)
 	Cvar_SetQuick(&sv_worldname, sv.worldname);
 	Cvar_SetQuick(&sv_worldnamenoextension, sv.worldnamenoextension);
 	Cvar_SetQuick(&sv_worldbasename, sv.worldbasename);
-
+	Cvar_LockThreadMutex();
 	sv.protocol = Protocol_EnumForName(sv_protocolname.string);
 	if (sv.protocol == PROTOCOL_UNKNOWN)
 	{
@@ -3441,9 +3446,9 @@ void SV_SpawnServer (const char *server)
 		Con_Printf("Unknown sv_protocolname \"%s\", valid values are:\n%s\n", sv_protocolname.string, buffer);
 		sv.protocol = PROTOCOL_QUAKE;
 	}
-
 // load progs to get entity field count
 	//PR_LoadProgs ( sv_progs.string );
+	Cvar_UnlockThreadMutex();
 
 	sv.datagram.maxsize = sizeof(sv.datagram_buf);
 	sv.datagram.cursize = 0;
@@ -3788,7 +3793,7 @@ static void SV_VM_Setup(void)
 	prog->init_cmd              = SVVM_init_cmd;
 	prog->reset_cmd             = SVVM_reset_cmd;
 	prog->ExecuteProgram        = SVVM_ExecuteProgram;
-
+	Cvar_LockThreadMutex();
 	PRVM_Prog_Load(prog, sv_progs.string, NULL, 0, SV_REQFUNCS, sv_reqfuncs, SV_REQFIELDS, sv_reqfields, SV_REQGLOBALS, sv_reqglobals);
 
 	// some mods compiled with scrambling compilers lack certain critical
@@ -3931,6 +3936,7 @@ static void SV_VM_Setup(void)
 	}
 	else
 		Con_DPrintf("%s: %s system vars have been modified (CRC %i != engine %i), will not load in other engines", prog->name, sv_progs.string, prog->progs_crc, PROGHEADER_CRC);
+	Cvar_UnlockThreadMutex();
 
 	// OP_STATE is always supported on server because we add fields/globals for it
 	prog->flag |= PRVM_OP_STATE;

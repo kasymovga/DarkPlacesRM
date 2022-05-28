@@ -737,7 +737,9 @@ void M_Menu_Setup_f (void)
 	key_dest = key_menu;
 	m_state = m_setup;
 	m_entersound = true;
+	Cvar_LockThreadMutex();
 	strlcpy(setup_myname, cl_name.string, sizeof(setup_myname));
+	Cvar_UnlockThreadMutex();
 	setup_top = setup_oldtop = cl_color.integer >> 4;
 	setup_bottom = setup_oldbottom = cl_color.integer & 15;
 	setup_rate = cl_rate.integer;
@@ -936,8 +938,10 @@ forward:
 			goto forward;
 
 		// setup_cursor == 4 (Accept changes)
+		Cvar_LockThreadMutex();
 		if (strcmp(cl_name.string, setup_myname) != 0)
 			Cbuf_AddText(va(vabuf, sizeof(vabuf), "name \"%s\"\n", setup_myname) );
+		Cvar_UnlockThreadMutex();
 		if (setup_top != setup_oldtop || setup_bottom != setup_oldbottom)
 			Cbuf_AddText(va(vabuf, sizeof(vabuf), "color %i %i\n", setup_top, setup_bottom) );
 		if (setup_rate != setup_oldrate)
@@ -3144,6 +3148,7 @@ void M_GameOptions_Draw (void)
 
 	M_Print(0, 128, "      Server name");
 	M_DrawTextBox (0, 132, 38, 1);
+	Cvar_LockThreadMutex();
 	M_Print(8, 140, hostname.string);
 
 	M_Print(0, 160, "         Episode");
@@ -3157,7 +3162,7 @@ void M_GameOptions_Draw (void)
 		M_DrawCharacter (8 + 8 * strlen(hostname.string), gameoptions_cursor_table[gameoptions_cursor], 10+((int)(realtime*4)&1));
 	else
 		M_DrawCharacter (144, gameoptions_cursor_table[gameoptions_cursor], 12+((int)(realtime*4)&1));
-
+	Cvar_UnlockThreadMutex();
 	if (m_serverInfoMessage)
 	{
 		if ((realtime - m_serverInfoMessageTime) < 5.0)
@@ -3339,6 +3344,7 @@ static void M_GameOptions_Key (int key, int ascii)
 	case K_BACKSPACE:
 		if (gameoptions_cursor == 9)
 		{
+			Cvar_LockThreadMutex();
 			l = (int)strlen(hostname.string);
 			if (l)
 			{
@@ -3347,6 +3353,7 @@ static void M_GameOptions_Key (int key, int ascii)
 				hostnamebuf[l] = 0;
 				Cvar_Set("hostname", hostnamebuf);
 			}
+			Cvar_UnlockThreadMutex();
 		}
 		break;
 
@@ -3355,6 +3362,7 @@ static void M_GameOptions_Key (int key, int ascii)
 			break;
 		if (gameoptions_cursor == 9)
 		{
+			Cvar_LockThreadMutex();
 			l = (int)strlen(hostname.string);
 			if (l < 37)
 			{
@@ -3363,6 +3371,7 @@ static void M_GameOptions_Key (int key, int ascii)
 				hostnamebuf[l+1] = 0;
 				Cvar_Set("hostname", hostnamebuf);
 			}
+			Cvar_UnlockThreadMutex();
 		}
 	}
 }
@@ -4266,9 +4275,17 @@ static void MP_Init (void)
 	prog->ExecuteProgram        = MVM_ExecuteProgram;
 
 	// allocate the mempools
+	Cvar_LockThreadMutex();
+	if (strchr(menu_progs.string, '/')) Cvar_SetQuick(&menu_progs, "menu.dat");
 	prog->progs_mempool = Mem_AllocPool(menu_progs.string, 0, NULL);
 
 	PRVM_Prog_Load(prog, menu_progs.string, NULL, 0, m_numrequiredfunc, m_required_func, m_numrequiredfields, m_required_fields, m_numrequiredglobals, m_required_globals);
+	if (!prog->loaded)
+	{
+		Cvar_SetQuick(&menu_progs, "menu.dat");
+		PRVM_Prog_Load(prog, menu_progs.string, NULL, 0, m_numrequiredfunc, m_required_func, m_numrequiredfields, m_required_fields, m_numrequiredglobals, m_required_globals);
+	}
+	Cvar_UnlockThreadMutex();
 
 	// note: OP_STATE is not supported by menu qc, we don't even try to detect
 	// it here

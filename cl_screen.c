@@ -1201,6 +1201,7 @@ static void R_TimeReport_EndFrame(void)
 
 		// count how many stats match our pattern
 		stats = 0;
+		Cvar_LockThreadMutex();
 		for (color = 0;color < R_SPEEDS_GRAPH_COLORS;color++)
 		{
 			// look at all stat names and find ones matching the filter
@@ -1220,7 +1221,7 @@ static void R_TimeReport_EndFrame(void)
 			// count how many stats we need to graph in vertex buffer
 			stats++;
 		}
-
+		Cvar_UnlockThreadMutex();
 		if (stats)
 		{
 			// legend text is drawn after the graphs
@@ -1488,11 +1489,12 @@ void SCR_ScreenShot_f (void)
 		int shotnumber100;
 
 		// TODO maybe make capturevideo and screenshot use similar name patterns?
+		Cvar_LockThreadMutex();
 		if (scr_screenshot_name_in_mapdir.integer && cl.worldbasename[0])
 			dpsnprintf(prefix_name, sizeof(prefix_name), "%s/%s%s", cl.worldbasename, scr_screenshot_name.string, Sys_TimeString("%Y%m%d%H%M%S"));
 		else
 			dpsnprintf(prefix_name, sizeof(prefix_name), "%s%s", scr_screenshot_name.string, Sys_TimeString("%Y%m%d%H%M%S"));
-
+		Cvar_UnlockThreadMutex();
 		// find a file name to save it to
 		for (shotnumber100 = 0;shotnumber100 < 100;shotnumber100++)
 			if (!FS_SysFileExists(va(vabuf, sizeof(vabuf), "%s/screenshots/%s-%02d.tga", fs_gamedir, prefix_name, shotnumber100))
@@ -1510,11 +1512,12 @@ void SCR_ScreenShot_f (void)
 	else
 	{
 		// TODO maybe make capturevideo and screenshot use similar name patterns?
+		Cvar_LockThreadMutex();
 		if (scr_screenshot_name_in_mapdir.integer && cl.worldbasename[0])
 			dpsnprintf(prefix_name, sizeof(prefix_name), "%s/%s", cl.worldbasename, Sys_TimeString(scr_screenshot_name.string));
 		else
 			dpsnprintf(prefix_name, sizeof(prefix_name), "%s", Sys_TimeString(scr_screenshot_name.string));
-
+		Cvar_UnlockThreadMutex();
 		// if prefix changed, gamedir or map changed, reset the shotnumber so
 		// we scan again
 		// FIXME: should probably do this whenever FS_Rescan or something like that occurs?
@@ -1604,7 +1607,9 @@ static void SCR_CaptureVideo_BeginVideo(void)
 	cls.capturevideo.realtime = cl_capturevideo_realtime.integer != 0;
 	cls.capturevideo.screenbuffer = (unsigned char *)Mem_Alloc(tempmempool, vid.width * vid.height * 4);
 	cls.capturevideo.outbuffer = (unsigned char *)Mem_Alloc(tempmempool, width * height * (4+4) + 18);
+	Cvar_LockThreadMutex();
 	dpsnprintf(cls.capturevideo.basename, sizeof(cls.capturevideo.basename), "video/%s%03i", Sys_TimeString(cl_capturevideo_nameformat.string), cl_capturevideo_number.integer);
+	Cvar_UnlockThreadMutex();
 	Cvar_SetValueQuick(&cl_capturevideo_number, cl_capturevideo_number.integer + 1);
 
 	/*
@@ -2217,37 +2222,41 @@ static void SCR_DrawScreen (void)
 		r_refdef.view.z = 0;
 		r_refdef.view.useperspective = false;
 	}
-
-	if (cls.timedemo && cls.td_frames > 0 && timedemo_screenshotframelist.string && timedemo_screenshotframelist.string[0])
+	if (cls.timedemo && cls.td_frames > 0)
 	{
-		const char *t;
-		int framenum;
-		t = timedemo_screenshotframelist.string;
-		while (*t)
+		Cvar_LockThreadMutex();
+		if (timedemo_screenshotframelist.string && timedemo_screenshotframelist.string[0])
 		{
-			while (*t == ' ')
-				t++;
-			if (!*t)
-				break;
-			framenum = atof(t);
-			if (framenum == cls.td_frames)
-				break;
-			while (*t && *t != ' ')
-				t++;
+			const char *t;
+			int framenum;
+			t = timedemo_screenshotframelist.string;
+			while (*t)
+			{
+				while (*t == ' ')
+					t++;
+				if (!*t)
+					break;
+				framenum = atof(t);
+				if (framenum == cls.td_frames)
+					break;
+				while (*t && *t != ' ')
+					t++;
+			}
+			if (*t)
+			{
+				// we need to take a screenshot of this frame...
+				char filename[MAX_QPATH];
+				unsigned char *buffer1;
+				unsigned char *buffer2;
+				dpsnprintf(filename, sizeof(filename), "timedemoscreenshots/%s%06d.tga", cls.demoname, cls.td_frames);
+				buffer1 = (unsigned char *)Mem_Alloc(tempmempool, vid.width * vid.height * 4);
+				buffer2 = (unsigned char *)Mem_Alloc(tempmempool, vid.width * vid.height * 3);
+				SCR_ScreenShot(filename, buffer1, buffer2, 0, 0, vid.width, vid.height, false, false, false, false, false, true, false);
+				Mem_Free(buffer1);
+				Mem_Free(buffer2);
+			}
 		}
-		if (*t)
-		{
-			// we need to take a screenshot of this frame...
-			char filename[MAX_QPATH];
-			unsigned char *buffer1;
-			unsigned char *buffer2;
-			dpsnprintf(filename, sizeof(filename), "timedemoscreenshots/%s%06d.tga", cls.demoname, cls.td_frames);
-			buffer1 = (unsigned char *)Mem_Alloc(tempmempool, vid.width * vid.height * 4);
-			buffer2 = (unsigned char *)Mem_Alloc(tempmempool, vid.width * vid.height * 3);
-			SCR_ScreenShot(filename, buffer1, buffer2, 0, 0, vid.width, vid.height, false, false, false, false, false, true, false);
-			Mem_Free(buffer1);
-			Mem_Free(buffer2);
-		}
+		Cvar_UnlockThreadMutex();
 	}
 
 	// draw 2D stuff
@@ -2475,11 +2484,12 @@ static void SCR_DrawLoadingStack(void)
 #if _MSC_VER >= 1400
 #define sscanf sscanf_s
 #endif
+		Cvar_LockThreadMutex();
 		sscanf(scr_loadingscreen_bargradientcolor.string, "%f %f %f", &colors[0], &colors[1], &colors[2]); colors[3] = 1;
 		sscanf(scr_loadingscreen_bargradientcolor.string, "%f %f %f", &colors[4], &colors[5], &colors[6]); colors[7] = 1;
 		sscanf(scr_loadingscreen_barcolor.string, "%f %f %f", &colors[8], &colors[9], &colors[10]); colors[11] = 1;
 		sscanf(scr_loadingscreen_barcolor.string, "%f %f %f", &colors[12], &colors[13], &colors[14]);  colors[15] = 1;
-
+		Cvar_UnlockThreadMutex();
 		R_Mesh_PrepareVertices_Generic_Arrays(4, verts, colors, NULL);
 		R_SetupShader_Generic_NoTexture(true, true);
 		R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
@@ -2515,7 +2525,9 @@ static void SCR_DrawLoadingScreen_SharedSetup (qboolean clear)
 	R_Mesh_Start();
 	R_EntityMatrix(&identitymatrix);
 	// draw the loading plaque
+	Cvar_LockThreadMutex();
 	loadingscreenpic = Draw_CachePic_Flags (loadingscreenpic_number ? va(vabuf, sizeof(vabuf), "%s%d", scr_loadingscreen_picture.string, loadingscreenpic_number+1) : scr_loadingscreen_picture.string, loadingscreenpic_number ? CACHEPICFLAG_NOTPERSISTENT : 0);
+	Cvar_UnlockThreadMutex();
 
 	w = loadingscreenpic->width;
 	h = loadingscreenpic->height;

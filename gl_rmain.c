@@ -5686,13 +5686,29 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 #endif
 		memset(uservecs, 0, sizeof(uservecs));
 		if (r_glsl_postprocess_uservec1_enable.integer)
+		{
+			Cvar_LockThreadMutex();
 			sscanf(r_glsl_postprocess_uservec1.string, "%f %f %f %f", &uservecs[0][0], &uservecs[0][1], &uservecs[0][2], &uservecs[0][3]);
+			Cvar_UnlockThreadMutex();
+		}
 		if (r_glsl_postprocess_uservec2_enable.integer)
+		{
+			Cvar_LockThreadMutex();
 			sscanf(r_glsl_postprocess_uservec2.string, "%f %f %f %f", &uservecs[1][0], &uservecs[1][1], &uservecs[1][2], &uservecs[1][3]);
+			Cvar_UnlockThreadMutex();
+		}
 		if (r_glsl_postprocess_uservec3_enable.integer)
+		{
+			Cvar_LockThreadMutex();
 			sscanf(r_glsl_postprocess_uservec3.string, "%f %f %f %f", &uservecs[2][0], &uservecs[2][1], &uservecs[2][2], &uservecs[2][3]);
+			Cvar_UnlockThreadMutex();
+		}
 		if (r_glsl_postprocess_uservec4_enable.integer)
+		{
+			Cvar_LockThreadMutex();
 			sscanf(r_glsl_postprocess_uservec4.string, "%f %f %f %f", &uservecs[3][0], &uservecs[3][1], &uservecs[3][2], &uservecs[3][3]);
+			Cvar_UnlockThreadMutex();
+		}
 
 		R_ResetViewRendering2D(0, NULL, NULL); // here we render to the real framebuffer!
 		GL_Color(1, 1, 1, 1);
