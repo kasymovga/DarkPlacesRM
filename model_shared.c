@@ -156,6 +156,7 @@ Mod_Init
 static void Mod_Print(void);
 static void Mod_Precache (void);
 static void Mod_Decompile_f(void);
+static void Mod_TagTransform_f(void);
 #ifndef CONFIG_SV
 static void Mod_GenerateLightmaps_f(void);
 #endif
@@ -186,6 +187,7 @@ void Mod_Init (void)
 	Cmd_AddCommand ("modellist", Mod_Print, "prints a list of loaded models");
 	Cmd_AddCommand ("modelprecache", Mod_Precache, "load a model");
 	Cmd_AddCommand ("modeldecompile", Mod_Decompile_f, "exports a model in several formats for editing purposes");
+	Cmd_AddCommand ("modeltagtransform", Mod_TagTransform_f, "transform model tag");
 	#ifndef CONFIG_SV
 	Cmd_AddCommand ("mod_generatelightmaps", Mod_GenerateLightmaps_f, "rebuilds lighting on current worldmodel");
 	#endif
@@ -3643,6 +3645,107 @@ static void Mod_Decompile_f(void)
 			dpsnprintf(dpm_dir_path, sizeof(dpm_dir_path), "%s_decompiled/", basename);
 			FS_WriteFile(dpm_script_path, dpmtextbuffer, (fs_offset_t)dpmtextsize);
 			Mod_Compile_DPM_MD3(dpmtextbuffer, dpm_dir_path, va(vabuf, sizeof(vabuf), "%s_decompiled", basename));
+		}
+	}
+}
+
+/*
+================
+Mod_TagTransform_f
+
+decompiles a model to editable files
+================
+*/
+static void Mod_TagTransform_f(void)
+{
+	float orig_transform[3] = {0, 0, 0};
+	float angle_transform[3] = {0, 0, 0};
+	const char *tag_name;
+	int tag_index = 0;
+	dp_model_t *mod;
+	int i;
+	matrix4x4_t bonematrix;
+
+	if (Cmd_Argc() < 4)
+	{
+		Con_Print("usage: modeltagtransform <filename> <tag name> <orig-X> [orig-Y] [orig-Z] [angle-X] [angle-Y] [angle-Z]\n");
+		return;
+	}
+	mod = Mod_ForName(Cmd_Argv(1), false, false, NULL);
+	if (!mod || !mod->loaded)
+	{
+		Con_Printf("model %s not found\n", Cmd_Argv(1));
+		return;
+	}
+	tag_name = Cmd_Argv(2);
+	orig_transform[0] = atof(Cmd_Argv(3));
+	if (Cmd_Argc() >= 5)
+		orig_transform[1] = atof(Cmd_Argv(4));
+	if (Cmd_Argc() >= 6)
+		orig_transform[2] = atof(Cmd_Argv(5));
+	if (Cmd_Argc() >= 7)
+		angle_transform[0] = atof(Cmd_Argv(6));
+	if (Cmd_Argc() >= 8)
+		angle_transform[1] = atof(Cmd_Argv(7));
+	if (Cmd_Argc() >= 9)
+		angle_transform[2] = atof(Cmd_Argv(8));
+
+	if (mod->num_bones)
+	{
+		for (i = 0;i < mod->num_bones;i++)
+			if (!strcasecmp(tag_name, mod->data_bones[i].name))
+			{
+				tag_index = i;
+				Con_Printf("Tag index: %i\n", tag_index);
+				break;
+			}
+		if (i == mod->num_bones)
+		{
+			tag_index = atoi(tag_name);
+			if (tag_index > 0 && tag_index < mod->num_bones)
+				i = tag_index;
+		}
+		if (i < mod->num_bones)
+		{
+			Con_Printf("Apply transformation %f %f %f %f %f %f\n", orig_transform[0], orig_transform[1], orig_transform[2], angle_transform[0], angle_transform[1], angle_transform[2]);
+			for (i = 0; i < mod->num_poses; i++)
+			{
+				Matrix4x4_FromBonePose7s(&bonematrix, mod->num_posescale, mod->data_poses7s + 7 * (i * mod->num_bones + tag_index));
+				Matrix4x4_AdjustOrigin(&bonematrix, orig_transform[0], orig_transform[1], orig_transform[2]);
+				if (angle_transform[0])
+					Matrix4x4_ConcatRotate(&bonematrix, angle_transform[0], 1, 0, 0);
+				if (angle_transform[1])
+					Matrix4x4_ConcatRotate(&bonematrix, angle_transform[1], 0, 1, 0);
+				if (angle_transform[2])
+					Matrix4x4_ConcatRotate(&bonematrix, angle_transform[2], 0, 0, 1);
+				Matrix4x4_ToBonePose7s(&bonematrix, mod->num_poseinvscale, mod->data_poses7s + 7 * (i * mod->num_bones + tag_index));
+			}
+		}
+	}
+	else if (mod->num_tags)
+	{
+		for (i = 0;i < mod->num_tags;i++)
+			if (!strcasecmp(tag_name, mod->data_tags[i].name))
+			{
+				tag_index = i;
+				Con_Printf("Tag index: %i\n", tag_index);
+				break;
+			}
+		if (i < mod->num_tags)
+		{
+			Con_Printf("Apply transformation %f %f %f %f %f %f\n", orig_transform[0], orig_transform[1], orig_transform[2], angle_transform[0], angle_transform[1], angle_transform[2]);
+			for (i = 0; i < mod->num_tagframes; i++)
+			{
+				Matrix4x4_FromArray12FloatGL(&bonematrix, mod->data_tags[i * mod->num_tags + tag_index].matrixgl);
+				Matrix4x4_AdjustOrigin(&bonematrix, orig_transform[0], orig_transform[1], orig_transform[2]);
+				if (angle_transform[0])
+					Matrix4x4_ConcatRotate(&bonematrix, angle_transform[0], 1, 0, 0);
+				if (angle_transform[1])
+					Matrix4x4_ConcatRotate(&bonematrix, angle_transform[1], 0, 1, 0);
+				if (angle_transform[2])
+					Matrix4x4_ConcatRotate(&bonematrix, angle_transform[2], 0, 0, 1);
+				Matrix4x4_ToArray12FloatGL(&bonematrix, mod->data_tags[i * mod->num_tags + tag_index].matrixgl);
+			}
 		}
 	}
 }
