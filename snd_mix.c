@@ -516,8 +516,8 @@ void S_MixToBuffer(void *stream, unsigned int bufferframes)
 				}
 			}
 			ch->position = posd;
-			if (!looping && istartframe == totallength)
-				S_StopChannel(ch - channels, false, false);
+			if (!looping && istartframe >= totallength)
+				S_StopChannel(ch - channels, false, sfx->flags & SFXFLAG_VOIP);
 		}
 
 		S_SoftClipPaintBuffer(paintbuffer, totalmixframes, snd_renderbuffer->format.width, snd_renderbuffer->format.channels);

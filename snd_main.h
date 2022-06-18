@@ -56,6 +56,7 @@ typedef struct snd_ringbuffer_s
 #define SFXFLAG_LEVELSOUND		(1 << 1) // the sfx is part of the server or client precache list for this level
 #define SFXFLAG_STREAMED		(1 << 2) // informative only. You shouldn't need to know that
 #define SFXFLAG_MENUSOUND		(1 << 3) // not freed during level change (menu sounds, music, etc)
+#define SFXFLAG_VOIP			(1 << 4)
 
 typedef struct snd_fetcher_s snd_fetcher_t;
 struct sfx_s
@@ -186,6 +187,17 @@ void SndSys_UnlockRenderBuffer (void);
 
 // if the sound system can generate events, send them
 void SndSys_SendKeyEvents(void);
+
+//Process voip packet
+void SndSys_VOIP_Received(unsigned char *packet, int len, int client);
+
+//Start/stop voip
+void SndSys_VOIP_Start(void);
+void SndSys_VOIP_Stop(void);
+
+//Start/stop echo test
+void SndSys_Echo_Start(void);
+void SndSys_Echo_Stop(void);
 
 // exported for capturevideo so ogg can see all channels
 typedef struct portable_samplepair_s

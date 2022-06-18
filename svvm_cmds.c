@@ -244,6 +244,9 @@ const char *vm_sv_extensions =
 "DP_RM_CULLTRACEMODE "
 "DP_RM_COLLISIONSCALE "
 "DP_RM_CURL_EVENT "
+#ifdef CONFIG_VOIP
+"DP_RM_VOIP "
+#endif
 //"EXT_CSQC " // not ready yet
 ;
 

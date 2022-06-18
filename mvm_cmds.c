@@ -58,6 +58,9 @@ const char *vm_m_extensions =
 "DP_RM_REGEX2 "
 "DP_RM_QCSENDPACKET "
 "DP_RM_GEOIP "
+#ifdef CONFIG_VOIP
+"DP_RM_VOIP "
+#endif
 ;
 
 /*
