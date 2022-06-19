@@ -829,11 +829,11 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 			}
 		} else if (!strcmp(command, "*click")) {
 			if (*resultbutton != button) {
-				Key_Event(K_MOUSE1, 0, button);
+				Key_Event(K_MOUSE1, 0, button, false);
 			}
 		} else if (!strcmp(command, "*menu")) {
 			if (*resultbutton != button) {
-				Key_Event(K_ESCAPE, 0, button);
+				Key_Event(K_ESCAPE, 0, button, false);
 			}
 		} else if (!strcmp(command, "*touchtoggle")) {
 			if (!button && *resultbutton) {
@@ -1046,6 +1046,7 @@ void Sys_SendKeyEvents( void )
 	qboolean isdown;
 	Uchar unicode;
 	SDL_Event event;
+	qboolean skipbinds = false;
 
 	VID_EnableJoystick(true);
 
@@ -1060,6 +1061,7 @@ void Sys_SendKeyEvents( void )
 				break;
 			case SDL_KEYDOWN:
 			case SDL_KEYUP:
+				skipbinds = event.key.repeat;
 #ifdef DEBUGSDLEVENTS
 				if (event.type == SDL_KEYDOWN)
 					Con_DPrintf("SDL_Event: SDL_KEYDOWN %i\n", event.key.keysym.sym);
@@ -1089,14 +1091,14 @@ void Sys_SendKeyEvents( void )
 						else
 						{
 							if (!VID_JoyBlockEmulatedKeys(keycode))
-								Key_Event(keycode, 0, isdown);
+								Key_Event(keycode, 0, isdown, skipbinds);
 
 							goto loop_start;
 						}
 					}
 				}
 				if (!VID_JoyBlockEmulatedKeys(keycode))
-					Key_Event(keycode, unicode, isdown);
+					Key_Event(keycode, unicode, isdown, skipbinds);
 				break;
 			case SDL_MOUSEBUTTONDOWN:
 #ifdef __EMSCRIPTEN__
@@ -1116,20 +1118,20 @@ void Sys_SendKeyEvents( void )
 					Con_DPrintf("SDL_Event: SDL_MOUSEBUTTONUP\n");
 #endif
 				if ((!vid_touchscreen.integer || !vid_touchscreen_active.integer) && event.button.button > 0 && event.button.button <= ARRAY_SIZE(buttonremap))
-					Key_Event( buttonremap[event.button.button - 1], 0, event.button.state == SDL_PRESSED );
+					Key_Event( buttonremap[event.button.button - 1], 0, event.button.state == SDL_PRESSED, false );
 				break;
 			case SDL_MOUSEWHEEL:
 				// TODO support wheel x direction.
 				i = event.wheel.y;
 				while (i > 0) {
 					--i;
-					Key_Event( K_MWHEELUP, 0, true );
-					Key_Event( K_MWHEELUP, 0, false );
+					Key_Event( K_MWHEELUP, 0, true, false );
+					Key_Event( K_MWHEELUP, 0, false, false );
 				}
 				while (i < 0) {
 					++i;
-					Key_Event( K_MWHEELDOWN, 0, true );
-					Key_Event( K_MWHEELDOWN, 0, false );
+					Key_Event( K_MWHEELDOWN, 0, true, false );
+					Key_Event( K_MWHEELDOWN, 0, false, false );
 				}
 				break;
 			case SDL_JOYBUTTONDOWN:
@@ -1232,8 +1234,8 @@ void Sys_SendKeyEvents( void )
 				// convert utf8 string to char
 				// NOTE: this code is supposed to run even if utf8enable is 0
 				unicode = u8_getchar_utf8_enabled(event.text.text + (int)u8_bytelen(event.text.text, 0), NULL);
-				Key_Event(K_TEXT, unicode, true);
-				Key_Event(K_TEXT, unicode, false);
+				Key_Event(K_TEXT, unicode, true, false);
+				Key_Event(K_TEXT, unicode, false, false);
 				break;
 			case SDL_MOUSEMOTION:
 				break;

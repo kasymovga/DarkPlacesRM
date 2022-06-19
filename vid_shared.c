@@ -1310,13 +1310,13 @@ static void VID_KeyEventForButton(qboolean oldbutton, qboolean newbutton, int ke
 		{
 			if (realtime >= *timer)
 			{
-				Key_Event(key, 0, true);
+				Key_Event(key, 0, true, false);
 				*timer = realtime + 0.1;
 			}
 		}
 		else
 		{
-			Key_Event(key, 0, false);
+			Key_Event(key, 0, false, false);
 			*timer = 0;
 		}
 	}
@@ -1324,7 +1324,7 @@ static void VID_KeyEventForButton(qboolean oldbutton, qboolean newbutton, int ke
 	{
 		if (newbutton)
 		{
-			Key_Event(key, 0, true);
+			Key_Event(key, 0, true, false);
 			*timer = realtime + 0.5;
 		}
 	}

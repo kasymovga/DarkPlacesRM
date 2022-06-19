@@ -1915,19 +1915,21 @@ typedef struct eventqueueitem_s
 	int key;
 	int ascii;
 	qboolean down;
+	qboolean skipbinds;
 }
 eventqueueitem_t;
 static int events_blocked = 0;
 static eventqueueitem_t eventqueue[32];
 static unsigned eventqueue_idx = 0;
 
-static void Key_EventQueue_Add(int key, int ascii, qboolean down)
+static void Key_EventQueue_Add(int key, int ascii, qboolean down, qboolean skipbinds)
 {
 	if(eventqueue_idx < sizeof(eventqueue) / sizeof(*eventqueue))
 	{
 		eventqueue[eventqueue_idx].key = key;
 		eventqueue[eventqueue_idx].ascii = ascii;
 		eventqueue[eventqueue_idx].down = down;
+		eventqueue[eventqueue_idx].skipbinds = skipbinds;
 		++eventqueue_idx;
 	}
 }
@@ -1944,12 +1946,12 @@ void Key_EventQueue_Unblock(void)
 	unsigned i;
 	events_blocked = false;
 	for(i = 0; i < eventqueue_idx; ++i)
-		Key_Event(eventqueue[i].key, eventqueue[i].ascii, eventqueue[i].down);
+		Key_Event(eventqueue[i].key, eventqueue[i].ascii, eventqueue[i].down, eventqueue[i].skipbinds);
 	eventqueue_idx = 0;
 }
 
 void
-Key_Event (int key, int ascii, qboolean down)
+Key_Event (int key, int ascii, qboolean down, qboolean skipbinds)
 {
 	const char *bind;
 	keydest_t keydest = key_dest;
@@ -1960,15 +1962,19 @@ Key_Event (int key, int ascii, qboolean down)
 
 	if(events_blocked)
 	{
-		Key_EventQueue_Add(key, ascii, down);
+		Key_EventQueue_Add(key, ascii, down, skipbinds);
 		return;
 	}
 
 	// get key binding
-	bind = keybindings[key_bmap][key];
-	if (!bind)
-		bind = keybindings[key_bmap2][key];
-
+	if (skipbinds)
+		bind = NULL;
+	else
+	{
+		bind = keybindings[key_bmap][key];
+		if (!bind)
+			bind = keybindings[key_bmap2][key];
+	}
 	if (developer_insane.integer)
 		Con_DPrintf("Key_Event(%i, '%c', %s) keydown %i bind \"%s\"\n", key, ascii ? ascii : '?', down ? "down" : "up", keydown[key], bind ? bind : "");
 
@@ -1978,7 +1984,7 @@ Key_Event (int key, int ascii, qboolean down)
 	if (down)
 	{
 		if (keydown[key]) {
-			Key_Event(key, ascii, false);
+			Key_Event(key, ascii, false, skipbinds);
 		}
 		keydown[key] = 1;
 		tbl_keyascii[key] = ascii;
@@ -2183,7 +2189,7 @@ Key_ReleaseAll (void)
 	// then send all down events (possibly into the event queue)
 	for(key = 0; key < MAX_KEYS; ++key)
 		if(keydown[key])
-			Key_Event(key, 0, false);
+			Key_Event(key, 0, false, false);
 	// now all keys are guaranteed down (once the event queue is unblocked)
 	// and only future events count
 }
