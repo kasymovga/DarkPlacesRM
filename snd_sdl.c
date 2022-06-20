@@ -440,7 +440,7 @@ void SndSys_VOIP_Received(unsigned char *packet, int len, int client)
 	int *buffer_filled;
 	char packet_decoded[1920];
 	unsigned int seq;
-	if (client < 0 || client > 128)
+	if (client < 0 || client > 127)
 	{
 		Con_Printf("Bad VOIP packet\n");
 		return;
