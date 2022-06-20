@@ -58,6 +58,7 @@ const char *vm_m_extensions =
 "DP_RM_REGEX2 "
 "DP_RM_QCSENDPACKET "
 "DP_RM_GEOIP "
+"DP_RM_CURL_EVENT "
 ;
 
 /*
