@@ -164,6 +164,11 @@ spatialmethod_t spatialmethod;
 cvar_t bgmvolume = {CVAR_SAVE, "bgmvolume", "1", "volume of background music (such as CD music or replacement files such as sound/cdtracks/track002.ogg)"};
 cvar_t mastervolume = {CVAR_SAVE, "mastervolume", "0.7", "master volume"};
 cvar_t volume = {CVAR_SAVE, "volume", "0.7", "volume of sound effects"};
+#ifdef CONFIG_VOIP
+cvar_t voipvolume = {CVAR_SAVE, "voipvolume", "1", "volume of voip"};
+cvar_t snd_input_boost = {CVAR_SAVE, "snd_input_boost", "0", "Audio input boost"};
+cvar_t snd_input_boost_auto = {CVAR_SAVE, "snd_input_boost_auto", "1", "Audio input boost"};
+#endif
 cvar_t snd_initialized = { CVAR_READONLY, "snd_initialized", "0", "indicates the sound subsystem is active"};
 cvar_t snd_staticvolume = {CVAR_SAVE, "snd_staticvolume", "1", "volume of ambient sound effects (such as swampy sounds at the start of e1m2)"};
 cvar_t snd_soundradius = {CVAR_SAVE, "snd_soundradius", "1200", "radius of weapon sounds and other standard sound effects (monster idle noises are half this radius and flickering light noises are one third of this radius)"};
@@ -800,6 +805,11 @@ S_Init
 void S_Init(void)
 {
 	Cvar_RegisterVariable(&volume);
+	#ifdef CONFIG_VOIP
+	Cvar_RegisterVariable(&voipvolume);
+	Cvar_RegisterVariable(&snd_input_boost);
+	Cvar_RegisterVariable(&snd_input_boost_auto);
+	#endif
 	Cvar_RegisterVariable(&bgmvolume);
 	Cvar_RegisterVariable(&mastervolume);
 	Cvar_RegisterVariable(&snd_staticvolume);
@@ -893,7 +903,12 @@ void S_Init(void)
 	Cmd_AddCommand("soundinfo", S_SoundInfo_f, "print sound system information (such as channels and speed)");
 	Cmd_AddCommand("snd_restart", S_Restart_f, "restart sound system");
 	Cmd_AddCommand("snd_unloadallsounds", S_UnloadAllSounds_f, "unload all sound files");
-
+	#ifdef CONFIG_VOIP
+	Cmd_AddCommand ("snd_echo_start", SndSys_Echo_Start, "start microphone echo test");
+	Cmd_AddCommand ("snd_echo_stop", SndSys_Echo_Stop, "stop microphone echo test");
+	Cmd_AddCommand ("+snd_voip_talk", SndSys_VOIP_Start, "start voip");
+	Cmd_AddCommand ("-snd_voip_talk", SndSys_VOIP_Stop, "stop voip");
+	#endif
 	Cvar_RegisterVariable(&nosound);
 	Cvar_RegisterVariable(&snd_precache);
 	Cvar_RegisterVariable(&snd_initialized);
@@ -1421,6 +1436,10 @@ static void SND_Spatialize_WithSfx(channel_t *ch, qboolean isstatic, sfx_t *sfx)
 	// If this channel does not manage its own volume (like CD tracks)
 	if (!(ch->flags & CHANNELFLAG_FULLVOLUME))
 		mastervol *= volume.value;
+	#ifdef CONFIG_VOIP
+	else if (sfx && (sfx->flags & SFXFLAG_VOIP))
+		mastervol *= voipvolume.value;
+	#endif
 
 	if(snd_maxchannelvolume.value > 0)
 	{

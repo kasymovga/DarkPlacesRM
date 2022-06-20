@@ -390,7 +390,7 @@ void Key_WriteBindings(qfile_t *f);
 void Key_Init(void);
 void Key_Shutdown(void);
 void Key_Init_Cvars(void);
-void Key_Event(int key, int ascii, qboolean down);
+void Key_Event(int key, int ascii, qboolean down, qboolean skipbinds);
 void Key_ReleaseAll (void);
 void Key_ClearStates (void); // FIXME: should this function still exist? Or should Key_ReleaseAll be used instead when shutting down a vid driver?
 void Key_EventQueue_Block(void);

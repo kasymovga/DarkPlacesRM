@@ -36,6 +36,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // note this defaults on for dedicated servers, off for listen servers
 cvar_t sv_public = {0, "sv_public", "0", "1: advertises this server on the master server (so that players can find it in the server browser); 0: allow direct queries only; -1: do not respond to direct queries; -2: do not allow anyone to connect; -3: already block at getchallenge level"};
 cvar_t sv_public_rejectreason = {0, "sv_public_rejectreason", "The server is closing.", "Rejection reason for connects when sv_public is -2"};
+#ifdef CONFIG_VOIP
+cvar_t sv_voip = {0, "sv_voip", "1", "Enable voip support in server"};
+cvar_t sv_voip_echo = {0, "sv_voip_echo", "0", "Echo mode for VOIP, for testing purpose"};
+cvar_t sv_voip_force = {0, "sv_voip_force", "0", "Force VOIP between players, even if QC didn't want it"};
+#ifndef CONFIG_SV
+cvar_t cl_voip = {CVAR_SAVE, "cl_voip", "1", "Enable voip support in client"};
+#endif
+#endif
 static cvar_t sv_heartbeatperiod = {CVAR_SAVE, "sv_heartbeatperiod", "120", "how often to send heartbeat in seconds (only used if sv_public is 1)"};
 extern cvar_t sv_status_privacy;
 
@@ -2259,6 +2267,23 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		// we're done processing this packet now
 		return true;
 	}
+	#ifdef CONFIG_VOIP
+	else if (length >= 6 && data[0] == 'V' && data[1] == 'O' && data[2] == 'I' && data[3] == 'P')
+	{
+		//VOIP client
+		if (cl_voip.integer)
+		{
+			prvm_prog_t *prog = CLVM_prog;
+			SndSys_VOIP_Received((unsigned char*)data + 6, length - 6, (int)data[4]);
+			if (PRVM_clientfunction(voip_event))
+			{
+				PRVM_G_FLOAT(OFS_PARM0) = (int)data[4];
+				prog->ExecuteProgram(prog, PRVM_clientfunction(SV_PlayerPhysics), "QC function voip_event is missing");
+			}
+		}
+		return true;
+	}
+	#endif
 	// quakeworld ingame packet
 	if (fromserver && cls.protocol == PROTOCOL_QUAKEWORLD && length >= 8 && (ret = NetConn_ReceivedMessage(cls.netcon, data, length, cls.protocol, net_messagetimeout.value)) == 2)
 	{
@@ -3355,6 +3380,42 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		// we're done processing this packet now
 		return true;
 	}
+	#ifdef CONFIG_VOIP
+	else if (length >= 6 && sv_voip.integer && data[0] == 'V' && data[1] == 'O' && data[2] == 'I' && data[3] == 'P')
+	{
+		//VOIP server
+		prvm_edict_t *ed;
+		int voipgroup = 0, voipsource = 0;
+		prvm_prog_t *prog = SVVM_prog;
+		client_t *client;
+		for (i = 0;i < svs.maxclients;i++)
+		{
+			client = &svs.clients[i];
+			if (client->netconnection && LHNETADDRESS_Compare(peeraddress, &client->netconnection->peeraddress) == 0)
+			{
+				data[4] = i;
+				ed = PRVM_EDICT_NUM(i + 1);
+				voipgroup = PRVM_serveredictfloat(ed, voipgroup);
+				voipsource = i;
+				break;
+			}
+		}
+		if (!voipgroup && !sv_voip_force.integer) return true;
+		for (i = 0;i < svs.maxclients;i++)
+		{
+			client = &svs.clients[i];
+			if (client->active && (i != voipsource || sv_voip_echo.integer))
+			{
+				ed = PRVM_EDICT_NUM(i + 1);
+				if (sv_voip_force.integer || PRVM_serveredictfloat(ed, voipgroup) == voipgroup || PRVM_serveredictfloat(ed, voiplistengroup) == voipgroup)
+				{
+					NetConn_Write(mysocket, data, length, &client->netconnection->peeraddress);
+				}
+			}
+		}
+		return true;
+	}
+	#endif
 	// netquake control packets, supported for compatibility only, and only
 	// when running game protocols that are normally served via this connection
 	// protocol
@@ -3983,6 +4044,13 @@ void NetConn_Init(void)
 	Cvar_RegisterVariable(&net_address_ipv6);
 	Cvar_RegisterVariable(&sv_public);
 	Cvar_RegisterVariable(&sv_public_rejectreason);
+	#ifdef CONFIG_VOIP
+	Cvar_RegisterVariable(&sv_voip_echo);
+	Cvar_RegisterVariable(&sv_voip);
+	#ifndef CONFIG_SV
+	Cvar_RegisterVariable(&cl_voip);
+	#endif
+	#endif
 	Cvar_RegisterVariable(&sv_heartbeatperiod);
 	for (i = 0;sv_masters[i].name;i++)
 		Cvar_RegisterVariable(&sv_masters[i]);

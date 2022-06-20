@@ -84,6 +84,13 @@ else
 	OBJ_VIDEO_CAPTURE=
 endif
 
+DP_VOIP?=enabled
+ifeq ($(DP_VOIP), enabled)
+	CFLAGS_VOIP=-DCONFIG_VOIP
+else
+	CFLAGS_VOIP=
+endif
+
 DP_LINK_ZLIB?=dlopen
 DP_LINK_JPEG?=dlopen
 DP_LINK_PNG?=dlopen
@@ -92,6 +99,7 @@ DP_LINK_CRYPTO?=dlopen
 DP_LINK_CRYPTO_RIJNDAEL?=dlopen
 DP_LINK_OGGVORBIS?=dlopen
 DP_LINK_FREETYPE?=dlopen
+DP_LINK_OPUS?=shared
 
 # Linux configuration
 ifeq ($(DP_MAKE_TARGET), linux)
@@ -289,6 +297,19 @@ else
 	LIB_OGGVORBIS=`pkg-config --libs ogg vorbis vorbisfile`
 	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile` -DLINK_TO_LIBVORBIS
 endif
+endif
+
+# opus
+ifeq ($(DP_VOIP), enabled)
+CFLAGS_OPUS=`pkg-config --cflags opus`
+ifeq ($(DP_LINK_OPUS), static)
+LIB_OPUS=`pkg-config --static --libs opus`
+else
+LIB_OPUS=`pkg-config --libs opus`
+endif
+else
+LIB_OPUS=
+CFLAGS_OPUS=
 endif
 
 # d0_blind_id
