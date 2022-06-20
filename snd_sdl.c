@@ -133,9 +133,41 @@ static OpusEncoder *opus_encoder;
 static char opus_encoder_id;
 static unsigned int opus_encoder_seq;
 extern cvar_t snd_input_boost;
+extern cvar_t snd_input_boost_auto;
 static void Buffer_Capture_Callback (void *userdata, Uint8 *stream, int len)
 {
-	if (snd_input_boost.value > 0 && snd_input_boost.value != 1)
+	if (snd_input_boost_auto.integer)
+	{
+		int len16 = len / 2;
+		int i;
+		int16_t sample;
+		long unsigned int mediumlevel = 0;
+		static float boost = 1;
+		for (i = 0; i < len16; i++)
+		{
+			sample = ((int16_t*)stream)[i];
+			if (sample > 0)
+				mediumlevel += (int)(sample * boost);
+			else
+				mediumlevel += (int)(-sample * boost);
+
+		}
+		mediumlevel /= len16;
+		if (mediumlevel > 128)
+		{
+			if (mediumlevel > 8192 || mediumlevel < 1024)
+				boost = (4096.0f / mediumlevel);
+			else
+				boost = boost * 0.8 + (4096.0f / mediumlevel) * 0.2;
+
+			boost = bound(0.5, boost, 10);
+		}
+		for (i = 0; i < len16; i++)
+		{
+			((int16_t*)stream)[i] = ((int16_t*)stream)[i] * boost;
+		}
+	}
+	else if (snd_input_boost.value > 0 && snd_input_boost.value != 1)
 	{
 		int len16 = len / 2;
 		int i;
