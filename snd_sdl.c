@@ -18,6 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 #include <math.h>
 #include <SDL.h>
+#include <stdint.h>
 #ifdef CONFIG_VOIP
 #include <opus.h>
 #endif
@@ -98,59 +99,92 @@ static void Buffer_Callback (void *userdata, Uint8 *stream, int len)
 }
 
 #ifdef CONFIG_VOIP
-#define CAPTURE_BUFFER_SIZE 65536
+#define CAPTURE_BUFFER_SIZE 16384
+#define CAPTURE_BUFFER_ECHO_SIZE 65536
 static char *capture_buffer;
 static volatile int capture_buffer_begin;
 static volatile int capture_buffer_filled;
 static long int capture_buffer_pos;
+static char *capture_buffer_echo;
+static volatile int capture_buffer_echo_begin;
+static volatile int capture_buffer_echo_filled;
+static long int capture_buffer_echo_pos;
 static qboolean snd_voip_active;
 static sfx_t *snd_echo;
 static OpusEncoder *opus_encoder;
 static char opus_encoder_id;
 static unsigned int opus_encoder_seq;
+extern cvar_t snd_input_boost;
 static void Buffer_Capture_Callback (void *userdata, Uint8 *stream, int len)
 {
-	int buffer_free = CAPTURE_BUFFER_SIZE - capture_buffer_filled;
-	//len = (len / (VOIP_WIDTH * VOIP_CHANNELS)) * VOIP_WIDTH * VOIP_CHANNELS;
-	if (len > buffer_free)
+	if (snd_input_boost.value > 0 && snd_input_boost.value != 1)
 	{
-		len = buffer_free;
-		Con_DPrintf("Capture sound buffer truncated\n");
-	}
-	memcpy(capture_buffer + capture_buffer_filled, stream, len);
-	capture_buffer_filled += len;
-	if (!snd_echo && snd_voip_active && cls.state == ca_connected)
-	{
-		while (capture_buffer_filled - capture_buffer_begin > 1920)
+		int len16 = len / 2;
+		int i;
+		for (i = 0; i < len16; i++)
 		{
-			unsigned char packet[1036];
-			int encsize;
-			encsize = opus_encode(opus_encoder, (opus_int16*)(capture_buffer + capture_buffer_begin), 960, (unsigned char*)&packet[12], 1024);
-			packet[0] = 'V';
-			packet[1] = 'O';
-			packet[2] = 'I';
-			packet[3] = 'P';
-			packet[4] = '\0'; //client num, filled by server
-			packet[5] = '\0';
-			packet[6] = opus_encoder_id;
-			packet[7] = '\0';
-			packet[8] = opus_encoder_seq & 0xFF;
-			packet[9] = (opus_encoder_seq >> 8) & 0xFF;
-			packet[10] = (opus_encoder_seq >> 16) & 0xFF;
-			packet[11] = (opus_encoder_seq >> 24) & 0xFF;
-			if (encsize < 0)
+			((int16_t*)stream)[i] = ((int16_t*)stream)[i] * snd_input_boost.value;
+		}
+	}
+	if (capture_buffer)
+	{
+		int buffer_free = CAPTURE_BUFFER_SIZE - capture_buffer_filled;
+		if (len > buffer_free)
+		{
+			len = buffer_free;
+			Con_DPrintf("Capture sound buffer truncated\n");
+		}
+		memcpy(capture_buffer + capture_buffer_filled, stream, len);
+		capture_buffer_filled += len;
+		if (snd_voip_active && cls.state == ca_connected)
+		{
+			while (capture_buffer_filled - capture_buffer_begin > 1920)
 			{
-				Con_Printf("Opus encode failed %i\n", encsize);
-				return;
+				unsigned char packet[1036];
+				int encsize;
+				encsize = opus_encode(opus_encoder, (opus_int16*)(capture_buffer + capture_buffer_begin), 960, (unsigned char*)&packet[12], 1024);
+				packet[0] = 'V';
+				packet[1] = 'O';
+				packet[2] = 'I';
+				packet[3] = 'P';
+				packet[4] = '\0'; //client num, filled by server
+				packet[5] = '\0';
+				packet[6] = opus_encoder_id;
+				packet[7] = '\0';
+				packet[8] = opus_encoder_seq & 0xFF;
+				packet[9] = (opus_encoder_seq >> 8) & 0xFF;
+				packet[10] = (opus_encoder_seq >> 16) & 0xFF;
+				packet[11] = (opus_encoder_seq >> 24) & 0xFF;
+				if (encsize < 0)
+				{
+					Con_Printf("Opus encode failed %i\n", encsize);
+					return;
+				}
+				opus_encoder_seq++;
+				capture_buffer_begin += 1920;
+				NetConn_Write(cls.connect_mysocket, packet, 12 + encsize, &cls.connect_address);
+				if (capture_buffer_begin > CAPTURE_BUFFER_SIZE / 2) {
+					memcpy(capture_buffer, capture_buffer + capture_buffer_begin, capture_buffer_filled - capture_buffer_begin);
+					capture_buffer_filled -= capture_buffer_begin;
+					capture_buffer_begin = 0;
+				}
 			}
-			opus_encoder_seq++;
-			capture_buffer_begin += 1920;
-			NetConn_Write(cls.connect_mysocket, packet, 12 + encsize, &cls.connect_address);
-			if (capture_buffer_begin > CAPTURE_BUFFER_SIZE / 2) {
-				memcpy(capture_buffer, capture_buffer + capture_buffer_begin, capture_buffer_filled - capture_buffer_begin);
-				capture_buffer_filled -= capture_buffer_begin;
-				capture_buffer_begin = 0;
-			}
+		}
+	}
+	if (capture_buffer_echo)
+	{
+		int buffer_echo_free = CAPTURE_BUFFER_ECHO_SIZE - capture_buffer_echo_filled;
+		if (len > buffer_echo_free)
+		{
+			len = buffer_echo_free;
+			Con_DPrintf("Capture sound buffer truncated\n");
+		}
+		memcpy(capture_buffer_echo + capture_buffer_echo_filled, stream, len);
+		capture_buffer_echo_filled += len;
+		if (capture_buffer_echo_begin > CAPTURE_BUFFER_SIZE / 2) {
+			memcpy(capture_buffer_echo, capture_buffer_echo + capture_buffer_echo_begin, capture_buffer_echo_filled - capture_buffer_echo_begin);
+			capture_buffer_echo_filled -= capture_buffer_echo_begin;
+			capture_buffer_echo_begin = 0;
 		}
 	}
 }
@@ -160,49 +194,49 @@ static void Echo_GetSamplesFloat(channel_t *ch, sfx_t *sfx, int firstsampleframe
 	int i, len;
 	int bytesrequired;
 	int shift;
-	shift = firstsampleframe - capture_buffer_pos;
-	if (-shift * sfx->format.width * sfx->format.channels > capture_buffer_begin )
+	shift = firstsampleframe - capture_buffer_echo_pos;
+	if (-shift * sfx->format.width * sfx->format.channels > capture_buffer_echo_begin )
 	{
 		//too far in past
-		capture_buffer_pos = firstsampleframe;
+		capture_buffer_echo_pos = firstsampleframe;
 		Con_DPrintf("Captured sound samples missed (too far in past)\n");
 		return;
 	}
 	SDL_LockAudioDevice(audio_device_capture);
-	capture_buffer_begin += shift * sfx->format.width * sfx->format.channels;
-	capture_buffer_pos += shift;
-	if (capture_buffer_begin >= capture_buffer_filled)
+	capture_buffer_echo_begin += shift * sfx->format.width * sfx->format.channels;
+	capture_buffer_echo_pos += shift;
+	if (capture_buffer_echo_begin >= capture_buffer_echo_filled)
 	{
-		capture_buffer_begin = capture_buffer_filled;
-		capture_buffer_pos = firstsampleframe + numsampleframes;
+		capture_buffer_echo_begin = capture_buffer_echo_filled;
+		capture_buffer_echo_pos = firstsampleframe + numsampleframes;
 		return;
 	}
 	len = numsampleframes * sfx->format.channels;
 	bytesrequired = len * sfx->format.width;
-	if (bytesrequired > capture_buffer_filled - capture_buffer_begin) {
-		bytesrequired = capture_buffer_filled - capture_buffer_begin;
+	if (bytesrequired > capture_buffer_echo_filled - capture_buffer_echo_begin) {
+		bytesrequired = capture_buffer_echo_filled - capture_buffer_echo_begin;
 		len = bytesrequired / sfx->format.width;
 		numsampleframes = len / sfx->format.channels;
 		Con_DPrintf("Captured sound samples missed (too far in future)\n");
 	}
 	if (sfx->format.width == 2)
 	{
-		const short *bufs = (const short *)capture_buffer + (capture_buffer_begin / 2);
+		const short *bufs = (const short *)capture_buffer_echo + (capture_buffer_echo_begin / 2);
 		for (i = 0;i < len;i++)
 			outsamplesfloat[i] = bufs[i] * (1.0f / 32768.0f);
 	}
 	else
 	{
-		const signed char *bufb = (const signed char *)capture_buffer + capture_buffer_begin;
+		const signed char *bufb = (const signed char *)capture_buffer_echo + capture_buffer_echo_begin;
 		for (i = 0;i < len;i++)
 			outsamplesfloat[i] = bufb[i] * (1.0f / 128.0f);
 	}
-	capture_buffer_begin += bytesrequired;
-	capture_buffer_pos += numsampleframes;
-	if (capture_buffer_begin > CAPTURE_BUFFER_SIZE / 2 + 64) {
-		memcpy(capture_buffer, capture_buffer + capture_buffer_begin, capture_buffer_filled - capture_buffer_begin);
-		capture_buffer_filled -= (capture_buffer_begin - 64);
-		capture_buffer_begin = 64;
+	capture_buffer_echo_begin += bytesrequired;
+	capture_buffer_echo_pos += numsampleframes;
+	if (capture_buffer_echo_begin > CAPTURE_BUFFER_SIZE / 2 + 64) {
+		memcpy(capture_buffer_echo, capture_buffer_echo + capture_buffer_echo_begin, capture_buffer_echo_filled - capture_buffer_echo_begin);
+		capture_buffer_echo_filled -= (capture_buffer_echo_begin - 64);
+		capture_buffer_echo_begin = 64;
 	}
 	SDL_UnlockAudioDevice(audio_device_capture);
 }
@@ -221,11 +255,6 @@ void SndSys_Echo_Start(void)
 		Con_Print("Audio capture device not available\n");
 		return;
 	}
-	if (snd_voip_active)
-	{
-		Con_Print("Audio capture device busy\n");
-		return;
-	}
 	if (snd_echo) return;
 	SndSys_LockRenderBuffer();
 	snd_echo = S_FindName("*echostream");
@@ -236,11 +265,12 @@ void SndSys_Echo_Start(void)
 	snd_echo->total_length = 99999999;
 	snd_echo->volume_mult = 1;
 	snd_echo->flags = SFXFLAG_VOIP;
-	if (!capture_buffer)
-		capture_buffer = Mem_Alloc(snd_mempool, CAPTURE_BUFFER_SIZE);
-	memset(capture_buffer, VOIP_WIDTH == 1 ? 0x80 : 0, CAPTURE_BUFFER_SIZE);
-	capture_buffer_filled = 16384;
-	capture_buffer_begin = 0;
+	if (!capture_buffer_echo)
+		capture_buffer_echo = Mem_Alloc(snd_mempool, CAPTURE_BUFFER_ECHO_SIZE);
+	memset(capture_buffer_echo, VOIP_WIDTH == 1 ? 0x80 : 0, CAPTURE_BUFFER_ECHO_SIZE);
+	capture_buffer_echo_filled = 32768;
+	capture_buffer_echo_begin = 0;
+	capture_buffer_echo_pos = 0;
 	S_StartSound_StartPosition_Flags(-2, 0, snd_echo, (float[3]){0, 0, 0}, 1, 0, 0, CHANNELFLAG_FULLVOLUME | CHANNELFLAG_LOCALSOUND, 1.0f);
 	snd_echo->loopstart = 100000000;
 	SndSys_UnlockRenderBuffer();
@@ -259,9 +289,6 @@ void SndSys_Echo_Stop(void)
 	}
 	SDL_PauseAudioDevice(audio_device_capture, 1);
 	SndSys_LockRenderBuffer();
-	capture_buffer_begin = 0;
-	capture_buffer_filled = 0;
-	capture_buffer_pos = 0;
 	S_FreeSfx(snd_echo, 1);
 	snd_echo = NULL;
 	SndSys_UnlockRenderBuffer();
@@ -273,11 +300,6 @@ void SndSys_VOIP_Start(void)
 	if (!capture_buffer)
 		capture_buffer = Mem_Alloc(snd_mempool, CAPTURE_BUFFER_SIZE);
 
-	if (snd_echo)
-	{
-		Con_Print("Audio capture device busy\n");
-		return;
-	}
 	if (!opus_encoder)
 	{
 		int err;
@@ -303,6 +325,8 @@ void SndSys_VOIP_Start(void)
 	}
 	capture_buffer_begin = 0;
 	capture_buffer_filled = 0;
+	capture_buffer_pos = 0;
+	memset(capture_buffer, VOIP_WIDTH == 1 ? 0x80 : 0, CAPTURE_BUFFER_SIZE);
 	snd_voip_active = true;
 	SDL_PauseAudioDevice(audio_device_capture, 0);
 }
