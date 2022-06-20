@@ -38,7 +38,8 @@ cvar_t sv_public = {0, "sv_public", "0", "1: advertises this server on the maste
 cvar_t sv_public_rejectreason = {0, "sv_public_rejectreason", "The server is closing.", "Rejection reason for connects when sv_public is -2"};
 #ifdef CONFIG_VOIP
 cvar_t sv_voip = {0, "sv_voip", "1", "Enable voip support in server"};
-cvar_t sv_voip_echo = {0, "sv_voip_echo", "1", "Echo mode for VOIP, for testing purpose"};
+cvar_t sv_voip_echo = {0, "sv_voip_echo", "0", "Echo mode for VOIP, for testing purpose"};
+cvar_t sv_voip_force = {0, "sv_voip_force", "0", "Force VOIP between players, even if QC didn't want it"};
 #ifndef CONFIG_SV
 cvar_t cl_voip = {CVAR_SAVE, "cl_voip", "1", "Enable voip support in client"};
 #endif
@@ -3391,14 +3392,14 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				break;
 			}
 		}
-		if (!voipgroup) return true;
+		if (!voipgroup && !sv_voip_force.integer) return true;
 		for (i = 0;i < svs.maxclients;i++)
 		{
 			client = &svs.clients[i];
 			if (client->active && (i != voipsource || sv_voip_echo.integer))
 			{
 				ed = PRVM_EDICT_NUM(i + 1);
-				if (PRVM_serveredictfloat(ed, voipgroup) == voipgroup || PRVM_serveredictfloat(ed, voiplistengroup) == voipgroup)
+				if (sv_voip_force.integer || PRVM_serveredictfloat(ed, voipgroup) == voipgroup || PRVM_serveredictfloat(ed, voiplistengroup) == voipgroup)
 				{
 					NetConn_Write(mysocket, data, length, &client->netconnection->peeraddress);
 				}
