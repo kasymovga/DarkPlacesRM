@@ -2272,7 +2272,15 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 	{
 		//VOIP client
 		if (cl_voip.integer)
+		{
+			prvm_prog_t *prog = CLVM_prog;
 			SndSys_VOIP_Received((unsigned char*)data + 6, length - 6, (int)data[4]);
+			if (PRVM_clientfunction(voip_event))
+			{
+				PRVM_G_FLOAT(OFS_PARM0) = (int)data[4];
+				prog->ExecuteProgram(prog, PRVM_clientfunction(SV_PlayerPhysics), "QC function voip_event is missing");
+			}
+		}
 		return true;
 	}
 	#endif
