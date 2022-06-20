@@ -229,7 +229,7 @@ static void Buffer_Capture_Callback (void *userdata, Uint8 *stream, int len)
 			if (len > buffer_echo_free)
 				len = buffer_echo_free;
 
-			Con_Printf("Capture sound buffer truncated\n");
+			Con_DPrintf("Capture sound buffer truncated\n");
 		}
 		memcpy(capture_buffer_echo + capture_buffer_echo_filled, stream, len);
 		capture_buffer_echo_filled += len;
