@@ -2278,7 +2278,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			if (PRVM_clientfunction(voip_event))
 			{
 				PRVM_G_FLOAT(OFS_PARM0) = (int)data[4];
-				prog->ExecuteProgram(prog, PRVM_clientfunction(SV_PlayerPhysics), "QC function voip_event is missing");
+				prog->ExecuteProgram(prog, PRVM_clientfunction(voip_event), "QC function voip_event is missing");
 			}
 		}
 		return true;
