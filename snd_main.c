@@ -198,6 +198,7 @@ cvar_t snd_mutewhenidle = {CVAR_SAVE, "snd_mutewhenidle", "1", "whether to disab
 cvar_t snd_maxchannelvolume = {CVAR_SAVE, "snd_maxchannelvolume", "10", "maximum volume of a single sound"};
 cvar_t snd_softclip = {CVAR_SAVE, "snd_softclip", "0", "Use soft-clipping. Soft-clipping can make the sound more smooth if very high volume levels are used. Enable this option if the dynamic range of the loudspeakers is very low. WARNING: This feature creates distortion and should be considered a last resort."};
 //cvar_t snd_softclip = {CVAR_SAVE, "snd_softclip", "0", "Use soft-clipping (when set to 2, use it even if output is floating point). Soft-clipping can make the sound more smooth if very high volume levels are used. Enable this option if the dynamic range of the loudspeakers is very low. WARNING: This feature creates distortion and should be considered a last resort."};
+cvar_t snd_perchannelvolumecontrol = {CVAR_SAVE, "snd_perchannelvolumecontrol", "1", "Enable per-channel volume control"};
 cvar_t snd_entchannel0volume = {CVAR_SAVE, "snd_entchannel0volume", "1", "volume multiplier of the auto-allocate entity channel of regular entities (DEPRECATED)"};
 cvar_t snd_entchannel1volume = {CVAR_SAVE, "snd_entchannel1volume", "1", "volume multiplier of the 1st entity channel of regular entities (DEPRECATED)"};
 cvar_t snd_entchannel2volume = {CVAR_SAVE, "snd_entchannel2volume", "1", "volume multiplier of the 2nd entity channel of regular entities (DEPRECATED)"};
@@ -816,6 +817,7 @@ void S_Init(void)
 	Cvar_RegisterVariable(&bgmvolume);
 	Cvar_RegisterVariable(&mastervolume);
 	Cvar_RegisterVariable(&snd_staticvolume);
+	Cvar_RegisterVariable(&snd_perchannelvolumecontrol);
 	Cvar_RegisterVariable(&snd_entchannel0volume);
 	Cvar_RegisterVariable(&snd_entchannel1volume);
 	Cvar_RegisterVariable(&snd_entchannel2volume);
@@ -1358,7 +1360,7 @@ static void SND_Spatialize_WithSfx(channel_t *ch, qboolean isstatic, sfx_t *sfx)
 	// Adjust volume of static sounds
 	if (isstatic)
 		mastervol *= snd_staticvolume.value;
-	else if(!(ch->flags & CHANNELFLAG_FULLVOLUME)) // same as SND_PaintChannel uses
+	else if(!(ch->flags & CHANNELFLAG_FULLVOLUME) && snd_perchannelvolumecontrol.integer) // same as SND_PaintChannel uses
 	{
 		// old legacy separated cvars
 		if(ch->entnum >= MAX_EDICTS)
