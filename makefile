@@ -87,8 +87,10 @@ endif
 DP_VOIP?=enabled
 ifeq ($(DP_VOIP), enabled)
 	CFLAGS_VOIP=-DCONFIG_VOIP
+	OBJ_VOIP=snd_voip.o
 else
 	CFLAGS_VOIP=
+	OBJ_VOIP=
 endif
 
 DP_LINK_ZLIB?=dlopen

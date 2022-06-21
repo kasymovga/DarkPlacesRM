@@ -37,7 +37,7 @@ STRIP?=strip
 
 ###### Sound and audio CD #####
 
-OBJ_SND_COMMON=snd_main.o snd_mem.o snd_mix.o snd_ogg.o snd_wav.o
+OBJ_SND_COMMON=snd_main.o snd_mem.o snd_mix.o snd_ogg.o snd_wav.o $(OBJ_VOIP)
 
 # CD objects
 OBJ_CD_COMMON=cd_shared.o

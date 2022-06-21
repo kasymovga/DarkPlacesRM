@@ -29,6 +29,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "mdfour.h"
 #include <time.h>
 #include "random.h"
+#ifdef CONFIG_VOIP
+#include "snd_voip.h"
+#endif
 
 #define QWMASTER_PORT 27000
 #define DPMASTER_PORT 27950
@@ -2274,7 +2277,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		if (cl_voip.integer)
 		{
 			prvm_prog_t *prog = CLVM_prog;
-			SndSys_VOIP_Received((unsigned char*)data + 6, length - 6, (int)data[4]);
+			S_VOIP_Received((unsigned char*)data + 6, length - 6, (int)data[4]);
 			if (PRVM_clientfunction(voip_event))
 			{
 				PRVM_G_FLOAT(OFS_PARM0) = (int)data[4];
@@ -4046,6 +4049,7 @@ void NetConn_Init(void)
 	Cvar_RegisterVariable(&sv_public_rejectreason);
 	#ifdef CONFIG_VOIP
 	Cvar_RegisterVariable(&sv_voip_echo);
+	Cvar_RegisterVariable(&sv_voip_force);
 	Cvar_RegisterVariable(&sv_voip);
 	#ifndef CONFIG_SV
 	Cvar_RegisterVariable(&cl_voip);

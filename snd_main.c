@@ -28,6 +28,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef CONFIG_CD
 #include "cdaudio.h"
 #endif
+#ifdef CONFIG_VOIP
+#include "snd_voip.h"
+#endif
 
 
 #define SND_MIN_SPEED 8000
@@ -904,10 +907,10 @@ void S_Init(void)
 	Cmd_AddCommand("snd_restart", S_Restart_f, "restart sound system");
 	Cmd_AddCommand("snd_unloadallsounds", S_UnloadAllSounds_f, "unload all sound files");
 	#ifdef CONFIG_VOIP
-	Cmd_AddCommand ("snd_echo_start", SndSys_Echo_Start, "start microphone echo test");
-	Cmd_AddCommand ("snd_echo_stop", SndSys_Echo_Stop, "stop microphone echo test");
-	Cmd_AddCommand ("+snd_voip_talk", SndSys_VOIP_Start, "start voip");
-	Cmd_AddCommand ("-snd_voip_talk", SndSys_VOIP_Stop, "stop voip");
+	Cmd_AddCommand ("snd_echo_start", S_Echo_Start, "start microphone echo test");
+	Cmd_AddCommand ("snd_echo_stop", S_Echo_Stop, "stop microphone echo test");
+	Cmd_AddCommand ("+snd_voip_talk", S_VOIP_Start, "start voip");
+	Cmd_AddCommand ("-snd_voip_talk", S_VOIP_Stop, "stop voip");
 	#endif
 	Cvar_RegisterVariable(&nosound);
 	Cvar_RegisterVariable(&snd_precache);

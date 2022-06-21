@@ -185,19 +185,31 @@ qboolean SndSys_LockRenderBuffer (void);
 // Release the exclusive lock on "snd_renderbuffer"
 void SndSys_UnlockRenderBuffer (void);
 
+#ifdef CONFIG_VOIP
+// Get the exclusive lock on capture stream
+qboolean SndSys_LockCapture (void);
+
+// Release the exclusive lock capture stream
+void SndSys_UnlockCapture (void);
+
+// Get the exclusive lock on capture stream
+qboolean SndSys_LockCapture (void);
+
+// Release the exclusive lock capture stream
+void SndSys_UnlockCapture (void);
+
+// Pause capture stream
+void SndSys_PauseCapture (void);
+
+// Unpause capture stream
+void SndSys_UnpauseCapture (void);
+
+// Indicate that capture is available
+qboolean SndSys_CaptureAvailable (void);
+#endif
+
 // if the sound system can generate events, send them
 void SndSys_SendKeyEvents(void);
-
-//Process voip packet
-void SndSys_VOIP_Received(unsigned char *packet, int len, int client);
-
-//Start/stop voip
-void SndSys_VOIP_Start(void);
-void SndSys_VOIP_Stop(void);
-
-//Start/stop echo test
-void SndSys_Echo_Start(void);
-void SndSys_Echo_Stop(void);
 
 // exported for capturevideo so ogg can see all channels
 typedef struct portable_samplepair_s
