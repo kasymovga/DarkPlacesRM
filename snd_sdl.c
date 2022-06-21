@@ -293,6 +293,7 @@ static const snd_fetcher_t echo_fetcher = { Echo_GetSamplesFloat, NULL, Echo_Fre
 
 void SndSys_Echo_Start(void)
 {
+	prvm_prog_t *prog = CLVM_prog;
 	if (!audio_device_capture)
 	{
 		Con_Print("Audio capture device not available\n");
@@ -318,12 +319,23 @@ void SndSys_Echo_Start(void)
 	snd_echo->loopstart = 100000000;
 	SndSys_UnlockRenderBuffer();
 	SDL_PauseAudioDevice(audio_device_capture, 0);
-	return;
+	if (PRVM_clientfunction(voip_echo_test))
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = true;
+		prog->ExecuteProgram(prog, PRVM_clientfunction(voip_echo_test), "QC function voip_echo_test is missing");
+	}
+	prog = MVM_prog;
+	if (PRVM_menufunction(voip_echo_test))
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = true;
+		prog->ExecuteProgram(prog, PRVM_menufunction(voip_echo_test), "QC function voip_echo_test is missing");
+	}
 }
 
 void S_FreeSfx (sfx_t *sfx, qboolean force);
 void SndSys_Echo_Stop(void)
 {
+	prvm_prog_t *prog = CLVM_prog;
 	if (!audio_device_capture) return;
 	if (!snd_echo)
 	{
@@ -335,10 +347,22 @@ void SndSys_Echo_Stop(void)
 	S_FreeSfx(snd_echo, 1);
 	snd_echo = NULL;
 	SndSys_UnlockRenderBuffer();
+	if (PRVM_clientfunction(voip_echo_test))
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = false;
+		prog->ExecuteProgram(prog, PRVM_clientfunction(voip_echo_test), "QC function voip_echo_test is missing");
+	}
+	prog = MVM_prog;
+	if (PRVM_menufunction(voip_echo_test))
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = false;
+		prog->ExecuteProgram(prog, PRVM_menufunction(voip_echo_test), "QC function voip_echo_test is missing");
+	}
 }
 
 void SndSys_VOIP_Start(void)
 {
+	prvm_prog_t *prog = CLVM_prog;
 	if (snd_voip_active) return;
 	if (!capture_buffer)
 		capture_buffer = Mem_Alloc(snd_mempool, CAPTURE_BUFFER_SIZE);
@@ -372,10 +396,16 @@ void SndSys_VOIP_Start(void)
 	memset(capture_buffer, VOIP_WIDTH == 1 ? 0x80 : 0, CAPTURE_BUFFER_SIZE);
 	snd_voip_active = true;
 	SDL_PauseAudioDevice(audio_device_capture, 0);
+	if (PRVM_clientfunction(voip_talk))
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = true;
+		prog->ExecuteProgram(prog, PRVM_clientfunction(voip_talk), "QC function voip_talk is missing");
+	}
 }
 
 void SndSys_VOIP_Stop(void)
 {
+	prvm_prog_t *prog = CLVM_prog;
 	if (!snd_voip_active) return;
 	SDL_PauseAudioDevice(audio_device_capture, 1);
 	snd_voip_active = false;
@@ -383,6 +413,11 @@ void SndSys_VOIP_Stop(void)
 	{
 		opus_encoder_destroy(opus_encoder);
 		opus_encoder = NULL;
+	}
+	if (PRVM_clientfunction(voip_talk))
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = false;
+		prog->ExecuteProgram(prog, PRVM_clientfunction(voip_talk), "QC function voip_talk is missing");
 	}
 }
 
