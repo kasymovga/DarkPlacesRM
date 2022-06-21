@@ -147,8 +147,6 @@ qboolean FS_SysFileExists (const char *filename);	// only look for files outside
 unsigned char *FS_Deflate(const unsigned char *data, size_t size, size_t *deflated_size, int level, mempool_t *mempool);
 unsigned char *FS_Inflate(const unsigned char *data, size_t size, size_t *inflated_size, mempool_t *mempool);
 
-qboolean FS_HasZlib(void);
-
 void FS_Init_SelfPack(void);
 void FS_Init(void);
 void FS_Shutdown(void);

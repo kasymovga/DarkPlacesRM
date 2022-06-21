@@ -547,8 +547,6 @@ qboolean Image_Compress(const char *imagename, size_t maxsize, void **buf, size_
 	int components[3] = {2, 1, 0};
 	CompressedImageCacheItem *i;
 
-	PNG_OpenLibrary (); // for loading
-
 	i = CompressedImageCache_Find(imagename, maxsize);
 	if(i)
 	{

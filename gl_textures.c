@@ -622,10 +622,6 @@ static void r_textures_start(void)
 	qglPixelStorei(GL_PACK_ALIGNMENT, 1);CHECKGLERROR
 	texturemempool = Mem_AllocPool("texture management", 0, NULL);
 	Mem_ExpandableArray_NewArray(&texturearray, texturemempool, sizeof(gltexture_t), 512);
-
-	// Disable JPEG screenshots if the DLL isn't loaded
-	if (! PNG_OpenLibrary ())
-		Cvar_SetValueQuick (&scr_screenshot_png, 0);
 }
 
 static void r_textures_shutdown(void)

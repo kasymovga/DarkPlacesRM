@@ -93,9 +93,9 @@ else
 	OBJ_VOIP=
 endif
 
-DP_LINK_ZLIB?=dlopen
+DP_LINK_ZLIB?=shared
 DP_LINK_JPEG?=shared
-DP_LINK_PNG?=dlopen
+DP_LINK_PNG?=shared
 DP_LINK_ODE?=dlopen
 DP_LINK_CRYPTO?=dlopen
 DP_LINK_CRYPTO_RIJNDAEL?=dlopen
@@ -238,31 +238,31 @@ endif
 # set these to "" if you want to use dynamic loading instead
 # zlib
 ifeq ($(DP_LINK_ZLIB), static)
-	CFLAGS_LIBZ=-DLINK_TO_ZLIB `pkg-config --cflags zlib`
+	CFLAGS_LIBZ=`pkg-config --cflags zlib`
 	LIB_Z=-lz `pkg-config --static --libs zlib`
 endif
 ifeq ($(DP_LINK_ZLIB), shared)
-	CFLAGS_LIBZ=-DLINK_TO_ZLIB
+	CFLAGS_LIBZ=`pkg-config --cflags zlib`
 	LIB_Z=-lz `pkg-config --libs zlib`
 endif
 
 # jpeg
 ifeq ($(DP_LINK_JPEG), static)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG `pkg-config --cflags libjpeg`
+	CFLAGS_LIBJPEG=`pkg-config --cflags libjpeg`
 	LIB_JPEG= `pkg-config --static --libs libjpeg`
 endif
 ifeq ($(DP_LINK_JPEG), shared)
-	CFLAGS_LIBJPEG=-DLINK_TO_LIBJPEG `pkg-config --cflags libjpeg`
+	CFLAGS_LIBJPEG=`pkg-config --cflags libjpeg`
 	LIB_JPEG= `pkg-config --libs libjpeg`
 endif
 
 # png
 ifeq ($(DP_LINK_PNG), shared)
-	CFLAGS_LIBPNG=`pkg-config --cflags libpng` -DLINK_TO_LIBPNG
+	CFLAGS_LIBPNG=`pkg-config --cflags libpng`
 	LIB_PNG=`pkg-config --libs libpng`
 endif
 ifeq ($(DP_LINK_PNG), static)
-	CFLAGS_LIBPNG=`pkg-config --cflags libpng` -DLINK_TO_LIBPNG
+	CFLAGS_LIBPNG=`pkg-config --cflags libpng`
 	LIB_PNG=`pkg-config --static --libs libpng`
 endif
 

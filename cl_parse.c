@@ -1129,7 +1129,7 @@ static void CL_BeginDownloads(qboolean aborteddownload)
                     && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname_alt.string, csqc_progsize_alt.integer, csqc_progcrc_alt.integer)))
                 {
                     Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname_alt.string, csqc_progsize_alt.integer, csqc_progcrc_alt.integer);
-                    if(cl_serverextension_download.integer == 2 && FS_HasZlib())
+                    if(cl_serverextension_download.integer == 2)
                         Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname_alt.string));
                     else
                         Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname_alt.string));
@@ -1142,7 +1142,7 @@ static void CL_BeginDownloads(qboolean aborteddownload)
              && !FS_FileExists(va(vabuf, sizeof(vabuf), "dlcache/%s.%i.%i", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer)))
             {
                 Con_Printf("Downloading new CSQC code to dlcache/%s.%i.%i\n", csqc_progname.string, csqc_progsize.integer, csqc_progcrc.integer);
-                if(cl_serverextension_download.integer == 2 && FS_HasZlib())
+                if(cl_serverextension_download.integer == 2)
                     Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s deflate", csqc_progname.string));
                 else
                     Cmd_ForwardStringToServer(va(vabuf, sizeof(vabuf), "download %s", csqc_progname.string));
