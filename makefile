@@ -94,7 +94,7 @@ else
 endif
 
 DP_LINK_ZLIB?=dlopen
-DP_LINK_JPEG?=dlopen
+DP_LINK_JPEG?=shared
 DP_LINK_PNG?=dlopen
 DP_LINK_ODE?=dlopen
 DP_LINK_CRYPTO?=dlopen
