@@ -43,9 +43,6 @@ cvar_t sv_public_rejectreason = {0, "sv_public_rejectreason", "The server is clo
 cvar_t sv_voip = {0, "sv_voip", "1", "Enable voip support in server"};
 cvar_t sv_voip_echo = {0, "sv_voip_echo", "0", "Echo mode for VOIP, for testing purpose"};
 cvar_t sv_voip_force = {0, "sv_voip_force", "0", "Force VOIP between players, even if QC didn't want it"};
-#ifndef CONFIG_SV
-cvar_t cl_voip = {CVAR_SAVE, "cl_voip", "1", "Enable voip support in client"};
-#endif
 #endif
 static cvar_t sv_heartbeatperiod = {CVAR_SAVE, "sv_heartbeatperiod", "120", "how often to send heartbeat in seconds (only used if sv_public is 1)"};
 extern cvar_t sv_status_privacy;
@@ -2274,7 +2271,8 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 	else if (length >= 6 && data[0] == 'V' && data[1] == 'O' && data[2] == 'I' && data[3] == 'P')
 	{
 		//VOIP client
-		if (cl_voip.integer)
+		extern cvar_t voipvolume;
+		if (voipvolume.value > 0)
 		{
 			S_VOIP_Received((unsigned char*)data + 6, length - 6, (int)data[4]);
 		}
@@ -4045,9 +4043,6 @@ void NetConn_Init(void)
 	Cvar_RegisterVariable(&sv_voip_echo);
 	Cvar_RegisterVariable(&sv_voip_force);
 	Cvar_RegisterVariable(&sv_voip);
-	#ifndef CONFIG_SV
-	Cvar_RegisterVariable(&cl_voip);
-	#endif
 	#endif
 	Cvar_RegisterVariable(&sv_heartbeatperiod);
 	for (i = 0;sv_masters[i].name;i++)
