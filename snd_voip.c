@@ -424,6 +424,7 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	int *buffer_filled;
 	char packet_decoded[1920];
 	unsigned int seq;
+	prvm_prog_t *prog = CLVM_prog;
 	if (client < 0 || client > 127)
 	{
 		Con_Printf("Bad VOIP packet\n");
@@ -432,6 +433,12 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	if (len <= 8)
 		return;
 	
+	if (PRVM_clientfunction(voip_event))
+	{
+		PRVM_G_FLOAT(OFS_PARM0) = (int)client;
+		prog->ExecuteProgram(prog, PRVM_clientfunction(voip_event), "QC function voip_event is missing");
+		if (!PRVM_G_FLOAT(OFS_RETURN)) return;
+	}
 	if (!voip_buffer[client]) voip_buffer[client] = Mem_Alloc(snd_mempool, CAPTURE_BUFFER_SIZE);
 	SndSys_LockRenderBuffer();
 	if (opus_decoder_id[client] != packet[0])
