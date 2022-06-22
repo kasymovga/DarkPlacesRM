@@ -169,7 +169,7 @@ cvar_t mastervolume = {CVAR_SAVE, "mastervolume", "0.7", "master volume"};
 cvar_t volume = {CVAR_SAVE, "volume", "0.7", "volume of sound effects"};
 #ifdef CONFIG_VOIP
 cvar_t voipvolume = {CVAR_SAVE, "voipvolume", "1", "volume of voip"};
-cvar_t snd_input_boost = {CVAR_SAVE, "snd_input_boost", "0", "Audio input boost"};
+cvar_t snd_input_boost = {CVAR_SAVE, "snd_input_boost", "1", "Audio input boost"};
 cvar_t snd_input_boost_auto = {CVAR_SAVE, "snd_input_boost_auto", "1", "Audio input boost"};
 #endif
 cvar_t snd_initialized = { CVAR_READONLY, "snd_initialized", "0", "indicates the sound subsystem is active"};
