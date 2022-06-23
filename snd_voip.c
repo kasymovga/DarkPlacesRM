@@ -278,6 +278,11 @@ void S_Echo_Stop(void)
 void S_VOIP_Start(void)
 {
 	prvm_prog_t *prog = CLVM_prog;
+	if (!SndSys_CaptureAvailable())
+	{
+		Con_Print("Audio capture device not available\n");
+		return;
+	}
 	if (snd_voip_active) return;
 	if (!capture_buffer)
 		capture_buffer = Mem_Alloc(snd_mempool, CAPTURE_BUFFER_SIZE);
