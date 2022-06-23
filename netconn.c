@@ -3411,7 +3411,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				ed = PRVM_EDICT_NUM(i + 1);
 				if (sv_voip_force.integer || PRVM_serveredictfloat(ed, voipgroup) == voipgroup || PRVM_serveredictfloat(ed, voiplistengroup) == voipgroup)
 				{
-					NetConn_Write(mysocket, data, length, &client->netconnection->peeraddress);
+					NetConn_Write(client->netconnection->mysocket, data, length, &client->netconnection->peeraddress);
 				}
 			}
 		}
