@@ -3383,12 +3383,6 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		int voipgroup = 0, voipsource = 0;
 		prvm_prog_t *prog = SVVM_prog;
 		client_t *client;
-		if (PRVM_serverfunction(voip_event))
-		{
-			PRVM_G_FLOAT(OFS_PARM0) = (int)client;
-			prog->ExecuteProgram(prog, PRVM_serverfunction(voip_event), "QC function voip_event is missing");
-			if (!PRVM_G_FLOAT(OFS_RETURN)) return true;
-		}
 		for (i = 0;i < svs.maxclients;i++)
 		{
 			client = &svs.clients[i];
@@ -3400,6 +3394,13 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 				voipsource = i;
 				break;
 			}
+		}
+		if (i == svs.maxclients) return true;
+		if (PRVM_serverfunction(voip_event))
+		{
+			PRVM_G_FLOAT(OFS_PARM0) = (int)voipsource;
+			prog->ExecuteProgram(prog, PRVM_serverfunction(voip_event), "QC function voip_event is missing");
+			if (!PRVM_G_FLOAT(OFS_RETURN)) return true;
 		}
 		if (!voipgroup && !sv_voip_force.integer) return true;
 		for (i = 0;i < svs.maxclients;i++)
