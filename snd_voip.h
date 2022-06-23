@@ -17,4 +17,6 @@ void S_Echo_Start(void);
 void S_Echo_Stop(void);
 void S_VOIP_Capture_Callback(unsigned char *stream, int len);
 
+void S_VOIP_Shutdown(void);
+
 #endif

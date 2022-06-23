@@ -955,6 +955,7 @@ void S_Terminate (void)
 	while (known_sfx != NULL)
 		S_FreeSfx (known_sfx, true);
 
+	S_VOIP_Shutdown();
 	Cvar_SetValueQuick (&snd_initialized, false);
 	Mem_FreePool (&snd_mempool);
 }

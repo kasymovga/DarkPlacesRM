@@ -86,7 +86,7 @@ void S_VOIP_Capture_Callback (unsigned char *stream, int len)
 			((int16_t*)stream)[i] = ((int16_t*)stream)[i] * snd_input_boost.value;
 		}
 	}
-	if (capture_buffer)
+	if (snd_voip_active)
 	{
 		int buffer_free = CAPTURE_BUFFER_SIZE - capture_buffer_filled;
 		if (len > buffer_free)
@@ -99,7 +99,7 @@ void S_VOIP_Capture_Callback (unsigned char *stream, int len)
 		}
 		memcpy(capture_buffer + capture_buffer_filled, stream, len);
 		capture_buffer_filled += len;
-		if (snd_voip_active && cls.state == ca_connected)
+		if (cls.state == ca_connected)
 		{
 			while (capture_buffer_filled - capture_buffer_begin > 1920)
 			{
@@ -130,7 +130,7 @@ void S_VOIP_Capture_Callback (unsigned char *stream, int len)
 			}
 		}
 	}
-	if (capture_buffer_echo)
+	if (snd_echo_active)
 	{
 		int buffer_echo_free = CAPTURE_BUFFER_ECHO_SIZE - capture_buffer_echo_filled;
 		if (len > buffer_echo_free)
@@ -240,7 +240,9 @@ void S_Echo_Start(void)
 		PRVM_G_FLOAT(OFS_PARM0) = true;
 		prog->ExecuteProgram(prog, PRVM_menufunction(voip_echo_test), "QC function voip_echo_test is missing");
 	}
+	SndSys_LockCapture();
 	snd_echo_active = true;
+	SndSys_UnlockCapture();
 }
 
 void S_FreeSfx (sfx_t *sfx, qboolean force);
@@ -252,14 +254,11 @@ void S_Echo_Stop(void)
 		SndSys_PauseCapture();
 
 	SndSys_LockRenderBuffer();
-	if (!snd_echo)
+	if (snd_echo)
 	{
-		SndSys_UnlockRenderBuffer();
-		Con_Print("No echo to stop\n");
-		return;
+		S_FreeSfx(snd_echo, 1);
+		snd_echo = NULL;
 	}
-	S_FreeSfx(snd_echo, 1);
-	snd_echo = NULL;
 	SndSys_UnlockRenderBuffer();
 	if (PRVM_clientfunction(voip_echo_test))
 	{
@@ -272,7 +271,9 @@ void S_Echo_Stop(void)
 		PRVM_G_FLOAT(OFS_PARM0) = false;
 		prog->ExecuteProgram(prog, PRVM_menufunction(voip_echo_test), "QC function voip_echo_test is missing");
 	}
+	SndSys_LockCapture();
 	snd_echo_active = false;
+	SndSys_UnlockCapture();
 }
 
 void S_VOIP_Start(void)
@@ -313,8 +314,9 @@ void S_VOIP_Start(void)
 	capture_buffer_begin = 0;
 	capture_buffer_filled = 0;
 	capture_buffer_pos = 0;
-	memset(capture_buffer, VOIP_WIDTH == 1 ? 0x80 : 0, CAPTURE_BUFFER_SIZE);
+	SndSys_LockCapture();
 	snd_voip_active = true;
+	SndSys_UnlockCapture();
 	SndSys_UnpauseCapture();
 	if (PRVM_clientfunction(voip_talk))
 	{
@@ -330,7 +332,9 @@ void S_VOIP_Stop(void)
 	if (!snd_echo_active)
 		SndSys_PauseCapture();
 
+	SndSys_LockCapture();
 	snd_voip_active = false;
+	SndSys_UnlockCapture();
 	if (opus_encoder)
 	{
 		opus_encoder_destroy(opus_encoder);
@@ -445,7 +449,6 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 		if (!PRVM_G_FLOAT(OFS_RETURN)) return;
 	}
 	if (!voip_buffer[client]) voip_buffer[client] = Mem_Alloc(snd_mempool, CAPTURE_BUFFER_SIZE);
-	SndSys_LockRenderBuffer();
 	if (opus_decoder_id[client] != packet[0])
 	{
 		if (opus_decoder[client])
@@ -467,6 +470,7 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 		}
 		opus_decoder_seq[client] = 0;
 	}
+	SndSys_LockRenderBuffer();
 	if (!snd_voip_speakers[client])
 	{
 		char stream_name[32];
@@ -489,7 +493,6 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	{
 		snd_voip_speakers[client]->total_length = 99999999;
 	}
-	SndSys_UnlockRenderBuffer();
 	buffer = voip_buffer[client];
 	buffer_filled = &voip_buffer_filled[client];
 	buffer_free = CAPTURE_BUFFER_SIZE - *buffer_filled;
@@ -536,4 +539,19 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	}
 	memcpy(buffer + *buffer_filled, packet_decoded, len);
 	*buffer_filled += len;
+	SndSys_UnlockRenderBuffer();
+}
+
+void S_VOIP_Shutdown(void)
+{
+	int i;
+	SndSys_PauseCapture();
+	S_VOIP_Stop();
+	S_Echo_Stop();
+	capture_buffer = NULL;
+	capture_buffer_echo = NULL;
+	for (i = 0; i < 128; i++)
+	{
+		voip_buffer[i] = NULL;
+	}
 }
