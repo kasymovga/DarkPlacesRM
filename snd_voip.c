@@ -465,7 +465,6 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 		opus_decoder[client] = opus_decoder_create(VOIP_FREQ, VOIP_CHANNELS, &err);
 		if (!opus_decoder[client])
 		{
-			SndSys_UnlockRenderBuffer();
 			Con_Printf("Opus decoder creation failed\n");
 			return;
 		}
