@@ -166,6 +166,7 @@ static void Echo_GetSamplesFloat(channel_t *ch, sfx_t *sfx, int firstsampleframe
 	{
 		capture_buffer_echo_begin = capture_buffer_echo_filled;
 		capture_buffer_echo_pos = firstsampleframe + numsampleframes;
+		SndSys_UnlockCapture();
 		return;
 	}
 	len = numsampleframes * sfx->format.channels;
@@ -500,6 +501,7 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	if (seq < opus_decoder_seq[client])
 	{
 		Con_DPrintf("Wrong ordered packet dropped\n");
+		SndSys_UnlockRenderBuffer();
 		return;
 	}
 	if (seq > opus_decoder_seq[client])
@@ -529,6 +531,7 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	if (len < 0)
 	{
 		Con_Printf("Opus decode failed\n");
+		SndSys_UnlockRenderBuffer();
 		return;
 	}
 	len *= 2;
