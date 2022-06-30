@@ -2268,7 +2268,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		return true;
 	}
 	#ifdef CONFIG_VOIP
-	else if (length >= 6 && data[0] == 'V' && data[1] == 'O' && data[2] == 'I' && data[3] == 'P')
+	else if (fromserver && length >= 6 && data[0] == 'V' && data[1] == 'O' && data[2] == 'I' && data[3] == 'P')
 	{
 		//VOIP client
 		extern cvar_t voipvolume;
@@ -3376,26 +3376,17 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		return true;
 	}
 	#ifdef CONFIG_VOIP
-	else if (length >= 6 && sv_voip.integer && data[0] == 'V' && data[1] == 'O' && data[2] == 'I' && data[3] == 'P')
+	else if (host_client && length >= 6 && sv_voip.integer && data[0] == 'V' && data[1] == 'O' && data[2] == 'I' && data[3] == 'P')
 	{
 		//VOIP server
 		prvm_edict_t *ed;
 		int voipgroup = 0, voipsource = 0;
 		prvm_prog_t *prog = SVVM_prog;
 		client_t *client;
-		for (i = 0;i < svs.maxclients;i++)
-		{
-			client = &svs.clients[i];
-			if (client->netconnection && LHNETADDRESS_Compare(peeraddress, &client->netconnection->peeraddress) == 0)
-			{
-				data[4] = i;
-				ed = PRVM_EDICT_NUM(i + 1);
-				voipgroup = PRVM_serveredictfloat(ed, voipgroup);
-				voipsource = i;
-				break;
-			}
-		}
-		if (i == svs.maxclients) return true;
+		data[4] = i; //host client number
+		ed = PRVM_EDICT_NUM(i + 1);
+		voipgroup = PRVM_serveredictfloat(ed, voipgroup);
+		voipsource = i;
 		if (PRVM_serverfunction(voip_event))
 		{
 			PRVM_G_FLOAT(OFS_PARM0) = (int)voipsource;
