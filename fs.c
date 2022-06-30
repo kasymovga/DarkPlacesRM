@@ -3127,8 +3127,30 @@ int FS_Seek (qfile_t* file, fs_offset_t offset, int whence)
 		default:
 			return -1;
 	}
-	if (offset < 0 || offset > file->real_length)
+	if (offset < 0)
 		return -1;
+
+	if (offset > file->real_length)
+	{
+		int zeros_count = offset - file->real_length;
+		char zeros[4096];
+		if (whence != SEEK_SET) return -1;
+		memset(zeros, 0, sizeof(zeros));
+		FS_Seek(file, 0, SEEK_END);
+		while (zeros_count > 0)
+		{
+			if (zeros_count > (int)sizeof(zeros))
+			{
+				if (FS_Write(file, zeros, sizeof(zeros)) < (int)sizeof(zeros)) return -1;
+				zeros_count -= sizeof(zeros);
+			}
+			else
+			{
+				if (FS_Write(file, zeros, zeros_count) < zeros_count) return -1;
+				zeros_count = 0;
+			}
+		}
+	}
 
 	if(file->flags & QFILE_FLAG_DATA)
 	{

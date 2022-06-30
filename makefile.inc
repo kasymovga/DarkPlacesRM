@@ -78,6 +78,8 @@ OBJ_CL= \
 	discord.o \
 	dpvsimpledecode.o \
 	view.o \
+	net_file_client.o \
+	#
 
 # Common objects
 OBJ_COMMON= \
@@ -136,7 +138,8 @@ OBJ_COMMON= \
 	zone.o \
 	slre.o \
 	geoip.o \
-	model_compile.o
+	model_compile.o \
+	net_file_server.o
 
 OBJ_MENU= \
 	menu.o \

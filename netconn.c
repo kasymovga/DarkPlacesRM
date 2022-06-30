@@ -32,6 +32,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef CONFIG_VOIP
 #include "snd_voip.h"
 #endif
+#include "net_file_server.h"
+#include "net_file_client.h"
 
 #define QWMASTER_PORT 27000
 #define DPMASTER_PORT 27950
@@ -2279,6 +2281,10 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		return true;
 	}
 	#endif
+	else if (fromserver && data[0] == 'F')
+	{
+		Net_File_Client_Packet(&data[1], length - 1);
+	}
 	// quakeworld ingame packet
 	if (fromserver && cls.protocol == PROTOCOL_QUAKEWORLD && length >= 8 && (ret = NetConn_ReceivedMessage(cls.netcon, data, length, cls.protocol, net_messagetimeout.value)) == 2)
 	{
@@ -3418,6 +3424,11 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		return true;
 	}
 	#endif
+	else if (host_client && data[0] == 'F')
+	{
+		Net_File_Server_Packet(host_client, &data[1], length - 1);
+		return true;
+	}
 	// netquake control packets, supported for compatibility only, and only
 	// when running game protocols that are normally served via this connection
 	// protocol

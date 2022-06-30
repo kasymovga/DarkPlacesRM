@@ -3,6 +3,7 @@
 #include "libcurl.h"
 #include "thread.h"
 #include "net_httpserver.h"
+#include "net_file_client.h"
 
 #include "image.h"
 #include "jpeg.h"
@@ -199,6 +200,12 @@ static dllhandle_t curl_dll = NULL;
 
 void *curl_mutex = NULL;
 
+enum {
+	CURL_UDP_NONE = 0,
+	CURL_UDP_QUEUED,
+	CURL_UDP_DOWNLOADING,
+};
+
 typedef struct downloadinfo_s
 {
 	char filename[MAX_OSPATH];
@@ -226,6 +233,8 @@ typedef struct downloadinfo_s
 	size_t postbufsize;
 	const char *post_content_type;
 	const char *extraheaders;
+
+	int udp;
 }
 downloadinfo;
 static downloadinfo *downloads = NULL;
@@ -535,6 +544,28 @@ static void Curl_EndDownload_Event(int error, const char *URL, const char *filen
 #endif
 }
 
+static void Curl_EndDownload_Free(downloadinfo *di, CurlStatus status, qboolean ok)
+{
+
+	if(di->prev)
+		di->prev->next = di->next;
+	else
+		downloads = di->next;
+	if(di->next)
+		di->next->prev = di->prev;
+
+	--numdownloads;
+	Curl_EndDownload_Event(status, di->url, di->filename);
+	if(di->forthismap)
+	{
+		if(ok)
+			++numdownloads_success;
+		else
+			++numdownloads_fail;
+	}
+	Z_Free(di);
+}
+
 /*
 ====================
 Curl_EndDownload
@@ -549,7 +580,16 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 {
 	char content_type[64];
 	qboolean ok = false;
-	if(!curl_dll)
+	if(di->udp == CURL_UDP_NONE && di->loadtype == LOADTYPE_PAK && (status == CURL_DOWNLOAD_FAILED || status == CURL_DOWNLOAD_SERVERERROR))
+	{
+		di->udp = CURL_UDP_QUEUED;
+		FS_Close(di->stream);
+		di->stream = NULL;
+		Con_Printf("curl downloading for %s failed, requesting udp downloading...\n", di->filename);
+		return;
+	}
+	if(di->udp == CURL_UDP_DOWNLOADING) Net_File_Client_Stop();
+	if(!curl_dll && di->udp != CURL_UDP_NONE)
 		return;
 	switch(status)
 	{
@@ -658,24 +698,8 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 			CLEAR_AND_RETRY();
 		#endif
 	}
-
-	if(di->prev)
-		di->prev->next = di->next;
-	else
-		downloads = di->next;
-	if(di->next)
-		di->next->prev = di->prev;
-
-	--numdownloads;
-	Curl_EndDownload_Event(status, di->url, di->filename);
-	if(di->forthismap)
-	{
-		if(ok)
-			++numdownloads_success;
-		else
-			++numdownloads_fail;
-	}
-	Z_Free(di);
+	Con_Printf("%s download finished\n", di->filename);
+	Curl_EndDownload_Free(di, status, ok);
 }
 
 /*
@@ -722,8 +746,6 @@ static void CheckPendingDownloads(void)
 	const char *h;
 	char urlbuf[1024];
 	char vabuf[1024];
-	if(!curl_dll)
-		return;
 	if(numdownloads < cl_curl_maxdownloads.integer)
 	{
 		downloadinfo *di;
@@ -731,6 +753,19 @@ static void CheckPendingDownloads(void)
 		{
 			if(!di->started)
 			{
+				if(!curl_dll)
+				{
+					if(di->loadtype == LOADTYPE_PAK)
+					{
+						di->started = true;
+						di->udp = CURL_UDP_QUEUED;
+						numdownloads++;
+					}
+					if(numdownloads >= cl_curl_maxdownloads.integer)
+						break;
+
+					continue;
+				}
 				if(!di->buffer)
 				{
 					Con_Printf("Downloading %s -> %s", CleanURL(di->url, urlbuf, sizeof(urlbuf)), di->filename);
@@ -755,77 +790,79 @@ static void CheckPendingDownloads(void)
 					di->startpos = 0;
 				}
 
-				di->curle = qcurl_easy_init();
-				di->slist = NULL;
-				qcurl_easy_setopt(di->curle, CURLOPT_URL, di->url);
-				if(cl_curl_useragent.integer)
+				if (di->udp == CURL_UDP_NONE)
 				{
-					const char *ua
-#ifdef HTTP_USER_AGENT
-						= HTTP_USER_AGENT;
-#else
-						= engineversion;
-#endif
-					if(!ua)
-						ua = "";
-					if(*cl_curl_useragent_append.string)
-						ua = va(vabuf, sizeof(vabuf), "%s%s%s",
-							ua,
-							(ua[0] && ua[strlen(ua)-1] != ' ')
-								? " "
-								: "",
-							cl_curl_useragent_append.string);
-					qcurl_easy_setopt(di->curle, CURLOPT_USERAGENT, ua);
-				}
-				else
-					qcurl_easy_setopt(di->curle, CURLOPT_USERAGENT, "");
-				qcurl_easy_setopt(di->curle, CURLOPT_REFERER, di->referer);
-				qcurl_easy_setopt(di->curle, CURLOPT_RESUME_FROM, (long) di->startpos);
-				qcurl_easy_setopt(di->curle, CURLOPT_FOLLOWLOCATION, 1);
-				qcurl_easy_setopt(di->curle, CURLOPT_WRITEFUNCTION, CURL_fwrite);
-				qcurl_easy_setopt(di->curle, CURLOPT_LOW_SPEED_LIMIT, (long) 256);
-				qcurl_easy_setopt(di->curle, CURLOPT_LOW_SPEED_TIME, (long) 45);
-				qcurl_easy_setopt(di->curle, CURLOPT_WRITEDATA, (void *) di);
-				qcurl_easy_setopt(di->curle, CURLOPT_PRIVATE, (void *) di);
-				qcurl_easy_setopt(di->curle, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS | CURLPROTO_FTP);
-				qcurl_easy_setopt(di->curle, CURLOPT_CONNECTTIMEOUT, (long) cl_curl_connecttimeout.integer);
-				if(qcurl_easy_setopt(di->curle, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS | CURLPROTO_FTP) != CURLE_OK)
-				{
-					Con_Printf("^1WARNING:^7 for security reasons, please upgrade to libcurl 7.19.4 or above. In a later version of DarkPlaces, HTTP redirect support will be disabled for this libcurl version.\n");
-					//qcurl_easy_setopt(di->curle, CURLOPT_FOLLOWLOCATION, 0);
-				}
-				if(di->post_content_type)
-				{
-					qcurl_easy_setopt(di->curle, CURLOPT_POST, 1);
-					qcurl_easy_setopt(di->curle, CURLOPT_POSTFIELDS, di->postbuf);
-					qcurl_easy_setopt(di->curle, CURLOPT_POSTFIELDSIZE, di->postbufsize);
-					di->slist = qcurl_slist_append(di->slist, va(vabuf, sizeof(vabuf), "Content-Type: %s", di->post_content_type));
-				}
-
-				// parse extra headers into slist
-				// \n separated list!
-				h = di->extraheaders;
-				while(h)
-				{
-					const char *hh = strchr(h, '\n');
-					if(hh)
+					di->curle = qcurl_easy_init();
+					di->slist = NULL;
+					qcurl_easy_setopt(di->curle, CURLOPT_URL, di->url);
+					if(cl_curl_useragent.integer)
 					{
-						char *buf = (char *) Mem_Alloc(tempmempool, hh - h + 1);
-						memcpy(buf, h, hh - h);
-						buf[hh - h] = 0;
-						di->slist = qcurl_slist_append(di->slist, buf);
-						h = hh + 1;
+						const char *ua
+#ifdef HTTP_USER_AGENT
+							= HTTP_USER_AGENT;
+#else
+							= engineversion;
+#endif
+						if(!ua)
+							ua = "";
+						if(*cl_curl_useragent_append.string)
+							ua = va(vabuf, sizeof(vabuf), "%s%s%s",
+								ua,
+								(ua[0] && ua[strlen(ua)-1] != ' ')
+									? " "
+									: "",
+								cl_curl_useragent_append.string);
+						qcurl_easy_setopt(di->curle, CURLOPT_USERAGENT, ua);
 					}
 					else
+						qcurl_easy_setopt(di->curle, CURLOPT_USERAGENT, "");
+					qcurl_easy_setopt(di->curle, CURLOPT_REFERER, di->referer);
+					qcurl_easy_setopt(di->curle, CURLOPT_RESUME_FROM, (long) di->startpos);
+					qcurl_easy_setopt(di->curle, CURLOPT_FOLLOWLOCATION, 1);
+					qcurl_easy_setopt(di->curle, CURLOPT_WRITEFUNCTION, CURL_fwrite);
+					qcurl_easy_setopt(di->curle, CURLOPT_LOW_SPEED_LIMIT, (long) 256);
+					qcurl_easy_setopt(di->curle, CURLOPT_LOW_SPEED_TIME, (long) 45);
+					qcurl_easy_setopt(di->curle, CURLOPT_WRITEDATA, (void *) di);
+					qcurl_easy_setopt(di->curle, CURLOPT_PRIVATE, (void *) di);
+					qcurl_easy_setopt(di->curle, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS | CURLPROTO_FTP);
+					qcurl_easy_setopt(di->curle, CURLOPT_CONNECTTIMEOUT, (long) cl_curl_connecttimeout.integer);
+					if(qcurl_easy_setopt(di->curle, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS | CURLPROTO_FTP) != CURLE_OK)
 					{
-						di->slist = qcurl_slist_append(di->slist, h);
-						h = NULL;
+						Con_Printf("^1WARNING:^7 for security reasons, please upgrade to libcurl 7.19.4 or above. In a later version of DarkPlaces, HTTP redirect support will be disabled for this libcurl version.\n");
+						//qcurl_easy_setopt(di->curle, CURLOPT_FOLLOWLOCATION, 0);
 					}
-				}
+					if(di->post_content_type)
+					{
+						qcurl_easy_setopt(di->curle, CURLOPT_POST, 1);
+						qcurl_easy_setopt(di->curle, CURLOPT_POSTFIELDS, di->postbuf);
+						qcurl_easy_setopt(di->curle, CURLOPT_POSTFIELDSIZE, di->postbufsize);
+						di->slist = qcurl_slist_append(di->slist, va(vabuf, sizeof(vabuf), "Content-Type: %s", di->post_content_type));
+					}
+					// parse extra headers into slist
+					// \n separated list!
+					h = di->extraheaders;
+					while(h)
+					{
+						const char *hh = strchr(h, '\n');
+						if(hh)
+						{
+							char *buf = (char *) Mem_Alloc(tempmempool, hh - h + 1);
+							memcpy(buf, h, hh - h);
+							buf[hh - h] = 0;
+							di->slist = qcurl_slist_append(di->slist, buf);
+							h = hh + 1;
+						}
+						else
+						{
+							di->slist = qcurl_slist_append(di->slist, h);
+							h = NULL;
+						}
+					}
 
-				qcurl_easy_setopt(di->curle, CURLOPT_HTTPHEADER, di->slist);
-				
-				qcurl_multi_add_handle(curlm, di->curle);
+					qcurl_easy_setopt(di->curle, CURLOPT_HTTPHEADER, di->slist);
+					
+					qcurl_multi_add_handle(curlm, di->curle);
+				}
 				di->started = true;
 				++numdownloads;
 				if(numdownloads >= cl_curl_maxdownloads.integer)
@@ -863,10 +900,10 @@ Surprise... closes all the stuff. Please do this BEFORE shutting down LHNET.
 void Curl_ClearRequirements(void);
 void Curl_Shutdown(void)
 {
+	Curl_CancelAll();
 	if(!curl_dll)
 		return;
 	Curl_ClearRequirements();
-	Curl_CancelAll();
 	if (curl_mutex) Thread_DestroyMutex(curl_mutex);
 	CURL_CloseLibrary();
 	curl_dll = NULL;
@@ -933,6 +970,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 		char urlbuf[1024];
 		const char *p, *q;
 		size_t length;
+		qboolean forceudp = false;
 		downloadinfo *di;
 
 		// if URL is protocol:///* or protocol://:port/*, insert the IP of the current server
@@ -1068,22 +1106,20 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 				}
 			}
 		}
-		if (loadtype == LOADTYPE_PAK && (!curl_dll || !cl_curl_enabled.integer))
-		{
-			if (curl_mutex) Thread_UnlockMutex(curl_mutex);
-			Con_Printf("Curl_Begin: %s\n", (curl_dll ? "libcurl support not enabled. Set cl_curl_enabled to 1 to enable." : "libcurl DLL not found."));
-			return false;
-		}
-
 		// if we get here, we actually want to download... so first verify the
 		// URL scheme (so one can't read local files using file://)
 		if(strncmp(URL, "http://", 7) && strncmp(URL, "ftp://", 6) && strncmp(URL, "https://", 8))
 		{
-			if (curl_mutex) Thread_UnlockMutex(curl_mutex);
-			if (strchr(URL, '/'))
-				Con_Printf("Curl_Begin(\"%s\"): nasty URL scheme rejected\n", URL);
-			Curl_EndDownload_Event(CURL_DOWNLOAD_FAILED , URL, name);
-			return false;
+			if (loadtype == LOADTYPE_PAK)
+				forceudp = true;
+			else
+			{
+				if (curl_mutex) Thread_UnlockMutex(curl_mutex);
+				if (strchr(URL, '/'))
+					Con_Printf("Curl_Begin(\"%s\"): nasty URL scheme rejected\n", URL);
+				Curl_EndDownload_Event(CURL_DOWNLOAD_FAILED , URL, name);
+				return false;
+			}
 		}
 
 		if(forthismap)
@@ -1137,6 +1173,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 			di->postbuf = NULL;
 			di->postbufsize = 0;
 		}
+		di->udp = ((curl_dll && cl_curl_enabled.integer && !forceudp) ? CURL_UDP_NONE : CURL_UDP_QUEUED);
 
 		downloads = di;
 		if (curl_mutex) Thread_UnlockMutex(curl_mutex);
@@ -1172,22 +1209,58 @@ void Curl_Run(void)
 
 	noclear = FALSE;
 
-	if(!cl_curl_enabled.integer)
-		return;
+	for (di = downloads; di; di = di->next)
+	{
+		if (di->udp == CURL_UDP_NONE) continue;
+		if (di->udp == CURL_UDP_DOWNLOADING)
+		{
+			if (!Net_File_Client_Active()) //finished
+			{
+				if (Net_File_Client_Success())
+					Curl_EndDownload(di, CURL_DOWNLOAD_SUCCESS, CURLE_OK, NULL);
+				else
+					Curl_EndDownload(di, CURL_DOWNLOAD_FAILED, CURLE_OK, NULL);
 
-	if(!curl_dll)
-		return;
+				break;
+			}
+		}
+	}
+	if (!Net_File_Client_Active())
+	{
+		for (di = downloads; di; di = di->next)
+		{
+			if (di->udp == CURL_UDP_QUEUED)
+			{
+				if (Net_File_Client_Download_Start(di->filename))
+				{
+					di->udp = CURL_UDP_DOWNLOADING;
+					Net_File_Client_Frame();
+				}
+				else
+				{
+					Curl_EndDownload(di, CURL_DOWNLOAD_FAILED, CURLE_OK, NULL);
+				}
+				break;
+			}
+		}
+	}
+	else
+		Net_File_Client_Frame();
 
 	if (curl_mutex) Thread_LockMutex(curl_mutex);
 
 	Curl_CheckCommandWhenDone();
 
+	if(!cl_curl_enabled.integer || !curl_dll)
+	{
+		if (curl_mutex) Thread_UnlockMutex(curl_mutex);
+		return;
+	}
 	if(!downloads)
 	{
 		if (curl_mutex) Thread_UnlockMutex(curl_mutex);
 		return;
 	}
-
 	if(realtime < curltime) // throttle
 	{
 		if (curl_mutex) Thread_UnlockMutex(curl_mutex);
@@ -1313,9 +1386,6 @@ returns true iff there is a download running.
 */
 qboolean Curl_Running(void)
 {
-	if(!curl_dll)
-		return false;
-
 	return downloads != NULL;
 }
 
@@ -1331,7 +1401,14 @@ static double Curl_GetDownloadAmount(downloadinfo *di)
 {
 	if(!curl_dll)
 		return -2;
-	if(di->curle)
+	if (di->udp == CURL_UDP_QUEUED || di->udp == CURL_UDP_DOWNLOADING)
+	{
+		if (di->udp == CURL_UDP_QUEUED)
+			return 0;
+		else
+			return Net_File_Client_Progress();
+	}
+	else if(di->curle)
 	{
 		double length;
 		qcurl_easy_getinfo(di->curle, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
@@ -1355,7 +1432,14 @@ static double Curl_GetDownloadSpeed(downloadinfo *di)
 {
 	if(!curl_dll)
 		return -2;
-	if(di->curle)
+	if (di->udp == CURL_UDP_QUEUED || di->udp == CURL_UDP_DOWNLOADING)
+	{
+		if (di->udp == CURL_UDP_QUEUED)
+			return 0;
+		else
+			return Net_File_Client_Speed();
+	}
+	else if(di->curle)
 	{
 		double speed;
 		qcurl_easy_getinfo(di->curle, CURLINFO_SPEED_DOWNLOAD, &speed);
@@ -1377,8 +1461,10 @@ static void Curl_Info_f(void)
 {
 	downloadinfo *di;
 	char urlbuf[1024];
-	if(!curl_dll)
-		return;
+	Con_Printf("numdownloads_added=%i\n", numdownloads_added);
+	Con_Printf("numdownloads=%i\n", numdownloads);
+	Con_Printf("numdownloads_success=%i\n", numdownloads_success);
+	Con_Printf("numdownloads_fail=%i\n", numdownloads_fail);
 	if(Curl_Running())
 	{
 		if (curl_mutex) Thread_LockMutex(curl_mutex);
@@ -1627,7 +1713,7 @@ Curl_downloadinfo_t *Curl_GetDownloadInfo(int *nDownloads, const char **addition
 			if(di->buffer)
 				continue;
 		strlcpy(downinfo[i].filename, di->filename, sizeof(downinfo[i].filename));
-		if(di->curle)
+		if(di->curle || di->udp == CURL_UDP_DOWNLOADING)
 		{
 			downinfo[i].progress = Curl_GetDownloadAmount(di);
 			downinfo[i].speed = Curl_GetDownloadSpeed(di);
@@ -1821,8 +1907,9 @@ static qboolean Curl_SendRequirement(const char *filename, qboolean foundone, ch
 		thispack = p + 1;
 
 	packurl = Curl_FindPackURL(thispack);
+	if(!packurl) packurl = "";
 
-	if(packurl && *packurl && strcmp(packurl, "-"))
+	if(strcmp(packurl, "-"))
 	{
 		if(!foundone)
 			strlcat(sendbuffer, "curl --clear_autodownload\n", sendbuffer_len);
