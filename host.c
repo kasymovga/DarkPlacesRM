@@ -40,6 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "random.h"
 #include "net_httpserver.h"
 #include "discord.h"
+#include "net_file_server.h"
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
@@ -649,6 +650,7 @@ void Host_ShutdownServer(void)
 		if (host_client->active)
 			SV_DropClient(false); // server shutdown
 
+	Net_File_Server_Shutdown();
 	NetConn_CloseServerPorts();
 
 	sv.active = false;
@@ -854,6 +856,7 @@ void Host_Main(void)
 			NetConn_ServerFrame();
 
 		Curl_Run();
+		Net_File_Server_Frame();
 
 		// check for commands typed to the host
 		Host_GetConsoleCommands();
