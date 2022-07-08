@@ -698,7 +698,6 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 			CLEAR_AND_RETRY();
 		#endif
 	}
-	Con_Printf("%s download finished\n", di->filename);
 	Curl_EndDownload_Free(di, status, ok);
 }
 
