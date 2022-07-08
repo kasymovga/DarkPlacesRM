@@ -651,6 +651,7 @@ void Host_ShutdownServer(void)
 			SV_DropClient(false); // server shutdown
 
 	Net_File_Server_Shutdown();
+	Net_HttpServerShutdown();
 	NetConn_CloseServerPorts();
 
 	sv.active = false;
@@ -1545,7 +1546,6 @@ static void Host_Init (void)
 		Cbuf_Execute();
 	}
 	#endif
-	Net_HttpServerStart();
 
 	Con_DPrint("========Initialized=========\n");
 
@@ -1648,7 +1648,6 @@ void Host_Shutdown(void)
 	#endif
 	Con_Shutdown();
 	Memory_Shutdown();
-	Net_HttpServerShutdown();
 #ifdef __EMSCRIPTEN__
 	emscripten_cancel_main_loop();
 #endif

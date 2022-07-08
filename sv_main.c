@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "libcurl.h"
 #include "csprogs.h"
 #include "thread.h"
+#include "net_httpserver.h"
 
 static void SV_SaveEntFile_f(void);
 static void SV_StartDownload_f(void);
@@ -3392,6 +3393,7 @@ void SV_SpawnServer (const char *server)
 	{
 		// open server port
 		NetConn_OpenServerPorts(true);
+		Net_HttpServerStart();
 	}
 
 //

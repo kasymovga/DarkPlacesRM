@@ -199,6 +199,7 @@ void Net_HttpServerStart(void)
 {
 #ifdef USE_LIBMICROHTTPD
 	int i;
+	if (mhd_daemon && mhd_thread) return;
 	if (!Thread_HasThreads()) {
 		Con_Printf("No thread support, http server disabled\n");
 		return;
@@ -250,5 +251,8 @@ void Net_HttpServerShutdown(void)
 
 	if (mhd_thread)
 		Thread_WaitThread(mhd_thread, 0);
+
+	mhd_daemon = NULL;
+	mhd_thread = NULL;
 #endif //USE_LIBMICROHTTPD
 }
