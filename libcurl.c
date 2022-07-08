@@ -588,7 +588,9 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 		Con_Printf("curl downloading for %s failed, requesting udp downloading...\n", di->filename);
 		return;
 	}
+	#ifndef CONFIG_SV
 	if(di->udp == CURL_UDP_DOWNLOADING) Net_File_Client_Stop();
+	#endif
 	if(!curl_dll && di->udp != CURL_UDP_NONE)
 		return;
 	switch(status)
@@ -1207,7 +1209,7 @@ void Curl_Run(void)
 	downloadinfo *di;
 
 	noclear = FALSE;
-
+	#ifndef CONFIG_SV
 	for (di = downloads; di; di = di->next)
 	{
 		if (di->udp == CURL_UDP_NONE) continue;
@@ -1245,7 +1247,7 @@ void Curl_Run(void)
 	}
 	else
 		Net_File_Client_Frame();
-
+	#endif
 	if (curl_mutex) Thread_LockMutex(curl_mutex);
 
 	Curl_CheckCommandWhenDone();
@@ -1398,8 +1400,7 @@ for the given download.
 */
 static double Curl_GetDownloadAmount(downloadinfo *di)
 {
-	if(!curl_dll)
-		return -2;
+	#ifndef CONFIG_SV
 	if (di->udp == CURL_UDP_QUEUED || di->udp == CURL_UDP_DOWNLOADING)
 	{
 		if (di->udp == CURL_UDP_QUEUED)
@@ -1407,7 +1408,9 @@ static double Curl_GetDownloadAmount(downloadinfo *di)
 		else
 			return Net_File_Client_Progress();
 	}
-	else if(di->curle)
+	else
+	#endif
+	if(di->curle)
 	{
 		double length;
 		qcurl_easy_getinfo(di->curle, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &length);
@@ -1429,8 +1432,7 @@ returns the speed of the given download in bytes per second
 */
 static double Curl_GetDownloadSpeed(downloadinfo *di)
 {
-	if(!curl_dll)
-		return -2;
+	#ifndef CONFIG_SV
 	if (di->udp == CURL_UDP_QUEUED || di->udp == CURL_UDP_DOWNLOADING)
 	{
 		if (di->udp == CURL_UDP_QUEUED)
@@ -1438,7 +1440,9 @@ static double Curl_GetDownloadSpeed(downloadinfo *di)
 		else
 			return Net_File_Client_Speed();
 	}
-	else if(di->curle)
+	else
+	#endif
+	if(di->curle)
 	{
 		double speed;
 		qcurl_easy_getinfo(di->curle, CURLINFO_SPEED_DOWNLOAD, &speed);
