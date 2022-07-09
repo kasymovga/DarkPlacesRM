@@ -370,20 +370,6 @@ ifdef DP_FS_FORCE_NOHOME
 	CFLAGS_FS+=-DFS_FORCE_NOHOME
 endif
 
-ifndef DP_JPEG_VERSION
-ifeq ($(DP_MAKE_TARGET), mingw)
-	DP_JPEG_VERSION=62
-else
-ifeq ($(wildcard /usr/lib/libjpeg.so.8),)
-ifeq ($(wildcard /usr/lib/*/libjpeg.so.8),)
-	DP_JPEG_VERSION=62
-endif
-endif
-	DP_JPEG_VERSION?=80
-endif
-endif
-
-CFLAGS_LIBJPEG+=-DJPEG_LIB_VERSION="${DP_JPEG_VERSION}"
 CFLAGS_NET=
 # Systems without IPv6 support should uncomment this:
 #CFLAGS_NET+=-DNOSUPPORTIPV6
