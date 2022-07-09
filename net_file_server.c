@@ -63,7 +63,7 @@ static qboolean Net_File_Server_Session_Start(struct download_session *session)
 	if (!session->file)
 	{
 		char dlcache_name[strlen(session->name) + 9];
-		sprintf("dlcache/%s", session->name);
+		sprintf(dlcache_name, "dlcache/%s", session->name);
 		session->file = FS_OpenVirtualFile(dlcache_name, false);
 	}
 	if (!session->file)
