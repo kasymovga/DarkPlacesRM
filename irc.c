@@ -359,7 +359,7 @@ Returns true if the handle points to an unterminated session (not necessarily co
 ====================
 */
 qboolean IRC_SessionExists(int handle) {
-    return handle >= 0 && handle < IRC_MAX_SESSIONS && (qboolean)irc_sessions[handle].session;
+    return handle >= 0 && handle < IRC_MAX_SESSIONS && irc_sessions[handle].session;
 }
 
 /*

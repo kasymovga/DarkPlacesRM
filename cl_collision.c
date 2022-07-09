@@ -274,8 +274,8 @@ trace_t CL_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 	// debug override to test against everything
 	if (sv_debugmove.integer)
 	{
-		clipboxmins[0] = clipboxmins[1] = clipboxmins[2] = -999999999;
-		clipboxmaxs[0] = clipboxmaxs[1] = clipboxmaxs[2] =  999999999;
+		clipboxmins[0] = clipboxmins[1] = clipboxmins[2] = -999999;
+		clipboxmaxs[0] = clipboxmaxs[1] = clipboxmaxs[2] =  999999;
 	}
 
 	// if the passedict is world, make it NULL (to avoid two checks each time)
@@ -496,8 +496,8 @@ trace_t CL_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_
 	// debug override to test against everything
 	if (sv_debugmove.integer)
 	{
-		clipboxmins[0] = clipboxmins[1] = clipboxmins[2] = -999999999;
-		clipboxmaxs[0] = clipboxmaxs[1] = clipboxmaxs[2] =  999999999;
+		clipboxmins[0] = clipboxmins[1] = clipboxmins[2] = -999999;
+		clipboxmaxs[0] = clipboxmaxs[1] = clipboxmaxs[2] =  999999;
 	}
 
 	// if the passedict is world, make it NULL (to avoid two checks each time)
@@ -743,8 +743,8 @@ trace_t CL_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, co
 	// debug override to test against everything
 	if (sv_debugmove.integer)
 	{
-		clipboxmins[0] = clipboxmins[1] = clipboxmins[2] = -999999999;
-		clipboxmaxs[0] = clipboxmaxs[1] = clipboxmaxs[2] =  999999999;
+		clipboxmins[0] = clipboxmins[1] = clipboxmins[2] = -999999;
+		clipboxmaxs[0] = clipboxmaxs[1] = clipboxmaxs[2] =  999999;
 	}
 
 	// if the passedict is world, make it NULL (to avoid two checks each time)

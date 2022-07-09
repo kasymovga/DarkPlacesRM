@@ -191,7 +191,7 @@ ifeq ($(DP_MAKE_TARGET), bsd)
 	EXE_SDLREXUIZ=$(EXE_UNIXSDLREXUIZ)
 endif
 
-CFLAGS_WARNINGS=-Wall -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes
+CFLAGS_WARNINGS=-Wall -Wno-ignored-optimization-argument -Wno-unused-command-line-argument -Wno-missing-field-initializers -Wold-style-definition -Wstrict-prototypes -Wsign-compare -Wdeclaration-after-statement -Wmissing-prototypes
 
 ifeq ($(DP_MAKE_TARGET), mingw)
 	TARGET=$(MINGWARCH)-w64-mingw32
@@ -376,7 +376,7 @@ CFLAGS_NET=
 
 ##### GNU Make specific definitions #####
 
-DO_LD=$(CC) -o ../../../$@ $^ $(LDFLAGS)
+DO_LD=$(CC) $(CFLAGS_WARNINGS) $(CPUOPTIMIZATIONS) -o ../../../$@ $^ $(LDFLAGS)
 
 
 ##### Definitions shared by all makefiles #####

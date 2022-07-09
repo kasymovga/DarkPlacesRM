@@ -21,8 +21,10 @@ void CL_VM_PreventInformationLeaks(void)
 	if(!cl.csqc_loaded)
 		return;
 	CSQC_BEGIN
+	{
 		VM_ClearTraceGlobals(prog);
 		PRVM_clientglobalfloat(trace_networkentity) = 0;
+	}
 	CSQC_END
 }
 
@@ -444,6 +446,7 @@ qboolean CL_VM_InputEvent (int eventtype, float x, float y)
 		return false;
 
 	CSQC_BEGIN
+	{
 		if (!PRVM_clientfunction(CSQC_InputEvent))
 			r = false;
 		else
@@ -456,6 +459,7 @@ qboolean CL_VM_InputEvent (int eventtype, float x, float y)
 			prog->ExecuteProgram(prog, PRVM_clientfunction(CSQC_InputEvent), "QC function CSQC_InputEvent is missing");
 			r = CSQC_RETURNVAL != 0;
 		}
+	}
 	CSQC_END
 	return r;
 }
@@ -1143,6 +1147,7 @@ void CL_VM_ShutDown (void)
 	if(!cl.csqc_loaded)
 		return;
 	CSQC_BEGIN
+	{
 		if (prog->loaded)
 		{
 			PRVM_clientglobalfloat(time) = cl.time;
@@ -1151,6 +1156,7 @@ void CL_VM_ShutDown (void)
 				prog->ExecuteProgram(prog, PRVM_clientfunction(CSQC_Shutdown), "QC function CSQC_Shutdown is missing");
 		}
 		PRVM_Prog_Reset(prog);
+	}
 	CSQC_END
 	Con_DPrint("CSQC ^1unloaded\n");
 	cl.csqc_loaded = false;
