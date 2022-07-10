@@ -582,11 +582,14 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 	qboolean ok = false;
 	if(di->udp == CURL_UDP_NONE && di->loadtype == LOADTYPE_PAK && (status == CURL_DOWNLOAD_FAILED || status == CURL_DOWNLOAD_SERVERERROR))
 	{
-		di->udp = CURL_UDP_QUEUED;
-		FS_Close(di->stream);
-		di->stream = NULL;
-		Con_Printf("curl downloading for %s failed, requesting udp downloading...\n", di->filename);
-		return;
+		if(strncmp(di->url, "http://", 7) && strncmp(di->url, "ftp://", 6) && strncmp(di->url, "https://", 8))
+		{
+			di->udp = CURL_UDP_QUEUED;
+			FS_Close(di->stream);
+			di->stream = NULL;
+			Con_Printf("curl downloading for %s failed, requesting udp downloading...\n", di->filename);
+			return;
+		}
 	}
 	#ifndef CONFIG_SV
 	if(di->udp == CURL_UDP_DOWNLOADING) Net_File_Client_Stop();
@@ -1105,8 +1108,10 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 		// URL scheme (so one can't read local files using file://)
 		if(strncmp(URL, "http://", 7) && strncmp(URL, "ftp://", 6) && strncmp(URL, "https://", 8))
 		{
-			if (loadtype == LOADTYPE_PAK)
+			if (loadtype == LOADTYPE_PAK && !strncmp(URL, "udp:/", 5))
+			{
 				forceudp = true;
+			}
 			else
 			{
 				if (curl_mutex) Thread_UnlockMutex(curl_mutex);
@@ -1901,7 +1906,7 @@ static qboolean Curl_SendRequirement(const char *filename, qboolean foundone, ch
 		thispack = p + 1;
 
 	packurl = Curl_FindPackURL(thispack);
-	if(!packurl) packurl = "";
+	if(!packurl || !packurl[0]) packurl = "udp:/";
 
 	if(strcmp(packurl, "-"))
 	{
