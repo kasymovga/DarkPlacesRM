@@ -145,7 +145,7 @@ void Net_File_Client_Packet(unsigned char *packet, unsigned int size)
 		if (dl_received == dl_chunks)
 		{
 			char answer[3];
-			Con_Printf("Net_File_Client_Packet: %s downloaded\n", dl_filename);
+			Con_DPrintf("Net_File_Client_Packet: %s downloaded\n", dl_filename);
 			dl_success = TRUE;
 			dl_status = NET_FILE_DOWNLOAD_FINISHED;
 			FS_Close(dl_file);
@@ -172,7 +172,7 @@ static void Net_File_Client_Request(const char *filename)
 
 qboolean Net_File_Client_Download_Start(const char *filename)
 {
-	Con_Printf("Net_File_Client_Download_Start: %s\n", filename);
+	Con_DPrintf("Net_File_Client_Download_Start: %s\n", filename);
 	if (!strncmp(filename, "dlcache/", 8)) filename += 8;
 	if (!strcmp(filename, dl_filename) && dl_status != NET_FILE_DOWNLOAD_FINISHED)
 		return true;
