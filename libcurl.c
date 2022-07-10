@@ -582,7 +582,7 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 	qboolean ok = false;
 	if(di->udp == CURL_UDP_NONE && di->loadtype == LOADTYPE_PAK && (status == CURL_DOWNLOAD_FAILED || status == CURL_DOWNLOAD_SERVERERROR))
 	{
-		if(strncmp(di->url, "http://", 7) && strncmp(di->url, "ftp://", 6) && strncmp(di->url, "https://", 8))
+		if(!strncmp(di->url, "http://", 7) || !strncmp(di->url, "ftp://", 6) || !strncmp(di->url, "https://", 8))
 		{
 			di->udp = CURL_UDP_QUEUED;
 			FS_Close(di->stream);
