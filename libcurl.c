@@ -591,8 +591,6 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 	#ifndef CONFIG_SV
 	if(di->udp == CURL_UDP_DOWNLOADING) Net_File_Client_Stop();
 	#endif
-	if(!curl_dll && di->udp != CURL_UDP_NONE)
-		return;
 	switch(status)
 	{
 		case CURL_DOWNLOAD_SUCCESS:
@@ -920,8 +918,6 @@ Finds the internal information block for a download given by file name.
 static downloadinfo *Curl_Find(const char *filename)
 {
 	downloadinfo *di;
-	if(!curl_dll)
-		return NULL;
 	for(di = downloads; di; di = di->next)
 		if(!strcasecmp(di->filename, filename))
 			return di;
@@ -931,8 +927,6 @@ static downloadinfo *Curl_Find(const char *filename)
 void Curl_Cancel_ToMemory(curl_callback_t callback, void *cbdata)
 {
 	downloadinfo *di;
-	if(!curl_dll)
-		return;
 	for(di = downloads; di; )
 	{
 		if(di->callback == callback && di->callback_data == cbdata)
@@ -1364,9 +1358,6 @@ Stops ALL downloads.
 */
 void Curl_CancelAll(void)
 {
-	if(!curl_dll)
-		return;
-
 	if (curl_mutex) Thread_LockMutex(curl_mutex);
 
 	while(downloads)
@@ -1693,19 +1684,19 @@ Curl_downloadinfo_t *Curl_GetDownloadInfo(int *nDownloads, const char **addition
 	downloadinfo *di;
 	Curl_downloadinfo_t *downinfo;
 
-	if(!curl_dll)
+	if (curl_mutex) Thread_LockMutex(curl_mutex);
+
+	i = 0;
+	for(di = downloads; di; di = di->next)
+		++i;
+
+	if(!i)
 	{
 		*nDownloads = 0;
 		if(additional_info)
 			*additional_info = NULL;
 		return NULL;
 	}
-
-	if (curl_mutex) Thread_LockMutex(curl_mutex);
-
-	i = 0;
-	for(di = downloads; di; di = di->next)
-		++i;
 
 	downinfo = (Curl_downloadinfo_t *) Z_Malloc(sizeof(*downinfo) * i);
 	i = 0;
