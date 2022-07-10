@@ -233,7 +233,6 @@ typedef struct downloadinfo_s
 	size_t postbufsize;
 	const char *post_content_type;
 	const char *extraheaders;
-
 	int udp;
 }
 downloadinfo;
@@ -580,6 +579,7 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 {
 	char content_type[64];
 	qboolean ok = false;
+	#ifndef CONFIG_SV
 	if(di->udp == CURL_UDP_NONE && di->loadtype == LOADTYPE_PAK && (status == CURL_DOWNLOAD_FAILED || status == CURL_DOWNLOAD_SERVERERROR))
 	{
 		if(!strncmp(di->url, "http://", 7) || !strncmp(di->url, "ftp://", 6) || !strncmp(di->url, "https://", 8))
@@ -591,7 +591,6 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 			return;
 		}
 	}
-	#ifndef CONFIG_SV
 	if(di->udp == CURL_UDP_DOWNLOADING) Net_File_Client_Stop();
 	#endif
 	switch(status)
@@ -755,7 +754,8 @@ static void CheckPendingDownloads(void)
 		{
 			if(!di->started)
 			{
-				if(!curl_dll)
+				#ifndef CONFIG_SV
+				if(!curl_dll || !cl_curl_enabled.integer)
 				{
 					if(di->loadtype == LOADTYPE_PAK)
 					{
@@ -768,6 +768,7 @@ static void CheckPendingDownloads(void)
 
 					continue;
 				}
+				#endif
 				if(!di->buffer)
 				{
 					Con_Printf("Downloading %s -> %s", CleanURL(di->url, urlbuf, sizeof(urlbuf)), di->filename);
@@ -957,7 +958,11 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 		if(loadtype != LOADTYPE_NONE)
 			Host_Error("Curl_Begin: loadtype and buffer are both set");
 
-	if((!curl_dll || !cl_curl_enabled.integer) && loadtype != LOADTYPE_PAK)
+	if((!curl_dll || !cl_curl_enabled.integer)
+			#ifndef CONFIG_SV
+			&& loadtype != LOADTYPE_PAK
+			#endif
+	)
 	{
 		Con_Printf("Curl_Begin: %s\n", (curl_dll ? "libcurl support not enabled. Set cl_curl_enabled to 1 to enable." : "libcurl DLL not found."));
 		return false;

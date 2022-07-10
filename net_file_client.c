@@ -173,6 +173,11 @@ static void Net_File_Client_Request(const char *filename)
 qboolean Net_File_Client_Download_Start(const char *filename)
 {
 	Con_DPrintf("Net_File_Client_Download_Start: %s\n", filename);
+	if (cls.state != ca_connected)
+	{
+		Con_Printf("Net_File_Client_Download_Start: not connected\n");
+		return false;
+	}
 	if (!strncmp(filename, "dlcache/", 8)) filename += 8;
 	if (!strcmp(filename, dl_filename) && dl_status != NET_FILE_DOWNLOAD_FINISHED)
 		return true;
