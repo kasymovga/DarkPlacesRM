@@ -109,7 +109,7 @@ static void Mod_Sprite_SharedSetup(const unsigned char *datapointer, int version
 	modelradius = 0;
 
 	if (loadmodel->numframes < 1)
-		Host_Error ("Mod_Sprite_SharedSetup: Invalid # of frames: %d", loadmodel->numframes);
+		MODEL_LOAD_ERROR ("Invalid # of frames: %d", loadmodel->numframes);
 
 	// LordHavoc: hack to allow sprites to be non-fullbright
 	fullbright = true;
@@ -180,7 +180,7 @@ static void Mod_Sprite_SharedSetup(const unsigned char *datapointer, int version
 
 			interval = LittleFloat(pinintervals[0].interval);
 			if (interval < 0.01f)
-				Host_Error("Mod_Sprite_SharedSetup: invalid interval");
+				MODEL_LOAD_ERROR("invalid interval");
 		}
 
 		dpsnprintf(loadmodel->animscenes[i].name, sizeof(loadmodel->animscenes[i].name), "frame %i", i);
@@ -323,7 +323,7 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		datapointer += 2;
 		i = in[0] + in[1] * 256;
 		if (i != 256)
-			Host_Error ("Mod_IDSP_Load: unexpected number of palette colors %i (should be 256)", i);
+			MODEL_LOAD_ERROR ("unexpected number of palette colors %i (should be 256)", i);
 		in = datapointer;
 		datapointer += 768;
 		switch(rendermode)
@@ -369,7 +369,7 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			// should this use alpha test or alpha blend?  (currently blend)
 			break;
 		default:
-			Host_Error("Mod_IDSP_Load: unknown texFormat (%i, should be 0, 1, 2, or 3)", i);
+			MODEL_LOAD_ERROR("unknown texFormat (%i, should be 0, 1, 2, or 3)", i);
 			return;
 		}
 		#ifndef CONFIG_SV
@@ -377,8 +377,8 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		#endif
 	}
 	else
-		Host_Error("Mod_IDSP_Load: %s has wrong version number (%i). Only %i (quake), %i (HalfLife), and %i (sprite32) supported",
-					loadmodel->name, version, SPRITE_VERSION, SPRITEHL_VERSION, SPRITE32_VERSION);
+		MODEL_LOAD_ERROR("wrong version number (%i). Only %i (quake), %i (HalfLife), and %i (sprite32) supported",
+					version, SPRITE_VERSION, SPRITEHL_VERSION, SPRITE32_VERSION);
 
 	// TODO: Note that isanimated only means whether vertices change due to
 	// the animation. This may happen due to sprframe parameters changing.
@@ -413,11 +413,11 @@ void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	version = LittleLong(pinqsprite->version);
 	if (version != SPRITE2_VERSION)
-		Host_Error("Mod_IDS2_Load: %s has wrong version number (%i should be 2 (quake 2)", loadmodel->name, version);
+		MODEL_LOAD_ERROR("wrong version number (%i should be 2 (quake 2)", version);
 
 	loadmodel->numframes = LittleLong (pinqsprite->numframes);
 	if (loadmodel->numframes < 1)
-		Host_Error ("Mod_IDS2_Load: Invalid # of frames: %d", loadmodel->numframes);
+		MODEL_LOAD_ERROR ("Invalid # of frames: %d", loadmodel->numframes);
 	loadmodel->sprite.sprnum_type = SPR_VP_PARALLEL;
 	loadmodel->synctype = ST_SYNC;
 

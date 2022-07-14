@@ -483,6 +483,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 	mod->crc = crc;
 	// errors can prevent the corresponding mod->loaded = true;
 	mod->loaded = false;
+	mod->failed = false;
 
 	// default lightmap scale
 	mod->lightmapscale = 1;
@@ -548,6 +549,20 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 	// no fatal errors occurred, so this model is ready to use.
 	mod->loaded = true;
+	if (mod->failed)
+	{
+		mod->DrawSky = NULL;
+		mod->DrawAddWaterPlanes = NULL;
+		mod->Draw = NULL;
+		mod->DrawDepth = NULL;
+		mod->DrawDebug = NULL;
+		mod->DrawPrepass = NULL;
+		mod->CompileShadowMap = NULL;
+		mod->DrawShadowMap = NULL;
+		mod->CompileShadowVolume = NULL;
+		mod->DrawShadowVolume = NULL;
+		mod->DrawLight = NULL;
+	}
 	#ifndef CONFIG_SV
 	SCR_PopLoadingScreen(false);
 	#endif

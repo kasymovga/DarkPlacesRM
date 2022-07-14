@@ -3346,7 +3346,7 @@ void SV_SpawnServer (const char *server)
 	Mod_FreeQ3Shaders();
 
 	worldmodel = Mod_ForName(modelname, false, developer.integer > 0, NULL);
-	if (!worldmodel || !worldmodel->TraceBox)
+	if (!worldmodel || worldmodel->failed || !worldmodel->TraceBox)
 	{
 		Con_Printf("Couldn't load map %s\n", modelname);
 		#ifndef CONFIG_SV
