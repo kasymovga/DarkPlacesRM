@@ -287,7 +287,7 @@ static textypeinfo_t *R_GetTexTypeInfo(textype_t textype, int flags)
 	case TEXTYPE_SRGB_BGRA: return ((flags & TEXF_COMPRESS) && vid.support.ext_texture_compression_s3tc) ? ((flags & TEXF_ALPHA) ? &textype_sRGB_bgra_alpha_compress : &textype_sRGB_bgra_compress) : ((flags & TEXF_ALPHA) ? &textype_sRGB_bgra_alpha : &textype_sRGB_bgra);
 #endif
 	default:
-		Host_Error("R_GetTexTypeInfo: unknown texture format");
+		Sys_Error("R_GetTexTypeInfo: unknown texture format");
 		break;
 	}
 	return NULL;
@@ -339,13 +339,13 @@ void R_FreeTexture(rtexture_t *rt)
 
 	glt = (gltexture_t *)rt;
 	if (glt == NULL)
-		Host_Error("R_FreeTexture: texture == NULL");
+		Sys_Error("R_FreeTexture: texture == NULL");
 
 	for (gltpointer = &glt->pool->gltchain;*gltpointer && *gltpointer != glt;gltpointer = &(*gltpointer)->chain);
 	if (*gltpointer == glt)
 		*gltpointer = glt->chain;
 	else
-		Host_Error("R_FreeTexture: texture \"%s\" not linked in pool", glt->identifier);
+		Sys_Error("R_FreeTexture: texture \"%s\" not linked in pool", glt->identifier);
 
 	R_Mesh_ClearBindingsForTexture(glt->texnum);
 
@@ -388,12 +388,12 @@ void R_FreeTexturePool(rtexturepool_t **rtexturepool)
 	pool = (gltexturepool_t *)(*rtexturepool);
 	*rtexturepool = NULL;
 	if (pool->sentinel != TEXTUREPOOL_SENTINEL)
-		Host_Error("R_FreeTexturePool: pool already freed");
+		Sys_Error("R_FreeTexturePool: pool already freed");
 	for (poolpointer = &gltexturepoolchain;*poolpointer && *poolpointer != pool;poolpointer = &(*poolpointer)->next);
 	if (*poolpointer == pool)
 		*poolpointer = pool->next;
 	else
-		Host_Error("R_FreeTexturePool: pool not linked");
+		Sys_Error("R_FreeTexturePool: pool not linked");
 	while (pool->gltchain)
 		R_FreeTexture((rtexture_t *)pool->gltchain);
 	Mem_Free(pool);
@@ -774,7 +774,7 @@ static void R_MakeResizeBufferBigger(int size)
 		resizebuffer = (unsigned char *)Mem_Alloc(texturemempool, resizebuffersize);
 		colorconvertbuffer = (unsigned char *)Mem_Alloc(texturemempool, resizebuffersize);
 		if (!resizebuffer || !colorconvertbuffer)
-			Host_Error("R_Upload: out of memory");
+			Sys_Error("R_Upload: out of memory");
 	}
 }
 
@@ -2226,9 +2226,9 @@ void R_UpdateTexture(rtexture_t *rt, const unsigned char *data, int x, int y, in
 {
 	gltexture_t *glt = (gltexture_t *)rt;
 	if (data == NULL)
-		Host_Error("R_UpdateTexture: no data supplied");
+		Sys_Error("R_UpdateTexture: no data supplied");
 	if (glt == NULL)
-		Host_Error("R_UpdateTexture: no texture supplied");
+		Sys_Error("R_UpdateTexture: no texture supplied");
 	if (!glt->texnum)
 	{
 		Con_DPrintf("R_UpdateTexture: texture %p \"%s\" in pool %p has not been uploaded yet\n", (void *)glt, glt->identifier, (void *)glt->pool);

@@ -41,7 +41,7 @@ void Sys_Error (const char *error, ...)
 
 	Con_Printf ("Quake Error: %s\n", string);
 
-	Host_Shutdown ();
+	Sys_Shutdown ();
 	exit (1);
 }
 
