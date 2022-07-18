@@ -1289,7 +1289,10 @@ static qboolean SV_PrepareEntityForSending (prvm_edict_t *ent, entity_state_t *c
 	cs->viewmodelforclient = PRVM_serveredictedict(ent, viewmodelforclient);
 	cs->exteriormodelforclient = PRVM_serveredictedict(ent, exteriormodeltoclient);
 	cs->nodrawtoclient = PRVM_serveredictedict(ent, nodrawtoclient);
-	cs->drawonlytoclient = PRVM_serveredictedict(ent, drawonlytoclient);
+	if (PRVM_serveredictedict(ent, existsonlyfor) != PRVM_EDICT_TO_PROG(prog->edicts))
+		cs->drawonlytoclient = PRVM_serveredictedict(ent, existsonlyfor);
+	else
+		cs->drawonlytoclient = PRVM_serveredictedict(ent, drawonlytoclient);
 	cs->customizeentityforclient = customizeentityforclient;
 	cs->tagentity = PRVM_serveredictedict(ent, tag_entity);
 	cs->tagindex = (unsigned char)PRVM_serveredictfloat(ent, tag_index);

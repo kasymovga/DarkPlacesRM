@@ -94,6 +94,37 @@ int SV_GenericHitSuperContentsMask(const prvm_edict_t *passedict)
 		return SUPERCONTENTS_SOLID | SUPERCONTENTS_BODY | SUPERCONTENTS_CORPSE;
 }
 
+static inline qboolean SV_TraceSkip(prvm_prog_t *prog, prvm_edict_t *passedict, prvm_edict_t *traceowner, prvm_edict_t *touch, int clipgroup, int passedictprog)
+{
+	// don't clip against self
+	int passedict_existsonlyfor, touch_existsonlyfor;
+	if (passedict == touch)
+		return true;
+	// don't clip owned entities against owner
+	if (traceowner == touch)
+		return true;
+	// don't clip owner against owned entities
+	if (passedictprog == PRVM_serveredictedict(touch, owner))
+		return true;
+	// don't clip against any entities in the same clipgroup (DP_RM_CLIPGROUP)
+	if (clipgroup && clipgroup == (int)PRVM_serveredictfloat(touch, clipgroup))
+		return true;
+	// check for existsonlyfor
+	passedict_existsonlyfor = PRVM_serveredictedict(passedict, existsonlyfor);
+	touch_existsonlyfor = PRVM_serveredictedict(touch, existsonlyfor);
+	if (touch_existsonlyfor
+			&& touch_existsonlyfor != passedictprog
+			&& touch_existsonlyfor != passedict_existsonlyfor
+			&& touch_existsonlyfor != PRVM_serveredictedict(passedict, owner))
+		return true;
+	if (passedict_existsonlyfor
+			&& passedict_existsonlyfor != PRVM_EDICT_TO_PROG(touch)
+			&& passedict_existsonlyfor != touch_existsonlyfor
+			&& passedict_existsonlyfor != PRVM_serveredictedict(touch, owner))
+		return true;
+	return false;
+}
+
 /*
 ==================
 SV_TracePoint
@@ -198,18 +229,7 @@ trace_t SV_TracePoint(const vec3_t start, int type, prvm_edict_t *passedict, int
 
 		if (passedict)
 		{
-			// don't clip against self
-			if (passedict == touch)
-				continue;
-			// don't clip owned entities against owner
-			if (traceowner == touch)
-				continue;
-			// don't clip owner against owned entities
-			if (passedictprog == PRVM_serveredictedict(touch, owner))
-				continue;
-            // don't clip against any entities in the same clipgroup (DP_RM_CLIPGROUP)
-            if (clipgroup && clipgroup == (int)PRVM_serveredictfloat(touch, clipgroup))
-                continue;
+			if (SV_TraceSkip(prog, passedict, traceowner, touch, clipgroup, passedictprog)) continue;
 			// don't clip points against points (they can't collide)
 			if (VectorCompare(PRVM_serveredictvector(touch, mins), PRVM_serveredictvector(touch, maxs)) && (type != MOVE_MISSILE || !((int)PRVM_serveredictfloat(touch, flags) & FL_MONSTER)))
 				continue;
@@ -357,18 +377,7 @@ trace_t SV_TraceLine(const vec3_t start, const vec3_t end, int type, prvm_edict_
 
 		if (passedict)
 		{
-			// don't clip against self
-			if (passedict == touch)
-				continue;
-			// don't clip owned entities against owner
-			if (traceowner == touch)
-				continue;
-			// don't clip owner against owned entities
-			if (passedictprog == PRVM_serveredictedict(touch, owner))
-				continue;
-            // don't clip against any entities in the same clipgroup (DP_RM_CLIPGROUP)
-            if (clipgroup && clipgroup == (int)PRVM_serveredictfloat(touch, clipgroup))
-                continue;
+			if (SV_TraceSkip(prog, passedict, traceowner, touch, clipgroup, passedictprog)) continue;
 			// don't clip points against points (they can't collide)
 			if (VectorCompare(PRVM_serveredictvector(touch, mins), PRVM_serveredictvector(touch, maxs)) && (type != MOVE_MISSILE || !((int)PRVM_serveredictfloat(touch, flags) & FL_MONSTER)))
 				continue;
@@ -546,18 +555,7 @@ trace_t SV_TraceBox(const vec3_t start, const vec3_t mins, const vec3_t maxs, co
 
 		if (passedict)
 		{
-			// don't clip against self
-			if (passedict == touch)
-				continue;
-			// don't clip owned entities against owner
-			if (traceowner == touch)
-				continue;
-			// don't clip owner against owned entities
-			if (passedictprog == PRVM_serveredictedict(touch, owner))
-				continue;
-            // don't clip against any entities in the same clipgroup (DP_RM_CLIPGROUP)
-            if (clipgroup && clipgroup == (int)PRVM_serveredictfloat(touch, clipgroup))
-                continue;
+			if (SV_TraceSkip(prog, passedict, traceowner, touch, clipgroup, passedictprog)) continue;
 			// don't clip points against points (they can't collide)
 			if (pointtrace && VectorCompare(PRVM_serveredictvector(touch, mins), PRVM_serveredictvector(touch, maxs)) && (type != MOVE_MISSILE || !((int)PRVM_serveredictfloat(touch, flags) & FL_MONSTER)))
 				continue;
@@ -779,6 +777,16 @@ void SV_LinkEdict_TouchAreaGrid(prvm_edict_t *ent)
 		touch = touchedicts[i];
 		if (touch != ent && !touch->priv.server->free && (int)PRVM_serveredictfloat(touch, solid) == SOLID_TRIGGER && PRVM_serveredictfunction(touch, touch))
 		{
+			if (PRVM_serveredictedict(touch, existsonlyfor)
+					&& PRVM_serveredictedict(touch, existsonlyfor) != PRVM_EDICT_TO_PROG(ent)
+					&& PRVM_serveredictedict(touch, existsonlyfor) != PRVM_serveredictedict(ent, existsonlyfor)
+					&& PRVM_serveredictedict(touch, existsonlyfor) != PRVM_serveredictedict(ent, owner))
+				return;
+			if (PRVM_serveredictedict(ent, existsonlyfor)
+					&& PRVM_serveredictedict(ent, existsonlyfor) != PRVM_EDICT_TO_PROG(touch)
+					&& PRVM_serveredictedict(ent, existsonlyfor) != PRVM_serveredictedict(touch, existsonlyfor)
+					&& PRVM_serveredictedict(ent, existsonlyfor) != PRVM_serveredictedict(touch, owner))
+				return;
 			SV_LinkEdict_TouchAreaGrid_Call(touch, ent);
 		}
 		if (ent->priv.server->free) break;
