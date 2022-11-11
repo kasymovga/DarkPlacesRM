@@ -344,7 +344,7 @@ void CL_KeepaliveMessage (qboolean readmessages)
 	}
 
 	// no need if server is local and definitely not if this is a demo
-	if (sv.active || !cls.netcon || cls.protocol == PROTOCOL_QUAKEWORLD || cls.signon >= SIGNONS)
+	if (sv.active || !cls.netcon || cls.protocol == PROTOCOL_QUAKEWORLD || (cls.signon >= SIGNONS && !SCR_LoadingScreenIsActive()))
 	{
 		recursive = thisrecursive;
 		return;

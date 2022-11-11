@@ -2343,6 +2343,11 @@ static void SCR_SetLoadingScreenTexture(void)
 	loadingscreentexture_texcoord2f[6] = 0;loadingscreentexture_texcoord2f[7] = 0;
 }
 
+qboolean SCR_LoadingScreenIsActive(void)
+{
+	return loadingscreendone;
+}
+
 void SCR_UpdateLoadingScreenIfShown(void)
 {
 	if(loadingscreendone)
