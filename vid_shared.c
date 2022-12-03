@@ -166,7 +166,7 @@ cvar_t vid_gl13 = {0, "vid_gl13", "1", "enables faster rendering using OpenGL 1.
 cvar_t vid_gl20 = {0, "vid_gl20", "1", "enables faster rendering using OpenGL 2.0 features (such as GL_ARB_fragment_shader extension)"};
 cvar_t gl_finish = {0, "gl_finish", "0", "make the cpu wait for the graphics processor at the end of each rendered frame (can help with strange input or video lag problems on some machines)"};
 cvar_t vid_sRGB = {CVAR_SAVE, "vid_sRGB", "0", "if hardware is capable, modify rendering to be gamma corrected for the sRGB color standard (computer monitors, TVs), recommended"};
-cvar_t vid_sRGB_fallback = {CVAR_SAVE, "vid_sRGB_fallback", "0", "do an approximate sRGB fallback if not properly supported by hardware (2: also use the fallback if framebuffer is 8bit, 3: always use the fallback even if sRGB is supported)"};
+cvar_t vid_sRGB_fallback = {CVAR_SAVE, "vid_sRGB_fallback", "0", "do an approximate sRGB fallback if not properly supported by hardware (3: always use the fallback even if sRGB is supported)"};
 
 cvar_t vid_touchscreen = {0, "vid_touchscreen", "0", "Use touchscreen-style input (no mouse grab, track mouse motion only while button is down, screen areas for mimicing joystick axes and buttons"};
 cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "shows the platform's screen keyboard for text entry, can be set by csqc or menu qc if it wants to receive text input, does nothing if the platform has no screen keyboard"};
@@ -1850,9 +1850,6 @@ static int VID_Mode(int fullscreen, int width, int height, int bpp, float refres
 
 		if(
 			(vid_sRGB_fallback.integer >= 3) // force fallback
-			||
-			(vid_sRGB_fallback.integer >= 2 && // fallback if framebuffer is 8bit
-				!(r_viewfbo.integer >= 2 && vid.support.ext_framebuffer_object && vid.support.arb_texture_non_power_of_two && vid.samples < 2))
 		)
 			vid.sRGB2D = vid.sRGB3D = false;
 

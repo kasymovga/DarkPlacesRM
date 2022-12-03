@@ -160,7 +160,7 @@ static cvar_t gl_combine = {CVAR_READONLY, "gl_combine", "1", "indicates whether
 static cvar_t r_glsl = {CVAR_READONLY, "r_glsl", "1", "indicates whether the OpenGL 2.0 rendering path is active"};
 
 cvar_t r_usedepthtextures = {CVAR_SAVE, "r_usedepthtextures", "1", "use depth texture instead of depth renderbuffer where possible, uses less video memory but may render slower (or faster) depending on hardware"};
-cvar_t r_viewfbo = {CVAR_SAVE, "r_viewfbo", "0", "enables use of an 8bit (1) or 16bit (2) or 32bit (3) per component float framebuffer render, which may be at a different resolution than the video mode"};
+cvar_t r_viewfbo = {CVAR_SAVE, "r_viewfbo", "0", "enables use of framebuffer render, which may be at a different resolution than the video mode"};
 cvar_t r_viewscale = {CVAR_SAVE, "r_viewscale", "1", "scaling factor for resolution of the fbo rendering method, must be > 0, can be above 1 for a costly antialiasing behavior, typical values are 0.5 for 1/4th as many pixels rendered, or 1 for normal rendering"};
 cvar_t r_viewscale_fpsscaling = {CVAR_SAVE, "r_viewscale_fpsscaling", "0", "change resolution based on framerate"};
 cvar_t r_viewscale_fpsscaling_min = {CVAR_SAVE, "r_viewscale_fpsscaling_min", "0.0625", "worst acceptable quality"};
@@ -5227,11 +5227,6 @@ static void R_Bloom_StartFrame(void)
 	{
 	case RENDERPATH_GL20:
 		r_fb.usedepthtextures = r_usedepthtextures.integer != 0;
-		if (vid.support.ext_framebuffer_object && vid.support.arb_texture_non_power_of_two)
-		{
-			if (r_viewfbo.integer == 2) textype = TEXTYPE_COLORBUFFER16F;
-			if (r_viewfbo.integer == 3) textype = TEXTYPE_COLORBUFFER32F;
-		}
 		break;
 	case RENDERPATH_GL11:
 	case RENDERPATH_GL13:
