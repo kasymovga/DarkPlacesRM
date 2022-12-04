@@ -4780,7 +4780,7 @@ static void R_Water_StartFrame(void)
 	int i;
 	int waterwidth, waterheight, texturewidth, textureheight, camerawidth, cameraheight;
 	r_waterstate_waterplane_t *p;
-	qboolean usewaterfbo = (r_viewfbo.integer >= 1 || r_water_fbo.integer >= 1) && vid.support.ext_framebuffer_object && (vid.samples < 2 || r_viewscale.value != 1 || r_water_resolutionmultiplier.value != 1);
+	qboolean usewaterfbo = (r_viewfbo.integer >= 1 || r_water_fbo.integer >= 1) && vid.support.ext_framebuffer_object && (vid.samples < 2 || r_viewscale.value != 1 || r_water_resolutionmultiplier.value != 1 || r_fxaa.integer);
 
 	if (vid.width > (int)vid.maxtexturesize_2d || vid.height > (int)vid.maxtexturesize_2d)
 		return;
@@ -4984,7 +4984,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	int planeindex;
 	r_waterstate_waterplane_t *p;
 	vec3_t visorigin;
-	qboolean usewaterfbo = (r_viewfbo.integer >= 1 || r_water_fbo.integer >= 1) && vid.support.ext_framebuffer_object && (vid.samples < 2 || r_viewscale.value != 1 || r_water_resolutionmultiplier.value != 1);
+	qboolean usewaterfbo = (r_viewfbo.integer >= 1 || r_water_fbo.integer >= 1) && vid.support.ext_framebuffer_object && (vid.samples < 2 || r_viewscale.value != 1 || r_water_resolutionmultiplier.value != 1 || r_fxaa.integer);
 	char vabuf[1024];
 
 	originalview = r_refdef.view;
@@ -5220,7 +5220,7 @@ static void R_Bloom_StartFrame(void)
 	int i;
 	int bloomtexturewidth, bloomtextureheight, screentexturewidth, screentextureheight;
 	int viewwidth, viewheight;
-	qboolean useviewfbo = r_viewfbo.integer >= 1 && vid.support.ext_framebuffer_object && (vid.samples < 2 || r_viewscale.value != 1);
+	qboolean useviewfbo = r_viewfbo.integer >= 1 && vid.support.ext_framebuffer_object && (vid.samples < 2 || r_viewscale.value != 1 || r_fxaa.integer);
 	textype_t textype = TEXTYPE_COLORBUFFER;
 
 	switch (vid.renderpath)
