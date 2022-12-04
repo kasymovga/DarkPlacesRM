@@ -24,6 +24,7 @@ cvar_t scr_conalpha2factor = {CVAR_SAVE, "scr_conalpha2factor", "0", "opacity of
 cvar_t scr_conalpha3factor = {CVAR_SAVE, "scr_conalpha3factor", "0", "opacity of console background gfx/conback3 relative to scr_conalpha; when 0, gfx/conback3 is not drawn"};
 cvar_t scr_conbrightness = {CVAR_SAVE, "scr_conbrightness", "1", "brightness of console background (0 = black, 1 = image)"};
 cvar_t scr_conforcewhiledisconnected = {0, "scr_conforcewhiledisconnected", "1", "forces fullscreen console while disconnected"};
+cvar_t scr_conheight = {0, "scr_conheight", "0", "height of console"};
 cvar_t scr_conscroll_x = {CVAR_SAVE, "scr_conscroll_x", "0", "scroll speed of gfx/conback in x direction"};
 cvar_t scr_conscroll_y = {CVAR_SAVE, "scr_conscroll_y", "0", "scroll speed of gfx/conback in y direction"};
 cvar_t scr_conscroll2_x = {CVAR_SAVE, "scr_conscroll2_x", "0", "scroll speed of gfx/conback2 in x direction"};
@@ -723,7 +724,14 @@ static void SCR_SetUpToDrawConsole (void)
 
 // decide on the height of the console
 	if (key_consoleactive & KEY_CONSOLEACTIVE_USER)
-		conlines = vid_conheight.integer/2;	// half screen
+	{
+		if (scr_conheight.integer > 0)
+			conlines = scr_conheight.integer; //custom
+		else if (vid_touchscreen.integer)
+			conlines = vid_conheight.integer / 3; // third screen
+		else
+			conlines = vid_conheight.integer / 2;	// half screen
+	}
 	else
 		conlines = 0;				// none visible
 
@@ -740,8 +748,10 @@ void SCR_DrawConsole (void)
 	scr_con_margin_bottom = SCR_InfobarHeight();
 	if (key_consoleactive & KEY_CONSOLEACTIVE_FORCED)
 	{
-		// full screen
-		Con_DrawConsole (vid_conheight.integer - scr_con_margin_bottom);
+		if (vid_touchscreen.integer)
+			Con_DrawConsole (vid_conheight.integer / 3 - scr_con_margin_bottom);
+		else
+			Con_DrawConsole (vid_conheight.integer - scr_con_margin_bottom);
 	}
 	else if (scr_con_current)
 		Con_DrawConsole (min((int)scr_con_current, vid_conheight.integer - scr_con_margin_bottom));
@@ -1334,6 +1344,7 @@ void CL_Screen_Init(void)
 	Cvar_RegisterVariable (&scr_conscroll3_y);
 	Cvar_RegisterVariable (&scr_conbrightness);
 	Cvar_RegisterVariable (&scr_conforcewhiledisconnected);
+	Cvar_RegisterVariable (&scr_conheight);
 #ifdef CONFIG_MENU
 	Cvar_RegisterVariable (&scr_menuforcewhiledisconnected);
 #endif
