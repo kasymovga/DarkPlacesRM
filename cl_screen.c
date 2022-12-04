@@ -2064,7 +2064,7 @@ qboolean SCR_ScreenShot(char *filename, unsigned char *buffer1, unsigned char *b
 //=============================================================================
 
 int scr_numtouchscreenareas;
-scr_touchscreenarea_t scr_touchscreenareas[128];
+scr_touchscreenarea_t scr_touchscreenareas[TOUCHSCREEN_AREAS_MAXCOUNT];
 
 static void SCR_DrawTouchscreenOverlay(void)
 {

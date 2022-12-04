@@ -84,7 +84,8 @@ scr_touchscreenarea_t;
 
 // FIXME: should resize dynamically?
 extern int scr_numtouchscreenareas;
-extern scr_touchscreenarea_t scr_touchscreenareas[128];
+#define TOUCHSCREEN_AREAS_MAXCOUNT 128
+extern scr_touchscreenarea_t scr_touchscreenareas[TOUCHSCREEN_AREAS_MAXCOUNT];
 
 #endif
 

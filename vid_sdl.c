@@ -86,6 +86,7 @@ static SDL_GLContext context;
 static SDL_Window *window;
 static int window_flags;
 static cvar_t vid_sdl_use_scancodes = {CVAR_SAVE, "vid_sdl_use_scancodes", "1", "use SDL scancodes instead of keycodes"};
+static cvar_t vid_touchscreen_sensitivity = {CVAR_SAVE, "vid_touchscreen_sensitivity", "0.25", "sensitivity of virtual touchpad"};
 static SDL_Surface *vid_softsurface;
 static vid_mode_t desktop_mode;
 
@@ -690,16 +691,18 @@ void VID_SetMouse(qboolean fullscreengrab, qboolean relative, qboolean hidecurso
 // multitouch[10][] represents the mouse pointer
 struct finger {
 	int state;
+	int area_id;
 	float x, y;
 	float start_x, start_y;
 };
 #define MAXFINGERS 11
+#define TOUCHSCREEN_AREAS_MAXCOUNT 128
 static struct finger multitouch[MAXFINGERS];
 struct touchscreen_area {
 	int dest, corner, x, y, width, height;
 	char image[64], cmd[32];
 };
-static struct touchscreen_area touchscreen_areas[126];
+static struct touchscreen_area touchscreen_areas[TOUCHSCREEN_AREAS_MAXCOUNT - 2];
 int touchscreen_areas_count;
 
 static void VID_TouchScreenInit(void) {
@@ -710,7 +713,7 @@ static void VID_TouchScreenInit(void) {
 	const char *tok;
 	int line_num = 0;
 	touchscreen_areas_count = 0;
-	while (cfg && touchscreen_areas_count < 126) {
+	while (cfg && touchscreen_areas_count < TOUCHSCREEN_AREAS_MAXCOUNT - 2) {
 		line_num++;
 		nl = strchr(cfg, '\n');
 		if (nl) {
@@ -743,7 +746,7 @@ static void VID_TouchScreenInit(void) {
 }
 
 // modified heavily by ELUAN
-static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, float pwidth, float pheight, const char *icon, const char *command, qboolean *resultbutton)
+static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, float pwidth, float pheight, const char *icon, const char *command, qboolean *resultbutton, int id)
 {
 	int finger;
 	float fx, fy, fwidth, fheight;
@@ -786,8 +789,9 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 		fheight = pheight / vid_conheight.value;
 		for (finger = 0;finger < MAXFINGERS;finger++)
 		{
-			if (multitouch[finger].state && multitouch[finger].start_x >= fx && multitouch[finger].start_y >= fy && multitouch[finger].start_x < fx + fwidth && multitouch[finger].start_y < fy + fheight)
+			if (multitouch[finger].state && ((multitouch[finger].start_x >= fx && multitouch[finger].start_y >= fy && multitouch[finger].start_x < fx + fwidth && multitouch[finger].start_y < fy + fheight && multitouch[finger].area_id < 0) || multitouch[finger].area_id == id))
 			{
+				multitouch[finger].area_id = id;
 				rel[0] = bound(-1, (multitouch[finger].x - multitouch[finger].start_x) * (4.0f / fwidth), 1);
 				rel[1] = bound(-1, (multitouch[finger].y - multitouch[finger].start_y) * (4.0f / fheight), 1);
 				rel[2] = 0;
@@ -802,7 +806,7 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 				break;
 			}
 		}
-		if (scr_numtouchscreenareas < 128)
+		if (scr_numtouchscreenareas < TOUCHSCREEN_AREAS_MAXCOUNT)
 		{
 			scr_touchscreenareas[scr_numtouchscreenareas].pic = icon;
 			scr_touchscreenareas[scr_numtouchscreenareas].rect[0] = px;
@@ -824,8 +828,10 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 			}
 		} else if (!strcmp(command, "*aim")) {
 			if (button) {
-				cl.viewangles[0] += rel[1] * cl_pitchspeed.value * cl.realframetime;
-				cl.viewangles[1] -= rel[0] * cl_yawspeed.value * cl.realframetime;
+				cl.viewangles[0] += rel[1] * cl_pitchspeed.value * vid_touchscreen_sensitivity.value;
+				cl.viewangles[1] -= rel[0] * cl_yawspeed.value * vid_touchscreen_sensitivity.value;
+				multitouch[finger].start_x = multitouch[finger].x;
+				multitouch[finger].start_y = multitouch[finger].y;
 			}
 		} else if (!strcmp(command, "*click")) {
 			if (*resultbutton != button) {
@@ -890,8 +896,8 @@ void VID_BuildJoyState(vid_joystate_t *joystate)
 static qboolean IN_Move_TouchScreen_Quake(void)
 {
 	int x, y, n = 0, p = 0, st;
-	static qboolean oldbuttons[128];
-	static qboolean buttons[128];
+	static qboolean oldbuttons[TOUCHSCREEN_AREAS_MAXCOUNT];
+	static qboolean buttons[TOUCHSCREEN_AREAS_MAXCOUNT];
 	keydest_t keydest = (key_consoleactive & KEY_CONSOLEACTIVE_USER) ? key_console : key_dest;
 	memcpy(oldbuttons, buttons, sizeof(oldbuttons));
 
@@ -900,6 +906,7 @@ static qboolean IN_Move_TouchScreen_Quake(void)
 	multitouch[MAXFINGERS-1].x = ((float)x) / vid.width;
 	multitouch[MAXFINGERS-1].y = ((float)y) / vid.height;
 	if (!multitouch[MAXFINGERS-1].state) {
+		multitouch[MAXFINGERS-1].area_id = -1;
 		multitouch[MAXFINGERS-1].start_x = multitouch[MAXFINGERS-1].x;
 		multitouch[MAXFINGERS-1].start_y = multitouch[MAXFINGERS-1].y;
 	}
@@ -910,11 +917,13 @@ static qboolean IN_Move_TouchScreen_Quake(void)
 	in_windowmouse_y = y;
 	for (n = 0; n < touchscreen_areas_count; n++) {
 		p += VID_TouchscreenArea(touchscreen_areas[n].dest, touchscreen_areas[n].corner, touchscreen_areas[n].x, touchscreen_areas[n].y,
-				touchscreen_areas[n].width, touchscreen_areas[n].height, touchscreen_areas[n].image, touchscreen_areas[n].cmd, &buttons[n]);
+				touchscreen_areas[n].width, touchscreen_areas[n].height, touchscreen_areas[n].image, touchscreen_areas[n].cmd, &buttons[n], n);
 	}
 	if (!p) {
-		p += VID_TouchscreenArea(7, 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n++]);
-		p += VID_TouchscreenArea(6, 0,   0,   0, vid_conwidth.integer, vid_conheight.integer, NULL, "*click", &buttons[n]);
+		n++;
+		p += VID_TouchscreenArea(7, 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n], n);
+		n++;
+		p += VID_TouchscreenArea(6, 0,   0,   0, vid_conwidth.integer, vid_conheight.integer, NULL, "*click", &buttons[n], n);
 	}
 	if (keydest == key_console && !VID_ShowingKeyboard())
 	{
@@ -1247,6 +1256,7 @@ void Sys_SendKeyEvents( void )
 				{
 					if (!multitouch[i].state)
 					{
+						multitouch[i].area_id = -1;
 						multitouch[i].state = event.tfinger.fingerId + 1;
 						multitouch[i].start_x = multitouch[i].x = event.tfinger.x;
 						multitouch[i].start_y = multitouch[i].y = event.tfinger.y;
@@ -1265,6 +1275,7 @@ void Sys_SendKeyEvents( void )
 				{
 					if (multitouch[i].state == event.tfinger.fingerId + 1)
 					{
+						multitouch[i].area_id = -1;
 						multitouch[i].state = 0;
 						break;
 					}
@@ -1930,6 +1941,7 @@ void VID_Init (void)
 	R_RegisterModule("SDL", sdl_start, sdl_shutdown, sdl_newmap, NULL, NULL);
 #endif
 	Cvar_RegisterVariable(&vid_sdl_use_scancodes);
+	Cvar_RegisterVariable(&vid_touchscreen_sensitivity);
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 		Sys_Error ("Failed to init SDL video subsystem: %s", SDL_GetError());
 	vid_sdl_initjoysticksystem = SDL_InitSubSystem(SDL_INIT_JOYSTICK) >= 0;
