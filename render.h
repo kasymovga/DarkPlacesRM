@@ -122,7 +122,6 @@ extern cvar_t r_drawworld;
 extern cvar_t r_speeds;
 extern cvar_t r_fullbright;
 extern cvar_t r_wateralpha;
-extern cvar_t r_dynamic;
 
 void R_Init(void);
 void R_UpdateVariables(void); // must call after setting up most of r_refdef, but before calling R_RenderView
