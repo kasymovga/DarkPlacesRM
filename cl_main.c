@@ -803,7 +803,7 @@ void CL_RelinkLightFlashes(void)
 	float frac, f;
 	matrix4x4_t tempmatrix;
 
-	if (r_dynamic.integer)
+	if (r_shadow_realtime_dlight.integer)
 	{
 		for (i = 0, dl = cl.dlights;i < cl.num_dlights && r_refdef.scene.numlights < MAX_DLIGHTS;i++, dl++)
 		{

@@ -117,7 +117,6 @@ cvar_t r_fakelight_intensity = {0, "r_fakelight_intensity","0.75", "fakelight in
 #define FAKELIGHT_ENABLED (r_fakelight.integer >= 2 || (r_fakelight.integer && r_refdef.scene.worldmodel && !r_refdef.scene.worldmodel->lit))
 
 cvar_t r_wateralpha = {CVAR_SAVE, "r_wateralpha","1", "opacity of water polygons"};
-cvar_t r_dynamic = {CVAR_SAVE, "r_dynamic","1", "enables dynamic lights (rocket glow and such)"};
 cvar_t r_fullbrights = {CVAR_SAVE, "r_fullbrights", "1", "enables glowing pixels in quake textures (changes need r_restart to take effect)"};
 cvar_t r_shadows = {CVAR_SAVE, "r_shadows", "0", "casts fake stencil shadows from models onto the world (rtlights are unaffected by this); when set to 2, always cast the shadows in the direction set by r_shadows_throwdirection, otherwise use the model lighting."};
 cvar_t r_shadows_darken = {CVAR_SAVE, "r_shadows_darken", "0.5", "how much shadowed areas will be darkened"};
@@ -3360,7 +3359,6 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_speeds);
 	Cvar_RegisterVariable(&r_fullbrights);
 	Cvar_RegisterVariable(&r_wateralpha);
-	Cvar_RegisterVariable(&r_dynamic);
 	Cvar_RegisterVariable(&r_fakelight);
 	Cvar_RegisterVariable(&r_fakelight_intensity);
 	Cvar_RegisterVariable(&r_fullbright);
@@ -5800,7 +5798,7 @@ void R_UpdateVariables(void)
 
 	r_refdef.scene.rtworld = (r_shadow_realtime_world.integer != 0 && !(r_refdef.view.camera && r_water_lowquality.integer >= 1));
 	r_refdef.scene.rtworldshadows = r_shadow_realtime_world_shadows.integer && vid.stencil;
-	r_refdef.scene.rtdlight = (r_shadow_realtime_dlight.integer != 0 && !gl_flashblend.integer && r_dynamic.integer && !(r_refdef.view.camera && r_water_lowquality.integer >= 1));
+	r_refdef.scene.rtdlight = (r_shadow_realtime_dlight.integer != 0 && !gl_flashblend.integer && !(r_refdef.view.camera && r_water_lowquality.integer >= 1));
 	r_refdef.scene.rtdlightshadows = r_refdef.scene.rtdlight && r_shadow_realtime_dlight_shadows.integer && vid.stencil;
 	r_refdef.lightmapintensity = r_refdef.scene.rtworld ? r_shadow_realtime_world_lightmaps.value : 1;
 	if (FAKELIGHT_ENABLED)
