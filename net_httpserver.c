@@ -137,6 +137,7 @@ static enum MHD_Result Net_HttpServer_Request(void *cls, struct MHD_Connection *
 	response = MHD_create_response_from_callback(FS_FileSize(pk3_file), 32 * 1024, Net_HttpServer_FileReadCallback, pk3_file, Net_HttpServer_FileFreeCallback);
 	if (!response) {
 		FS_Close(pk3_file);
+		Con_Printf("libmicrohttpd response failed\n");
 		return MHD_NO;
 	}
 	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
@@ -163,11 +164,16 @@ static int Net_HttpServer_Thread(void *daemon) {
 		if (MHD_get_timeout(daemon, &mhd_timeout) == MHD_YES) {
 			tv.tv_sec = mhd_timeout / 1000LL;
 			tv.tv_usec = (mhd_timeout - (tv.tv_sec * 1000LL)) * 1000LL;
-			if (select(max + 1, &rs, &ws, &es, &tv) < 0 && errno != EINTR)
+			if (select(max + 1, &rs, &ws, &es, &tv) < 0) {
+				if (errno == EINTR) continue;
+				Con_Printf("libmicrohttpd thread: select() return -1\n");
 				break;
-		} else if (select(max + 1, &rs, &ws, &es, NULL) < 0 && errno != EINTR)
+			}
+		} else if (select(max + 1, &rs, &ws, &es, NULL) < 0) {
+			if (errno == EINTR) continue;
+			Con_Printf("libmicrohttpd thread: select() return -1\n");
 			break;
-
+		}
 		if (FD_ISSET(control_sock[0], &rs))
 			break;
 
