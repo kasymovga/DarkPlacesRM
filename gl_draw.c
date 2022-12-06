@@ -1027,7 +1027,7 @@ static void _DrawQ_Setup(void) // see R_ResetViewRendering2D
 		return;
 	r_refdef.draw2dstage = 1;
 
-	R_ResetViewRendering2D_Common(0, NULL, NULL, vid_conwidth.integer, vid_conheight.integer);
+	R_ResetViewRendering2D_Common(0, NULL, NULL, r_refdef.view.x, vid.height - r_refdef.view.height - r_refdef.view.y, r_refdef.view.width, r_refdef.view.height, vid_conwidth.integer, vid_conheight.integer);
 }
 
 qboolean r_draw2d_force = false;

@@ -4696,14 +4696,14 @@ void R_EntityMatrix(const matrix4x4_t *matrix)
 	}
 }
 
-void R_ResetViewRendering2D_Common(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture, float x2, float y2)
+void R_ResetViewRendering2D_Common(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture, int x, int y, int width, int height, float x2, float y2)
 {
 	r_viewport_t viewport;
 
 	CHECKGLERROR
 
 	// GL is weird because it's bottom to top, r_refdef.view.y is top to bottom
-	R_Viewport_InitOrtho(&viewport, &identitymatrix, r_refdef.view.x, vid.height - r_refdef.view.height - r_refdef.view.y, r_refdef.view.width, r_refdef.view.height, 0, 0, x2, y2, -10, 100, NULL);
+	R_Viewport_InitOrtho(&viewport, &identitymatrix, x, y, width, height, 0, 0, x2, y2, -10, 100, NULL);
 	R_Mesh_SetRenderTargets(fbo, depthtexture, colortexture, NULL, NULL, NULL);
 	R_SetViewport(&viewport);
 	GL_Scissor(viewport.x, viewport.y, viewport.width, viewport.height);
@@ -4729,7 +4729,7 @@ void R_ResetViewRendering2D(int fbo, rtexture_t *depthtexture, rtexture_t *color
 {
 	DrawQ_Finish();
 
-	R_ResetViewRendering2D_Common(fbo, depthtexture, colortexture, 1, 1);
+	R_ResetViewRendering2D_Common(fbo, depthtexture, colortexture, r_refdef.view.x, vid.height - r_refdef.view.height - r_refdef.view.y, r_refdef.view.width, r_refdef.view.height, 1, 1);
 }
 
 void R_ResetViewRendering3D(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
@@ -5433,9 +5433,7 @@ static void R_Bloom_MakeTexture(void)
 	// scale down screen texture to the bloom texture size
 	CHECKGLERROR
 	r_fb.bloomindex = 0;
-	R_Mesh_SetRenderTargets(r_fb.bloomfbo[r_fb.bloomindex], NULL, r_fb.bloomtexture[r_fb.bloomindex], NULL, NULL, NULL);
-	R_SetViewport(&r_fb.bloomviewport);
-	GL_DepthTest(false);
+	R_ResetViewRendering2D_Common(r_fb.bloomfbo[r_fb.bloomindex], NULL, r_fb.bloomtexture[r_fb.bloomindex], r_fb.bloomviewport.x, r_fb.bloomviewport.y, r_fb.bloomviewport.width, r_fb.bloomviewport.height, 1, 1);
 	GL_BlendFunc(GL_ONE, GL_ZERO);
 	GL_Color(colorscale, colorscale, colorscale, 1);
 	R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f, NULL, r_fb.screentexcoord2f);
@@ -5600,15 +5598,8 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 				cl.motionbluralpha = bound(0, cl.motionbluralpha, r_motionblur_maxblur.value);
 
 				// apply the blur
-				R_ResetViewRendering2D(fbo, depthtexture, colortexture);
 				if (cl.motionbluralpha > 0 && !r_refdef.envmap && r_fb.ghosttexture_valid)
 				{
-					float r_screenvertex3f_scaled[12] = {
-						0, 0, 0,
-						viewscale, 0, 0,
-						viewscale, viewscale, 0,
-						0, viewscale, 0
-					};
 					float r_screentexcoord2f[8] = {
 						r_fb.screentexcoord2f[0],
 						r_fb.screentexcoord2f[1],
@@ -5625,10 +5616,22 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 						r_screentexcoord2f[3] -= shift;
 						r_screentexcoord2f[5] -= shift;
 						r_screentexcoord2f[7] -= shift;
+						R_ResetViewRendering2D_Common(r_fb.fbo, depthtexture, colortexture, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height, 1, 1);
+						R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f, NULL, r_screentexcoord2f);
+					}
+					else
+					{
+						float r_screenvertex3f_scaled[12] = {
+							0, 0, 0,
+							viewscale, 0, 0,
+							viewscale, viewscale, 0,
+							0, viewscale, 0
+						};
+						R_ResetViewRendering2D(fbo, depthtexture, colortexture);
+						R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f_scaled, NULL, r_screentexcoord2f);
 					}
 					GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 					GL_Color(1, 1, 1, cl.motionbluralpha);
-					R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f_scaled, NULL, r_screentexcoord2f);
 					R_SetupShader_Generic(r_fb.ghosttexture, NULL, GL_MODULATE, 1, false, true, true);
 					R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
 					r_refdef.stats[r_stat_bloom_drawpixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
