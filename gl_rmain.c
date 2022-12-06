@@ -5040,8 +5040,16 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	// render views
 	r_refdef.view = originalview;
 	r_refdef.view.showdebug = false;
+	r_refdef.view.x = 0;
 	r_refdef.view.width = r_fb.water.waterwidth;
 	r_refdef.view.height = r_fb.water.waterheight;
+	if (usewaterfbo)
+	{
+		r_refdef.view.y = (r_fb.water.textureheight - r_fb.water.waterheight * viewscale);
+	}
+	else
+		r_refdef.view.y = 0;
+
 	r_refdef.view.useclipplane = true;
 	myview = r_refdef.view;
 	r_fb.water.renderingscene = true;
