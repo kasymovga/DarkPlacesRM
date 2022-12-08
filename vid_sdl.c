@@ -1826,14 +1826,7 @@ static void GLES_Init(void)
 	vid.support.ext_blend_subtract = true; // GLES2 core
 	vid.support.ext_blend_func_separate = true; // GLES2 core
 	vid.support.ext_draw_range_elements = false;
-
-	/*	ELUAN:
-		Note: "In OS 2.1, the functions in GL_OES_framebuffer_object were not usable from the Java API.
-		Calling them just threw an exception. Android developer relations confirmed that they forgot to implement these. (yeah...)
-		It's apparently been fixed in 2.2, though I haven't tested."
-	*/
-	vid.support.ext_framebuffer_object = false;//true;
-
+	vid.support.ext_framebuffer_object = true; //GLES2 core
 	vid.support.ext_packed_depth_stencil = false;
 	vid.support.ext_stencil_two_side = false;
 	vid.support.ext_texture_3d = SDL_GL_ExtensionSupported("GL_OES_texture_3D") != 0;
