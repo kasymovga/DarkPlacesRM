@@ -990,11 +990,6 @@ static void R_UploadFullTexture(gltexture_t *glt, const unsigned char *data)
 		{
 		case GLTEXTURETYPE_2D:
 			qglTexImage2D(GL_TEXTURE_2D, mip++, glt->glinternalformat, width, height, 0, glt->glformat, glt->gltype, prevbuffer);CHECKGLERROR
-			gl_errornumber = glGetError();
-			if (gl_errornumber)
-			{
-				Con_Printf("Texture failed: %ix%i %i %i\n", (int) width, (int)height, (int)glt->glformat, (int)glt->gltype);
-			}
 			if (glt->flags & TEXF_MIPMAP)
 			{
 				while (width > 1 || height > 1 || depth > 1)
