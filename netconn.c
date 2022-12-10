@@ -3403,7 +3403,7 @@ static int NetConn_ServerParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 		for (i = 0;i < svs.maxclients;i++)
 		{
 			client = &svs.clients[i];
-			if (client->active && (i != voipsource || sv_voip_echo.integer))
+			if (client->active && client->netconnection && (i != voipsource || sv_voip_echo.integer))
 			{
 				ed = PRVM_EDICT_NUM(i + 1);
 				if (sv_voip_force.integer || PRVM_serveredictfloat(ed, voipgroup) == voipgroup || PRVM_serveredictfloat(ed, voiplistengroup) == voipgroup)
