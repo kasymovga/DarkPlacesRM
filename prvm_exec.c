@@ -713,9 +713,6 @@ void PRVM_Crash(prvm_prog_t *prog)
 
 	// delete all tempstrings (FIXME: is this safe in VM->engine->VM recursion?)
 	prog->tempstringsbuf.cursize = 0;
-
-	// reset the prog pointer
-	prog = NULL;
 }
 
 /*

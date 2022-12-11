@@ -301,3 +301,8 @@ void _Thread_WaitBarrier(void *barrier, const char *filename, int fileline)
 	}
 	Thread_UnlockMutex(b->mutex);
 }
+
+qboolean Thread_IsCurrent(void *thr)
+{
+	return GetCurrentThreadId() == ((threadwrapper_t *)thr)->threadid;
+}

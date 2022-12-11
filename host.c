@@ -164,10 +164,6 @@ void Host_Error (const char *error, ...)
 	PRVM_Crash(SVVM_prog);
 	#ifndef CONFIG_SV
 	PRVM_Crash(CLVM_prog);
-#ifdef CONFIG_MENU
-	PRVM_Crash(MVM_prog);
-#endif
-
 	cl.csqc_loaded = false;
 	#endif
 	Cvar_SetValueQuick(&csqc_progcrc, -1);

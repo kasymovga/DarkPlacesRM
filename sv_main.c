@@ -3769,6 +3769,46 @@ static qboolean SVVM_load_edict(prvm_prog_t *prog, prvm_edict_t *ent)
 	return true;
 }
 
+#ifndef CONFIG_SV
+static jmp_buf sv_abortframe;
+static void SV_Host_Error(const char *error, ...)
+{
+	char error_line[MAX_INPUTLINE];
+	static char hosterrorstring1[MAX_INPUTLINE];
+	static char hosterrorstring2[MAX_INPUTLINE];
+	static qboolean hosterror = false;
+	va_list argptr;
+	va_start (argptr,error);
+	dpvsnprintf(error_line, sizeof(error_line), error, argptr);
+	va_end(argptr);
+	if (svs.threaded && Thread_IsCurrent(svs.thread))
+	{
+		Con_Printf("SV_Host_Error: error in server thread occured\n");
+		dpsnprintf (hosterrorstring1, sizeof(hosterrorstring1), "%s", error_line);
+
+		Con_Printf("SV_Host_Error: %s\n", hosterrorstring1);
+
+		if (hosterror)
+			Sys_Error ("SV_Host_Error: recursively entered (original error was: %s    new error is: %s)", hosterrorstring2, hosterrorstring1);
+		hosterror = true;
+
+		strlcpy(hosterrorstring2, hosterrorstring1, sizeof(hosterrorstring2));
+		//PR_Crash();
+
+		// print out where the crash happened, if it was caused by QC (and do a cleanup)
+		PRVM_Crash(SVVM_prog);
+		Host_ShutdownServer ();
+		hosterror = false;
+		SV_UnlockThreadMutex();
+		longjmp (sv_abortframe, 1);
+	}
+	SV_UnlockThreadMutex();
+	Host_Error("%s", error_line);
+}
+#else
+#define SV_Host_Error Host_Error
+#endif
+
 static void SV_VM_Setup(void)
 {
 	prvm_prog_t *prog = SVVM_prog;
@@ -3801,7 +3841,7 @@ static void SV_VM_Setup(void)
 	prog->load_edict            = SVVM_load_edict;
 	prog->init_cmd              = SVVM_init_cmd;
 	prog->reset_cmd             = SVVM_reset_cmd;
-	prog->error_cmd             = Host_Error;
+	prog->error_cmd             = SV_Host_Error;
 	prog->ExecuteProgram        = SVVM_ExecuteProgram;
 
 	PRVM_Prog_Load(prog, sv_progs.string, NULL, 0, SV_REQFUNCS, sv_reqfuncs, SV_REQFIELDS, sv_reqfields, SV_REQGLOBALS, sv_reqglobals);
@@ -3970,9 +4010,8 @@ static int SV_ThreadFunc(void *voiddata)
 	sv_realtime = Sys_DirtyTime();
 	while (!svs.threadstop)
 	{
-		// FIXME: we need to handle Host_Error in the server thread somehow
-//		if (setjmp(sv_abortframe))
-//			continue;			// something bad happened in the server game
+		if (setjmp(sv_abortframe))
+			continue;			// something bad happened in the server game
 
 		sv_oldrealtime = sv_realtime;
 		sv_realtime = Sys_DirtyTime();

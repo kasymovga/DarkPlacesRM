@@ -171,3 +171,7 @@ void _Thread_WaitBarrier(void *barrier, const char *filename, int fileline)
 	}
 	Thread_UnlockMutex(b->mutex);
 }
+
+qboolean Thread_IsCurrent(void *thr) {
+	return SDL_GetThreadID(thr) == SDL_GetThreadID(NULL);
+}
