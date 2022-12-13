@@ -1416,9 +1416,6 @@ static void Host_Init (void)
 	dpsnprintf (engineversion, sizeof (engineversion), "DarkPlacesRM %s (Running %s) %s", os, gamename, buildstring);
 	Con_Printf("%s\n", engineversion);
 
-	// initialize process nice level
-	Sys_InitProcessNice();
-
 	// initialize ixtable
 	Mathlib_Init();
 
