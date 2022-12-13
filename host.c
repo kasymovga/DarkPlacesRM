@@ -126,8 +126,8 @@ void Host_Error (prvm_prog_t *prog, const char *error, ...)
 	va_start (argptr,error);
 	dpvsnprintf (hosterrorstring1,sizeof(hosterrorstring1),error,argptr);
 	va_end (argptr);
-	if (prog) Con_Printf("Host_Error called by %s in %s thread\n", prog->name, (is_sv_thread ? "server" : "main"));
 	#ifndef CONFIG_SV
+	if (prog) Con_Printf("Host_Error called by %s in %s thread\n", prog->name, (is_sv_thread ? "server" : "main"));
 	if (cls.state == ca_dedicated)
 	#endif
 		Sys_Error ("Host_Error: %s",hosterrorstring1);	// dedicated servers exit
