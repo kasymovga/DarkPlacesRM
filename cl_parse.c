@@ -785,7 +785,7 @@ static void QW_CL_ParseDownload(void)
 	}
 
 	if (cl_message.readcount + (unsigned short)size > cl_message.cursize)
-		Host_Error("corrupt download message\n");
+		Host_Error(NULL, "corrupt download message\n");
 
 	// make sure the buffer is big enough to include this new fragment
 	if (!cls.qw_downloadmemory || cls.qw_downloadmemorymaxsize < cls.qw_downloadmemorycursize + size)
@@ -844,9 +844,9 @@ static void QW_CL_ParseModelList(void)
 			break;
 		nummodels++;
 		if (nummodels==MAX_MODELS)
-			Host_Error("Server sent too many model precaches");
+			Host_Error(NULL, "Server sent too many model precaches");
 		if (strlen(str) >= MAX_QPATH)
-			Host_Error("Server sent a precache name of %i characters (max %i)", (int)strlen(str), MAX_QPATH - 1);
+			Host_Error(NULL, "Server sent a precache name of %i characters (max %i)", (int)strlen(str), MAX_QPATH - 1);
 		strlcpy(cl.model_name[nummodels], str, sizeof (cl.model_name[nummodels]));
 	}
 
@@ -879,9 +879,9 @@ static void QW_CL_ParseSoundList(void)
 			break;
 		numsounds++;
 		if (numsounds==MAX_SOUNDS)
-			Host_Error("Server sent too many sound precaches");
+			Host_Error(NULL, "Server sent too many sound precaches");
 		if (strlen(str) >= MAX_QPATH)
-			Host_Error("Server sent a precache name of %i characters (max %i)", (int)strlen(str), MAX_QPATH - 1);
+			Host_Error(NULL, "Server sent a precache name of %i characters (max %i)", (int)strlen(str), MAX_QPATH - 1);
 		strlcpy(cl.sound_name[numsounds], str, sizeof (cl.sound_name[numsounds]));
 	}
 
@@ -1525,7 +1525,7 @@ static void CL_ParseDownload(void)
 	}
 
 	if (start + size > cls.qw_downloadmemorymaxsize)
-		Host_Error("corrupt download message\n");
+		Host_Error(NULL, "corrupt download message\n");
 
 	// only advance cursize if the data is at the expected position
 	// (gaps are unacceptable)
@@ -1735,7 +1735,7 @@ static void CL_ParseServerInfo (void)
 	protocol = Protocol_EnumForNumber(i);
 	if (protocol == PROTOCOL_UNKNOWN)
 	{
-		Host_Error("CL_ParseServerInfo: Server is unrecognized protocol number (%i)", i);
+		Host_Error(NULL, "CL_ParseServerInfo: Server is unrecognized protocol number (%i)", i);
 		return;
 	}
 	cls.protocol = protocol;
@@ -1755,7 +1755,7 @@ static void CL_ParseServerInfo (void)
 
 		// change gamedir if needed
 		if (!FS_ChangeGameDirs(1, gamedir, true, false))
-			Host_Error("CL_ParseServerInfo: unable to switch to server specified gamedir");
+			Host_Error(NULL, "CL_ParseServerInfo: unable to switch to server specified gamedir");
 
 		cl.gametype = GAME_DEATHMATCH;
 		cl.maxclients = 32;
@@ -1832,7 +1832,7 @@ static void CL_ParseServerInfo (void)
 		cl.maxclients = MSG_ReadByte(&cl_message);
 		if (cl.maxclients < 1 || cl.maxclients > MAX_SCOREBOARD)
 		{
-			Host_Error("Bad maxclients (%u) from server", cl.maxclients);
+			Host_Error(NULL, "Bad maxclients (%u) from server", cl.maxclients);
 			return;
 		}
 		cl.scores = (scoreboard_t *)Mem_Alloc(cls.levelmempool, cl.maxclients*sizeof(*cl.scores));
@@ -1861,9 +1861,9 @@ static void CL_ParseServerInfo (void)
 			if (!str[0])
 				break;
 			if (nummodels==MAX_MODELS)
-				Host_Error ("Server sent too many model precaches");
+				Host_Error(NULL, "Server sent too many model precaches");
 			if (strlen(str) >= MAX_QPATH)
-				Host_Error ("Server sent a precache name of %i characters (max %i)", (int)strlen(str), MAX_QPATH - 1);
+				Host_Error(NULL, "Server sent a precache name of %i characters (max %i)", (int)strlen(str), MAX_QPATH - 1);
 			strlcpy (cl.model_name[nummodels], str, sizeof (cl.model_name[nummodels]));
 		}
 		// parse sound precache list
@@ -1873,9 +1873,9 @@ static void CL_ParseServerInfo (void)
 			if (!str[0])
 				break;
 			if (numsounds==MAX_SOUNDS)
-				Host_Error("Server sent too many sound precaches");
+				Host_Error(NULL, "Server sent too many sound precaches");
 			if (strlen(str) >= MAX_QPATH)
-				Host_Error("Server sent a precache name of %i characters (max %i)", (int)strlen(str), MAX_QPATH - 1);
+				Host_Error(NULL, "Server sent a precache name of %i characters (max %i)", (int)strlen(str), MAX_QPATH - 1);
 			strlcpy (cl.sound_name[numsounds], str, sizeof (cl.sound_name[numsounds]));
 		}
 
@@ -1982,7 +1982,7 @@ void CL_ValidateState(entity_state_t *s)
 		return;
 
 	if (s->modelindex >= MAX_MODELS)
-		Host_Error("CL_ValidateState: modelindex (%i) >= MAX_MODELS (%i)\n", s->modelindex, MAX_MODELS);
+		Host_Error(NULL, "CL_ValidateState: modelindex (%i) >= MAX_MODELS (%i)\n", s->modelindex, MAX_MODELS);
 
 	// these warnings are only warnings, no corrections are made to the state
 	// because states are often copied for decoding, which otherwise would
@@ -2285,7 +2285,7 @@ static void CL_ParseStatic (int large)
 	entity_t *ent;
 
 	if (cl.num_static_entities >= cl.max_static_entities)
-		Host_Error ("Too many static entities");
+		Host_Error(NULL, "Too many static entities");
 	ent = &cl.static_entities[cl.num_static_entities++];
 	CL_ParseBaseline (ent, large);
 
@@ -2586,7 +2586,7 @@ static void CL_ParseTempEntity(void)
 			break;
 
 		default:
-			Host_Error("CL_ParseTempEntity: bad type %d (hex %02X)", type, type);
+			Host_Error(NULL, "CL_ParseTempEntity: bad type %d (hex %02X)", type, type);
 		}
 	}
 	else
@@ -2961,7 +2961,7 @@ static void CL_ParseTempEntity(void)
 			break;
 
 		default:
-			Host_Error("CL_ParseTempEntity: bad type %d (hex %02X)", type, type);
+			Host_Error(NULL, "CL_ParseTempEntity: bad type %d (hex %02X)", type, type);
 		}
 	}
 }
@@ -3460,7 +3460,7 @@ void CL_ParseServerMessage(void)
 		while (1)
 		{
 			if (cl_message.badread)
-				Host_Error ("CL_ParseServerMessage: Bad QW server message");
+				Host_Error(NULL, "CL_ParseServerMessage: Bad QW server message");
 
 			cmd = MSG_ReadByte(&cl_message);
 
@@ -3506,7 +3506,7 @@ void CL_ParseServerMessage(void)
 					}
 					description[strlen(description)-1] = '\n'; // replace the last space with a newline
 					Con_Print(description);
-					Host_Error("CL_ParseServerMessage: Illegible server message");
+					Host_Error(NULL, "CL_ParseServerMessage: Illegible server message");
 				}
 				break;
 
@@ -3589,28 +3589,28 @@ void CL_ParseServerMessage(void)
 			case qw_svc_updatefrags:
 				i = MSG_ReadByte(&cl_message);
 				if (i >= cl.maxclients)
-					Host_Error("CL_ParseServerMessage: svc_updatefrags >= cl.maxclients");
+					Host_Error(NULL, "CL_ParseServerMessage: svc_updatefrags >= cl.maxclients");
 				cl.scores[i].frags = (signed short) MSG_ReadShort(&cl_message);
 				break;
 
 			case qw_svc_updateping:
 				i = MSG_ReadByte(&cl_message);
 				if (i >= cl.maxclients)
-					Host_Error("CL_ParseServerMessage: svc_updateping >= cl.maxclients");
+					Host_Error(NULL, "CL_ParseServerMessage: svc_updateping >= cl.maxclients");
 				cl.scores[i].qw_ping = MSG_ReadShort(&cl_message);
 				break;
 
 			case qw_svc_updatepl:
 				i = MSG_ReadByte(&cl_message);
 				if (i >= cl.maxclients)
-					Host_Error("CL_ParseServerMessage: svc_updatepl >= cl.maxclients");
+					Host_Error(NULL, "CL_ParseServerMessage: svc_updatepl >= cl.maxclients");
 				cl.scores[i].qw_packetloss = MSG_ReadByte(&cl_message);
 				break;
 
 			case qw_svc_updateentertime:
 				i = MSG_ReadByte(&cl_message);
 				if (i >= cl.maxclients)
-					Host_Error("CL_ParseServerMessage: svc_updateentertime >= cl.maxclients");
+					Host_Error(NULL, "CL_ParseServerMessage: svc_updateentertime >= cl.maxclients");
 				// seconds ago
 				cl.scores[i].qw_entertime = cl.time - MSG_ReadFloat(&cl_message);
 				break;
@@ -3618,7 +3618,7 @@ void CL_ParseServerMessage(void)
 			case qw_svc_spawnbaseline:
 				i = (unsigned short) MSG_ReadShort(&cl_message);
 				if (i < 0 || i >= MAX_EDICTS)
-					Host_Error ("CL_ParseServerMessage: svc_spawnbaseline: invalid entity number %i", i);
+					Host_Error(NULL, "CL_ParseServerMessage: svc_spawnbaseline: invalid entity number %i", i);
 				if (i >= cl.max_entities)
 					CL_ExpandEntities(i);
 				CL_ParseBaseline(cl.entities + i, false);
@@ -3642,14 +3642,14 @@ void CL_ParseServerMessage(void)
 			case qw_svc_updatestat:
 				i = MSG_ReadByte(&cl_message);
 				if (i < 0 || i >= MAX_CL_STATS)
-					Host_Error ("svc_updatestat: %i is invalid", i);
+					Host_Error(NULL, "svc_updatestat: %i is invalid", i);
 				cl.stats[i] = MSG_ReadByte(&cl_message);
 				break;
 
 			case qw_svc_updatestatlong:
 				i = MSG_ReadByte(&cl_message);
 				if (i < 0 || i >= MAX_CL_STATS)
-					Host_Error ("svc_updatestatlong: %i is invalid", i);
+					Host_Error(NULL, "svc_updatestatlong: %i is invalid", i);
 				cl.stats[i] = MSG_ReadLong(&cl_message);
 				break;
 
@@ -3698,7 +3698,7 @@ void CL_ParseServerMessage(void)
 				i = (unsigned short) MSG_ReadShort(&cl_message);
 				// NOTE: in QW this only worked on clients
 				if (i < 0 || i >= MAX_EDICTS)
-					Host_Error("CL_ParseServerMessage: svc_spawnbaseline: invalid entity number %i", i);
+					Host_Error(NULL, "CL_ParseServerMessage: svc_spawnbaseline: invalid entity number %i", i);
 				if (i >= cl.max_entities)
 					CL_ExpandEntities(i);
 				cl.entities[i].persistent.muzzleflash = 1.0f;
@@ -3807,7 +3807,7 @@ void CL_ParseServerMessage(void)
 		while (1)
 		{
 			if (cl_message.badread)
-				Host_Error ("CL_ParseServerMessage: Bad server message");
+				Host_Error(NULL, "CL_ParseServerMessage: Bad server message");
 
 			cmd = MSG_ReadByte(&cl_message);
 
@@ -3871,7 +3871,7 @@ void CL_ParseServerMessage(void)
 					}
 					description[strlen(description)-1] = '\n'; // replace the last space with a newline
 					Con_Print(description);
-					Host_Error ("CL_ParseServerMessage: Illegible server message");
+					Host_Error(NULL, "CL_ParseServerMessage: Illegible server message");
 				}
 				break;
 
@@ -3892,7 +3892,7 @@ void CL_ParseServerMessage(void)
 				i = MSG_ReadLong(&cl_message);
 				protocol = Protocol_EnumForNumber(i);
 				if (protocol == PROTOCOL_UNKNOWN)
-					Host_Error("CL_ParseServerMessage: Server is unrecognized protocol number (%i)", i);
+					Host_Error(NULL, "CL_ParseServerMessage: Server is unrecognized protocol number (%i)", i);
 				cls.protocol = protocol;
 				break;
 
@@ -3977,7 +3977,7 @@ void CL_ParseServerMessage(void)
 			case svc_setview:
 				cl.viewentity = (unsigned short)MSG_ReadShort(&cl_message);
 				if (cl.viewentity >= MAX_EDICTS)
-					Host_Error("svc_setview >= MAX_EDICTS");
+					Host_Error(NULL, "svc_setview >= MAX_EDICTS");
 				if (cl.viewentity >= cl.max_entities)
 					CL_ExpandEntities(cl.viewentity);
 				// LordHavoc: assume first setview recieved is the real player entity
@@ -4051,7 +4051,7 @@ void CL_ParseServerMessage(void)
 			case svc_updatename:
 				i = MSG_ReadByte(&cl_message);
 				if (i >= cl.maxclients)
-					Host_Error ("CL_ParseServerMessage: svc_updatename >= cl.maxclients");
+					Host_Error(NULL, "CL_ParseServerMessage: svc_updatename >= cl.maxclients");
 				strlcpy (cl.scores[i].name, MSG_ReadString(&cl_message, cl_readstring, sizeof(cl_readstring)), sizeof (cl.scores[i].name));
 				DP_Discord_SetStatus("", "", "");
 				break;
@@ -4059,14 +4059,14 @@ void CL_ParseServerMessage(void)
 			case svc_updatefrags:
 				i = MSG_ReadByte(&cl_message);
 				if (i >= cl.maxclients)
-					Host_Error ("CL_ParseServerMessage: svc_updatefrags >= cl.maxclients");
+					Host_Error(NULL, "CL_ParseServerMessage: svc_updatefrags >= cl.maxclients");
 				cl.scores[i].frags = (signed short) MSG_ReadShort(&cl_message);
 				break;
 
 			case svc_updatecolors:
 				i = MSG_ReadByte(&cl_message);
 				if (i >= cl.maxclients)
-					Host_Error ("CL_ParseServerMessage: svc_updatecolors >= cl.maxclients");
+					Host_Error(NULL, "CL_ParseServerMessage: svc_updatecolors >= cl.maxclients");
 				cl.scores[i].colors = MSG_ReadByte(&cl_message);
 				break;
 
@@ -4088,7 +4088,7 @@ void CL_ParseServerMessage(void)
 			case svc_spawnbaseline:
 				i = (unsigned short) MSG_ReadShort(&cl_message);
 				if (i < 0 || i >= MAX_EDICTS)
-					Host_Error ("CL_ParseServerMessage: svc_spawnbaseline: invalid entity number %i", i);
+					Host_Error(NULL, "CL_ParseServerMessage: svc_spawnbaseline: invalid entity number %i", i);
 				if (i >= cl.max_entities)
 					CL_ExpandEntities(i);
 				CL_ParseBaseline (cl.entities + i, false);
@@ -4096,7 +4096,7 @@ void CL_ParseServerMessage(void)
 			case svc_spawnbaseline2:
 				i = (unsigned short) MSG_ReadShort(&cl_message);
 				if (i < 0 || i >= MAX_EDICTS)
-					Host_Error ("CL_ParseServerMessage: svc_spawnbaseline2: invalid entity number %i", i);
+					Host_Error(NULL, "CL_ParseServerMessage: svc_spawnbaseline2: invalid entity number %i", i);
 				if (i >= cl.max_entities)
 					CL_ExpandEntities(i);
 				CL_ParseBaseline (cl.entities + i, true);
@@ -4128,7 +4128,7 @@ void CL_ParseServerMessage(void)
 				// LordHavoc: it's rude to kick off the client if they missed the
 				// reconnect somehow, so allow signon 1 even if at signon 1
 				if (i <= cls.signon && i != 1)
-					Host_Error ("Received signon %i when at %i", i, cls.signon);
+					Host_Error(NULL, "Received signon %i when at %i", i, cls.signon);
 				cls.signon = i;
 				CL_SignonReply ();
 				break;
@@ -4144,14 +4144,14 @@ void CL_ParseServerMessage(void)
 			case svc_updatestat:
 				i = MSG_ReadByte(&cl_message);
 				if (i < 0 || i >= MAX_CL_STATS)
-					Host_Error ("svc_updatestat: %i is invalid", i);
+					Host_Error(NULL, "svc_updatestat: %i is invalid", i);
 				cl.stats[i] = MSG_ReadLong(&cl_message);
 				break;
 
 			case svc_updatestatubyte:
 				i = MSG_ReadByte(&cl_message);
 				if (i < 0 || i >= MAX_CL_STATS)
-					Host_Error ("svc_updatestat: %i is invalid", i);
+					Host_Error(NULL, "svc_updatestat: %i is invalid", i);
 				cl.stats[i] = MSG_ReadByte(&cl_message);
 				break;
 

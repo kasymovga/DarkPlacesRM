@@ -61,7 +61,7 @@ void VM_Warning(prvm_prog_t *prog, const char *fmt, ...)
 void VM_CheckEmptyString(prvm_prog_t *prog, const char *s)
 {
 	if (ISWHITESPACE(s[0]))
-		prog->error_cmd("%s: Bad string", prog->name);
+		Host_Error(prog, "%s: Bad string", prog->name);
 }
 
 void VM_GenerateFrameGroupBlend(prvm_prog_t *prog, framegroupblend_t *framegroupblend, const prvm_edict_t *ed)
@@ -386,7 +386,7 @@ void VM_error(prvm_prog_t *prog)
 	ed = PRVM_PROG_TO_EDICT(PRVM_allglobaledict(self));
 	PRVM_ED_Print(prog, ed, NULL);
 
-	prog->error_cmd("%s: Program error in function %s:\n%s\nTip: read above for entity information\n", prog->name, PRVM_GetString(prog, prog->xfunction->s_name), string);
+	Host_Error(prog, "%s: Program error in function %s:\n%s\nTip: read above for entity information\n", prog->name, PRVM_GetString(prog, prog->xfunction->s_name), string);
 }
 
 /*
@@ -657,7 +657,7 @@ break()
 */
 void VM_break(prvm_prog_t *prog)
 {
-	prog->error_cmd("%s: break statement", prog->name);
+	Host_Error(prog, "%s: break statement", prog->name);
 }
 
 //============================================================================
@@ -1264,7 +1264,7 @@ void VM_findchain(prvm_prog_t *prog)
 	else
 		chainfield = prog->fieldoffsets.chain;
 	if (chainfield < 0)
-		prog->error_cmd("VM_findchain: %s doesnt have the specified chain field !", prog->name);
+		Host_Error(prog, "VM_findchain: %s doesnt have the specified chain field !", prog->name);
 
 	chain = prog->edicts;
 
@@ -1319,7 +1319,7 @@ void VM_findchainfloat(prvm_prog_t *prog)
 	else
 		chainfield = prog->fieldoffsets.chain;
 	if (chainfield < 0)
-		prog->error_cmd("VM_findchain: %s doesnt have the specified chain field !", prog->name);
+		Host_Error(prog, "VM_findchain: %s doesnt have the specified chain field !", prog->name);
 
 	chain = (prvm_edict_t *)prog->edicts;
 
@@ -1405,7 +1405,7 @@ void VM_findchainflags(prvm_prog_t *prog)
 	else
 		chainfield = prog->fieldoffsets.chain;
 	if (chainfield < 0)
-		prog->error_cmd("VM_findchain: %s doesnt have the specified chain field !", prog->name);
+		Host_Error(prog, "VM_findchain: %s doesnt have the specified chain field !", prog->name);
 
 	chain = (prvm_edict_t *)prog->edicts;
 
@@ -1515,7 +1515,7 @@ void VM_crash(prvm_prog_t *prog)
 {
 	VM_SAFEPARMCOUNT(0, VM_crash);
 
-	prog->error_cmd("Crash called by %s",prog->name);
+	Host_Error(prog, "Crash called by %s",prog->name);
 }
 
 /*
@@ -3170,13 +3170,13 @@ void VM_parseentitydata(prvm_prog_t *prog)
 	// get edict and test it
 	ent = PRVM_G_EDICT(OFS_PARM0);
 	if (ent->priv.required->free)
-		prog->error_cmd("VM_parseentitydata: %s: Can only set already spawned entities (entity %i is free)!", prog->name, PRVM_NUM_FOR_EDICT(ent));
+		Host_Error(prog, "VM_parseentitydata: %s: Can only set already spawned entities (entity %i is free)!", prog->name, PRVM_NUM_FOR_EDICT(ent));
 
 	data = PRVM_G_STRING(OFS_PARM1);
 
 	// parse the opening brace
 	if (!COM_ParseToken_Simple(&data, false, false, true) || com_token[0] != '{' )
-		prog->error_cmd("VM_parseentitydata: %s: Couldn't parse entity data:\n%s", prog->name, data );
+		Host_Error(prog, "VM_parseentitydata: %s: Couldn't parse entity data:\n%s", prog->name, data );
 
 	PRVM_ED_ParseEdict (prog, data, ent);
 }
@@ -6398,7 +6398,7 @@ void VM_uri_get (prvm_prog_t *prog)
 	size_t lq;
 
 	if(!PRVM_allfunction(URI_Get_Callback))
-		prog->error_cmd("uri_get called by %s without URI_Get_Callback defined", prog->name);
+		Host_Error(prog, "uri_get called by %s without URI_Get_Callback defined", prog->name);
 
 	VM_SAFEPARMCOUNTRANGE(2, 6, VM_uri_get);
 
@@ -6462,7 +6462,7 @@ void VM_uri_get (prvm_prog_t *prog)
 				}
 			}
 			if(ltotal != handle->postlen)
-				prog->error_cmd("%s: string buffer content size mismatch, possible overrun", prog->name);
+				Host_Error(prog, "%s: string buffer content size mismatch, possible overrun", prog->name);
 		}
 		else
 		{
@@ -6642,7 +6642,7 @@ void VM_callfunction(prvm_prog_t *prog)
 	func = PRVM_ED_FindFunction(prog, s);
 
 	if(!func)
-		prog->error_cmd("VM_callfunciton: function %s not found !", s);
+		Host_Error(prog, "VM_callfunciton: function %s not found !", s);
 	else if (func->first_statement < 0)
 	{
 		// negative statements are built in functions
@@ -6651,7 +6651,7 @@ void VM_callfunction(prvm_prog_t *prog)
 		if (builtinnumber < prog->numbuiltins && prog->builtins[builtinnumber])
 			prog->builtins[builtinnumber](prog);
 		else
-			prog->error_cmd("No such builtin #%i in %s; most likely cause: outdated engine build. Try updating!", builtinnumber, prog->name);
+			Host_Error(prog, "No such builtin #%i in %s; most likely cause: outdated engine build. Try updating!", builtinnumber, prog->name);
 	}
 	else if(func - prog->functions > 0)
 	{
@@ -7607,7 +7607,7 @@ void VM_CallFunctionEx(prvm_prog_t *prog) {
     prog->argc = prog->funcargbuffer_argc;
 
     if(!func)
-        prog->error_cmd("VM_CallFunctionEx: function %s not found!", s);
+        Host_Error(prog, "VM_CallFunctionEx: function %s not found!", s);
     else if (func->first_statement < 0) {
         // negative statements are built in functions
         int builtinnumber = -func->first_statement;
@@ -7615,7 +7615,7 @@ void VM_CallFunctionEx(prvm_prog_t *prog) {
         if (builtinnumber < prog->numbuiltins && prog->builtins[builtinnumber])
             prog->builtins[builtinnumber](prog);
         else
-            prog->error_cmd("No such builtin #%i in %s; most likely cause: outdated engine build. Try updating!", builtinnumber, prog->name);
+            Host_Error(prog, "No such builtin #%i in %s; most likely cause: outdated engine build. Try updating!", builtinnumber, prog->name);
     } else if(func - prog->functions > 0) {
         prog->ExecuteProgram(prog, func - prog->functions, "");
     }
@@ -7659,7 +7659,7 @@ void VM_GlobalType(prvm_prog_t *prog) {
     PRVM_G_FLOAT(OFS_RETURN) = (float)gl->type;
 }
 
-#define CHECKGLOBOFS(f) glo = (int)PRVM_G_FLOAT(OFS_PARM0); if(glo < 0 || glo >= prog->globals_size) { prog->error_cmd(#f ": global offset %i is out of bounds (min 0, max %i)", glo, prog->globals_size - 1); return; }
+#define CHECKGLOBOFS(f) glo = (int)PRVM_G_FLOAT(OFS_PARM0); if(glo < 0 || glo >= prog->globals_size) { Host_Error(prog, #f ": global offset %i is out of bounds (min 0, max %i)", glo, prog->globals_size - 1); return; }
 
 void VM_GlobalInt(prvm_prog_t *prog) {
     int glo;

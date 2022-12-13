@@ -528,6 +528,7 @@ prvm_stringbuffer_t;
 
 // [INIT] variables flagged with this token can be initialized by 'you'
 // NOTE: external code has to create and free the mempools but everything else is done by prvm !
+typedef struct prvm_prog_s prvm_prog_t;
 typedef struct prvm_prog_s
 {
 	double				starttime; // system time when PRVM_Prog_Load was called
@@ -719,8 +720,6 @@ typedef struct prvm_prog_s
 
 	void				(*init_cmd)(struct prvm_prog_s *prog); // [INIT] used by PRVM_InitProg
 	void				(*reset_cmd)(struct prvm_prog_s *prog); // [INIT] used by PRVM_ResetProg
-
-	void				(*error_cmd)(const char *format, ...) DP_FUNC_PRINTF(1); // [INIT]
 
 	void				(*ExecuteProgram)(struct prvm_prog_s *prog, func_t fnum, const char *errormessage); // pointer to one of the *VM_ExecuteProgram functions
 } prvm_prog_t;

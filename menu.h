@@ -92,5 +92,6 @@ extern video_resolution_t *video_resolutions;
 extern int video_resolutions_count;
 extern video_resolution_t video_resolutions_hardcoded[];
 extern int video_resolutions_hardcoded_count;
-#endif
+void MR_SetRouting (qboolean forceold);
 
+#endif

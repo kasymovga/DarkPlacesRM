@@ -735,7 +735,7 @@ static int PRVM_EnterFunction (prvm_prog_t *prog, mfunction_t *f)
 	int		i, j, c, o;
 
 	if (!f)
-		prog->error_cmd("PRVM_EnterFunction: NULL function in %s", prog->name);
+		Host_Error(prog, "PRVM_EnterFunction: NULL function in %s", prog->name);
 
 	prog->stack[prog->depth].s = prog->xstatement;
 	prog->stack[prog->depth].f = prog->xfunction;
@@ -744,12 +744,12 @@ static int PRVM_EnterFunction (prvm_prog_t *prog, mfunction_t *f)
 	prog->stack[prog->depth].builtinsprofile_acc = -f->builtinsprofile;
 	prog->depth++;
 	if (prog->depth >=PRVM_MAX_STACK_DEPTH)
-		prog->error_cmd("stack overflow");
+		Host_Error(prog, "stack overflow");
 
 // save off any locals that the new function steps on
 	c = f->locals;
 	if (prog->localstack_used + c > PRVM_LOCALSTACK_SIZE)
-		prog->error_cmd("PRVM_ExecuteProgram: locals stack overflow in %s", prog->name);
+		Host_Error(prog, "PRVM_ExecuteProgram: locals stack overflow in %s", prog->name);
 
 	for (i=0 ; i < c ; i++)
 		prog->localstack[prog->localstack_used+i] = prog->globals.ip[f->parm_start + i];
@@ -782,15 +782,15 @@ static int PRVM_LeaveFunction (prvm_prog_t *prog)
 	mfunction_t *f;
 
 	if (prog->depth <= 0)
-		prog->error_cmd("prog stack underflow in %s", prog->name);
+		Host_Error(prog, "prog stack underflow in %s", prog->name);
 
 	if (!prog->xfunction)
-		prog->error_cmd("PR_LeaveFunction: NULL function in %s", prog->name);
+		Host_Error(prog, "PR_LeaveFunction: NULL function in %s", prog->name);
 // restore locals from the stack
 	c = prog->xfunction->locals;
 	prog->localstack_used -= c;
 	if (prog->localstack_used < 0)
-		prog->error_cmd("PRVM_ExecuteProgram: locals stack underflow in %s", prog->name);
+		Host_Error(prog, "PRVM_ExecuteProgram: locals stack underflow in %s", prog->name);
 
 	for (i=0 ; i < c ; i++)
 		prog->globals.ip[prog->xfunction->parm_start + i] = prog->localstack[prog->localstack_used+i];
@@ -917,7 +917,7 @@ void MVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessag
 	{
 		if (PRVM_allglobaledict(self))
 			PRVM_ED_Print(prog, PRVM_PROG_TO_EDICT(PRVM_allglobaledict(self)), NULL);
-		prog->error_cmd("MVM_ExecuteProgram: %s", errormessage);
+		Host_Error(prog, "MVM_ExecuteProgram: %s", errormessage);
 	}
 
 	func = &prog->functions[fnum];
@@ -1024,7 +1024,7 @@ void CLVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessa
 	{
 		if (PRVM_allglobaledict(self))
 			PRVM_ED_Print(prog, PRVM_PROG_TO_EDICT(PRVM_allglobaledict(self)), NULL);
-		prog->error_cmd("CLVM_ExecuteProgram: %s", errormessage);
+		Host_Error(prog, "CLVM_ExecuteProgram: %s", errormessage);
 	}
 
 	func = &prog->functions[fnum];
@@ -1135,7 +1135,7 @@ void PRVM_ExecuteProgram (prvm_prog_t *prog, func_t fnum, const char *errormessa
 	{
 		if (PRVM_allglobaledict(self))
 			PRVM_ED_Print(prog, PRVM_PROG_TO_EDICT(PRVM_allglobaledict(self)), NULL);
-		prog->error_cmd("SVVM_ExecuteProgram: %s", errormessage);
+		Host_Error(prog, "SVVM_ExecuteProgram: %s", errormessage);
 	}
 
 	func = &prog->functions[fnum];

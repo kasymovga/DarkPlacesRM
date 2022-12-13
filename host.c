@@ -105,42 +105,34 @@ cvar_t locksession = {0, "locksession", "0", "Lock the session? 0 = no, 1 = yes 
 
 /*
 ================
-Host_AbortCurrentFrame
-
-aborts the current host frame and goes on with the next one
-================
-*/
-void Host_AbortCurrentFrame(void) DP_FUNC_NORETURN;
-void Host_AbortCurrentFrame(void)
-{
-	// in case we were previously nice, make us mean again
-	Sys_MakeProcessMean();
-
-	longjmp (host_abortframe, 1);
-}
-
-/*
-================
 Host_Error
 
 This shuts down both the client and server
 ================
 */
-void Host_Error (const char *error, ...)
+void Host_Error (prvm_prog_t *prog, const char *error, ...)
 {
 	static char hosterrorstring1[MAX_INPUTLINE]; // THREAD UNSAFE
+	va_list argptr;
+	#ifndef CONFIG_SV
 	static char hosterrorstring2[MAX_INPUTLINE]; // THREAD UNSAFE
 	static qboolean hosterror = false;
-	va_list argptr;
-
+	qboolean is_sv_thread = (svs.threaded && Thread_IsCurrent(svs.thread));
 	// turn off rcon redirect if it was active when the crash occurred
 	// to prevent loops when it is a networking problem
 	Con_Rcon_Redirect_Abort();
+	#endif
 
 	va_start (argptr,error);
 	dpvsnprintf (hosterrorstring1,sizeof(hosterrorstring1),error,argptr);
 	va_end (argptr);
+	if (prog) Con_Printf("Host_Error called by %s in %s thread\n", prog->name, (is_sv_thread ? "server" : "main"));
+	#ifndef CONFIG_SV
+	if (cls.state == ca_dedicated)
+	#endif
+		Sys_Error ("Host_Error: %s",hosterrorstring1);	// dedicated servers exit
 
+	#ifndef CONFIG_SV
 	Con_Printf("Host_Error: %s\n", hosterrorstring1);
 
 	// LordHavoc: if crashing very early, or currently shutting down, do
@@ -153,36 +145,50 @@ void Host_Error (const char *error, ...)
 	hosterror = true;
 
 	strlcpy(hosterrorstring2, hosterrorstring1, sizeof(hosterrorstring2));
-	#ifndef CONFIG_SV
-	CL_Parse_DumpPacket();
-
-	CL_Parse_ErrorCleanUp();
-	#endif
-	//PR_Crash();
-
 	// print out where the crash happened, if it was caused by QC (and do a cleanup)
-	PRVM_Crash(SVVM_prog);
-	#ifndef CONFIG_SV
-	PRVM_Crash(CLVM_prog);
-	cl.csqc_loaded = false;
+	#ifdef CONFIG_MENU
+	if (prog == MVM_prog) {
+		Con_Print("Falling back to normal menu\n");
+		PRVM_Crash(prog);
+		key_dest = key_game;
+		// init the normal menu now -> this will also correct the menu router pointers
+		MR_SetRouting (TRUE);
+		// reset the active scene, too (to be on the safe side ;))
+		R_SelectScene( RST_CLIENT );
+	} else
 	#endif
-	Cvar_SetValueQuick(&csqc_progcrc, -1);
-	Cvar_SetValueQuick(&csqc_progsize, -1);
-
-	SV_LockThreadMutex();
-	Host_ShutdownServer ();
-	SV_UnlockThreadMutex();
-	#ifndef CONFIG_SV
-	if (cls.state == ca_dedicated)
+	if (!prog || prog == CLVM_prog)
+	{
+		CL_Parse_DumpPacket();
+		CL_Parse_ErrorCleanUp();
+	}
+	#ifdef CONFIG_MENU
+	if (prog != MVM_prog)
+	{
 	#endif
-		Sys_Error ("Host_Error: %s",hosterrorstring2);	// dedicated servers exit
-	#ifndef CONFIG_SV
-	CL_Disconnect ();
-	cls.demonum = -1;
+		PRVM_Crash(SVVM_prog);
+		PRVM_Crash(CLVM_prog);
+		cl.csqc_loaded = false;
+		if (prog != SVVM_prog)
+			CL_Disconnect ();
+		Host_ShutdownServer ();
+		cls.demonum = -1;
+	#ifdef CONFIG_MENU
+	}
 	#endif
 	hosterror = false;
 
-	Host_AbortCurrentFrame();
+	if (prog == SVVM_prog && svs.threaded) //Server thread supposed to be locked when server vm executed
+	{
+		Con_Printf("Unlocking server thread\n");
+		SV_UnlockThreadMutex();
+	}
+	if (is_sv_thread)
+		longjmp(sv_abortframe, 1);
+	else
+		// in case we were previously nice, make us mean again
+		longjmp(host_abortframe, 1);
+	#endif
 }
 
 static void Host_ServerOptions (void)
@@ -627,6 +633,7 @@ void Host_ShutdownServer(void)
 	if (!sv.active)
 		return;
 
+	SV_LockThreadMutex();
 	NetConn_Heartbeat(2);
 	NetConn_Heartbeat(2);
 
@@ -659,6 +666,7 @@ void Host_ShutdownServer(void)
 	#ifndef CONFIG_SV
 	cl.islocalgame = false;
 	#endif
+	SV_UnlockThreadMutex();
 }
 
 
@@ -1591,9 +1599,7 @@ void Host_Shutdown(void)
 	CL_Disconnect();
 	#endif
 	// shut down local server if active
-	SV_LockThreadMutex();
 	Host_ShutdownServer();
-	SV_UnlockThreadMutex();
 	#ifndef CONFIG_SV
 #ifdef CONFIG_MENU
 	// Shutdown menu

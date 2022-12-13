@@ -84,7 +84,7 @@ static void VM_M_setmousetarget(prvm_prog_t *prog)
 		in_client_mouse = true;
 		break;
 	default:
-		prog->error_cmd("VM_M_setmousetarget: wrong destination %f !",PRVM_G_FLOAT(OFS_PARM0));
+		Host_Error(prog, "VM_M_setmousetarget: wrong destination %f !",PRVM_G_FLOAT(OFS_PARM0));
 	}
 }
 
@@ -137,7 +137,7 @@ static void VM_M_setkeydest(prvm_prog_t *prog)
 		// key_dest = key_message
 		// break;
 	default:
-		prog->error_cmd("VM_M_setkeydest: wrong destination %f !", PRVM_G_FLOAT(OFS_PARM0));
+		Host_Error(prog, "VM_M_setkeydest: wrong destination %f !", PRVM_G_FLOAT(OFS_PARM0));
 	}
 }
 
@@ -703,7 +703,7 @@ static sizebuf_t *VM_M_WriteDest (prvm_prog_t *prog)
 	int		destclient;
 
 	if(!sv.active)
-		prog->error_cmd("VM_M_WriteDest: game is not server (%s)", prog->name);
+		Host_Error(prog, "VM_M_WriteDest: game is not server (%s)", prog->name);
 
 	dest = (int)PRVM_G_FLOAT(OFS_PARM1);
 	switch (dest)
@@ -714,7 +714,7 @@ static sizebuf_t *VM_M_WriteDest (prvm_prog_t *prog)
 	case MSG_ONE:
 		destclient = (int) PRVM_G_FLOAT(OFS_PARM2);
 		if (destclient < 0 || destclient >= svs.maxclients || !svs.clients[destclient].active || !svs.clients[destclient].netconnection)
-			prog->error_cmd("VM_clientcommand: %s: invalid client !", prog->name);
+			Host_Error(prog, "VM_clientcommand: %s: invalid client !", prog->name);
 
 		return &svs.clients[destclient].netconnection->message;
 
@@ -725,7 +725,7 @@ static sizebuf_t *VM_M_WriteDest (prvm_prog_t *prog)
 		return &sv.signon;
 
 	default:
-		prog->error_cmd("WriteDest: bad destination");
+		Host_Error(prog, "WriteDest: bad destination");
 		break;
 	}
 

@@ -92,6 +92,7 @@ static ssize_t Net_HttpServer_FileReadCallback(void *cls, uint64_t pos, char *bu
 }
 
 static void Net_HttpServer_FileFreeCallback(void *cls) {
+	Con_Printf("Response %li finished\n", (long int)cls);
 	FS_Close((qfile_t *)cls);
 }
 
@@ -106,7 +107,7 @@ static enum MHD_Result Net_HttpServer_Request(void *cls, struct MHD_Connection *
 	int pk3_len;
 	const char *pk3;
 	qfile_t *pk3_file;
-	Con_Printf("Url request: %s\n", url);
+	Con_Printf("HTTP request: %s\n", url);
 	if (!*url)
 		return MHD_NO;
 
@@ -135,6 +136,7 @@ static enum MHD_Result Net_HttpServer_Request(void *cls, struct MHD_Connection *
 		return MHD_NO;
 
 	response = MHD_create_response_from_callback(FS_FileSize(pk3_file), 32 * 1024, Net_HttpServer_FileReadCallback, pk3_file, Net_HttpServer_FileFreeCallback);
+	Con_Printf("Response %li for %s started\n", (long int)pk3_file, url);
 	if (!response) {
 		FS_Close(pk3_file);
 		Con_Printf("libmicrohttpd response failed\n");

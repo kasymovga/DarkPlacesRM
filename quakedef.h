@@ -541,7 +541,7 @@ void Host_InitCommands(void);
 void Host_Main(void);
 void Host_Shutdown(void);
 void Host_StartVideo(void);
-void Host_Error(const char *error, ...) DP_FUNC_PRINTF(1) DP_FUNC_NORETURN;
+void Host_Error(prvm_prog_t *prog, const char *error, ...) DP_FUNC_PRINTF(2) DP_FUNC_NORETURN;
 void Host_Quit_f(void);
 void Host_ClientCommands(const char *fmt, ...) DP_FUNC_PRINTF(1);
 void Host_ShutdownServer(void);

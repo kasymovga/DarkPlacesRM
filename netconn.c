@@ -1120,7 +1120,7 @@ void NetConn_OpenServerPorts(int opennetports)
 #endif
 	}
 	if (sv_numsockets == 0)
-		Host_Error("NetConn_OpenServerPorts: unable to open any ports!");
+		Host_Error(NULL, "NetConn_OpenServerPorts: unable to open any ports!");
 }
 
 lhnetsocket_t *NetConn_ChooseClientSocketForAddress(lhnetaddress_t *address)
@@ -1578,9 +1578,7 @@ static void NetConn_ConnectionEstablished(lhnetsocket_t *mysocket, lhnetaddress_
 	// if we're connecting to a remote server, shut down any local server
 	if (LHNETADDRESS_GetAddressType(peeraddress) != LHNETADDRESSTYPE_LOOP && sv.active)
 	{
-		SV_LockThreadMutex();
 		Host_ShutdownServer ();
-		SV_UnlockThreadMutex();
 	}
 	// allocate a net connection to keep track of things
 	cls.netcon = NetConn_Open(mysocket, peeraddress);
@@ -2564,9 +2562,7 @@ void NetConn_ClientFrame(void)
 	{
 		Con_Print("Connection timed out\n");
 		CL_Disconnect();
-		SV_LockThreadMutex();
 		Host_ShutdownServer ();
-		SV_UnlockThreadMutex();
 	}
 }
 #endif

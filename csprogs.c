@@ -813,7 +813,7 @@ void CSQC_ReadEntities (void)
 	unsigned short entnum, oldself, realentnum;
 	if(!cl.csqc_loaded)
 	{
-		Host_Error ("CSQC_ReadEntities: CSQC is not loaded");
+		Host_Error (NULL, "CSQC_ReadEntities: CSQC is not loaded");
 		return;
 	}
 
@@ -1064,14 +1064,13 @@ void CL_VM_Init (void)
 	prog->load_edict            = CLVM_load_edict;
 	prog->init_cmd              = CLVM_init_cmd;
 	prog->reset_cmd             = CLVM_reset_cmd;
-	prog->error_cmd             = Host_Error;
 	prog->ExecuteProgram        = CLVM_ExecuteProgram;
 
 	PRVM_Prog_Load(prog, csprogsfn, csprogsdata, csprogsdatasize, cl_numrequiredfunc, cl_required_func, CL_REQFIELDS, cl_reqfields, CL_REQGLOBALS, cl_reqglobals);
 
 	if (!prog->loaded)
 	{
-		Host_Error("CSQC %s ^2failed to load\n", csprogsfn);
+		Host_Error(NULL, "CSQC %s ^2failed to load\n", csprogsfn);
 		if(!sv.active)
 			CL_Disconnect();
 		Mem_Free(csprogsdata);

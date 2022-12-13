@@ -459,7 +459,7 @@
 
                     if(idx >= maxglobs) {
                         PRE_ERROR();
-                        prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxglobs, st->op);
+                        Host_Error(prog, "%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxglobs, st->op);
                         goto cleanup;
                     }
 
@@ -473,7 +473,7 @@
 					if ((prvm_uint_t)OPB->_int >= cached_entityfieldsarea)
 					{
 						PRE_ERROR();
-						prog->error_cmd("%s attempted to write to an out of bounds edict (%i)", prog->name, (prvm_int_t)OPB->_int);
+						Host_Error(prog, "%s attempted to write to an out of bounds edict (%i)", prog->name, (prvm_int_t)OPB->_int);
 						goto cleanup;
 					}
 					if ((prvm_uint_t)OPB->_int < cached_entityfields && !cached_allowworldwrites)
@@ -493,7 +493,7 @@
 
                     if(idx >= maxglobs) {
                         PRE_ERROR();
-                        prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxglobs, st->op);
+                        Host_Error(prog, "%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxglobs, st->op);
                         goto cleanup;
                     }
 
@@ -509,7 +509,7 @@
 					if ((prvm_uint_t)OPB->_int > cached_entityfieldsarea_3)
 					{
 						PRE_ERROR();
-						prog->error_cmd("%s attempted to write to an out of bounds edict (%i)", prog->name, (prvm_int_t)OPB->_int);
+						Host_Error(prog, "%s attempted to write to an out of bounds edict (%i)", prog->name, (prvm_int_t)OPB->_int);
 						goto cleanup;
 					}
 					if ((prvm_uint_t)OPB->_int < cached_entityfields && !cached_allowworldwrites)
@@ -528,20 +528,20 @@
 				if ((prvm_uint_t)OPA->edict >= cached_max_edicts)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s attempted to address an out of bounds edict number", prog->name);
+					Host_Error(prog, "%s attempted to address an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if ((prvm_uint_t)OPB->_int >= cached_entityfields)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s attempted to address an invalid field (%i) in an edict", prog->name, (int)OPB->_int);
+					Host_Error(prog, "%s attempted to address an invalid field (%i) in an edict", prog->name, (int)OPB->_int);
 					goto cleanup;
 				}
 #if 0
 				if (OPA->edict == 0 && !cached_allowworldwrites)
 				{
 					PRE_ERROR();
-					prog->error_cmd("forbidden assignment to null/world entity in %s", prog->name);
+					Host_Error(prog, "forbidden assignment to null/world entity in %s", prog->name);
 					goto cleanup;
 				}
 #endif
@@ -556,13 +556,13 @@
 				if ((prvm_uint_t)OPA->edict >= cached_max_edicts)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s attempted to read an out of bounds edict number", prog->name);
+					Host_Error(prog, "%s attempted to read an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if ((prvm_uint_t)OPB->_int >= cached_entityfields)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s attempted to read an invalid field in an edict (%i)", prog->name, (int)OPB->_int);
+					Host_Error(prog, "%s attempted to read an invalid field in an edict (%i)", prog->name, (int)OPB->_int);
 					goto cleanup;
 				}
 				ed = PRVM_PROG_TO_EDICT(OPA->edict);
@@ -573,13 +573,13 @@
 				if ((prvm_uint_t)OPA->edict >= cached_max_edicts)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s attempted to read an out of bounds edict number", prog->name);
+					Host_Error(prog, "%s attempted to read an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if ((prvm_uint_t)OPB->_int > cached_entityfields_3)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s attempted to read an invalid field in an edict (%i)", prog->name, (int)OPB->_int);
+					Host_Error(prog, "%s attempted to read an invalid field in an edict (%i)", prog->name, (int)OPB->_int);
 					goto cleanup;
 				}
 				ed = PRVM_PROG_TO_EDICT(OPA->edict);
@@ -605,7 +605,7 @@
 					{
 						prog->xstatement = st - cached_statements;
 						PRVM_Profile(prog, 1<<30, 1000000, 0);
-						prog->error_cmd("%s runaway loop counter hit limit of %d jumps\ntip: read above for list of most-executed functions", prog->name, jumpcount);
+						Host_Error(prog, "%s runaway loop counter hit limit of %d jumps\ntip: read above for list of most-executed functions", prog->name, jumpcount);
 					}
 				}
 				DISPATCH_OPCODE();
@@ -624,7 +624,7 @@
 					{
 						prog->xstatement = st - cached_statements;
 						PRVM_Profile(prog, 1<<30, 0.01, 0);
-						prog->error_cmd("%s runaway loop counter hit limit of %d jumps\ntip: read above for list of most-executed functions", prog->name, jumpcount);
+						Host_Error(prog, "%s runaway loop counter hit limit of %d jumps\ntip: read above for list of most-executed functions", prog->name, jumpcount);
 					}
 				}
 				DISPATCH_OPCODE();
@@ -638,7 +638,7 @@
 				{
 					prog->xstatement = st - cached_statements;
 					PRVM_Profile(prog, 1<<30, 0.01, 0);
-					prog->error_cmd("%s runaway loop counter hit limit of %d jumps\ntip: read above for list of most-executed functions", prog->name, jumpcount);
+					Host_Error(prog, "%s runaway loop counter hit limit of %d jumps\ntip: read above for list of most-executed functions", prog->name, jumpcount);
 				}
 				DISPATCH_OPCODE();
 
@@ -662,13 +662,13 @@
 				prog->argc = st->op - OP_CALL0;
 				if (!OPA->function)
 				{
-					prog->error_cmd("NULL function in %s", prog->name);
+					Host_Error(prog, "NULL function in %s", prog->name);
 				}
 
 				if(!OPA->function || OPA->function < 0 || OPA->function >= prog->numfunctions)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s CALL outside the program", prog->name);
+					Host_Error(prog, "%s CALL outside the program", prog->name);
 					goto cleanup;
 				}
 
@@ -708,7 +708,7 @@
 							goto chooseexecprogram;
 					}
 					else
-						prog->error_cmd("No such builtin #%i in %s; most likely cause: outdated engine build. Try updating!", builtinnumber, prog->name);
+						Host_Error(prog, "No such builtin #%i in %s; most likely cause: outdated engine build. Try updating!", builtinnumber, prog->name);
 				}
 				else
 					st = cached_statements + PRVM_EnterFunction(prog, enterfunc);
@@ -747,7 +747,7 @@
 				{
 					PRE_ERROR();
 					prog->xstatement = st - cached_statements;
-					prog->error_cmd("OP_STATE not supported by %s", prog->name);
+					Host_Error(prog, "OP_STATE not supported by %s", prog->name);
 				}
 				DISPATCH_OPCODE();
 
@@ -909,7 +909,7 @@
 				if (OPB->_int < 0 || OPB->_int + 4 > pr_edictareasize)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to write to an out of bounds edict", prog->name);
+					Host_Error(prog, "%s Progs attempted to write to an out of bounds edict", prog->name);
 					goto cleanup;
 				}
 #endif
@@ -921,13 +921,13 @@
 				if (OPA->edict < 0 || OPA->edict >= prog->max_edicts)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to read an out of bounds edict number", prog->name);
+					Host_Error(prog, "%s Progs attempted to read an out of bounds edict number", prog->name);
 					goto cleanup;
 				}
 				if (OPB->_int < 0 || OPB->_int >= progs->entityfields)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to read an invalid field in an edict", prog->name);
+					Host_Error(prog, "%s Progs attempted to read an invalid field in an edict", prog->name);
 					goto cleanup;
 				}
 #endif
@@ -945,7 +945,7 @@
 				if (OPB->_int < 0 || OPB->_int >= pr_globaldefs)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to write to an invalid indexed global", prog->name);
+					Host_Error(prog, "%s Progs attempted to write to an invalid indexed global", prog->name);
 					goto cleanup;
 				}
 #endif
@@ -956,7 +956,7 @@
 				if (OPB->_int < 0 || OPB->_int + 2 >= pr_globaldefs)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to write to an invalid indexed global", prog->name);
+					Host_Error(prog, "%s Progs attempted to write to an invalid indexed global", prog->name);
 					goto cleanup;
 				}
 #endif
@@ -971,7 +971,7 @@
 				if (i < 0 || i >= pr_globaldefs)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to address an out of bounds global", prog->name);
+					Host_Error(prog, "%s Progs attempted to address an out of bounds global", prog->name);
 					goto cleanup;
 				}
 #endif
@@ -988,7 +988,7 @@
 				if (OPA->_int < 0 || OPA->_int >= pr_globaldefs)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to read an invalid indexed global", prog->name);
+					Host_Error(prog, "%s Progs attempted to read an invalid indexed global", prog->name);
 					goto cleanup;
 				}
 #endif
@@ -1000,7 +1000,7 @@
 				if (OPA->_int < 0 || OPA->_int + 2 >= pr_globaldefs)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs attempted to read an invalid indexed global", prog->name);
+					Host_Error(prog, "%s Progs attempted to read an invalid indexed global", prog->name);
 					goto cleanup;
 				}
 #endif
@@ -1013,7 +1013,7 @@
 				if (OPA->_int < 0 || OPA->_int >= st->b)
 				{
 					PRE_ERROR();
-					prog->error_cmd("%s Progs boundcheck failed at line number %d, value is < 0 or >= %d", prog->name, st->b, st->c);
+					Host_Error(prog, "%s Progs boundcheck failed at line number %d, value is < 0 or >= %d", prog->name, st->b, st->c);
 					goto cleanup;
 				}
 				DISPATCH_OPCODE();
@@ -1031,7 +1031,7 @@
 
                 if(idx < 0 || idx >= maxidx) {
                     PRE_ERROR();
-                    prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxidx, st->op);
+                    Host_Error(prog, "%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxidx, st->op);
                     goto cleanup;
                 }
 
@@ -1046,7 +1046,7 @@
 
                 if(idx < 0 || idx + 2 >= maxidx) {
                     PRE_ERROR();
-                    prog->error_cmd("%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxidx, st->op);
+                    Host_Error(prog, "%s attempted to write to an invalid indexed global %i (max %i) (op %i)", prog->name, idx, maxidx, st->op);
                     goto cleanup;
                 }
 
@@ -1066,7 +1066,7 @@
 
                 if(idx < 0 || idx > maxidx) {
                     PRE_ERROR();
-                    prog->error_cmd("%s array index out of bounds (index %i, max %i)", prog->name, idx, maxidx);
+                    Host_Error(prog, "%s array index out of bounds (index %i, max %i)", prog->name, idx, maxidx);
                     goto cleanup;
                 }
 
@@ -1080,7 +1080,7 @@
 
                 if(idx < 0 || idx > maxidx) {
                     PRE_ERROR();
-                    prog->error_cmd("%s array index out of bounds (index %i, max %i)", prog->name, idx, maxidx);
+                    Host_Error(prog, "%s array index out of bounds (index %i, max %i)", prog->name, idx, maxidx);
                     goto cleanup;
                 }
 
@@ -1106,7 +1106,7 @@
             HANDLE_OPCODE(OP_BOUNDCHECK):
                 if((prvm_uint_t)OPA->_int < (prvm_uint_t)st->operand[2] || (prvm_uint_t)OPA->_int >= (prvm_uint_t)st->operand[1]) {
                     PRE_ERROR();
-                    prog->error_cmd("%s boundcheck failed. Value is %i. Must be between %u and %u", prog->name, OPA->_int, st->operand[2], st->operand[1]);
+                    Host_Error(prog, "%s boundcheck failed. Value is %i. Must be between %u and %u", prog->name, OPA->_int, st->operand[2], st->operand[1]);
                     goto cleanup;
                 }
                 DISPATCH_OPCODE();
@@ -1114,7 +1114,7 @@
 #if !USE_COMPUTED_GOTOS
 			default:
 				PRE_ERROR();
-				prog->error_cmd("Bad opcode %i in %s", st->op, prog->name);
+				Host_Error(prog, "Bad opcode %i in %s", st->op, prog->name);
 				goto cleanup;
 			}
 #if PRVMSLOWINTERPRETER

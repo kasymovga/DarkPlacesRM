@@ -4112,45 +4112,6 @@ static prvm_required_field_t m_required_globals[] =
 
 static int m_numrequiredglobals = sizeof(m_required_globals) / sizeof(m_required_globals[0]);
 
-void MR_SetRouting (qboolean forceold);
-
-void MVM_error_cmd(const char *format, ...) DP_FUNC_PRINTF(1);
-void MVM_error_cmd(const char *format, ...)
-{
-	prvm_prog_t *prog = MVM_prog;
-	static qboolean processingError = false;
-	char errorstring[MAX_INPUTLINE];
-	va_list argptr;
-
-	va_start (argptr, format);
-	dpvsnprintf (errorstring, sizeof(errorstring), format, argptr);
-	va_end (argptr);
-	Con_Printf( "Menu_Error: %s\n", errorstring );
-
-	if( !processingError ) {
-		processingError = true;
-		PRVM_Crash(prog);
-		processingError = false;
-	} else {
-		Con_Printf( "Menu_Error: Recursive call to MVM_error_cmd (from PRVM_Crash)!\n" );
-	}
-
-	// fall back to the normal menu
-
-	// say it
-	Con_Print("Falling back to normal menu\n");
-
-	key_dest = key_game;
-
-	// init the normal menu now -> this will also correct the menu router pointers
-	MR_SetRouting (TRUE);
-
-	// reset the active scene, too (to be on the safe side ;))
-   R_SelectScene( RST_CLIENT );
-
-	Host_AbortCurrentFrame();
-}
-
 static void MVM_begin_increase_edicts(prvm_prog_t *prog)
 {
 }
@@ -4302,7 +4263,6 @@ static void MP_Init (void)
 	prog->load_edict            = MVM_load_edict;
 	prog->init_cmd              = MVM_init_cmd;
 	prog->reset_cmd             = MVM_reset_cmd;
-	prog->error_cmd             = MVM_error_cmd;
 	prog->ExecuteProgram        = MVM_ExecuteProgram;
 
 	// allocate the mempools

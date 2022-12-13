@@ -152,9 +152,9 @@ void EntityFrameQuake_ReadEntity(int bits)
 		num = MSG_ReadByte(&cl_message);
 
 	if (num >= MAX_EDICTS)
-		Host_Error("EntityFrameQuake_ReadEntity: entity number (%i) >= MAX_EDICTS (%i)", num, MAX_EDICTS);
+		Host_Error(NULL, "EntityFrameQuake_ReadEntity: entity number (%i) >= MAX_EDICTS (%i)", num, MAX_EDICTS);
 	if (num < 1)
-		Host_Error("EntityFrameQuake_ReadEntity: invalid entity number (%i)", num);
+		Host_Error(NULL, "EntityFrameQuake_ReadEntity: invalid entity number (%i)", num);
 
 	if (cl.num_entities <= num)
 	{
@@ -217,7 +217,7 @@ void EntityFrameQuake_ReadEntity(int bits)
 	}
 
 	if (cl_message.badread)
-		Host_Error("EntityFrameQuake_ReadEntity: read error");
+		Host_Error(NULL, "EntityFrameQuake_ReadEntity: read error");
 }
 
 void EntityFrameQuake_ISeeDeadEntities(void)
@@ -1481,17 +1481,17 @@ void EntityFrame_CL_ReadFrame(void)
 	while ((number = (unsigned short) MSG_ReadShort(&cl_message)) != 0xFFFF && !cl_message.badread)
 	{
 		if (cl_message.badread)
-			Host_Error("EntityFrame_Read: read error");
+			Host_Error(NULL, "EntityFrame_Read: read error");
 		removed = number & 0x8000;
 		number &= 0x7FFF;
 		if (number >= MAX_EDICTS)
-			Host_Error("EntityFrame_Read: number (%i) >= MAX_EDICTS (%i)", number, MAX_EDICTS);
+			Host_Error(NULL, "EntityFrame_Read: number (%i) >= MAX_EDICTS (%i)", number, MAX_EDICTS);
 
 		// seek to entity, while copying any skipped entities (assume unchanged)
 		while (old < oldend && old->number < number)
 		{
 			if (f->numentities >= MAX_ENTITY_DATABASE)
-				Host_Error("EntityFrame_Read: entity list too big");
+				Host_Error(NULL, "EntityFrame_Read: entity list too big");
 			f->entitydata[f->numentities] = *old++;
 			f->entitydata[f->numentities++].time = cl.mtime[0];
 		}
@@ -1505,7 +1505,7 @@ void EntityFrame_CL_ReadFrame(void)
 		else
 		{
 			if (f->numentities >= MAX_ENTITY_DATABASE)
-				Host_Error("EntityFrame_Read: entity list too big");
+				Host_Error(NULL, "EntityFrame_Read: entity list too big");
 
 			// reserve this slot
 			e = f->entitydata + f->numentities++;
@@ -1537,7 +1537,7 @@ void EntityFrame_CL_ReadFrame(void)
 	while (old < oldend)
 	{
 		if (f->numentities >= MAX_ENTITY_DATABASE)
-			Host_Error("EntityFrame_Read: entity list too big");
+			Host_Error(NULL, "EntityFrame_Read: entity list too big");
 		f->entitydata[f->numentities] = *old++;
 		f->entitydata[f->numentities++].time = cl.mtime[0];
 	}
@@ -2510,7 +2510,7 @@ static void EntityState5_ReadUpdate(entity_state_t *s, int number)
 			model = CL_GetModelByIndex(modelindex);
 			numbones = MSG_ReadByte(&cl_message);
 			if (model && numbones != model->num_bones)
-				Host_Error("E5_COMPLEXANIMATION: model has different number of bones than network packet describes\n");
+				Host_Error(NULL, "E5_COMPLEXANIMATION: model has different number of bones than network packet describes\n");
 			if (!skeleton->relativetransforms || skeleton->model != model)
 			{
 				skeleton->model = model;
@@ -2532,7 +2532,7 @@ static void EntityState5_ReadUpdate(entity_state_t *s, int number)
 			s->skeletonobject = *skeleton;
 			break;
 		default:
-			Host_Error("E5_COMPLEXANIMATION: Parse error - unknown type %i\n", type);
+			Host_Error(NULL, "E5_COMPLEXANIMATION: Parse error - unknown type %i\n", type);
 			break;
 		}
 	}
@@ -3322,7 +3322,7 @@ void EntityFrameQW_CL_ReadFrame(qboolean delta)
 				Con_Printf("copy %i\n", oldnum);
 			// copy one of the old entities
 			if (newsnap->num_entities >= QW_MAX_PACKET_ENTITIES)
-				Host_Error("EntityFrameQW_CL_ReadFrame: newsnap->num_entities == MAX_PACKETENTITIES");
+				Host_Error(NULL, "EntityFrameQW_CL_ReadFrame: newsnap->num_entities == MAX_PACKETENTITIES");
 			newsnap->entities[newsnap->num_entities] = oldsnap->entities[oldindex++];
 			newsnap->num_entities++;
 			oldnum = oldindex >= oldsnap->num_entities ? 9999 : oldsnap->entities[oldindex].number;
@@ -3352,7 +3352,7 @@ void EntityFrameQW_CL_ReadFrame(qboolean delta)
 		else
 		{
 			if (newsnap->num_entities >= QW_MAX_PACKET_ENTITIES)
-				Host_Error("EntityFrameQW_CL_ReadFrame: newsnap->num_entities == MAX_PACKETENTITIES");
+				Host_Error(NULL, "EntityFrameQW_CL_ReadFrame: newsnap->num_entities == MAX_PACKETENTITIES");
 			newsnap->entities[newsnap->num_entities] = (newnum == oldnum) ? oldsnap->entities[oldindex] : cl.entities[newnum].state_baseline;
 			EntityStateQW_ReadEntityUpdate(newsnap->entities + newsnap->num_entities, word);
 			newsnap->num_entities++;

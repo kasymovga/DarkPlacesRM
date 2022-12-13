@@ -629,5 +629,5 @@ void VM_SV_UpdateCustomStats(client_t *client, prvm_edict_t *ent, sizebuf_t *msg
 void Host_Savegame_to(prvm_prog_t *prog, const char *name);
 void SV_SendServerinfo(client_t *client);
 
+extern jmp_buf sv_abortframe;
 #endif
-

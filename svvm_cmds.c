@@ -289,7 +289,7 @@ static void SetMinMaxSize (prvm_prog_t *prog, prvm_edict_t *e, float *min, float
 
 	for (i=0 ; i<3 ; i++)
 		if (min[i] > max[i])
-			prog->error_cmd("SetMinMaxSize: backwards mins/maxs");
+			Host_Error(prog, "SetMinMaxSize: backwards mins/maxs");
 
 // set derived values
 	VectorCopy (min, PRVM_serveredictvector(e, mins));
@@ -681,7 +681,7 @@ static void VM_SV_traceline(prvm_prog_t *prog)
 	ent = PRVM_G_EDICT(OFS_PARM3);
 
 	if (VEC_IS_NAN(v1[0]) || VEC_IS_NAN(v1[1]) || VEC_IS_NAN(v1[2]) || VEC_IS_NAN(v2[0]) || VEC_IS_NAN(v2[1]) || VEC_IS_NAN(v2[2]))
-		prog->error_cmd("%s: NAN errors detected in traceline('%f %f %f', '%f %f %f', %i, entity %i)\n", prog->name, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], move, PRVM_EDICT_TO_PROG(ent));
+		Host_Error(prog, "%s: NAN errors detected in traceline('%f %f %f', '%f %f %f', %i, entity %i)\n", prog->name, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2], move, PRVM_EDICT_TO_PROG(ent));
 
 	trace = SV_TraceLine(v1, v2, move, ent, SV_GenericHitSuperContentsMask(ent), 0, collision_extendtracelinelength.value);
 
@@ -726,7 +726,7 @@ static void VM_SV_tracebox(prvm_prog_t *prog)
 	ent = PRVM_G_EDICT(OFS_PARM5);
 
 	if (VEC_IS_NAN(v1[0]) || VEC_IS_NAN(v1[1]) || VEC_IS_NAN(v1[2]) || VEC_IS_NAN(v2[0]) || VEC_IS_NAN(v2[1]) || VEC_IS_NAN(v2[2]))
-		prog->error_cmd("%s: NAN errors detected in tracebox('%f %f %f', '%f %f %f', '%f %f %f', '%f %f %f', %i, entity %i)\n", prog->name, v1[0], v1[1], v1[2], m1[0], m1[1], m1[2], m2[0], m2[1], m2[2], v2[0], v2[1], v2[2], move, PRVM_EDICT_TO_PROG(ent));
+		Host_Error(prog, "%s: NAN errors detected in tracebox('%f %f %f', '%f %f %f', '%f %f %f', '%f %f %f', %i, entity %i)\n", prog->name, v1[0], v1[1], v1[2], m1[0], m1[1], m1[2], m2[0], m2[1], m2[2], v2[0], v2[1], v2[2], move, PRVM_EDICT_TO_PROG(ent));
 
 	trace = SV_TraceBox(v1, m1, m2, v2, move, ent, SV_GenericHitSuperContentsMask(ent), 0, collision_extendtraceboxlength.value);
 
@@ -1031,7 +1031,7 @@ static void VM_SV_findradius(prvm_prog_t *prog)
 	else
 		chainfield = prog->fieldoffsets.chain;
 	if (chainfield < 0)
-		prog->error_cmd("VM_findchain: %s doesnt have the specified chain field !", prog->name);
+		Host_Error(prog, "VM_findchain: %s doesnt have the specified chain field !", prog->name);
 
 	chain = (prvm_edict_t *)prog->edicts;
 
@@ -1257,7 +1257,7 @@ static void VM_SV_lightstyle(prvm_prog_t *prog)
 	val = PRVM_G_STRING(OFS_PARM1);
 
 	if( (unsigned) style >= MAX_LIGHTSTYLES ) {
-		prog->error_cmd( "PF_lightstyle: style: %i >= 64", style );
+		Host_Error(prog,  "PF_lightstyle: style: %i >= 64", style );
 	}
 
 // change the string in sv

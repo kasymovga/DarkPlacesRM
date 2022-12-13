@@ -960,7 +960,7 @@ static void Host_Loadgame_f (void)
 		if (strcmp(com_token,"{"))
 		{
 			Mem_Free(text);
-			Host_Error ("First token isn't a brace");
+			Host_Error (NULL, "First token isn't a brace");
 		}
 
 		if (entnum == -1)
@@ -980,7 +980,7 @@ static void Host_Loadgame_f (void)
 			if (entnum >= MAX_EDICTS)
 			{
 				Mem_Free(text);
-				Host_Error("Host_PerformLoadGame: too many edicts in save file (reached MAX_EDICTS %i)", MAX_EDICTS);
+				Host_Error(NULL, "Host_PerformLoadGame: too many edicts in save file (reached MAX_EDICTS %i)", MAX_EDICTS);
 			}
 			while (entnum >= prog->max_edicts)
 				PRVM_MEM_IncreaseEdicts(prog);

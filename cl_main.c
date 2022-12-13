@@ -291,7 +291,7 @@ void CL_ExpandEntities(int num)
 		if (!cl.entities)
 			Sys_Error("CL_ExpandEntities: cl.entities not initialized");
 		if (num >= MAX_EDICTS)
-			Host_Error("CL_ExpandEntities: num %i >= %i", num, MAX_EDICTS);
+			Host_Error(NULL, "CL_ExpandEntities: num %i >= %i", num, MAX_EDICTS);
 		oldmaxentities = cl.max_entities;
 		oldentities = cl.entities;
 		cl.max_entities = (num & ~255) + 256;
@@ -315,7 +315,7 @@ void CL_ExpandCSQCRenderEntities(int num)
 	if (num >= cl.max_csqcrenderentities)
 	{
 		if (num >= MAX_EDICTS)
-			Host_Error("CL_ExpandEntities: num %i >= %i", num, MAX_EDICTS);
+			Host_Error(NULL, "CL_ExpandEntities: num %i >= %i", num, MAX_EDICTS);
 		oldmaxcsqcrenderentities = cl.max_csqcrenderentities;
 		oldcsqcrenderentities = cl.csqcrenderentities;
 		cl.max_csqcrenderentities = (num & ~255) + 256;
@@ -350,7 +350,7 @@ void CL_Disconnect(void)
 	DP_Discord_SetStatus("Menu", "", "");
 	Curl_Clear_forthismap();
 
-	Con_DPrintf("CL_Disconnect\n");
+	Con_Printf("CL_Disconnect\n");
 
     Cvar_SetValueQuick(&csqc_progcrc, -1);
 	Cvar_SetValueQuick(&csqc_progsize, -1);

@@ -204,8 +204,8 @@ float	getserverlistindexforkey(string key)
 // nice helper macros
 
 #ifndef VM_NOPARMCHECK
-#define VM_SAFEPARMCOUNTRANGE(p1,p2,f)	if(prog->argc < p1 || prog->argc > p2) prog->error_cmd(#f " wrong parameter count %i (" #p1 " to " #p2 " expected ) !", prog->argc)
-#define VM_SAFEPARMCOUNT(p,f)	if(prog->argc != p) prog->error_cmd(#f " wrong parameter count %i (" #p " expected ) !", prog->argc)
+#define VM_SAFEPARMCOUNTRANGE(p1,p2,f)	if(prog->argc < p1 || prog->argc > p2) Host_Error(prog, #f " wrong parameter count %i (" #p1 " to " #p2 " expected ) !", prog->argc)
+#define VM_SAFEPARMCOUNT(p,f)	if(prog->argc != p) Host_Error(prog, #f " wrong parameter count %i (" #p " expected ) !", prog->argc)
 #else
 #define VM_SAFEPARMCOUNTRANGE(p1,p2,f)
 #define VM_SAFEPARMCOUNT(p,f)
