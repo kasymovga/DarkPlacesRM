@@ -27,6 +27,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 const char *cvar_dummy_description = "custom cvar";
 
+struct cvar_change {
+	char *name;
+	char *old_value;
+	struct cvar_change *next;
+};
+
+static struct cvar_change *cvar_changes;
+
 cvar_t *cvar_vars = NULL;
 cvar_t *cvar_hashtable[CVAR_HASHSIZE];
 const char *cvar_null_string = "";
@@ -418,20 +426,22 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 {
 	qboolean changed;
 	size_t valuelen;
-	char *oldval = NULL;
 	#ifndef CONFIG_SV
 	char vabuf[1024];
 	#endif
+	struct cvar_change *change;
 	changed = strcmp(var->string, value) != 0;
 	// LordHavoc: don't reallocate when there is no change
 	if (!changed)
 		return;
 
-    if(var->flags & CVAR_WATCHED) {
-        valuelen = strlen(var->string);
-        oldval = (char*)Z_Malloc(valuelen + 1);
-        memcpy(oldval, var->string, valuelen + 1);
-    }
+	change = Z_Malloc(sizeof(struct cvar_change));
+	change->name = Z_Malloc(strlen(var->name) + 1);
+	strlcpy(change->name, var->name, strlen(var->name) + 1);
+	change->old_value = Z_Malloc(strlen(var->string) + 1);
+	strlcpy(change->old_value, var->string, strlen(var->string) + 1);
+	change->next = cvar_changes;
+	cvar_changes = change;
 
 	// LordHavoc: don't reallocate when the buffer is the same size
 	valuelen = strlen(value);
@@ -507,11 +517,6 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 #endif
 	}
 	#endif
-	Cvar_UpdateAutoCvar(var);
-    if(oldval) { // CVAR_WATCHED
-        Cvar_NotifyAllProgs(var, oldval);
-        Z_Free(oldval);
-    }
 }
 
 void Cvar_SetQuick (cvar_t *var, const char *value)
@@ -1227,3 +1232,27 @@ void Cvar_UnlockThreadMutex(void)
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 #endif
+
+void Cvar_ChangesCommit(void)
+{
+	cvar_t *var;
+	qboolean changes;
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+	if (cvar_changes) changes = true;
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+	if (!changes) return;
+	SV_LockThreadMutex();
+	while (cvar_changes) {
+		var = Cvar_FindVar(cvar_changes->name);
+		if (var) {
+			Cvar_UpdateAutoCvar(var);
+			if (var->flags & CVAR_NOTIFY)
+				Cvar_NotifyAllProgs(var, cvar_changes->old_value);
+		}
+		Z_Free(cvar_changes->name);
+		Z_Free(cvar_changes->old_value);
+		Z_Free(cvar_changes);
+		cvar_changes = cvar_changes->next;
+	}
+	SV_UnlockThreadMutex();
+}

@@ -1217,6 +1217,7 @@ void Host_Main(void)
 				svs.perf_acc_lost += sv_timer;
 			sv_timer = 0;
 		}
+		Cvar_ChangesCommit();
 #ifndef __ANDROID__
         IRC_Frame();
 #endif

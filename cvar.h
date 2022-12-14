@@ -240,6 +240,7 @@ extern const char *cvar_dummy_description; // ALWAYS the same pointer
 extern cvar_t *cvar_vars; // used to list all cvars
 
 void Cvar_UpdateAllAutoCvars(void); // updates ALL autocvars of the active prog to the cvar values (savegame loading)
+void Cvar_ChangesCommit(void);
 
 #ifdef FILLALLCVARSWITHRUBBISH
 void Cvar_FillAll_f();
