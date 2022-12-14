@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "image.h"
 #include "polygon.h"
 #include "model_compile.h"
+#include "thread.h"
 
 #ifndef CONFIG_SV
 #include "r_shadow.h"
@@ -48,6 +49,7 @@ dp_model_t *loadmodel;
 
 static mempool_t *mod_mempool;
 static memexpandablearray_t models;
+static void *model_mutex;
 
 static mempool_t* q3shaders_mem;
 typedef struct q3shader_hash_entry_s
@@ -99,6 +101,11 @@ static void mod_shutdown(void)
 
 	Mod_FreeQ3Shaders();
 	Mod_Skeletal_FreeBuffers();
+	if (svs.threaded)
+	{
+		Thread_DestroyMutex(model_mutex);
+		model_mutex = NULL;
+	}
 }
 
 static void mod_newmap(void)
@@ -609,6 +616,7 @@ dp_model_t *Mod_FindName(const char *name, const char *parentname)
 	if (!parentname)
 		parentname = "";
 
+	if (model_mutex) Thread_LockMutex(model_mutex);
 	// if we're not dedicatd, the renderer calls will crash without video
 	#ifndef CONFIG_SV
 	Host_StartVideo();
@@ -621,7 +629,7 @@ dp_model_t *Mod_FindName(const char *name, const char *parentname)
 		if ((mod = (dp_model_t*) Mem_ExpandableArray_RecordAtIndex(&models, i)) && !strcmp(mod->name, name) && ((!mod->brush.parentmodel && !parentname[0]) || (mod->brush.parentmodel && parentname[0] && !strcmp(mod->brush.parentmodel->name, parentname))))
 		{
 			mod->used = true;
-			return mod;
+			goto finish;
 		}
 	}
 
@@ -634,6 +642,8 @@ dp_model_t *Mod_FindName(const char *name, const char *parentname)
 		mod->brush.parentmodel = NULL;
 	mod->loaded = false;
 	mod->used = true;
+finish:
+	Thread_UnlockMutex(model_mutex);
 	return mod;
 }
 
@@ -647,9 +657,11 @@ Loads in a model for the given name
 dp_model_t *Mod_ForName(const char *name, qboolean crash, qboolean checkdisk, const char *parentname)
 {
 	dp_model_t *model;
+	Thread_LockMutex(model_mutex);
 	model = Mod_FindName(name, parentname);
 	if (!model->loaded || checkdisk)
 		Mod_LoadModel(model, crash, checkdisk);
+	Thread_UnlockMutex(model_mutex);
 	return model;
 }
 
@@ -4745,5 +4757,17 @@ static void Mod_GenerateLightmaps_f(void)
 		return;
 	}
 	Mod_GenerateLightmaps(cl.worldmodel);
+}
+
+void Mod_EnableThreads(void)
+{
+	if (!model_mutex)
+		model_mutex = Thread_CreateMutex();
+}
+
+void Mod_DisableThreads(void)
+{
+	Thread_DestroyMutex(model_mutex);
+	model_mutex = NULL;
 }
 #endif

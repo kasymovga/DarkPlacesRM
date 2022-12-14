@@ -1093,6 +1093,10 @@ extern cvar_t r_fullbrights;
 extern cvar_t r_enableshadowvolumes;
 
 void Mod_Init (void);
+#ifndef CONFIG_SV
+void Mod_EnableThreads(void);
+void Mod_DisableThreads(void);
+#endif
 void Mod_Reload (void);
 dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk);
 dp_model_t *Mod_FindName (const char *name, const char *parentname);
