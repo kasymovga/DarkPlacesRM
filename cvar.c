@@ -33,7 +33,7 @@ struct cvar_change {
 	struct cvar_change *next;
 };
 
-static struct cvar_change *cvar_changes;
+static volatile struct cvar_change *cvar_changes;
 
 cvar_t *cvar_vars = NULL;
 cvar_t *cvar_hashtable[CVAR_HASHSIZE];
@@ -404,7 +404,9 @@ static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *var, char *oldvalue) {
 
     PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, var->name);
     PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldvalue);
+	if (prog != SVVM_prog) SV_UnlockThreadMutex(); //in case of error call in CvarUpdated server lock must be released for non-server prog
     prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
+	if (prog != SVVM_prog) SV_LockThreadMutex();
 }
 
 static void Cvar_NotifyAllProgs(cvar_t *var, char *oldvalue) {
