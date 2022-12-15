@@ -528,7 +528,6 @@ prvm_stringbuffer_t;
 
 // [INIT] variables flagged with this token can be initialized by 'you'
 // NOTE: external code has to create and free the mempools but everything else is done by prvm !
-typedef struct prvm_prog_s prvm_prog_t;
 typedef struct prvm_prog_s
 {
 	double				starttime; // system time when PRVM_Prog_Load was called
