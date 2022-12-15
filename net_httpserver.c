@@ -30,20 +30,16 @@ static int win_socketpair(SOCKET socks[2])
 	SOCKET listener = -1;
 	int ret = -1;
 	socklen_t addrlen = sizeof(addr);
-    socks[0] = socks[1] = INVALID_SOCKET;
-    listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (listener == INVALID_SOCKET)
-        goto finish;
+	socks[0] = socks[1] = INVALID_SOCKET;
+	listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (listener == INVALID_SOCKET)
+		goto finish;
 
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    addr.sin_port = 0;
-	//tmp = 1;
-	//if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &tmp, sizeof(tmp)) == -1)
-	//	goto finish;
-
-	if  (bind(listener, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR)
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	addr.sin_port = 0;
+	if (bind(listener, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR)
 		goto finish;
 
 	memset(&addr, 0, sizeof(addr));
@@ -92,22 +88,22 @@ static ssize_t Net_HttpServer_FileReadCallback(void *cls, uint64_t pos, char *bu
 }
 
 static void Net_HttpServer_FileFreeCallback(void *cls) {
-	Con_Printf("Response %li finished\n", (long int)cls);
+	Con_DPrintf("HTTP response %li finished\n", (long int)cls);
 	FS_Close((qfile_t *)cls);
 }
 
 static enum MHD_Result Net_HttpServer_Request(void *cls, struct MHD_Connection *connection,
-                         const char *url,
-                         const char *method, const char *version,
-                         const char *upload_data,
-                         size_t *upload_data_size, void **con_cls)
+		const char *url,
+		const char *method, const char *version,
+		const char *upload_data,
+		size_t *upload_data_size, void **con_cls)
 {
 	struct MHD_Response *response;
 	int ret;
 	int pk3_len;
 	const char *pk3;
 	qfile_t *pk3_file;
-	Con_Printf("HTTP request: %s\n", url);
+	Con_DPrintf("HTTP request: %s\n", url);
 	if (!*url)
 		return MHD_NO;
 
@@ -116,7 +112,7 @@ static enum MHD_Result Net_HttpServer_Request(void *cls, struct MHD_Connection *
 
 	pk3 = &url[1];
 
-	if (strchr(pk3, '/') || strchr(pk3, '\\')) 
+	if (strchr(pk3, '/') || strchr(pk3, '\\'))
 		return MHD_NO;
 
 	pk3_len = strlen(pk3);
@@ -136,7 +132,7 @@ static enum MHD_Result Net_HttpServer_Request(void *cls, struct MHD_Connection *
 		return MHD_NO;
 
 	response = MHD_create_response_from_callback(FS_FileSize(pk3_file), 32 * 1024, Net_HttpServer_FileReadCallback, pk3_file, Net_HttpServer_FileFreeCallback);
-	Con_Printf("Response %li for %s started\n", (long int)pk3_file, url);
+	Con_DPrintf("HTTP response %li for %s started\n", (long int)pk3_file, url);
 	if (!response) {
 		FS_Close(pk3_file);
 		Con_Printf("libmicrohttpd response failed\n");
