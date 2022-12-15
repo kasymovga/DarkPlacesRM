@@ -10,6 +10,10 @@ This program is free software; you can redistribute it and/or blah blah blah I d
 #include "irc.h"
 #include "utf8lib.h"
 
+#ifndef WIN32
+#include <sys/select.h>
+#endif
+
 // cvars
 cvar_t irc_initialized = {CVAR_READONLY, "irc_initialized", "0", "Indicates that the IRC module has been successfully initialized"};
 cvar_t irc_enabled = {CVAR_SAVE, "irc_enabled", "1", "Allows IRC sessions to be created and IRC events to be processed"};
