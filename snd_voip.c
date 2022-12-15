@@ -425,7 +425,7 @@ static void VOIP_FreeSfx(sfx_t *sfx)
 static snd_fetcher_t voip_fetcher = { VOIP_GetSamplesFloat, NULL, VOIP_FreeSfx };
 
 static unsigned int opus_decoder_seq[128];
-static char opus_decoder_id[128];
+static unsigned char opus_decoder_id[128];
 
 void S_VOIP_Received(unsigned char *packet, int len, int client)
 {
