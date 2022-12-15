@@ -643,7 +643,7 @@ dp_model_t *Mod_FindName(const char *name, const char *parentname)
 	mod->loaded = false;
 	mod->used = true;
 finish:
-	Thread_UnlockMutex(model_mutex);
+	if (model_mutex) Thread_UnlockMutex(model_mutex);
 	return mod;
 }
 
@@ -657,11 +657,11 @@ Loads in a model for the given name
 dp_model_t *Mod_ForName(const char *name, qboolean crash, qboolean checkdisk, const char *parentname)
 {
 	dp_model_t *model;
-	Thread_LockMutex(model_mutex);
+	if (model_mutex) Thread_LockMutex(model_mutex);
 	model = Mod_FindName(name, parentname);
 	if (!model->loaded || checkdisk)
 		Mod_LoadModel(model, crash, checkdisk);
-	Thread_UnlockMutex(model_mutex);
+	if (model_mutex) Thread_UnlockMutex(model_mutex);
 	return model;
 }
 
