@@ -463,6 +463,7 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	{
 		int err;
 		opus_decoder[client] = opus_decoder_create(VOIP_FREQ, VOIP_CHANNELS, &err);
+		Con_DPrintf("Creating opus decoder for client %i\n", client);
 		if (!opus_decoder[client])
 		{
 			Con_Printf("Opus decoder creation failed\n");
@@ -499,13 +500,13 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	seq = packet[2] + packet[3] * 256 + packet[4] * 65536 + packet[5] * 16777216;
 	if (seq < opus_decoder_seq[client])
 	{
-		Con_DPrintf("Wrong ordered packet dropped\n");
+		Con_DPrintf("Wrong ordered packet dropped (got %i but expected %i) for stream id %i\n", seq, opus_decoder_seq[client], opus_decoder_id[client]);
 		SndSys_UnlockRenderBuffer();
 		return;
 	}
 	if (seq > opus_decoder_seq[client])
 	{
-		Con_DPrintf("Opus frame missed\n");
+		Con_DPrintf("Opus frame missed (got %i but expected %i) for stream id %i\n", seq, opus_decoder_seq[client], opus_decoder_id[client]);
 		if (seq - opus_decoder_seq[client] > 10)
 			opus_decoder_seq[client] = seq - 10;
 		while (seq > opus_decoder_seq[client])
@@ -529,7 +530,7 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	len = opus_decode(opus_decoder[client], (unsigned char*)packet, len, (opus_int16*)packet_decoded, 960, 0);
 	if (len < 0)
 	{
-		Con_Printf("Opus decode failed\n");
+		Con_Printf("Opus decode failed (sequence = %i)\n", opus_decoder_seq[client]);
 		SndSys_UnlockRenderBuffer();
 		return;
 	}
