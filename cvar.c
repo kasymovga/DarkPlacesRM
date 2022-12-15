@@ -33,7 +33,7 @@ struct cvar_change {
 	struct cvar_change *next;
 };
 
-static volatile struct cvar_change *cvar_changes;
+static struct cvar_change *volatile cvar_changes;
 
 cvar_t *cvar_vars = NULL;
 cvar_t *cvar_hashtable[CVAR_HASHSIZE];
