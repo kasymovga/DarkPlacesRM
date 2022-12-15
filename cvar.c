@@ -1238,7 +1238,7 @@ void Cvar_UnlockThreadMutex(void)
 void Cvar_ChangesCommit(void)
 {
 	cvar_t *var;
-	qboolean changes;
+	qboolean changes = false;
 	struct cvar_change *next;
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	if (cvar_changes) changes = true;
