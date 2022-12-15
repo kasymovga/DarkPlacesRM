@@ -1494,7 +1494,6 @@ void Cmd_Shutdown(void)
 	if (cmd_text_mutex)
 	{
 		// we usually have this locked when we get here from Host_Quit_f
-		Cbuf_UnlockThreadMutex();
 		Thread_DestroyMutex(cmd_text_mutex);
 	}
 	cmd_text_mutex = NULL;

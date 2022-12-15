@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "sv_demo.h"
 #include "image.h"
+#include "thread.h"
 
 #include "prvm_cmds.h"
 #include "utf8lib.h"
@@ -65,7 +66,11 @@ void Host_Quit_f (void)
 	if(host_shuttingdown)
 		Con_Printf("shutting down already!\n");
 	else
+	{
+		SV_UnlockThreadMutex();
 		Sys_Quit (0);
+		SV_LockThreadMutex();//just in case
+	}
 }
 
 /*

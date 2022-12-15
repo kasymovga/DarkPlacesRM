@@ -40,10 +40,6 @@ char *Sys_TimeString(const char *timeformat)
 extern qboolean host_shuttingdown;
 void Sys_Quit (int returnvalue)
 {
-	// Unlock mutexes because the quit command may jump directly here, causing a deadlock
-	Cbuf_UnlockThreadMutex();
-	SV_UnlockThreadMutex();
-
 	if (COM_CheckParm("-profilegameonly"))
 		Sys_AllowProfiling(false);
 	host_shuttingdown = true;
