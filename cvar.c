@@ -1239,6 +1239,7 @@ void Cvar_ChangesCommit(void)
 {
 	cvar_t *var;
 	qboolean changes;
+	struct cvar_change *next;
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	if (cvar_changes) changes = true;
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
@@ -1251,10 +1252,11 @@ void Cvar_ChangesCommit(void)
 			if (var->flags & CVAR_NOTIFY)
 				Cvar_NotifyAllProgs(var, cvar_changes->old_value);
 		}
+		next = cvar_changes->next;
 		Z_Free(cvar_changes->name);
 		Z_Free(cvar_changes->old_value);
 		Z_Free(cvar_changes);
-		cvar_changes = cvar_changes->next;
+		cvar_changes = next;
 	}
 	SV_UnlockThreadMutex();
 }
