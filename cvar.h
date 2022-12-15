@@ -167,6 +167,7 @@ void Cvar_Set (const char *var_name, const char *value);
 void Cvar_SetValue (const char *var_name, float value);
 
 void Cvar_SetQuick (cvar_t *var, const char *value);
+void Cvar_SetQuick_Notify (cvar_t *var, const char *value);
 void Cvar_SetValueQuick (cvar_t *var, float value);
 
 float Cvar_VariableValueOr (const char *var_name, float def);
@@ -234,13 +235,12 @@ void Cvar_Del_f (void);
 
 /// allocates a cvar by name and returns its address,
 /// or merely sets its value if it already exists.
-cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *newdescription);
+cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *newdescription, qboolean notify);
 
 extern const char *cvar_dummy_description; // ALWAYS the same pointer
 extern cvar_t *cvar_vars; // used to list all cvars
 
 void Cvar_UpdateAllAutoCvars(void); // updates ALL autocvars of the active prog to the cvar values (savegame loading)
-void Cvar_ChangesCommit(void);
 
 #ifdef FILLALLCVARSWITHRUBBISH
 void Cvar_FillAll_f();

@@ -1187,7 +1187,7 @@ static void PRVM_ED_EdictGet_f(void)
 			Cvar_UnlockThreadMutex();
 			goto fail;
 		}
-		Cvar_Get(Cmd_Argv(4), s, 0, NULL);
+		Cvar_Get(Cmd_Argv(4), s, 0, NULL, false);
 		Cvar_UnlockThreadMutex();
 	}
 	else
@@ -1234,7 +1234,7 @@ static void PRVM_ED_GlobalGet_f(void)
 			Cvar_UnlockThreadMutex();
 			goto fail;
 		}
-		Cvar_Get(Cmd_Argv(3), s, 0, NULL);
+		Cvar_Get(Cmd_Argv(3), s, 0, NULL, false);
 		Cvar_UnlockThreadMutex();
 	}
 	else
@@ -2589,7 +2589,7 @@ void PRVM_Prog_Load(prvm_prog_t *prog, const char * filename, unsigned char * da
 						Con_Printf("PRVM_LoadProgs: invalid type of autocvar global %s in %s\n", name, prog->name);
 						goto fail;
 				}
-				cvar = Cvar_Get(name + 9, value, 0, NULL);
+				cvar = Cvar_Get(name + 9, value, 0, NULL, false);
 				if((prog->globaldefs[i].type & ~DEF_SAVEGLOBAL) == ev_string)
 				{
 					val->string = PRVM_SetEngineString(prog, cvar->string);

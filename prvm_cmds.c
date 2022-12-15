@@ -895,13 +895,63 @@ void cvar_set (string,string, ...)
 */
 void VM_cvar_set(prvm_prog_t *prog)
 {
-	const char *name;
-	char string[VM_STRINGTEMP_LENGTH];
+	const char *name, *string, *s;
+	cvar_t *var;
+	int prognum = prog - prvm_prog_list;
+	char oldstring[MAX_INPUTLINE];
+	int func;
+	qboolean watched = false;
 	VM_SAFEPARMCOUNTRANGE(2,8,VM_cvar_set);
-	VM_VarString(prog, 1, string, sizeof(string));
 	name = PRVM_G_STRING(OFS_PARM0);
+	string = PRVM_G_STRING(OFS_PARM1);
 	VM_CheckEmptyString(prog, name);
-	Cvar_Set(name, string);
+	Cvar_LockThreadMutex();
+	var = Cvar_FindVar(name);
+	if (!var)
+	{
+		Con_Printf("Cvar_Set: variable %s not found\n", name);
+		goto finish;
+	}
+	if (!strcmp(var->string, string)) goto finish;
+	strlcpy(oldstring, var->string, sizeof(oldstring));
+	Cvar_SetQuick(var, string);
+	if (var->globaldefindex[prognum] >= 0)
+	{
+		switch(prog->globaldefs[var->globaldefindex[prognum]].type & ~DEF_SAVEGLOBAL)
+		{
+		case ev_float:
+			PRVM_GLOBALFIELDFLOAT(prog->globaldefs[var->globaldefindex[prognum]].ofs) = atof(string);
+			break;
+		case ev_vector:
+			s = string;
+			while (*s && ISWHITESPACE(*s))
+				s++;
+			PRVM_GLOBALFIELDVECTOR(prog->globaldefs[var->globaldefindex[prognum]].ofs)[0] = atof(s);
+			while (!ISWHITESPACE(*s))
+				s++;
+			while (*s && ISWHITESPACE(*s))
+				s++;
+			PRVM_GLOBALFIELDVECTOR(prog->globaldefs[var->globaldefindex[prognum]].ofs)[1] = atof(s);
+			while (!ISWHITESPACE(*s))
+				s++;
+			while (*s && ISWHITESPACE(*s))
+				s++;
+			PRVM_GLOBALFIELDVECTOR(prog->globaldefs[var->globaldefindex[prognum]].ofs)[2] = atof(s);
+			break;
+		case ev_string:
+			PRVM_ChangeEngineString(prog, var->globaldefindex_stringno[prognum], string);
+			PRVM_GLOBALFIELDSTRING(prog->globaldefs[var->globaldefindex[prognum]].ofs) = var->globaldefindex_stringno[prognum];
+			break;
+		}
+	}
+	watched = (var->flags & CVAR_WATCHED);
+finish:
+	Cvar_UnlockThreadMutex();
+	if (watched && (func = PRVM_allfunction(CvarUpdated))) {
+		PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, name);
+		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldstring);
+		prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
+	}
 }
 
 /*
@@ -1823,7 +1873,7 @@ void VM_registercvar(prvm_prog_t *prog)
 		goto finish;
 	}
 
-	Cvar_Get(name, value, flags, NULL);
+	Cvar_Get(name, value, flags, NULL, false);
 	PRVM_G_FLOAT(OFS_RETURN) = 1; // success
 finish:
 	Cvar_UnlockThreadMutex();

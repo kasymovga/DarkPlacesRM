@@ -27,14 +27,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 const char *cvar_dummy_description = "custom cvar";
 
-struct cvar_change {
-	char *name;
-	char *old_value;
-	struct cvar_change *next;
-};
-
-static struct cvar_change *volatile cvar_changes;
-
 cvar_t *cvar_vars = NULL;
 cvar_t *cvar_hashtable[CVAR_HASHSIZE];
 const char *cvar_null_string = "";
@@ -398,15 +390,15 @@ void Cvar_UpdateAllAutoCvars(void)
 }
 
 static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *var, char *oldvalue) {
-    int func = PRVM_allfunction(CvarUpdated);
-    if(!func)
-        return;
+	int func = PRVM_allfunction(CvarUpdated);
+	if(!func)
+		return;
 
-    PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, var->name);
-    PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldvalue);
-	if (prog != SVVM_prog) SV_UnlockThreadMutex(); //in case of error call in CvarUpdated server lock must be released for non-server prog
-    prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
-	if (prog != SVVM_prog) SV_LockThreadMutex();
+	PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, var->name);
+	PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldvalue);
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+	prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 }
 
 static void Cvar_NotifyAllProgs(cvar_t *var, char *oldvalue) {
@@ -424,26 +416,24 @@ Cvar_Set
 ============
 */
 extern cvar_t sv_disablenotify;
-static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
+static void Cvar_SetQuick_Internal (cvar_t *var, const char *value, qboolean cvar_notify)
 {
 	qboolean changed;
 	size_t valuelen;
+	char *oldval = NULL;
 	#ifndef CONFIG_SV
 	char vabuf[1024];
 	#endif
-	struct cvar_change *change;
 	changed = strcmp(var->string, value) != 0;
 	// LordHavoc: don't reallocate when there is no change
 	if (!changed)
 		return;
 
-	change = Z_Malloc(sizeof(struct cvar_change));
-	change->name = Z_Malloc(strlen(var->name) + 1);
-	strlcpy(change->name, var->name, strlen(var->name) + 1);
-	change->old_value = Z_Malloc(strlen(var->string) + 1);
-	strlcpy(change->old_value, var->string, strlen(var->string) + 1);
-	change->next = cvar_changes;
-	cvar_changes = change;
+	if((var->flags & CVAR_WATCHED) && cvar_notify) {
+		valuelen = strlen(var->string);
+		oldval = (char*)Z_Malloc(valuelen + 1);
+		memcpy(oldval, var->string, valuelen + 1);
+	}
 
 	// LordHavoc: don't reallocate when the buffer is the same size
 	valuelen = strlen(value);
@@ -519,6 +509,15 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value)
 #endif
 	}
 	#endif
+	if (cvar_notify)
+	{
+		Con_DPrintf("cvar %s changed and require prog notification\n", var->name);
+		Cvar_UpdateAutoCvar(var);
+		if(oldval) { // CVAR_WATCHED
+			Cvar_NotifyAllProgs(var, oldval);
+			Z_Free(oldval);
+		}
+	}
 }
 
 void Cvar_SetQuick (cvar_t *var, const char *value)
@@ -532,8 +531,21 @@ void Cvar_SetQuick (cvar_t *var, const char *value)
 	if (developer_extra.integer)
 		Con_DPrintf("Cvar_SetQuick({\"%s\", \"%s\", %i, \"%s\"}, \"%s\");\n", var->name, var->string, var->flags, var->defstring, value);
 
-	Cvar_SetQuick_Internal(var, value);
+	Cvar_SetQuick_Internal(var, value, false);
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+}
+
+void Cvar_SetQuick_Notify (cvar_t *var, const char *value)
+{
+	if (var == NULL)
+	{
+		Con_Print("Cvar_SetQuick_Notify: var == NULL\n");
+		return;
+	}
+	if (developer_extra.integer)
+		Con_DPrintf("Cvar_SetQuick_Notify({\"%s\", \"%s\", %i, \"%s\"}, \"%s\");\n", var->name, var->string, var->flags, var->defstring, value);
+
+	Cvar_SetQuick_Internal(var, value, true);
 }
 
 void Cvar_Set (const char *var_name, const char *value)
@@ -693,7 +705,7 @@ Cvar_Get
 Adds a newly allocated variable to the variable list or sets its value.
 ============
 */
-cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *newdescription)
+cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *newdescription, qboolean notify)
 {
 	int hashindex;
 	cvar_t *current, *next, *cvar;
@@ -705,7 +717,10 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 	if(!strcmp(name, "r_glsl")) {
 		Con_Printf("Cvar_Set: Attempted to set %s, updating vid_gl20 instead to preserve Nexuiz compatibility\n", name);
 		cvar = Cvar_FindVar("vid_gl20");
-		Cvar_SetQuick(cvar, value);
+		if (notify)
+			Cvar_SetQuick_Notify(cvar, value);
+		else
+			Cvar_SetQuick(cvar, value);
 		return cvar;
 	}
 
@@ -714,7 +729,7 @@ cvar_t *Cvar_Get (const char *name, const char *value, int flags, const char *ne
 	if (cvar)
 	{
 		cvar->flags |= flags;
-		Cvar_SetQuick_Internal (cvar, value);
+		Cvar_SetQuick_Internal (cvar, value, notify);
 		if(newdescription && (cvar->flags & CVAR_ALLOCATED))
 		{
 			if(cvar->description != cvar_dummy_description)
@@ -808,7 +823,7 @@ qboolean	Cvar_Command (void)
 		Con_Printf("%s is read-only\n", v->name);
 		goto finish;
 	}
-	Cvar_Set (v->name, Cmd_Argv(1));
+	Cvar_SetQuick_Notify (v, Cmd_Argv(1));
 	if (developer_extra.integer)
 		Con_DPrint("\n");
 finish:
@@ -953,7 +968,7 @@ void Cvar_ResetToDefaults_All_f (void)
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (var = cvar_vars ; var ; var = var->next)
 		if((var->flags & CVAR_NORESETTODEFAULTS) == 0)
-			Cvar_SetQuick(var, var->defstring);
+			Cvar_SetQuick_Notify(var, var->defstring);
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
@@ -965,7 +980,7 @@ void Cvar_ResetToDefaults_NoSaveOnly_f (void)
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (var = cvar_vars ; var ; var = var->next)
 		if ((var->flags & (CVAR_NORESETTODEFAULTS | CVAR_SAVE)) == 0)
-			Cvar_SetQuick(var, var->defstring);
+			Cvar_SetQuick_Notify(var, var->defstring);
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
@@ -977,7 +992,7 @@ void Cvar_ResetToDefaults_SaveOnly_f (void)
 	// restore the default values of all cvars
 	for (var = cvar_vars ; var ; var = var->next)
 		if ((var->flags & (CVAR_NORESETTODEFAULTS | CVAR_SAVE)) == CVAR_SAVE)
-			Cvar_SetQuick(var, var->defstring);
+			Cvar_SetQuick_Notify(var, var->defstring);
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 
@@ -1084,7 +1099,7 @@ void Cvar_Set_f (void)
 		Con_DPrint("Set: ");
 
 	// all looks ok, create/modify the cvar
-	Cvar_Get(Cmd_Argv(1), Cmd_Argv(2), 0, Cmd_Argc() > 3 ? Cmd_Argv(3) : NULL);
+	Cvar_Get(Cmd_Argv(1), Cmd_Argv(2), 0, Cmd_Argc() > 3 ? Cmd_Argv(3) : NULL, true);
 finish:
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
@@ -1113,7 +1128,7 @@ void Cvar_SetA_f (void)
 		Con_DPrint("SetA: ");
 
 	// all looks ok, create/modify the cvar
-	Cvar_Get(Cmd_Argv(1), Cmd_Argv(2), CVAR_SAVE, Cmd_Argc() > 3 ? Cmd_Argv(3) : NULL);
+	Cvar_Get(Cmd_Argv(1), Cmd_Argv(2), CVAR_SAVE, Cmd_Argc() > 3 ? Cmd_Argv(3) : NULL, true);
 finish:
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
@@ -1206,7 +1221,7 @@ void Cvar_FillAll_f()
 		{
 			Con_Printf("\n%s does not contain the right rubbish, either this is the first run or a possible overrun was detected, or something changed it intentionally; it DOES contain: %s\n", var->name, var->string);
 		}
-		Cvar_SetQuick(var, buf);
+		Cvar_SetQuick_Notify(var, buf);
 	}
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 	Z_Free(buf);
@@ -1234,29 +1249,3 @@ void Cvar_UnlockThreadMutex(void)
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
 }
 #endif
-
-void Cvar_ChangesCommit(void)
-{
-	cvar_t *var;
-	qboolean changes = false;
-	struct cvar_change *next;
-	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
-	if (cvar_changes) changes = true;
-	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
-	if (!changes) return;
-	SV_LockThreadMutex();
-	while (cvar_changes) {
-		var = Cvar_FindVar(cvar_changes->name);
-		if (var) {
-			Cvar_UpdateAutoCvar(var);
-			if (var->flags & CVAR_NOTIFY)
-				Cvar_NotifyAllProgs(var, cvar_changes->old_value);
-		}
-		next = cvar_changes->next;
-		Z_Free(cvar_changes->name);
-		Z_Free(cvar_changes->old_value);
-		Z_Free(cvar_changes);
-		cvar_changes = next;
-	}
-	SV_UnlockThreadMutex();
-}
