@@ -909,4 +909,7 @@ void VM_RemoveEdictSkeleton(prvm_prog_t *prog, prvm_edict_t *ed);
 
 void PRVM_ExplicitCoverageEvent(prvm_prog_t *prog, mfunction_t *func, int statement);
 
+float Cvar_VariableValue_NotPrivate (const char *var_name);
+int Cvar_VariableString_NotPrivate_TempString (prvm_prog_t *prog, const char *var_name);
+
 #endif

@@ -246,11 +246,6 @@ void Cvar_ChangesCommit(void);
 void Cvar_FillAll_f();
 #endif /* FILLALLCVARSWITHRUBBISH */
 
-#endif
-float Cvar_VariableValue_NotPrivate (const char *var_name);
-struct prvm_prog_s;
-typedef struct prvm_prog_s prvm_prog_t;
-int Cvar_VariableString_NotPrivate_TempString (prvm_prog_t *prog, const char *var_name);
 #ifndef CONFIG_SV
 void Cvar_LockThreadMutex(void);
 void Cvar_UnlockThreadMutex(void);
@@ -261,4 +256,5 @@ void Cvar_DisableThreads(void);
 #define Cvar_UnlockThreadMutex() 
 #define Cvar_EnableThreads() 
 #define Cvar_DisableThreads() 
+#endif
 #endif
