@@ -344,9 +344,6 @@ void CL_Disconnect(void)
 	if (cls.state == ca_dedicated)
 		return;
 
-	if (COM_CheckParm("-profilegameonly"))
-		Sys_AllowProfiling(false);
-
 	DP_Discord_SetStatus("Menu", "", "");
 	Curl_Clear_forthismap();
 

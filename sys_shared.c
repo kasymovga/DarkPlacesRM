@@ -40,33 +40,10 @@ char *Sys_TimeString(const char *timeformat)
 extern qboolean host_shuttingdown;
 void Sys_Quit (int returnvalue)
 {
-	if (COM_CheckParm("-profilegameonly"))
-		Sys_AllowProfiling(false);
 	host_shuttingdown = true;
 	Host_Shutdown();
 	exit(returnvalue);
 }
-
-#ifdef __cplusplus
-extern "C"
-#endif
-void Sys_AllowProfiling(qboolean enable)
-{
-#ifdef __ANDROID__
-#ifdef USE_PROFILER
-	extern void monstartup(const char *libname);
-	extern void moncleanup(void);
-	if (enable)
-		monstartup("libmain.so");
-	else
-		moncleanup();
-#endif
-#elif defined(__linux__) || defined(__FreeBSD__)
-	extern int moncontrol(int);
-	moncontrol(enable);
-#endif
-}
-
 
 /*
 ===============================================================================

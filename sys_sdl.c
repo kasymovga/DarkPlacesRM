@@ -40,9 +40,6 @@
 
 void Sys_Shutdown (void)
 {
-#ifdef __ANDROID__
-	Sys_AllowProfiling(false);
-#endif
 #ifndef WIN32
 	fcntl (0, F_SETFL, fcntl (0, F_GETFL, 0) & ~FNDELAY);
 #endif
@@ -222,11 +219,6 @@ void Sys_InitConsole (void)
 int main (int argc, char *argv[])
 {
 	signal(SIGFPE, SIG_IGN);
-
-#ifdef __ANDROID__
-	Sys_AllowProfiling(true);
-#endif
-
 	com_argc = argc;
 	com_argv = (const char **)argv;
 	Sys_ProvideSelfFD();
