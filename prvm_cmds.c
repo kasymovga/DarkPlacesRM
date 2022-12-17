@@ -958,25 +958,33 @@ void VM_cvar_set(prvm_prog_t *prog)
 	if (!strcmp(var->string, string)) goto finish;
 	strlcpy(oldstring, var->string, sizeof(oldstring));
 	Cvar_SetQuick(var, string);
+	#ifndef CONFIG_SV
 	if (prog == SVVM_prog)
+	#endif
 		cvar_set_autocvars(prog, var, string);
+	#ifndef CONFIG_SV
 	else
 	{
 		cvar_set_autocvars(CLVM_prog, var, string);
 		cvar_set_autocvars(MVM_prog, var, string);
 	}
+	#endif
 	watched = (var->flags & CVAR_WATCHED);
 finish:
 	Cvar_UnlockThreadMutex();
 	if (watched)
 	{
+		#ifndef CONFIG_SV
 		if (prog == SVVM_prog)
+		#endif
 			cvar_set_updated(prog, name, oldstring);
+		#ifndef CONFIG_SV
 		else
 		{
 			cvar_set_updated(CLVM_prog, name, oldstring);
 			cvar_set_updated(MVM_prog, name, oldstring);
 		}
+		#endif
 	}
 }
 
