@@ -722,7 +722,7 @@ qw_downloadtype_t;
 typedef enum capturevideoformat_e
 {
 	CAPTUREVIDEOFORMAT_AVI_I420,
-	CAPTUREVIDEOFORMAT_OGG_VORBIS_THEORA
+	CAPTUREVIDEOFORMAT_OGG
 }
 capturevideoformat_t;
 
