@@ -347,7 +347,7 @@ void CL_Disconnect(void)
 	DP_Discord_SetStatus("Menu", "", "");
 	Curl_Clear_forthismap();
 
-	Con_Printf("CL_Disconnect\n");
+	Con_Printf("Disconnecting\n");
 
     Cvar_SetValueQuick(&csqc_progcrc, -1);
 	Cvar_SetValueQuick(&csqc_progsize, -1);
