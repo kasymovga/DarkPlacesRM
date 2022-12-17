@@ -893,28 +893,10 @@ VM_cvar_set
 void cvar_set (string,string, ...)
 =================
 */
-void VM_cvar_set(prvm_prog_t *prog)
+static void cvar_set_autocvars(prvm_prog_t *prog, cvar_t *var, const char *string)
 {
-	const char *name, *string, *s;
-	cvar_t *var;
+	const char *s;
 	int prognum = prog - prvm_prog_list;
-	char oldstring[MAX_INPUTLINE];
-	int func;
-	qboolean watched = false;
-	VM_SAFEPARMCOUNTRANGE(2,8,VM_cvar_set);
-	name = PRVM_G_STRING(OFS_PARM0);
-	string = PRVM_G_STRING(OFS_PARM1);
-	VM_CheckEmptyString(prog, name);
-	Cvar_LockThreadMutex();
-	var = Cvar_FindVar(name);
-	if (!var)
-	{
-		Con_Printf("Cvar_Set: variable %s not found\n", name);
-		goto finish;
-	}
-	if (!strcmp(var->string, string)) goto finish;
-	strlcpy(oldstring, var->string, sizeof(oldstring));
-	Cvar_SetQuick(var, string);
 	if (var->globaldefindex[prognum] >= 0)
 	{
 		switch(prog->globaldefs[var->globaldefindex[prognum]].type & ~DEF_SAVEGLOBAL)
@@ -944,13 +926,57 @@ void VM_cvar_set(prvm_prog_t *prog)
 			break;
 		}
 	}
-	watched = (var->flags & CVAR_WATCHED);
-finish:
-	Cvar_UnlockThreadMutex();
-	if (watched && (func = PRVM_allfunction(CvarUpdated))) {
+}
+
+static void cvar_set_updated(prvm_prog_t *prog, const char *name, const char *oldstring)
+{
+	int func;
+	if ((func = PRVM_allfunction(CvarUpdated))) {
 		PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, name);
 		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldstring);
 		prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
+	}
+}
+
+void VM_cvar_set(prvm_prog_t *prog)
+{
+	const char *name, *string;
+	cvar_t *var;
+	char oldstring[MAX_INPUTLINE];
+	qboolean watched = false;
+	VM_SAFEPARMCOUNTRANGE(2,8,VM_cvar_set);
+	name = PRVM_G_STRING(OFS_PARM0);
+	string = PRVM_G_STRING(OFS_PARM1);
+	VM_CheckEmptyString(prog, name);
+	Cvar_LockThreadMutex();
+	var = Cvar_FindVar(name);
+	if (!var)
+	{
+		Con_Printf("Cvar_Set: variable %s not found\n", name);
+		goto finish;
+	}
+	if (!strcmp(var->string, string)) goto finish;
+	strlcpy(oldstring, var->string, sizeof(oldstring));
+	Cvar_SetQuick(var, string);
+	if (prog == SVVM_prog)
+		cvar_set_autocvars(prog, var, string);
+	else
+	{
+		cvar_set_autocvars(CLVM_prog, var, string);
+		cvar_set_autocvars(MVM_prog, var, string);
+	}
+	watched = (var->flags & CVAR_WATCHED);
+finish:
+	Cvar_UnlockThreadMutex();
+	if (watched)
+	{
+		if (prog == SVVM_prog)
+			cvar_set_updated(prog, name, oldstring);
+		else
+		{
+			cvar_set_updated(CLVM_prog, name, oldstring);
+			cvar_set_updated(MVM_prog, name, oldstring);
+		}
 	}
 }
 
