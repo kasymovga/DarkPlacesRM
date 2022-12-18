@@ -347,9 +347,7 @@ void CL_Disconnect(void)
 	DP_Discord_SetStatus("Menu", "", "");
 	Curl_Clear_forthismap();
 
-	Con_Printf("Disconnecting\n");
-
-    Cvar_SetValueQuick(&csqc_progcrc, -1);
+	Cvar_SetValueQuick(&csqc_progcrc, -1);
 	Cvar_SetValueQuick(&csqc_progsize, -1);
 	CL_VM_ShutDown();
 // stop sounds (especially looping!)
@@ -373,6 +371,7 @@ void CL_Disconnect(void)
 	{
 		sizebuf_t buf;
 		unsigned char bufdata[8];
+		Con_Printf("Disconnecting\n");
 		if (cls.demorecording)
 			CL_Stop_f();
 
