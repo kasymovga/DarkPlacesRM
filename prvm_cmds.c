@@ -897,6 +897,8 @@ static void cvar_set_autocvars(prvm_prog_t *prog, cvar_t *var, const char *strin
 {
 	const char *s;
 	int prognum = prog - prvm_prog_list;
+	if (!prog->loaded)
+		return;
 	if (var->globaldefindex[prognum] >= 0)
 	{
 		switch(prog->globaldefs[var->globaldefindex[prognum]].type & ~DEF_SAVEGLOBAL)
@@ -931,6 +933,8 @@ static void cvar_set_autocvars(prvm_prog_t *prog, cvar_t *var, const char *strin
 static void cvar_set_updated(prvm_prog_t *prog, const char *name, const char *oldstring)
 {
 	int func;
+	if (!prog->loaded)
+		return;
 	if ((func = PRVM_allfunction(CvarUpdated))) {
 		PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, name);
 		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldstring);
