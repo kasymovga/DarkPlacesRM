@@ -36,7 +36,7 @@ static cvar_t cl_capturevideo_ogg_vp8_bitrate = {CVAR_SAVE, "cl_capturevideo_ogg
 static cvar_t cl_capturevideo_ogg_vp8_threads = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_threads", "4", "amount of threads for vp8 encoding"};
 static cvar_t cl_capturevideo_ogg_vp8_min_quantizer = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_min_quantizer", "2", "vp8 min quantizer"};
 static cvar_t cl_capturevideo_ogg_vp8_max_quantizer = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_max_quantizer", "56", "vp8 max quantizer"};
-static cvar_t cl_capturevideo_ogg_vp8_end_usage = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_end_usage", "1", "vp8 end usage (0 - VBR, 1 - CBR, 2 - CQ, 3 - Q"};
+static cvar_t cl_capturevideo_ogg_vp8_end_usage = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_end_usage", "1", "vp8 end usage (0 - VBR, 1 - CBR, 2 - CQ, 3 - Q)"};
 static cvar_t cl_capturevideo_ogg_vp8_deadline = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_deadline", "1", "vp8 deadline (0 - best quality, 1 - realtime quality , 2 - good quality)"};
 #endif
 
