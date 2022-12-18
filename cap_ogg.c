@@ -15,9 +15,11 @@
 #include <theora/theora.h>
 #include <theora/theoraenc.h>
 #endif
+#ifdef LINK_TO_VPX
 #include <vpx/vpx_encoder.h>
 #include <vpx/vp8.h>
 #include <vpx/vp8cx.h>
+#endif
 
 // video capture cvars
 static cvar_t cl_capturevideo_ogg_theora_vp3compat = {CVAR_SAVE, "cl_capturevideo_ogg_theora_vp3compat", "1", "make VP3 compatible theora streams"};
