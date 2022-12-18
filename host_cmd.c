@@ -67,9 +67,7 @@ void Host_Quit_f (void)
 		Con_Printf("shutting down already!\n");
 	else
 	{
-		SV_UnlockThreadMutex();
 		Sys_Quit (0);
-		SV_LockThreadMutex();//just in case
 	}
 }
 

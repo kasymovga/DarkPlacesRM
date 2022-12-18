@@ -284,6 +284,7 @@ void Cbuf_Execute (void)
 	qboolean quotes;
 	char *comment;
 
+	SV_LockThreadMutex();
 	// LordHavoc: making sure the tokenizebuffer doesn't get filled up by repeated crashes
 	cmd_tokenizebufferpos = 0;
 
@@ -374,6 +375,7 @@ void Cbuf_Execute (void)
 			break;
 		}
 	}
+	SV_UnlockThreadMutex();
 }
 
 void Cbuf_Frame(void)
@@ -381,9 +383,7 @@ void Cbuf_Frame(void)
 	Cbuf_Execute_Deferred();
 	if (cmd_text.cursize)
 	{
-		SV_LockThreadMutex();
 		Cbuf_Execute();
-		SV_UnlockThreadMutex();
 	}
 }
 

@@ -617,11 +617,17 @@ void SV_GetEntityMatrix(prvm_prog_t *prog, prvm_edict_t *ent, matrix4x4_t *out, 
 #ifndef CONFIG_SV
 void SV_StartThread(void);
 void SV_StopThread(void);
-#define SV_LockThreadMutex() (void)(svs.threaded ? Thread_LockMutex(svs.threadmutex) : 0)
-#define SV_UnlockThreadMutex() (void)(svs.threaded ? Thread_UnlockMutex(svs.threadmutex) : 0)
+void _SV_LockThreadMutex(const char *file, int line);
+void _SV_UnlockThreadMutex(const char *file, int line);
+void SV_ResetLock(void);
+#define SV_LockThreadMutex() _SV_LockThreadMutex(__FILE__, __LINE__)
+#define SV_UnlockThreadMutex() _SV_UnlockThreadMutex(__FILE__, __LINE__)
+qboolean SV_ThreadIsLocked(void);
 #else
 #define SV_LockThreadMutex() 
 #define SV_UnlockThreadMutex() 
+#define SV_ThreadIsLocked() false
+#define SV_ResetLock() 
 #endif
 
 void VM_CustomStats_Clear(void);

@@ -3309,8 +3309,9 @@ void SV_SpawnServer (const char *server)
 	char modelname[sizeof(sv.worldname)];
 	char vabuf[1024];
 
+	if (!SV_ThreadIsLocked())
+		Sys_Error("SV_SpawnServer: server thread not locked!\n");
 	Con_DPrintf("SpawnServer: %s\n", server);
-
 	dpsnprintf (modelname, sizeof(modelname), "maps/%s.bsp", server);
 
 	if (!FS_FileExists(modelname))
@@ -4096,26 +4097,47 @@ static int SV_ThreadFunc(void *voiddata)
 	return 0;
 }
 
+static int sv_lock_depth = 0;
+static int cl_lock_depth = 0;
 void SV_StartThread(void)
 {
-	if (!sv_threaded.integer || !Thread_HasThreads())
+	qboolean lockstate;
+	if (!sv_threaded.integer || !Thread_HasThreads() || svs.threaded)
 		return;
+	if (sv_lock_depth)
+		Sys_Error("Server thread started in incorrect lock status\n");
+
+	Con_Printf("Starting server thread\n");
+	Cvar_EnableThreads();
+	Mod_EnableThreads();
+	lockstate = SV_ThreadIsLocked();
 	svs.threaded = true;
 	svs.threadstop = false;
 	svs.threadmutex = Thread_CreateMutex();
+	if (lockstate) //make lock real
+		Thread_LockMutex(svs.threadmutex);
 	svs.thread = Thread_CreateThread(SV_ThreadFunc, NULL);
-	Cvar_EnableThreads();
-	Mod_EnableThreads();
 }
 
 void SV_StopThread(void)
 {
+	int lockstate;
 	if (!svs.threaded)
 		return;
+	if (Thread_IsCurrent(svs.thread))
+		Sys_Error("SV_StopThread called from server thread!");
+	Con_Printf("Stopping server thread\n");
+	lockstate = cl_lock_depth;
 	svs.threadstop = true;
+	cl_lock_depth = 0; //remove lock so server thread can shutdown
+	if (lockstate)
+		Thread_UnlockMutex(svs.threadmutex);
 	Thread_WaitThread(svs.thread, 0);
+	cl_lock_depth = lockstate; //restore lock in fake state
 	Thread_DestroyMutex(svs.threadmutex);
+	svs.threadmutex = NULL;
 	svs.threaded = false;
+	svs.thread = NULL;
 	Mod_DisableThreads();
 	Cvar_DisableThreads();
 }
@@ -4161,3 +4183,109 @@ qboolean MakeDownloadPacket(const char *filename, unsigned char *data, size_t le
 	}
 	return false;
 }
+
+#ifndef CONFIG_SV
+void _SV_LockThreadMutex(const char *file, int line)
+{
+	//Con_Printf("SV_Lock: %s: %i\n", file, line);
+	if (!svs.threaded) //fake lock
+	{
+		cl_lock_depth++;
+		//Con_Printf("cl_lock_depth = %i, sv_lock_depth = %i\n", cl_lock_depth, sv_lock_depth);
+		return;
+	}
+	if (Thread_IsCurrent(svs.thread))
+	{
+		if (!sv_lock_depth)
+			Thread_LockMutex(svs.threadmutex);
+		sv_lock_depth++;
+		//Con_Printf("cl_lock_depth = %i, sv_lock_depth = %i\n", cl_lock_depth, sv_lock_depth);
+		if (cl_lock_depth)
+		{
+			Sys_Error("%s:%i: impossible mutual lock\n", file, line);
+		}
+	}
+	else
+	{
+		if (!cl_lock_depth)
+			Thread_LockMutex(svs.threadmutex);
+
+		cl_lock_depth++;
+		//Con_Printf("cl_lock_depth = %i, sv_lock_depth = %i\n", cl_lock_depth, sv_lock_depth);
+		if (sv_lock_depth)
+		{
+			Sys_Error("%s:%i: impossible mutual lock\n", file, line);
+		}
+	}
+}
+
+void _SV_UnlockThreadMutex(const char *file, int line)
+{
+	//Con_Printf("SV_Unlock: %s: %i\n", file, line);
+	if (!svs.threaded) //fake unlock
+	{
+		if (cl_lock_depth <= 0)
+		{
+			Sys_Error("%s:%i: Attemp to unlock not locked server mutex in client thread!\n", file, line);
+		}
+		cl_lock_depth--;
+		//Con_Printf("cl_lock_depth = %i, sv_lock_depth = %i\n", cl_lock_depth, sv_lock_depth);
+		return;
+	}
+	if (Thread_IsCurrent(svs.thread))
+	{
+		if (sv_lock_depth <= 0)
+		{
+			Sys_Error("%s:%i: Attemp to unlock not locked server mutex in server thread!\n", file, line);
+		}
+		sv_lock_depth--;
+		//Con_Printf("cl_lock_depth = %i, sv_lock_depth = %i\n", cl_lock_depth, sv_lock_depth);
+		if (!sv_lock_depth)
+			Thread_UnlockMutex(svs.threadmutex);
+	}
+	else
+	{
+		if (cl_lock_depth <= 0)
+		{
+			Sys_Error("%s:%i: Attemp to unlock not locked server mutex in client thread!\n", file, line);
+		}
+		cl_lock_depth--;
+		//Con_Printf("cl_lock_depth = %i, sv_lock_depth = %i\n", cl_lock_depth, sv_lock_depth);
+		if (!cl_lock_depth)
+			Thread_UnlockMutex(svs.threadmutex);
+	}
+}
+
+qboolean SV_ThreadIsLocked(void)
+{
+	if (!svs.threaded)
+		return cl_lock_depth;
+	if (Thread_IsCurrent(svs.thread))
+		return sv_lock_depth;
+
+	return cl_lock_depth;
+}
+
+void SV_ResetLock(void)
+{
+	if (!svs.threaded)
+	{
+		cl_lock_depth = 0;
+		return;
+	}
+	if (Thread_IsCurrent(svs.thread))
+	{
+		if (sv_lock_depth > 0) {
+			sv_lock_depth = 0;
+			Thread_UnlockMutex(svs.threadmutex);
+		}
+	}
+	else
+	{
+		if (cl_lock_depth > 0) {
+			cl_lock_depth = 0;
+			Thread_UnlockMutex(svs.threadmutex);
+		}
+	}
+}
+#endif

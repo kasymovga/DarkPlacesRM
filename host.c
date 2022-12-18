@@ -177,11 +177,10 @@ void Host_Error (prvm_prog_t *prog, const char *error, ...)
 	}
 	#endif
 	hosterror = false;
-
-	if (prog == SVVM_prog && svs.threaded) //Server thread supposed to be locked when server vm executed
+	if (SV_ThreadIsLocked()) //Server thread supposed to be locked when server vm executed
 	{
-		Con_Printf("Unlocking server thread\n");
-		SV_UnlockThreadMutex();
+		Con_Printf("Host_Error: resetting server thread mutex lock\n");
+		SV_ResetLock();
 	}
 	if (is_sv_thread)
 		longjmp(sv_abortframe, 1);
@@ -634,6 +633,10 @@ void Host_ShutdownServer(void)
 		return;
 
 	SV_LockThreadMutex();
+	#ifndef CONFIG_SV
+	if (svs.threaded && !Thread_IsCurrent(svs.thread))
+		SV_StopThread();
+	#endif
 	NetConn_Heartbeat(2);
 	NetConn_Heartbeat(2);
 
@@ -1485,7 +1488,9 @@ static void Host_Init (void)
 	}
 
 	Host_AddConfigText();
+	SV_LockThreadMutex();
 	Cbuf_Execute();
+	SV_UnlockThreadMutex();
 
 	// if stuffcmds wasn't run, then quake.rc is probably missing, use default
 	if (!host_stuffcmdsrun)
@@ -1556,7 +1561,6 @@ static void Host_Init (void)
 	if (cls.state != ca_dedicated)
 	{
 		DP_Discord_Start();
-		SV_StartThread();
 	}
 	#endif
 }
@@ -1566,7 +1570,7 @@ static void Host_Init (void)
 ===============
 Host_Shutdown
 
-FIXME: this is a callback from Sys_Quit and Sys_Error.  It would be better
+FIXME: this is a callback from Sys_Quit.  It would be better
 to run quit through here before the final handoff to the sys code.
 ===============
 */
@@ -1590,7 +1594,7 @@ void Host_Shutdown(void)
 	#ifndef CONFIG_SV
 	S_StopAllSounds();
 	// end the server thread
-	if (svs.threaded)
+	if (svs.threaded && svs.thread)
 		SV_StopThread();
 
 	// disconnect client from server if active
@@ -1630,7 +1634,6 @@ void Host_Shutdown(void)
 		VID_Shutdown();
 		DP_Discord_Shutdown();
 	}
-	SV_StopThread();
 	#endif
 	Thread_Shutdown();
 	Cmd_Shutdown();

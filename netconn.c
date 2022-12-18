@@ -1101,7 +1101,7 @@ void NetConn_OpenServerPorts(int opennetports)
 	int port;
 	NetConn_CloseServerPorts();
 
-	SV_LockThreadMutex(); // FIXME recursive?
+	SV_LockThreadMutex();
 	Crypto_LoadKeys(); // server sockets
 	SV_UnlockThreadMutex();
 

@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "snd_main.h"
 #include "random.h"
 #include "discord.h"
+#include "thread.h"
 
 // we need to declare some mouse variables here, because the menu system
 // references them even when on a unix system.
@@ -477,6 +478,14 @@ void CL_EstablishConnection(const char *host, int firstarg)
 #ifdef CONFIG_MENU
 		M_Update_Return_Reason("No network");
 #endif
+	}
+	if (sv.active && !svs.thread)
+	{
+		SV_StartThread();
+	}
+	else if (svs.thread && !Thread_IsCurrent(svs.thread))
+	{
+		SV_StopThread();
 	}
 }
 
