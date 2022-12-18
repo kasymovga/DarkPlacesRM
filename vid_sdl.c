@@ -754,6 +754,7 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 	float sqsum;
 	qboolean button = false;
 	qboolean check_dest = false;
+	char command_part[32];
 	if (vid_touchscreen_active.integer) {
 		if ((dest & 32)) {
 			*resultbutton = false;
@@ -820,48 +821,59 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 			scr_numtouchscreenareas++;
 		}
 	}
-	if (command[0] == '*') {
-		if (!strcmp(command, "*move")) {
-			if (button) {
-				cl.cmd.forwardmove -= rel[1] * cl_forwardspeed.value;
-				cl.cmd.sidemove += rel[0] * cl_sidespeed.value;
-			}
-		} else if (!strcmp(command, "*aim")) {
-			if (button) {
-				cl.viewangles[0] += rel[1] * cl_pitchspeed.value * vid_touchscreen_sensitivity.value;
-				cl.viewangles[1] -= rel[0] * cl_yawspeed.value * vid_touchscreen_sensitivity.value;
-				multitouch[finger].start_x = multitouch[finger].x;
-				multitouch[finger].start_y = multitouch[finger].y;
-			}
-		} else if (!strcmp(command, "*click")) {
-			if (*resultbutton != button) {
-				Key_Event(K_MOUSE1, 0, button, false);
-			}
-		} else if (!strcmp(command, "*menu")) {
-			if (*resultbutton != button) {
-				Key_Event(K_ESCAPE, 0, button, false);
-			}
-		} else if (!strcmp(command, "*touchtoggle")) {
-			if (!button && *resultbutton) {
-				Cvar_SetValueQuick(&vid_touchscreen_active, !vid_touchscreen_active.integer);
-			}
-		} else if (!strcmp(command, "*keyboard")) {
-			if (button && *resultbutton != button)
-				VID_ShowKeyboard(!VID_ShowingKeyboard());
+	while (command && *command) {
+		char *comma = strchr(command, ',');
+		if (comma) {
+			memcpy(command_part, command, comma - command);
+			command_part[comma - command] = '\0';
+			command = &comma[1];
+		} else {
+			strlcpy(command_part, command, sizeof(command_part));
+			command = NULL;
 		}
-	} else {
-		if (*resultbutton != button)
-		{
-			if (command) {
-				if (command[0] == '+' && !button) {
-					char minus_command[64];
-					strlcpy(minus_command, command, 64);
-					minus_command[0] = '-';
-					Cbuf_AddText(minus_command);
-				} else if (button) {
-					Cbuf_AddText(command);
+		if (command_part[0] == '*') {
+			if (!strcmp(command_part, "*move")) {
+				if (button) {
+					cl.cmd.forwardmove -= rel[1] * cl_forwardspeed.value;
+					cl.cmd.sidemove += rel[0] * cl_sidespeed.value;
 				}
-				Cbuf_AddText("\n");
+			} else if (!strcmp(command_part, "*aim")) {
+				if (button) {
+					cl.viewangles[0] += rel[1] * cl_pitchspeed.value * vid_touchscreen_sensitivity.value;
+					cl.viewangles[1] -= rel[0] * cl_yawspeed.value * vid_touchscreen_sensitivity.value;
+					multitouch[finger].start_x = multitouch[finger].x;
+					multitouch[finger].start_y = multitouch[finger].y;
+				}
+			} else if (!strcmp(command_part, "*click")) {
+				if (*resultbutton != button) {
+					Key_Event(K_MOUSE1, 0, button, false);
+				}
+			} else if (!strcmp(command_part, "*menu")) {
+				if (*resultbutton != button) {
+					Key_Event(K_ESCAPE, 0, button, false);
+				}
+			} else if (!strcmp(command_part, "*touchtoggle")) {
+				if (!button && *resultbutton) {
+					Cvar_SetValueQuick(&vid_touchscreen_active, !vid_touchscreen_active.integer);
+				}
+			} else if (!strcmp(command_part, "*keyboard")) {
+				if (button && *resultbutton != button)
+					VID_ShowKeyboard(!VID_ShowingKeyboard());
+			}
+		} else {
+			if (*resultbutton != button)
+			{
+				if (command_part[0]) {
+					if (command_part[0] == '+' && !button) {
+						char minus_command[64];
+						strlcpy(minus_command, command_part, 64);
+						minus_command[0] = '-';
+						Cbuf_AddText(minus_command);
+					} else if (button) {
+						Cbuf_AddText(command_part);
+					}
+					Cbuf_AddText("\n");
+				}
 			}
 		}
 	}
