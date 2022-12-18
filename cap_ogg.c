@@ -15,6 +15,9 @@
 #include <theora/theora.h>
 #include <theora/theoraenc.h>
 #endif
+#include <vpx/vpx_encoder.h>
+#include <vpx/vp8.h>
+#include <vpx/vp8cx.h>
 
 // video capture cvars
 static cvar_t cl_capturevideo_ogg_theora_vp3compat = {CVAR_SAVE, "cl_capturevideo_ogg_theora_vp3compat", "1", "make VP3 compatible theora streams"};
@@ -27,6 +30,15 @@ static cvar_t cl_capturevideo_ogg_theora_keyframe_auto_threshold = {CVAR_SAVE, "
 static cvar_t cl_capturevideo_ogg_theora_noise_sensitivity = {CVAR_SAVE, "cl_capturevideo_ogg_theora_noise_sensitivity", "1", "video noise sensitivity (0 to 6); lower is better"};
 static cvar_t cl_capturevideo_ogg_theora_sharpness = {CVAR_SAVE, "cl_capturevideo_ogg_theora_sharpness", "0", "sharpness (0 to 2); lower is sharper"};
 static cvar_t cl_capturevideo_ogg_vorbis_quality = {CVAR_SAVE, "cl_capturevideo_ogg_vorbis_quality", "3", "audio quality (-1 to 10); higher is better"};
+#ifdef LINK_TO_VPX
+static cvar_t cl_capturevideo_ogg_vp8 = {CVAR_SAVE, "cl_capturevideo_ogg_vp8", "1", "use vp8 codec to encode video"};
+static cvar_t cl_capturevideo_ogg_vp8_bitrate = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_bitrate", "10000", "video bitrate for vp8 encoding"};
+static cvar_t cl_capturevideo_ogg_vp8_threads = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_threads", "4", "amount of threads for vp8 encoding"};
+static cvar_t cl_capturevideo_ogg_vp8_min_quantizer = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_min_quantizer", "2", "vp8 min quantizer"};
+static cvar_t cl_capturevideo_ogg_vp8_max_quantizer = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_max_quantizer", "56", "vp8 max quantizer"};
+static cvar_t cl_capturevideo_ogg_vp8_end_usage = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_end_usage", "1", "vp8 end usage (0 - VBR, 1 - CBR, 2 - CQ, 3 - Q"};
+static cvar_t cl_capturevideo_ogg_vp8_deadline = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_deadline", "1", "vp8 deadline (0 - best quality, 1 - realtime quality , 2 - good quality)"};
+#endif
 
 #ifndef LINK_TO_LIBVORBIS
 // ogg.h stuff
@@ -655,6 +667,15 @@ void SCR_CaptureVideo_Ogg_Init(void)
 	Cvar_RegisterVariable(&cl_capturevideo_ogg_theora_keyframe_auto_threshold);
 	Cvar_RegisterVariable(&cl_capturevideo_ogg_theora_noise_sensitivity);
 	Cvar_RegisterVariable(&cl_capturevideo_ogg_vorbis_quality);
+	#ifdef LINK_TO_VPX
+	Cvar_RegisterVariable(&cl_capturevideo_ogg_vp8);
+	Cvar_RegisterVariable(&cl_capturevideo_ogg_vp8_bitrate);
+	Cvar_RegisterVariable(&cl_capturevideo_ogg_vp8_threads);
+	Cvar_RegisterVariable(&cl_capturevideo_ogg_vp8_min_quantizer);
+	Cvar_RegisterVariable(&cl_capturevideo_ogg_vp8_max_quantizer);
+	Cvar_RegisterVariable(&cl_capturevideo_ogg_vp8_end_usage);
+	Cvar_RegisterVariable(&cl_capturevideo_ogg_vp8_deadline);
+	#endif
 }
 
 qboolean SCR_CaptureVideo_Ogg_Available(void)
@@ -693,7 +714,7 @@ allocatedoggpage_t;
 
 typedef struct capturevideostate_ogg_formatspecific_s
 {
-	ogg_stream_state to, vo;
+	ogg_stream_state videostream, audiostream;
 	int serial1, serial2;
 	theora_state ts;
 	vorbis_dsp_state vd;
@@ -705,6 +726,14 @@ typedef struct capturevideostate_ogg_formatspecific_s
 	int channels;
 
 	allocatedoggpage_t videopage, audiopage;
+	#ifdef LINK_TO_VPX
+	int vp8;
+	vpx_codec_ctx_t vpx_codec;
+	vpx_image_t vpx_image;
+	ogg_int64_t vpx_packetno;
+	vpx_codec_pts_t vpx_frame;
+	ogg_int64_t vpx_last_granule;
+	#endif
 }
 capturevideostate_ogg_formatspecific_t;
 #define LOAD_FORMATSPECIFIC_OGG() capturevideostate_ogg_formatspecific_t *format = (capturevideostate_ogg_formatspecific_t *) cls.capturevideo.formatspecific
@@ -716,7 +745,7 @@ static void SCR_CaptureVideo_Ogg_Interleave(void)
 
 	if(!cls.capturevideo.soundrate)
 	{
-		while(qogg_stream_pageout(&format->to, &pg) > 0)
+		while(qogg_stream_pageout(&format->videostream, &pg) > 0)
 		{
 			FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
 			FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
@@ -728,7 +757,7 @@ static void SCR_CaptureVideo_Ogg_Interleave(void)
 	{
 		// first: make sure we have a page of both types
 		if(!format->videopage.len)
-			if(qogg_stream_pageout(&format->to, &pg) > 0)
+			if(qogg_stream_pageout(&format->videostream, &pg) > 0)
 			{
 				format->videopage.len = pg.header_len + pg.body_len;
 				format->videopage.time = qtheora_granule_time(&format->ts, qogg_page_granulepos(&pg));
@@ -738,7 +767,7 @@ static void SCR_CaptureVideo_Ogg_Interleave(void)
 				memcpy(format->videopage.data + pg.header_len, pg.body, pg.body_len);
 			}
 		if(!format->audiopage.len)
-			if(qogg_stream_pageout(&format->vo, &pg) > 0)
+			if(qogg_stream_pageout(&format->audiostream, &pg) > 0)
 			{
 				format->audiopage.len = pg.header_len + pg.body_len;
 				format->audiopage.time = qvorbis_granule_time(&format->vd, qogg_page_granulepos(&pg));
@@ -794,13 +823,56 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 	if(format->yuvi >= 0)
 	{
 		// send the previous (and last) frame
-		while(format->lastnum-- > 0)
+		#ifdef LINK_TO_VPX
+		if (format->vp8)
 		{
-			qtheora_encode_YUVin(&format->ts, &format->yuv[format->yuvi]);
+			int64_t pts, invcnt, dist;
+			int visible;
+			const vpx_codec_cx_pkt_t *pkt;
+			vpx_codec_iter_t vpx_iter = NULL;
+			unsigned long deadline = (cl_capturevideo_ogg_vp8_deadline.integer == 1 ? VPX_DL_REALTIME : (cl_capturevideo_ogg_vp8_deadline.integer == 2 ? VPX_DL_GOOD_QUALITY : VPX_DL_BEST_QUALITY));
+			memcpy(format->vpx_image.planes[0], format->yuv[format->yuvi].y, format->yuv[format->yuvi].y_width *  format->yuv[format->yuvi].y_height);
+			memcpy(format->vpx_image.planes[1], format->yuv[format->yuvi].u, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
+			memcpy(format->vpx_image.planes[2], format->yuv[format->yuvi].v, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
+			vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, 0);
+			vpx_codec_encode(&format->vpx_codec, &format->vpx_image, format->vpx_frame, format->lastnum, 0, deadline);
+			format->vpx_frame++;
+			vpx_codec_encode(&format->vpx_codec, NULL, format->vpx_frame, 1, 0, deadline);
+			pkt = vpx_codec_get_cx_data(&format->vpx_codec, &vpx_iter);
+			while (pkt)
+			{
+				//pack to ogg
+				pt.packet = pkt->data.frame.buf;
+				pt.bytes = pkt->data.frame.sz;
+				pt.granulepos = pkt->data.frame.pts; //FIXME
+				pt.b_o_s = 0;
+				pt.packetno = format->vpx_packetno;
+				format->vpx_packetno++;
 
-			while(qtheora_encode_packetout(&format->ts, !format->lastnum, &pt))
-				qogg_stream_packetin(&format->to, &pt);
+				visible = !(pkt->data.frame.flags & VPX_FRAME_IS_INVISIBLE);
+				pts     = pkt->data.frame.pts + pkt->data.frame.duration;
+				invcnt  = (format->vpx_last_granule >> 30) & 3;
+				invcnt  = visible ? 3 : (invcnt == 3 ? 0 : invcnt + 1);
+				dist    = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) ? 0 : ((format->vpx_last_granule >> 3) & 0x07ffffff) + 1;
+				pt.granulepos = (pts << 32) | (invcnt << 30) | (dist << 3);
+				format->vpx_last_granule = pt.granulepos;
 
+				pkt = vpx_codec_get_cx_data(&format->vpx_codec, &vpx_iter);
+				pt.e_o_s = (pkt ? 1 : 0);
+				qogg_stream_packetin(&format->videostream, &pt);
+			}
+			format->lastnum = 0;
+		}
+		else
+		#endif
+		{
+			while(format->lastnum-- > 0)
+			{
+				qtheora_encode_YUVin(&format->ts, &format->yuv[format->yuvi]);
+
+				while(qtheora_encode_packetout(&format->ts, !format->lastnum, &pt))
+					qogg_stream_packetin(&format->videostream, &pt);
+			}
 			SCR_CaptureVideo_Ogg_Interleave();
 		}
 	}
@@ -813,14 +885,14 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 			qvorbis_analysis(&format->vb, NULL);
 			qvorbis_bitrate_addblock(&format->vb);
 			while(qvorbis_bitrate_flushpacket(&format->vd, &pt))
-				qogg_stream_packetin(&format->vo, &pt);
+				qogg_stream_packetin(&format->audiostream, &pt);
 			SCR_CaptureVideo_Ogg_Interleave();
 		}
 	}
 
 	SCR_CaptureVideo_Ogg_FlushInterleaving();
 
-	while(qogg_stream_pageout(&format->to, &pg) > 0)
+	while(qogg_stream_pageout(&format->videostream, &pg) > 0)
 	{
 		FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
 		FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
@@ -828,7 +900,7 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 
 	if(cls.capturevideo.soundrate)
 	{
-		while(qogg_stream_pageout(&format->vo, &pg) > 0)
+		while(qogg_stream_pageout(&format->audiostream, &pg) > 0)
 		{
 			FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
 			FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
@@ -836,9 +908,9 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 	}
 
 	while (1) {
-		int result = qogg_stream_flush (&format->to, &pg);
+		int result = qogg_stream_flush (&format->videostream, &pg);
 		if (result < 0)
-			fprintf (stderr, "Internal Ogg library error.\n"); // TODO Sys_Error
+			Sys_Error("Internal Ogg library error.\n"); // TODO Sys_Error
 		if (result <= 0)
 			break;
 		FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
@@ -848,23 +920,37 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 	if(cls.capturevideo.soundrate)
 	{
 		while (1) {
-			int result = qogg_stream_flush (&format->vo, &pg);
+			int result = qogg_stream_flush (&format->audiostream, &pg);
 			if (result < 0)
-				fprintf (stderr, "Internal Ogg library error.\n"); // TODO Sys_Error
+				Sys_Error("Internal Ogg library error.\n"); // TODO Sys_Error
 			if (result <= 0)
 				break;
 			FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
 			FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
 		}
 
-		qogg_stream_clear(&format->vo);
+		qogg_stream_clear(&format->audiostream);
 		qvorbis_block_clear(&format->vb);
 		qvorbis_dsp_clear(&format->vd);
 	}
 
-	qogg_stream_clear(&format->to);
-	qtheora_clear(&format->ts);
-	qvorbis_info_clear(&format->vi);
+	qogg_stream_clear(&format->videostream);
+	#ifdef LINK_TO_VPX
+	if (format->vp8)
+	{
+		vpx_codec_destroy(&format->vpx_codec);
+		vpx_img_free(&format->vpx_image);
+		format->vpx_frame = 0;
+		format->vpx_packetno = 1;
+		format->vpx_last_granule = 0;
+	}
+	else
+	#endif
+	{
+		qtheora_clear(&format->ts);
+	}
+	if(cls.capturevideo.soundrate)
+		qvorbis_info_clear(&format->vi);
 
 	Mem_Free(format->yuv[0].y);
 	Mem_Free(format->yuv[0].u);
@@ -930,13 +1016,60 @@ static void SCR_CaptureVideo_Ogg_VideoFrames(int num)
 	if(format->yuvi >= 0)
 	{
 		// send the previous frame
-		while(format->lastnum-- > 0)
+		#ifdef LINK_TO_VPX
+		if (format->vp8)
 		{
-			qtheora_encode_YUVin(&format->ts, &format->yuv[format->yuvi]);
+			int64_t pts, invcnt, dist;
+			int visible;
+			const vpx_codec_cx_pkt_t *pkt;
+			vpx_codec_err_t vpx_err;
+			vpx_codec_iter_t vpx_iter = NULL;
+			unsigned long deadline = (cl_capturevideo_ogg_vp8_deadline.integer == 1 ? VPX_DL_REALTIME : (cl_capturevideo_ogg_vp8_deadline.integer == 2 ? VPX_DL_GOOD_QUALITY : VPX_DL_BEST_QUALITY));
+			memcpy(format->vpx_image.planes[0], format->yuv[format->yuvi].y, format->yuv[format->yuvi].y_width *  format->yuv[format->yuvi].y_height);
+			memcpy(format->vpx_image.planes[1], format->yuv[format->yuvi].u, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
+			memcpy(format->vpx_image.planes[2], format->yuv[format->yuvi].v, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
+			if (format->vpx_packetno == 1)
+				vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, VPX_EFLAG_FORCE_KF);
+			else
+				vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, 0);
 
-			while(qtheora_encode_packetout(&format->ts, false, &pt))
-				qogg_stream_packetin(&format->to, &pt);
+			if ((vpx_err = vpx_codec_encode(&format->vpx_codec, &format->vpx_image, format->vpx_frame, format->lastnum, 0, deadline)))
+			{
+				Con_Printf("VP8 compression failed: %s\n", vpx_codec_err_to_string(vpx_err));
+			}
+			format->vpx_frame++;
+			while ((pkt = vpx_codec_get_cx_data(&format->vpx_codec, &vpx_iter)))
+			{
+				//pack to ogg
+				pt.packet = pkt->data.frame.buf;
+				pt.bytes = pkt->data.frame.sz;
+				pt.e_o_s = 0;
+				pt.b_o_s = 0;
+				pt.packetno = format->vpx_packetno;
+				format->vpx_packetno++;
 
+				visible = !(pkt->data.frame.flags & VPX_FRAME_IS_INVISIBLE);
+				pts     = pkt->data.frame.pts + pkt->data.frame.duration;
+				invcnt  = (format->vpx_last_granule >> 30) & 3;
+				invcnt  = visible ? 3 : (invcnt == 3 ? 0 : invcnt + 1);
+				dist    = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) ? 0 : ((format->vpx_last_granule >> 3) & 0x07ffffff) + 1;
+				pt.granulepos = (pts << 32) | (invcnt << 30) | (dist << 3);
+				format->vpx_last_granule = pt.granulepos;
+
+				qogg_stream_packetin(&format->videostream, &pt);
+			}
+			format->lastnum = 0;
+		}
+		else
+		#endif
+		{
+			while(format->lastnum-- > 0)
+			{
+				qtheora_encode_YUVin(&format->ts, &format->yuv[format->yuvi]);
+
+				while(qtheora_encode_packetout(&format->ts, false, &pt))
+					qogg_stream_packetin(&format->videostream, &pt);
+			}
 			SCR_CaptureVideo_Ogg_Interleave();
 		}
 	}
@@ -985,7 +1118,7 @@ static void SCR_CaptureVideo_Ogg_SoundFrame(const portable_sampleframe_t *paintb
 		qvorbis_bitrate_addblock(&format->vb);
 
 		while(qvorbis_bitrate_flushpacket(&format->vd, &pt))
-			qogg_stream_packetin(&format->vo, &pt);
+			qogg_stream_packetin(&format->audiostream, &pt);
 	}
 
 	SCR_CaptureVideo_Ogg_Interleave();
@@ -994,7 +1127,7 @@ static void SCR_CaptureVideo_Ogg_SoundFrame(const portable_sampleframe_t *paintb
 void SCR_CaptureVideo_Ogg_BeginVideo(void)
 {
 	char vabuf[1024];
-	cls.capturevideo.format = CAPTUREVIDEOFORMAT_OGG_VORBIS_THEORA;
+	cls.capturevideo.format = CAPTUREVIDEOFORMAT_OGG;
 	cls.capturevideo.formatextension = "ogv";
 	cls.capturevideo.videofile = FS_OpenRealFile(va(vabuf, sizeof(vabuf), "%s.%s", cls.capturevideo.basename, cls.capturevideo.formatextension), "wb", false);
 	cls.capturevideo.endvideo = SCR_CaptureVideo_Ogg_EndVideo;
@@ -1006,14 +1139,17 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 		int num, denom, i;
 		ogg_page pg;
 		ogg_packet pt, pt2, pt3;
-		theora_comment tc;
 		vorbis_comment vc;
+		theora_comment tc;
 		theora_info ti;
 		int vp3compat;
 
 		format->serial1 = xrand();
-		qogg_stream_init(&format->to, format->serial1);
+		qogg_stream_init(&format->videostream, format->serial1);
 
+		#ifdef LINK_TO_VPX
+		format->vp8 = cl_capturevideo_ogg_vp8.integer;
+		#endif
 		if(cls.capturevideo.soundrate)
 		{
 			do
@@ -1021,92 +1157,164 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 				format->serial2 = xrand();
 			}
 			while(format->serial1 == format->serial2);
-			qogg_stream_init(&format->vo, format->serial2);
+			qogg_stream_init(&format->audiostream, format->serial2);
 		}
 
 		format->videopage.len = format->audiopage.len = 0;
-
-		qtheora_info_init(&ti);
-		ti.frame_width = cls.capturevideo.width;
-		ti.frame_height = cls.capturevideo.height;
-		ti.width = (ti.frame_width + 15) & ~15;
-		ti.height = (ti.frame_height + 15) & ~15;
-		//ti.offset_x = ((ti.width - ti.frame_width) / 2) & ~1;
-		//ti.offset_y = ((ti.height - ti.frame_height) / 2) & ~1;
-
-		for(i = 0; i < 2; ++i)
-		{
-			format->yuv[i].y_width = ti.width;
-			format->yuv[i].y_height = ti.height;
-			format->yuv[i].y_stride = ti.width;
-			format->yuv[i].uv_width = ti.width / 2;
-			format->yuv[i].uv_height = ti.height / 2;
-			format->yuv[i].uv_stride = ti.width / 2;
-			format->yuv[i].y = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].y_stride * format->yuv[i].y_height);
-			format->yuv[i].u = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].uv_stride * format->yuv[i].uv_height);
-			format->yuv[i].v = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].uv_stride * format->yuv[i].uv_height);
-		}
 		format->yuvi = -1; // -1: no frame valid yet, write into 0
-
-		FindFraction(cls.capturevideo.framerate / cls.capturevideo.framestep, &num, &denom, 1001);
-		ti.fps_numerator = num;
-		ti.fps_denominator = denom;
-
-		FindFraction(1 / vid_pixelheight.value, &num, &denom, 1000);
-		ti.aspect_numerator = num;
-		ti.aspect_denominator = denom;
-
-		ti.colorspace = OC_CS_UNSPECIFIED;
-		ti.pixelformat = OC_PF_420;
-
-		ti.quick_p = true; // http://mlblog.osdir.com/multimedia.ogg.theora.general/2004-07/index.shtml
-		ti.dropframes_p = false;
-
-		ti.target_bitrate = cl_capturevideo_ogg_theora_bitrate.integer * 1000;
-		ti.quality = cl_capturevideo_ogg_theora_quality.integer;
-
-		if(ti.target_bitrate <= 0)
+		#ifdef LINK_TO_VPX
+		if (format->vp8)
 		{
-			ti.target_bitrate = -1;
-			ti.keyframe_data_target_bitrate = (unsigned int)-1;
-		}
-		else
-		{
-			ti.keyframe_data_target_bitrate = (int) (ti.target_bitrate * max(1, cl_capturevideo_ogg_theora_keyframe_bitrate_multiplier.value));
-
-			if(ti.target_bitrate < 45000 || ti.target_bitrate > 2000000)
-				Con_DPrintf("WARNING: requesting an odd bitrate for theora (sensible values range from 45 to 2000 kbps)\n");
-		}
-
-		if(ti.quality < 0 || ti.quality > 63)
-		{
-			ti.quality = 63;
-			if(ti.target_bitrate <= 0)
+			vpx_codec_err_t vpx_err;
+			vpx_codec_enc_cfg_t cfg;
+			for(i = 0; i < 2; ++i)
 			{
-				ti.target_bitrate = 0x7FFFFFFF;
-				ti.keyframe_data_target_bitrate = 0x7FFFFFFF;
+				format->yuv[i].y_width = cls.capturevideo.width;
+				format->yuv[i].y_height = cls.capturevideo.height;
+				format->yuv[i].y_stride = cls.capturevideo.width;
+				format->yuv[i].uv_width = cls.capturevideo.width / 2;
+				format->yuv[i].uv_height = cls.capturevideo.height / 2;
+				format->yuv[i].uv_stride = cls.capturevideo.width / 2;
+				format->yuv[i].y = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].y_stride * format->yuv[i].y_height);
+				format->yuv[i].u = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].uv_stride * format->yuv[i].uv_height);
+				format->yuv[i].v = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].uv_stride * format->yuv[i].uv_height);
+			}
+			format->vpx_frame = 0;
+			format->vpx_last_granule = 0;
+			vpx_err = vpx_codec_enc_config_default(vpx_codec_vp8_cx(), &cfg, 0);
+			if (vpx_err)
+			{
+				Sys_Error("Failed to get VPX config: %s\n", vpx_codec_err_to_string(vpx_err));
+				//FIXME: error handling
+			}
+			cfg.g_w = cls.capturevideo.width;
+			cfg.g_h = cls.capturevideo.height;
+			cfg.g_threads = max(1, cl_capturevideo_ogg_vp8_threads.integer);
+			//cfg.rc_dropframe_thresh = 0;
+			switch (cl_capturevideo_ogg_vp8_end_usage.integer)
+			{
+			case 0:
+				cfg.rc_end_usage = VPX_VBR;
+				break;
+			case 1:
+				cfg.rc_end_usage = VPX_CBR;
+				break;
+			case 2:
+				cfg.rc_end_usage = VPX_CQ;
+				break;
+			default:
+				cfg.rc_end_usage = VPX_Q;
+				break;
+			}
+			//cfg.rc_resize_allowed = 0;
+			cfg.rc_min_quantizer = cl_capturevideo_ogg_vp8_min_quantizer.integer;
+			cfg.rc_max_quantizer = cl_capturevideo_ogg_vp8_max_quantizer.integer;
+			//cfg.rc_undershoot_pct = 100;
+			//cfg.rc_overshoot_pct = 15;
+			//cfg.rc_buf_initial_sz = 500;
+			//cfg.rc_buf_optimal_sz = 600;
+			//cfg.rc_buf_sz = 1000;
+			//cfg.g_error_resilient = 1; /* Enable error resilient mode */
+			//cfg.g_lag_in_frames = 0;
+			cfg.kf_mode = VPX_KF_AUTO;
+			//cfg.kf_min_dist = 3000;
+			//cfg.kf_max_dist = 3000;
+			cfg.rc_target_bitrate = cl_capturevideo_ogg_vp8_bitrate.integer; /* Set target bitrate */
+			FindFraction(cls.capturevideo.framerate / cls.capturevideo.framestep, &num, &denom, 1000);
+			cfg.g_timebase.num = num;
+			cfg.g_timebase.den = denom;
+			if (!(vpx_img_alloc(&format->vpx_image, VPX_IMG_FMT_YV12, cfg.g_w, cfg.g_h, 32)))
+			{
+				Sys_Error("Failed to allocate VPX image\n");
+			}
+			if ((vpx_err = vpx_codec_enc_init(&format->vpx_codec, vpx_codec_vp8_cx(), &cfg, VPX_ENCODER_ABI_VERSION)))
+			{
+				Sys_Error("Failed to init VPX codec: %s\n", vpx_codec_err_to_string(vpx_err));
 			}
 		}
-
-		// this -1 magic is because ti.keyframe_frequency and ti.keyframe_mindistance use different metrics
-		ti.keyframe_frequency = bound(1, cl_capturevideo_ogg_theora_keyframe_maxinterval.integer, 1000);
-		ti.keyframe_mindistance = bound(1, cl_capturevideo_ogg_theora_keyframe_mininterval.integer, (int) ti.keyframe_frequency) - 1;
-		ti.noise_sensitivity = bound(0, cl_capturevideo_ogg_theora_noise_sensitivity.integer, 6);
-		ti.sharpness = bound(0, cl_capturevideo_ogg_theora_sharpness.integer, 2);
-		ti.keyframe_auto_threshold = bound(0, cl_capturevideo_ogg_theora_keyframe_auto_threshold.integer, 100);
-
-		ti.keyframe_frequency_force = ti.keyframe_frequency;
-		ti.keyframe_auto_p = (ti.keyframe_frequency != ti.keyframe_mindistance + 1);
-
-		qtheora_encode_init(&format->ts, &ti);
-		qtheora_info_clear(&ti);
-
-		if(cl_capturevideo_ogg_theora_vp3compat.integer)
+		else
+		#endif
 		{
-			vp3compat = 1;
-			qtheora_control(&format->ts, TH_ENCCTL_SET_VP3_COMPATIBLE, &vp3compat, sizeof(vp3compat));
-			if(!vp3compat)
-				Con_DPrintf("Warning: theora stream is not fully VP3 compatible\n");
+			qtheora_info_init(&ti);
+			ti.frame_width = cls.capturevideo.width;
+			ti.frame_height = cls.capturevideo.height;
+			ti.width = (ti.frame_width + 15) & ~15;
+			ti.height = (ti.frame_height + 15) & ~15;
+			//ti.offset_x = ((ti.width - ti.frame_width) / 2) & ~1;
+			//ti.offset_y = ((ti.height - ti.frame_height) / 2) & ~1;
+			for(i = 0; i < 2; ++i)
+			{
+				format->yuv[i].y_width = ti.width;
+				format->yuv[i].y_height = ti.height;
+				format->yuv[i].y_stride = ti.width;
+				format->yuv[i].uv_width = ti.width / 2;
+				format->yuv[i].uv_height = ti.height / 2;
+				format->yuv[i].uv_stride = ti.width / 2;
+				format->yuv[i].y = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].y_stride * format->yuv[i].y_height);
+				format->yuv[i].u = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].uv_stride * format->yuv[i].uv_height);
+				format->yuv[i].v = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].uv_stride * format->yuv[i].uv_height);
+			}
+
+			FindFraction(cls.capturevideo.framerate / cls.capturevideo.framestep, &num, &denom, 1001);
+			ti.fps_numerator = num;
+			ti.fps_denominator = denom;
+
+			FindFraction(1 / vid_pixelheight.value, &num, &denom, 1000);
+			ti.aspect_numerator = num;
+			ti.aspect_denominator = denom;
+
+			ti.colorspace = OC_CS_UNSPECIFIED;
+			ti.pixelformat = OC_PF_420;
+
+			ti.quick_p = true; // http://mlblog.osdir.com/multimedia.ogg.theora.general/2004-07/index.shtml
+			ti.dropframes_p = false;
+
+			ti.target_bitrate = cl_capturevideo_ogg_theora_bitrate.integer * 1000;
+			ti.quality = cl_capturevideo_ogg_theora_quality.integer;
+
+			if(ti.target_bitrate <= 0)
+			{
+				ti.target_bitrate = -1;
+				ti.keyframe_data_target_bitrate = (unsigned int)-1;
+			}
+			else
+			{
+				ti.keyframe_data_target_bitrate = (int) (ti.target_bitrate * max(1, cl_capturevideo_ogg_theora_keyframe_bitrate_multiplier.value));
+
+				if(ti.target_bitrate < 45000 || ti.target_bitrate > 2000000)
+					Con_DPrintf("WARNING: requesting an odd bitrate for theora (sensible values range from 45 to 2000 kbps)\n");
+			}
+
+			if(ti.quality < 0 || ti.quality > 63)
+			{
+				ti.quality = 63;
+				if(ti.target_bitrate <= 0)
+				{
+					ti.target_bitrate = 0x7FFFFFFF;
+					ti.keyframe_data_target_bitrate = 0x7FFFFFFF;
+				}
+			}
+
+			// this -1 magic is because ti.keyframe_frequency and ti.keyframe_mindistance use different metrics
+			ti.keyframe_frequency = bound(1, cl_capturevideo_ogg_theora_keyframe_maxinterval.integer, 1000);
+			ti.keyframe_mindistance = bound(1, cl_capturevideo_ogg_theora_keyframe_mininterval.integer, (int) ti.keyframe_frequency) - 1;
+			ti.noise_sensitivity = bound(0, cl_capturevideo_ogg_theora_noise_sensitivity.integer, 6);
+			ti.sharpness = bound(0, cl_capturevideo_ogg_theora_sharpness.integer, 2);
+			ti.keyframe_auto_threshold = bound(0, cl_capturevideo_ogg_theora_keyframe_auto_threshold.integer, 100);
+
+			ti.keyframe_frequency_force = ti.keyframe_frequency;
+			ti.keyframe_auto_p = (ti.keyframe_frequency != ti.keyframe_mindistance + 1);
+
+			qtheora_encode_init(&format->ts, &ti);
+			qtheora_info_clear(&ti);
+
+			if(cl_capturevideo_ogg_theora_vp3compat.integer)
+			{
+				vp3compat = 1;
+				qtheora_control(&format->ts, TH_ENCCTL_SET_VP3_COMPATIBLE, &vp3compat, sizeof(vp3compat));
+				if(!vp3compat)
+					Con_DPrintf("Warning: theora stream is not fully VP3 compatible\n");
+			}
 		}
 
 		// vorbis?
@@ -1118,44 +1326,94 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 			qvorbis_analysis_init(&format->vd, &format->vi);
 			qvorbis_block_init(&format->vd, &format->vb);
 		}
-
-		qtheora_comment_init(&tc);
-
-		/* create the remaining theora headers */
-		qtheora_encode_header(&format->ts, &pt);
-		qogg_stream_packetin(&format->to, &pt);
-		if (qogg_stream_pageout (&format->to, &pg) != 1)
-			fprintf (stderr, "Internal Ogg library error.\n");
-		FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
-		FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
-
-		qtheora_encode_comment(&tc, &pt);
-		qogg_stream_packetin(&format->to, &pt);
-		qtheora_encode_tables(&format->ts, &pt);
-		qogg_stream_packetin (&format->to, &pt);
-
-		qtheora_comment_clear(&tc);
-
-		if(cls.capturevideo.soundrate)
+		#ifdef LINK_TO_VPX
+		if (format->vp8)
 		{
-			qvorbis_analysis_headerout(&format->vd, &vc, &pt, &pt2, &pt3);
-			qogg_stream_packetin(&format->vo, &pt);
-			if (qogg_stream_pageout (&format->vo, &pg) != 1)
-				fprintf (stderr, "Internal Ogg library error.\n");
+			unsigned char vp8_header[26];
+			pt.bytes = 26;
+			pt.packet = vp8_header;
+			pt.b_o_s = 1;
+			pt.e_o_s = 0;
+			pt.granulepos = 0;
+			pt.packetno = 0;
+			vp8_header[0] = 0x4f;
+			vp8_header[1] = 'V';
+			vp8_header[2] = 'P';
+			vp8_header[3] = '8';
+			vp8_header[4] = '0';
+			vp8_header[5] = 1;
+			vp8_header[6] = 1;
+			vp8_header[7] = 0;
+			//16 bit big endian width
+			vp8_header[8] = cls.capturevideo.width / 256;
+			vp8_header[9] = cls.capturevideo.width % 256;
+			//16 bit big endian heigth
+			vp8_header[10] = cls.capturevideo.height / 256;
+			vp8_header[11] = cls.capturevideo.height % 256;
+			//aspect ratio
+			FindFraction(1 / vid_pixelheight.value, &num, &denom, 1000);
+			vp8_header[12] = (num >> 16) % 256;
+			vp8_header[13] = (num >> 8) % 256;
+			vp8_header[14] = num % 256;
+			vp8_header[15] = (denom >> 16) % 256;
+			vp8_header[16] = (denom >> 8) % 256;
+			vp8_header[17] = denom;
+			//frame rate
+			FindFraction(cls.capturevideo.framerate / cls.capturevideo.framestep, &num, &denom, 1001);
+			vp8_header[18] = (num >> 24) % 256;
+			vp8_header[19] = (num >> 16) % 256;
+			vp8_header[20] = (num >> 8) % 256;
+			vp8_header[21] = num % 256;
+			vp8_header[22] = (denom >> 24) % 256;
+			vp8_header[23] = (denom >> 16) % 256;
+			vp8_header[24] = (denom >> 8) % 256;
+			vp8_header[25] = denom % 256;
+			qogg_stream_packetin (&format->videostream, &pt);
+			if (qogg_stream_pageout (&format->videostream, &pg) != 1)
+				Sys_Error("Internal Ogg library error.\n");
+			FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
+			FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
+		}
+		else
+		#endif
+		{
+			qtheora_comment_init(&tc);
+
+			/* create the remaining theora headers */
+			qtheora_encode_header(&format->ts, &pt);
+			qogg_stream_packetin(&format->videostream, &pt);
+			if (qogg_stream_pageout (&format->videostream, &pg) != 1)
+				Sys_Error("Internal Ogg library error.\n");
 			FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
 			FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
 
-			qogg_stream_packetin(&format->vo, &pt2);
-			qogg_stream_packetin(&format->vo, &pt3);
+			qtheora_encode_comment(&tc, &pt);
+			qogg_stream_packetin(&format->videostream, &pt);
+			qtheora_encode_tables(&format->ts, &pt);
+			qogg_stream_packetin (&format->videostream, &pt);
+
+			qtheora_comment_clear(&tc);
+		}
+		if(cls.capturevideo.soundrate)
+		{
+			qvorbis_analysis_headerout(&format->vd, &vc, &pt, &pt2, &pt3);
+			qogg_stream_packetin(&format->audiostream, &pt);
+			if (qogg_stream_pageout (&format->audiostream, &pg) != 1)
+				Sys_Error("Internal Ogg library error.\n");
+			FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
+			FS_Write(cls.capturevideo.videofile, pg.body, pg.body_len);
+
+			qogg_stream_packetin(&format->audiostream, &pt2);
+			qogg_stream_packetin(&format->audiostream, &pt3);
 
 			qvorbis_comment_clear(&vc);
 		}
 
 		for(;;)
 		{
-			int result = qogg_stream_flush (&format->to, &pg);
+			int result = qogg_stream_flush (&format->videostream, &pg);
 			if (result < 0)
-				fprintf (stderr, "Internal Ogg library error.\n"); // TODO Sys_Error
+				Sys_Error("Internal Ogg library error.\n"); // TODO Sys_Error
 			if (result <= 0)
 				break;
 			FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);
@@ -1165,9 +1423,9 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 		if(cls.capturevideo.soundrate)
 		for(;;)
 		{
-			int result = qogg_stream_flush (&format->vo, &pg);
+			int result = qogg_stream_flush (&format->audiostream, &pg);
 			if (result < 0)
-				fprintf (stderr, "Internal Ogg library error.\n"); // TODO Sys_Error
+				Sys_Error("Internal Ogg library error.\n"); // TODO Sys_Error
 			if (result <= 0)
 				break;
 			FS_Write(cls.capturevideo.videofile, pg.header, pg.header_len);

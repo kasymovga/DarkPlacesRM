@@ -314,6 +314,21 @@ LIB_OPUS=
 CFLAGS_OPUS=
 endif
 
+# vpx
+ifeq ($(DP_VIDEO_CAPTURE), enabled)
+ifeq ($(DP_LINK_VPX),shared)
+CFLAGS_VPX=`pkg-config --cflags vpx` -DLINK_TO_VPX
+LIB_VPX=`pkg-config --libs vpx`
+endif
+ifeq ($(DP_LINK_VPX),static)
+CFLAGS_VPX=`pkg-config --cflags vpx`
+LIB_VPX=`pkg-config --static --libs vpx` -DLINK_TO_VPX
+endif
+else
+CFLAGS_VPX=
+LIB_VPX=
+endif
+
 # d0_blind_id
 ifeq ($(DP_LINK_CRYPTO), shared)
 	LIB_CRYPTO=-ld0_blind_id
