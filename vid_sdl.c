@@ -724,7 +724,7 @@ static void VID_TouchScreenInit(void) {
 			line = cfg;
 			cfg = NULL;
 		}
-		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
+		if (!(tok = strtok_r(line, " \t", &line))) { continue; }
 		if (tok[0] == '/') continue; //Commentary
 		touchscreen_areas[touchscreen_areas_count].dest = atoi(tok);
 		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
