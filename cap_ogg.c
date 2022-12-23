@@ -765,7 +765,7 @@ static void SCR_CaptureVideo_Ogg_Interleave(void)
 				#ifdef LINK_TO_VPX
 				if (format->vp8)
 				{
-					format->videopage.time = (pg.granulepos >> 32) * ((double)1 / (double)cls.capturevideo.framestep);
+					format->videopage.time = (qogg_page_granulepos(&pg) >> 32) * ((double)cls.capturevideo.framestep / (double)cls.capturevideo.framerate);
 				}
 				else
 				#endif
