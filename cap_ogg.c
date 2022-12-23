@@ -734,7 +734,7 @@ typedef struct capturevideostate_ogg_formatspecific_s
 	vpx_image_t vpx_image;
 	ogg_int64_t vpx_packetno;
 	vpx_codec_pts_t vpx_frame;
-	ogg_int64_t vpx_last_granule;
+	int64_t vpx_last_granule;
 	#endif
 }
 capturevideostate_ogg_formatspecific_t;
@@ -762,7 +762,16 @@ static void SCR_CaptureVideo_Ogg_Interleave(void)
 			if(qogg_stream_pageout(&format->videostream, &pg) > 0)
 			{
 				format->videopage.len = pg.header_len + pg.body_len;
-				format->videopage.time = qtheora_granule_time(&format->ts, qogg_page_granulepos(&pg));
+				#ifdef LINK_TO_VPX
+				if (format->vp8)
+				{
+					format->videopage.time = (pg.granulepos >> 32) * ((double)1 / (double)cls.capturevideo.framestep);
+				}
+				else
+				#endif
+				{
+					format->videopage.time = qtheora_granule_time(&format->ts, qogg_page_granulepos(&pg));
+				}
 				if(format->videopage.len > sizeof(format->videopage.data))
 					Sys_Error("video page too long");
 				memcpy(format->videopage.data, pg.header, pg.header_len);
@@ -832,38 +841,41 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 			int visible;
 			const vpx_codec_cx_pkt_t *pkt;
 			vpx_codec_iter_t vpx_iter = NULL;
-			unsigned long deadline = (cl_capturevideo_ogg_vp8_deadline.integer == 1 ? VPX_DL_REALTIME : (cl_capturevideo_ogg_vp8_deadline.integer == 2 ? VPX_DL_GOOD_QUALITY : VPX_DL_BEST_QUALITY));
-			memcpy(format->vpx_image.planes[0], format->yuv[format->yuvi].y, format->yuv[format->yuvi].y_width *  format->yuv[format->yuvi].y_height);
-			memcpy(format->vpx_image.planes[1], format->yuv[format->yuvi].u, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
-			memcpy(format->vpx_image.planes[2], format->yuv[format->yuvi].v, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
-			vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, 0);
-			vpx_codec_encode(&format->vpx_codec, &format->vpx_image, format->vpx_frame, format->lastnum, 0, deadline);
-			format->vpx_frame++;
-			vpx_codec_encode(&format->vpx_codec, NULL, format->vpx_frame, 1, 0, deadline);
+			if (format->lastnum)
+			{
+				unsigned long deadline = (cl_capturevideo_ogg_vp8_deadline.integer == 1 ? VPX_DL_REALTIME : (cl_capturevideo_ogg_vp8_deadline.integer == 2 ? VPX_DL_GOOD_QUALITY : VPX_DL_BEST_QUALITY));
+				memcpy(format->vpx_image.planes[0], format->yuv[format->yuvi].y, format->yuv[format->yuvi].y_width *  format->yuv[format->yuvi].y_height);
+				memcpy(format->vpx_image.planes[1], format->yuv[format->yuvi].u, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
+				memcpy(format->vpx_image.planes[2], format->yuv[format->yuvi].v, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
+				vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, 0);
+				vpx_codec_encode(&format->vpx_codec, &format->vpx_image, format->vpx_frame, format->lastnum, 0, deadline);
+				vpx_codec_encode(&format->vpx_codec, NULL, format->vpx_frame, format->lastnum, 0, deadline);
+				format->vpx_frame += format->lastnum;
+				format->lastnum = 0;
+			}
 			pkt = vpx_codec_get_cx_data(&format->vpx_codec, &vpx_iter);
 			while (pkt)
 			{
 				//pack to ogg
 				pt.packet = pkt->data.frame.buf;
 				pt.bytes = pkt->data.frame.sz;
-				pt.granulepos = pkt->data.frame.pts; //FIXME
 				pt.b_o_s = 0;
 				pt.packetno = format->vpx_packetno;
 				format->vpx_packetno++;
 
-				visible = !(pkt->data.frame.flags & VPX_FRAME_IS_INVISIBLE);
+				//visible = !(pkt->data.frame.flags & VPX_FRAME_IS_INVISIBLE);
+				visible = ((((unsigned char *)pkt->data.frame.buf)[0] >> 4) & 1);
 				pts     = pkt->data.frame.pts + pkt->data.frame.duration;
 				invcnt  = (format->vpx_last_granule >> 30) & 3;
 				invcnt  = visible ? 3 : (invcnt == 3 ? 0 : invcnt + 1);
 				dist    = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) ? 0 : ((format->vpx_last_granule >> 3) & 0x07ffffff) + 1;
-				pt.granulepos = (pts << 32) | (invcnt << 30) | (dist << 3);
+				pt.granulepos = (pts << 32) | (invcnt << 30) | (dist << 3) | (dist ? 0 : 1);
 				format->vpx_last_granule = pt.granulepos;
 
 				pkt = vpx_codec_get_cx_data(&format->vpx_codec, &vpx_iter);
 				pt.e_o_s = (pkt ? 1 : 0);
 				qogg_stream_packetin(&format->videostream, &pt);
 			}
-			format->lastnum = 0;
 		}
 		else
 		#endif
@@ -875,8 +887,8 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 				while(qtheora_encode_packetout(&format->ts, !format->lastnum, &pt))
 					qogg_stream_packetin(&format->videostream, &pt);
 			}
-			SCR_CaptureVideo_Ogg_Interleave();
 		}
+		SCR_CaptureVideo_Ogg_Interleave();
 	}
 
 	if(cls.capturevideo.soundrate)
@@ -942,9 +954,6 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 	{
 		vpx_codec_destroy(&format->vpx_codec);
 		vpx_img_free(&format->vpx_image);
-		format->vpx_frame = 0;
-		format->vpx_packetno = 1;
-		format->vpx_last_granule = 0;
 	}
 	else
 	#endif
@@ -1026,20 +1035,24 @@ static void SCR_CaptureVideo_Ogg_VideoFrames(int num)
 			const vpx_codec_cx_pkt_t *pkt;
 			vpx_codec_err_t vpx_err;
 			vpx_codec_iter_t vpx_iter = NULL;
-			unsigned long deadline = (cl_capturevideo_ogg_vp8_deadline.integer == 1 ? VPX_DL_REALTIME : (cl_capturevideo_ogg_vp8_deadline.integer == 2 ? VPX_DL_GOOD_QUALITY : VPX_DL_BEST_QUALITY));
-			memcpy(format->vpx_image.planes[0], format->yuv[format->yuvi].y, format->yuv[format->yuvi].y_width *  format->yuv[format->yuvi].y_height);
-			memcpy(format->vpx_image.planes[1], format->yuv[format->yuvi].u, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
-			memcpy(format->vpx_image.planes[2], format->yuv[format->yuvi].v, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
-			if (format->vpx_packetno == 1)
-				vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, VPX_EFLAG_FORCE_KF);
-			else
-				vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, 0);
-
-			if ((vpx_err = vpx_codec_encode(&format->vpx_codec, &format->vpx_image, format->vpx_frame, format->lastnum, 0, deadline)))
+			if (format->lastnum > 0)
 			{
-				Con_Printf("VP8 compression failed: %s\n", vpx_codec_err_to_string(vpx_err));
+				unsigned long deadline = (cl_capturevideo_ogg_vp8_deadline.integer == 1 ? VPX_DL_REALTIME : (cl_capturevideo_ogg_vp8_deadline.integer == 2 ? VPX_DL_GOOD_QUALITY : VPX_DL_BEST_QUALITY));
+				memcpy(format->vpx_image.planes[0], format->yuv[format->yuvi].y, format->yuv[format->yuvi].y_width *  format->yuv[format->yuvi].y_height);
+				memcpy(format->vpx_image.planes[1], format->yuv[format->yuvi].u, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
+				memcpy(format->vpx_image.planes[2], format->yuv[format->yuvi].v, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
+				if (format->vpx_packetno == 1)
+					vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, VPX_EFLAG_FORCE_KF);
+				else
+					vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, 0);
+
+				if ((vpx_err = vpx_codec_encode(&format->vpx_codec, &format->vpx_image, format->vpx_frame, format->lastnum, 0, deadline)))
+				{
+					Con_Printf("VP8 compression failed: %s\n", vpx_codec_err_to_string(vpx_err));
+				}
+				format->vpx_frame += format->lastnum;
+				format->lastnum = 0;
 			}
-			format->vpx_frame++;
 			while ((pkt = vpx_codec_get_cx_data(&format->vpx_codec, &vpx_iter)))
 			{
 				//pack to ogg
@@ -1050,17 +1063,18 @@ static void SCR_CaptureVideo_Ogg_VideoFrames(int num)
 				pt.packetno = format->vpx_packetno;
 				format->vpx_packetno++;
 
-				visible = !(pkt->data.frame.flags & VPX_FRAME_IS_INVISIBLE);
+				//visible = !(pkt->data.frame.flags & VPX_FRAME_IS_INVISIBLE);
+				visible = ((((unsigned char *)pkt->data.frame.buf)[0] >> 4) & 1);
 				pts     = pkt->data.frame.pts + pkt->data.frame.duration;
 				invcnt  = (format->vpx_last_granule >> 30) & 3;
 				invcnt  = visible ? 3 : (invcnt == 3 ? 0 : invcnt + 1);
 				dist    = (pkt->data.frame.flags & VPX_FRAME_IS_KEY) ? 0 : ((format->vpx_last_granule >> 3) & 0x07ffffff) + 1;
-				pt.granulepos = (pts << 32) | (invcnt << 30) | (dist << 3);
+				if (invcnt >> 2) Sys_Error("SCR_CaptureVideo_Ogg_VideoFrames: Wrong invcnt value\n");
+				pt.granulepos = (pts << 32) | (invcnt << 30) | (dist << 3) | (dist ? 0 : 1);
 				format->vpx_last_granule = pt.granulepos;
 
 				qogg_stream_packetin(&format->videostream, &pt);
 			}
-			format->lastnum = 0;
 		}
 		else
 		#endif
@@ -1070,10 +1084,12 @@ static void SCR_CaptureVideo_Ogg_VideoFrames(int num)
 				qtheora_encode_YUVin(&format->ts, &format->yuv[format->yuvi]);
 
 				while(qtheora_encode_packetout(&format->ts, false, &pt))
+				{
 					qogg_stream_packetin(&format->videostream, &pt);
+				}
 			}
-			SCR_CaptureVideo_Ogg_Interleave();
 		}
+		SCR_CaptureVideo_Ogg_Interleave();
 	}
 
 	format->yuvi = (format->yuvi + 1) % 2;
@@ -1182,6 +1198,7 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 				format->yuv[i].v = (unsigned char *) Mem_Alloc(tempmempool, format->yuv[i].uv_stride * format->yuv[i].uv_height);
 			}
 			format->vpx_frame = 0;
+			format->vpx_packetno = 1;
 			format->vpx_last_granule = 0;
 			vpx_err = vpx_codec_enc_config_default(vpx_codec_vp8_cx(), &cfg, 0);
 			if (vpx_err)
