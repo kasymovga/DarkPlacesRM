@@ -3224,6 +3224,214 @@ static void VM_SV_frameduration(prvm_prog_t *prog)
 		PRVM_G_FLOAT(OFS_RETURN) = model->animscenes[framenum].framecount / model->animscenes[framenum].framerate;
 }
 
+/*
+=========
+VM_tokenize
+
+float tokenize(string s)
+=========
+*/
+//float(string s) tokenize = #441; // takes apart a string into individal words (access them with argv), returns how many
+//this function originally written by KrimZon, made shorter by LordHavoc
+//20040203: rewritten by LordHavoc (no longer uses allocations)
+static int num_tokens = 0;
+static int tokens[VM_STRINGTEMP_LENGTH / 2];
+static int tokens_startpos[VM_STRINGTEMP_LENGTH / 2];
+static int tokens_endpos[VM_STRINGTEMP_LENGTH / 2];
+static char tokenize_string[VM_STRINGTEMP_LENGTH];
+static void VM_SV_tokenize (prvm_prog_t *prog)
+{
+	const char *p;
+
+	VM_SAFEPARMCOUNT(1,VM_tokenize);
+
+	strlcpy(tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(tokenize_string));
+	p = tokenize_string;
+
+	num_tokens = 0;
+	for(;;)
+	{
+		if (num_tokens >= (int)(sizeof(tokens)/sizeof(tokens[0])))
+			break;
+
+		// skip whitespace here to find token start pos
+		while(*p && ISWHITESPACE(*p))
+			++p;
+
+		tokens_startpos[num_tokens] = p - tokenize_string;
+		if(!COM_ParseToken_VM_Tokenize(&p, false))
+			break;
+		tokens_endpos[num_tokens] = p - tokenize_string;
+		tokens[num_tokens] = PRVM_SetTempString(prog, com_token);
+		++num_tokens;
+	}
+
+	PRVM_G_FLOAT(OFS_RETURN) = num_tokens;
+}
+
+//float(string s) tokenize = #514; // takes apart a string into individal words (access them with argv), returns how many
+static void VM_SV_tokenize_console (prvm_prog_t *prog)
+{
+	const char *p;
+
+	VM_SAFEPARMCOUNT(1,VM_tokenize);
+
+	strlcpy(tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(tokenize_string));
+	p = tokenize_string;
+
+	num_tokens = 0;
+	for(;;)
+	{
+		if (num_tokens >= (int)(sizeof(tokens)/sizeof(tokens[0])))
+			break;
+
+		// skip whitespace here to find token start pos
+		while(*p && ISWHITESPACE(*p))
+			++p;
+
+		tokens_startpos[num_tokens] = p - tokenize_string;
+		if(!COM_ParseToken_Console(&p))
+			break;
+		tokens_endpos[num_tokens] = p - tokenize_string;
+		tokens[num_tokens] = PRVM_SetTempString(prog, com_token);
+		++num_tokens;
+	}
+
+	PRVM_G_FLOAT(OFS_RETURN) = num_tokens;
+}
+
+/*
+=========
+VM_tokenizebyseparator
+
+float tokenizebyseparator(string s, string separator1, ...)
+=========
+*/
+//float(string s, string separator1, ...) tokenizebyseparator = #479; // takes apart a string into individal words (access them with argv), returns how many
+//this function returns the token preceding each instance of a separator (of
+//which there can be multiple), and the text following the last separator
+//useful for parsing certain kinds of data like IP addresses
+//example:
+//numnumbers = tokenizebyseparator("10.1.2.3", ".");
+//returns 4 and the tokens "10" "1" "2" "3".
+static void VM_SV_tokenizebyseparator (prvm_prog_t *prog)
+{
+	int j, k;
+	int numseparators;
+	int separatorlen[7];
+	const char *separators[7];
+	const char *p, *p0;
+	const char *token;
+	char tokentext[MAX_INPUTLINE];
+
+	VM_SAFEPARMCOUNTRANGE(2, 8,VM_tokenizebyseparator);
+
+	strlcpy(tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(tokenize_string));
+	p = tokenize_string;
+
+	numseparators = 0;
+	for (j = 1;j < prog->argc;j++)
+	{
+		// skip any blank separator strings
+		const char *s = PRVM_G_STRING(OFS_PARM0+j*3);
+		if (!s[0])
+			continue;
+		separators[numseparators] = s;
+		separatorlen[numseparators] = (int)strlen(s);
+		numseparators++;
+	}
+
+	num_tokens = 0;
+	j = 0;
+
+	while (num_tokens < (int)(sizeof(tokens)/sizeof(tokens[0])))
+	{
+		token = tokentext + j;
+		tokens_startpos[num_tokens] = p - tokenize_string;
+		p0 = p;
+		while (*p)
+		{
+			for (k = 0;k < numseparators;k++)
+			{
+				if (!strncmp(p, separators[k], separatorlen[k]))
+				{
+					p += separatorlen[k];
+					break;
+				}
+			}
+			if (k < numseparators)
+				break;
+			if (j < (int)sizeof(tokentext)-1)
+				tokentext[j++] = *p;
+			p++;
+			p0 = p;
+		}
+		tokens_endpos[num_tokens] = p0 - tokenize_string;
+		if (j >= (int)sizeof(tokentext))
+			break;
+		tokentext[j++] = 0;
+		tokens[num_tokens++] = PRVM_SetTempString(prog, token);
+		if (!*p)
+			break;
+	}
+
+	PRVM_G_FLOAT(OFS_RETURN) = num_tokens;
+}
+
+//string(float n) argv = #442; // returns a word from the tokenized string (returns nothing for an invalid index)
+//this function originally written by KrimZon, made shorter by LordHavoc
+static void VM_SV_argv (prvm_prog_t *prog)
+{
+	int token_num;
+
+	VM_SAFEPARMCOUNT(1,VM_argv);
+
+	token_num = (int)PRVM_G_FLOAT(OFS_PARM0);
+
+	if(token_num < 0)
+		token_num += num_tokens;
+
+	if (token_num >= 0 && token_num < num_tokens)
+		PRVM_G_INT(OFS_RETURN) = tokens[token_num];
+	else
+		PRVM_G_INT(OFS_RETURN) = OFS_NULL;
+}
+
+//float(float n) argv_start_index = #515; // returns the start index of a token
+static void VM_SV_argv_start_index (prvm_prog_t *prog)
+{
+	int token_num;
+
+	VM_SAFEPARMCOUNT(1,VM_argv);
+
+	token_num = (int)PRVM_G_FLOAT(OFS_PARM0);
+
+	if(token_num < 0)
+		token_num += num_tokens;
+
+	if (token_num >= 0 && token_num < num_tokens)
+		PRVM_G_FLOAT(OFS_RETURN) = tokens_startpos[token_num];
+	else
+		PRVM_G_FLOAT(OFS_RETURN) = -1;
+}
+
+//float(float n) argv_end_index = #516; // returns the end index of a token
+static void VM_SV_argv_end_index (prvm_prog_t *prog)
+{
+	int token_num;
+
+	VM_SAFEPARMCOUNT(1,VM_argv);
+
+	token_num = (int)PRVM_G_FLOAT(OFS_PARM0);
+
+	if(token_num < 0)
+		token_num += num_tokens;
+
+	if (token_num >= 0 && token_num < num_tokens)
+		PRVM_G_FLOAT(OFS_RETURN) = tokens_endpos[token_num];
+	else
+		PRVM_G_FLOAT(OFS_RETURN) = -1;
+}
 
 prvm_builtin_t vm_sv_builtins[] = {
 NULL,							// #0 NULL function (not callable) (QUAKE)
@@ -3671,8 +3879,8 @@ VM_getsurfacetexture,		// #437 string(entity e, float s) getsurfacetexture (DP_Q
 VM_getsurfacenearpoint,		// #438 float(entity e, vector p) getsurfacenearpoint (DP_QC_GETSURFACE)
 VM_getsurfaceclippedpoint,	// #439 vector(entity e, float s, vector p) getsurfaceclippedpoint (DP_QC_GETSURFACE)
 VM_SV_clientcommand,			// #440 void(entity e, string s) clientcommand (KRIMZON_SV_PARSECLIENTCOMMAND)
-VM_tokenize,					// #441 float(string s) tokenize (KRIMZON_SV_PARSECLIENTCOMMAND)
-VM_argv,						// #442 string(float n) argv (KRIMZON_SV_PARSECLIENTCOMMAND)
+VM_SV_tokenize,					// #441 float(string s) tokenize (KRIMZON_SV_PARSECLIENTCOMMAND)
+VM_SV_argv,						// #442 string(float n) argv (KRIMZON_SV_PARSECLIENTCOMMAND)
 VM_SV_setattachment,			// #443 void(entity e, entity tagentity, string tagname) setattachment (DP_GFX_QUAKE3MODELTAGS)
 VM_search_begin,				// #444 float(string pattern, float caseinsensitive, float quiet) search_begin (DP_QC_FS_SEARCH)
 VM_search_end,					// #445 void(float handle) search_end (DP_QC_FS_SEARCH)
@@ -3709,7 +3917,7 @@ VM_tan,							// #475 float(float a) VM_tan (DP_QC_ASINACOSATANATAN2TAN)
 VM_strlennocol,					// #476 float(string s) : DRESK - String Length (not counting color codes) (DP_QC_STRINGCOLORFUNCTIONS)
 VM_strdecolorize,				// #477 string(string s) : DRESK - Decolorized String (DP_SV_STRINGCOLORFUNCTIONS)
 VM_strftime,					// #478 string(float uselocaltime, string format, ...) (DP_QC_STRFTIME)
-VM_tokenizebyseparator,			// #479 float(string s) tokenizebyseparator (DP_QC_TOKENIZEBYSEPARATOR)
+VM_SV_tokenizebyseparator,			// #479 float(string s) tokenizebyseparator (DP_QC_TOKENIZEBYSEPARATOR)
 VM_strtolower,					// #480 string(string s) VM_strtolower (DP_QC_STRING_CASE_FUNCTIONS)
 VM_strtoupper,					// #481 string(string s) VM_strtoupper (DP_QC_STRING_CASE_FUNCTIONS)
 VM_cvar_defstring,				// #482 string(string s) cvar_defstring (DP_QC_CVAR_DEFSTRING)
@@ -3744,9 +3952,9 @@ VM_uri_escape,					// #510 string(string in) uri_escape = #510;
 VM_uri_unescape,				// #511 string(string in) uri_unescape = #511;
 VM_etof,					// #512 float(entity ent) num_for_edict = #512 (DP_QC_NUM_FOR_EDICT)
 VM_uri_get,						// #513 float(string uri, float id, [string post_contenttype, string post_delim, [float buf]]) uri_get = #513; (DP_QC_URI_GET, DP_QC_URI_POST)
-VM_tokenize_console,					// #514 float(string str) tokenize_console = #514; (DP_QC_TOKENIZE_CONSOLE)
-VM_argv_start_index,					// #515 float(float idx) argv_start_index = #515; (DP_QC_TOKENIZE_CONSOLE)
-VM_argv_end_index,						// #516 float(float idx) argv_end_index = #516; (DP_QC_TOKENIZE_CONSOLE)
+VM_SV_tokenize_console,					// #514 float(string str) tokenize_console = #514; (DP_QC_TOKENIZE_CONSOLE)
+VM_SV_argv_start_index,					// #515 float(float idx) argv_start_index = #515; (DP_QC_TOKENIZE_CONSOLE)
+VM_SV_argv_end_index,						// #516 float(float idx) argv_end_index = #516; (DP_QC_TOKENIZE_CONSOLE)
 VM_buf_cvarlist,						// #517 void(float buf, string prefix, string antiprefix) buf_cvarlist = #517; (DP_QC_STRINGBUFFERS_CVARLIST)
 VM_cvar_description,					// #518 float(string name) cvar_description = #518; (DP_QC_CVAR_DESCRIPTION)
 VM_gettime,						// #519 float(float timer) gettime = #519; (DP_QC_GETTIME)
