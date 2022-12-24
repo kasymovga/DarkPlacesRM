@@ -1041,7 +1041,7 @@ static void SCR_CaptureVideo_Ogg_VideoFrames(int num)
 				memcpy(format->vpx_image.planes[0], format->yuv[format->yuvi].y, format->yuv[format->yuvi].y_width *  format->yuv[format->yuvi].y_height);
 				memcpy(format->vpx_image.planes[1], format->yuv[format->yuvi].u, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
 				memcpy(format->vpx_image.planes[2], format->yuv[format->yuvi].v, format->yuv[format->yuvi].uv_width * format->yuv[format->yuvi].uv_height);
-				if (format->vpx_packetno == 1)
+				if (!format->vpx_last_granule)
 					vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, VPX_EFLAG_FORCE_KF);
 				else
 					vpx_codec_control(&format->vpx_codec, VP8E_SET_FRAME_FLAGS, 0);
@@ -1072,7 +1072,6 @@ static void SCR_CaptureVideo_Ogg_VideoFrames(int num)
 				if (invcnt >> 2) Sys_Error("SCR_CaptureVideo_Ogg_VideoFrames: Wrong invcnt value\n");
 				pt.granulepos = (pts << 32) | (invcnt << 30) | (dist << 3) | (dist ? 0 : 1);
 				format->vpx_last_granule = pt.granulepos;
-
 				qogg_stream_packetin(&format->videostream, &pt);
 			}
 		}
