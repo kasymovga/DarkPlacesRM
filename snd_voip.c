@@ -292,7 +292,7 @@ void S_VOIP_Start(void)
 	if (!opus_encoder)
 	{
 		int err;
-		opus_encoder = opus_encoder_create(VOIP_FREQ, VOIP_CHANNELS, OPUS_APPLICATION_AUDIO, &err);
+		opus_encoder = opus_encoder_create(VOIP_FREQ, VOIP_CHANNELS, OPUS_APPLICATION_VOIP, &err);
 		opus_encoder_id++;
 		opus_encoder_seq = 0;
 		if (opus_encoder)
