@@ -749,7 +749,7 @@ typedef struct capturevideostate_ogg_formatspecific_s
 	int opus;
 	int opus_sample_size;
 	#define OPUS_BUFFER_SIZE 4096
-	opus_int16 opus_buffer[OPUS_BUFFER_SIZE];
+	float opus_buffer[OPUS_BUFFER_SIZE];
 	int opus_buffer_len;
 	OpusEncoder *opus_encoder;
 	ogg_int64_t opus_packetno;
@@ -922,8 +922,8 @@ static void SCR_CaptureVideo_Ogg_EndVideo(void)
 		{
 			int encsize;
 			unsigned char packet[2048];
-			memset(&format->opus_buffer[format->opus_buffer_len], 0, sizeof(format->opus_buffer) - sizeof(opus_int16) * format->opus_buffer_len);
-			encsize = opus_encode(format->opus_encoder, format->opus_buffer, format->opus_sample_size, packet, sizeof(packet));
+			memset(&format->opus_buffer[format->opus_buffer_len], 0, sizeof(format->opus_buffer) - sizeof(float) * format->opus_buffer_len);
+			encsize = opus_encode_float(format->opus_encoder, format->opus_buffer, format->opus_sample_size, packet, sizeof(packet));
 			if (encsize < 0) Sys_Error("Opus encode failed at end frame");
 			pt.bytes = encsize;
 			pt.packet = packet;
@@ -1184,13 +1184,13 @@ static void SCR_CaptureVideo_Ogg_SoundFrame(const portable_sampleframe_t *paintb
 			for(j = 0; j < cls.capturevideo.soundchannels; ++j)
 			{
 				for(i = 0; i < copy_chunk; ++i)
-					format->opus_buffer[format->opus_buffer_len + j + i * cls.capturevideo.soundchannels] = paintbuffer[i + copied].sample[j] * 32768.0f;
+					format->opus_buffer[format->opus_buffer_len + j + i * cls.capturevideo.soundchannels] = paintbuffer[i + copied].sample[j];
 			}
 			format->opus_buffer_len += copy_chunk * cls.capturevideo.soundchannels;
 			length -= copy_chunk;
 			while (format->opus_buffer_len > format->opus_sample_size * cls.capturevideo.soundchannels)
 			{
-				encsize = opus_encode(format->opus_encoder, format->opus_buffer, format->opus_sample_size, packet, sizeof(packet));
+				encsize = opus_encode_float(format->opus_encoder, format->opus_buffer, format->opus_sample_size, packet, sizeof(packet));
 				if (encsize < 0) Sys_Error("SCR_CaptureVideo_Ogg_SoundFrame: opus_encode failed");
 				pt.bytes = encsize;
 				pt.packet = packet;
@@ -1201,7 +1201,7 @@ static void SCR_CaptureVideo_Ogg_SoundFrame(const portable_sampleframe_t *paintb
 				pt.packetno = format->opus_packetno;
 				format->opus_packetno++;
 				qogg_stream_packetin(&format->audiostream, &pt);
-				memmove(format->opus_buffer, &format->opus_buffer[format->opus_sample_size * cls.capturevideo.soundchannels], (format->opus_buffer_len - format->opus_sample_size * cls.capturevideo.soundchannels) * sizeof(opus_int16)); //shifting data in buffer
+				memmove(format->opus_buffer, &format->opus_buffer[format->opus_sample_size * cls.capturevideo.soundchannels], (format->opus_buffer_len - format->opus_sample_size * cls.capturevideo.soundchannels) * sizeof(float)); //shifting data in buffer
 				format->opus_buffer_len -= format->opus_sample_size * cls.capturevideo.soundchannels;
 				copied += format->opus_sample_size;
 			}
