@@ -37,10 +37,10 @@ static cvar_t cl_capturevideo_ogg_theora_sharpness = {CVAR_SAVE, "cl_capturevide
 static cvar_t cl_capturevideo_ogg_vorbis_quality = {CVAR_SAVE, "cl_capturevideo_ogg_vorbis_quality", "3", "audio quality (-1 to 10); higher is better"};
 #ifdef LINK_TO_VPX
 static cvar_t cl_capturevideo_ogg_vp8 = {CVAR_SAVE, "cl_capturevideo_ogg_vp8", "1", "use vp8 codec to encode video"};
-static cvar_t cl_capturevideo_ogg_vp8_bitrate = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_bitrate", "10000", "video bitrate for vp8 encoding"};
+static cvar_t cl_capturevideo_ogg_vp8_bitrate = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_bitrate", "10000", "video bitrate for vp8 encoding, kbps"};
 static cvar_t cl_capturevideo_ogg_vp8_threads = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_threads", "4", "amount of threads for vp8 encoding"};
-static cvar_t cl_capturevideo_ogg_vp8_min_quantizer = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_min_quantizer", "2", "vp8 min quantizer"};
-static cvar_t cl_capturevideo_ogg_vp8_max_quantizer = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_max_quantizer", "56", "vp8 max quantizer"};
+static cvar_t cl_capturevideo_ogg_vp8_min_quantizer = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_min_quantizer", "2", "vp8 min quantizer (0 to 63)"};
+static cvar_t cl_capturevideo_ogg_vp8_max_quantizer = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_max_quantizer", "56", "vp8 max quantizer (0 to 63)"};
 static cvar_t cl_capturevideo_ogg_vp8_end_usage = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_end_usage", "1", "vp8 end usage (0 - VBR, 1 - CBR, 2 - CQ, 3 - Q)"};
 static cvar_t cl_capturevideo_ogg_vp8_deadline = {CVAR_SAVE, "cl_capturevideo_ogg_vp8_deadline", "1", "vp8 deadline (0 - best quality, 1 - realtime quality , 2 - good quality)"};
 #endif
@@ -1316,7 +1316,7 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 			cfg.g_pass = VPX_RC_ONE_PASS;
 			cfg.g_w = cls.capturevideo.width;
 			cfg.g_h = cls.capturevideo.height;
-			cfg.g_threads = max(1, cl_capturevideo_ogg_vp8_threads.integer);
+			cfg.g_threads = bound(1, cl_capturevideo_ogg_vp8_threads.integer, 64);
 			//cfg.rc_dropframe_thresh = 0;
 			switch (cl_capturevideo_ogg_vp8_end_usage.integer)
 			{
@@ -1334,8 +1334,8 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 				break;
 			}
 			//cfg.rc_resize_allowed = 0;
-			cfg.rc_min_quantizer = cl_capturevideo_ogg_vp8_min_quantizer.integer;
-			cfg.rc_max_quantizer = cl_capturevideo_ogg_vp8_max_quantizer.integer;
+			cfg.rc_min_quantizer = bound(0, cl_capturevideo_ogg_vp8_min_quantizer.integer, 63);
+			cfg.rc_max_quantizer = max((int)cfg.rc_min_quantizer, bound(0, cl_capturevideo_ogg_vp8_max_quantizer.integer, 63));
 			//cfg.rc_undershoot_pct = 100;
 			//cfg.rc_overshoot_pct = 15;
 			//cfg.rc_buf_initial_sz = 500;
@@ -1346,7 +1346,7 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 			cfg.kf_mode = VPX_KF_AUTO;
 			//cfg.kf_min_dist = 3000;
 			//cfg.kf_max_dist = 3000;
-			cfg.rc_target_bitrate = cl_capturevideo_ogg_vp8_bitrate.integer; /* Set target bitrate */
+			cfg.rc_target_bitrate = bound(100, cl_capturevideo_ogg_vp8_bitrate.integer, 1000000); /* Set target bitrate */
 			FindFraction(cls.capturevideo.framerate / cls.capturevideo.framestep, &num, &denom, 1000);
 			cfg.g_timebase.num = num;
 			cfg.g_timebase.den = denom;
