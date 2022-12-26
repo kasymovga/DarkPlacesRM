@@ -893,7 +893,7 @@ VM_cvar_set
 void cvar_set (string,string, ...)
 =================
 */
-static void cvar_set_autocvars(prvm_prog_t *prog, cvar_t *var, const char *string)
+void VM_cvar_set_autocvar(prvm_prog_t *prog, cvar_t *var, const char *string)
 {
 	const char *s;
 	int prognum = prog - prvm_prog_list;
@@ -930,7 +930,7 @@ static void cvar_set_autocvars(prvm_prog_t *prog, cvar_t *var, const char *strin
 	}
 }
 
-static void cvar_set_updated(prvm_prog_t *prog, const char *name, const char *oldstring)
+void VM_cvar_set_updated(prvm_prog_t *prog, const char *name, const char *oldstring)
 {
 	int func;
 	if (!prog->loaded)
@@ -965,12 +965,12 @@ void VM_cvar_set(prvm_prog_t *prog)
 	#ifndef CONFIG_SV
 	if (prog == SVVM_prog)
 	#endif
-		cvar_set_autocvars(prog, var, string);
+		VM_cvar_set_autocvar(prog, var, string);
 	#ifndef CONFIG_SV
 	else
 	{
-		cvar_set_autocvars(CLVM_prog, var, string);
-		cvar_set_autocvars(MVM_prog, var, string);
+		VM_cvar_set_autocvar(CLVM_prog, var, string);
+		VM_cvar_set_autocvar(MVM_prog, var, string);
 	}
 	#endif
 	watched = (var->flags & CVAR_WATCHED);
@@ -981,12 +981,12 @@ finish:
 		#ifndef CONFIG_SV
 		if (prog == SVVM_prog)
 		#endif
-			cvar_set_updated(prog, name, oldstring);
+			VM_cvar_set_updated(prog, name, oldstring);
 		#ifndef CONFIG_SV
 		else
 		{
-			cvar_set_updated(CLVM_prog, name, oldstring);
-			cvar_set_updated(MVM_prog, name, oldstring);
+			VM_cvar_set_updated(CLVM_prog, name, oldstring);
+			VM_cvar_set_updated(MVM_prog, name, oldstring);
 		}
 		#endif
 	}

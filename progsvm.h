@@ -910,5 +910,7 @@ void PRVM_ExplicitCoverageEvent(prvm_prog_t *prog, mfunction_t *func, int statem
 
 float Cvar_VariableValue_NotPrivate (const char *var_name);
 int Cvar_VariableString_NotPrivate_TempString (prvm_prog_t *prog, const char *var_name);
+void VM_cvar_set_autocvar(prvm_prog_t *prog, cvar_t *var, const char *string);
+void VM_cvar_set_updated(prvm_prog_t *prog, const char *name, const char *oldstring);
 
 #endif

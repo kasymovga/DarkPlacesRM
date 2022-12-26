@@ -338,44 +338,9 @@ static qboolean Cvar_IsAutoCvar(cvar_t *var)
 static void Cvar_UpdateAutoCvar(cvar_t *var)
 {
 	int i;
-	int j;
-	const char *s;
-	vec3_t v;
-	prvm_prog_t *prog;
 	for (i = 0;i < PRVM_PROG_MAX;i++)
 	{
-		prog = &prvm_prog_list[i];
-		if (prog->loaded && var->globaldefindex[i] >= 0)
-		{
-			// MUST BE SYNCED WITH prvm_edict.c PRVM_LoadProgs
-			switch(prog->globaldefs[var->globaldefindex[i]].type & ~DEF_SAVEGLOBAL)
-			{
-			case ev_float:
-				PRVM_GLOBALFIELDFLOAT(prog->globaldefs[var->globaldefindex[i]].ofs) = var->value;
-				break;
-			case ev_vector:
-				s = var->string;
-				VectorClear(v);
-				for (j = 0;j < 3;j++)
-				{
-					while (*s && ISWHITESPACE(*s))
-						s++;
-					if (!*s)
-						break;
-					v[j] = atof(s);
-					while (!ISWHITESPACE(*s))
-						s++;
-					if (!*s)
-						break;
-				}
-				VectorCopy(v, PRVM_GLOBALFIELDVECTOR(prog->globaldefs[var->globaldefindex[i]].ofs));
-				break;
-			case ev_string:
-				PRVM_ChangeEngineString(prog, var->globaldefindex_stringno[i], var->string);
-				PRVM_GLOBALFIELDSTRING(prog->globaldefs[var->globaldefindex[i]].ofs) = var->globaldefindex_stringno[i];
-				break;
-			}
-		}
+		VM_cvar_set_autocvar(&prvm_prog_list[i], var, var->string);
 	}
 }
 
@@ -383,31 +348,25 @@ static void Cvar_UpdateAutoCvar(cvar_t *var)
 void Cvar_UpdateAllAutoCvars(void)
 {
 	cvar_t *var;
+	int i;
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	for (var = cvar_vars ; var ; var = var->next)
-		Cvar_UpdateAutoCvar(var);
+		for (i = 0;i < PRVM_PROG_MAX;i++)
+		{
+			VM_cvar_set_autocvar(&prvm_prog_list[i], var, var->string);
+		}
 	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
-}
-
-static void Cvar_NotifyProg(prvm_prog_t *prog, cvar_t *var, char *oldvalue) {
-	int func = PRVM_allfunction(CvarUpdated);
-	if(!func)
-		return;
-
-	PRVM_G_INT(OFS_PARM0) = PRVM_SetTempString(prog, var->name);
-	PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, oldvalue);
-	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
-	prog->ExecuteProgram(prog, func, "QC function CvarUpdated is missing");
-	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 }
 
 static void Cvar_NotifyAllProgs(cvar_t *var, char *oldvalue) {
-    int i;
-    for(i = 0; i < PRVM_PROG_MAX; ++i) {
-        prvm_prog_t *prog = &prvm_prog_list[i];
-        if(prog->loaded)
-            Cvar_NotifyProg(prog, var, oldvalue);
-    }
+	int i;
+	char namecopy[MAX_INPUTLINE];
+	strlcpy(namecopy, var->name, sizeof(namecopy));
+	for(i = 0; i < PRVM_PROG_MAX; ++i) {
+		if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+		VM_cvar_set_updated(&prvm_prog_list[i], namecopy, oldvalue);
+		if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+	}
 }
 
 /*
