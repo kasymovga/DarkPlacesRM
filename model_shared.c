@@ -264,6 +264,7 @@ static int Mod_FrameGroupify_ParseGroups(const char *buf, mod_framegroupify_pars
 	unsigned int i;
 	qboolean loop;
 	char name[64];
+	char com_token[MAX_INPUTLINE];
 
 	bufptr = buf;
 	i = 0;
@@ -272,7 +273,7 @@ static int Mod_FrameGroupify_ParseGroups(const char *buf, mod_framegroupify_pars
 		// an anim scene!
 
 		// REQUIRED: fetch start
-		COM_ParseToken_Simple(&bufptr, true, false, true);
+		COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token));
 		if (!bufptr)
 			break; // end of file
 		if (!strcmp(com_token, "\n"))
@@ -280,7 +281,7 @@ static int Mod_FrameGroupify_ParseGroups(const char *buf, mod_framegroupify_pars
 		start = atoi(com_token);
 
 		// REQUIRED: fetch length
-		COM_ParseToken_Simple(&bufptr, true, false, true);
+		COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token));
 		if (!bufptr || !strcmp(com_token, "\n"))
 		{
 			Con_Printf("framegroups file: missing number of frames\n");
@@ -289,14 +290,14 @@ static int Mod_FrameGroupify_ParseGroups(const char *buf, mod_framegroupify_pars
 		len = atoi(com_token);
 
 		// OPTIONAL args start
-		COM_ParseToken_Simple(&bufptr, true, false, true);
+		COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token));
 
 		// OPTIONAL: fetch fps
 		fps = 20;
 		if (bufptr && strcmp(com_token, "\n"))
 		{
 			fps = atof(com_token);
-			COM_ParseToken_Simple(&bufptr, true, false, true);
+			COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token));
 		}
 
 		// OPTIONAL: fetch loopflag
@@ -304,7 +305,7 @@ static int Mod_FrameGroupify_ParseGroups(const char *buf, mod_framegroupify_pars
 		if (bufptr && strcmp(com_token, "\n"))
 		{
 			loop = (atoi(com_token) != 0);
-			COM_ParseToken_Simple(&bufptr, true, false, true);
+			COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token));
 		}
 
 		// OPTIONAL: fetch name
@@ -312,12 +313,12 @@ static int Mod_FrameGroupify_ParseGroups(const char *buf, mod_framegroupify_pars
 		if (bufptr && strcmp(com_token, "\n"))
 		{
 			strlcpy(name, com_token, sizeof(name));
-			COM_ParseToken_Simple(&bufptr, true, false, true);
+			COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token));
 		}
 
 		// OPTIONAL: remaining unsupported tokens (eat them)
 		while (bufptr && strcmp(com_token, "\n"))
-			COM_ParseToken_Simple(&bufptr, true, false, true);
+			COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token));
 
 		//Con_Printf("data: %d %d %d %f %d (%s)\n", i, start, len, fps, loop, name);
 
@@ -1709,6 +1710,7 @@ void Mod_LoadQ3Shaders(void)
 	unsigned long custsurfaceflags[256]; 
 	int numcustsurfaceflags;
 	qboolean dpshaderkill;
+	char com_token[MAX_INPUTLINE];
 
 	Mod_FreeQ3Shaders();
 
@@ -1724,19 +1726,19 @@ void Mod_LoadQ3Shaders(void)
 	numcustsurfaceflags = 0;
 	if ((text = f = (char *)FS_LoadFile("scripts/custinfoparms.txt", tempmempool, false, NULL)) != NULL)
 	{
-		if (!COM_ParseToken_QuakeC(&text, false) || strcasecmp(com_token, "{"))
+		if (!COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)) || strcasecmp(com_token, "{"))
 			Con_DPrintf("scripts/custinfoparms.txt: contentflags section parsing error - expected \"{\", found \"%s\"\n", com_token);
 		else
 		{
-			while (COM_ParseToken_QuakeC(&text, false))
+			while (COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)))
 				if (!strcasecmp(com_token, "}"))
 					break;
 			// custom surfaceflags section
-			if (!COM_ParseToken_QuakeC(&text, false) || strcasecmp(com_token, "{"))
+			if (!COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)) || strcasecmp(com_token, "{"))
 				Con_DPrintf("scripts/custinfoparms.txt: surfaceflags section parsing error - expected \"{\", found \"%s\"\n", com_token);
 			else
 			{
-				while(COM_ParseToken_QuakeC(&text, false))
+				while(COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)))
 				{
 					if (!strcasecmp(com_token, "}"))
 						break;	
@@ -1751,7 +1753,7 @@ void Mod_LoadQ3Shaders(void)
 					custsurfaceparmnames[numcustsurfaceflags] = (char *)Mem_Alloc(tempmempool, j);
 					strlcpy(custsurfaceparmnames[numcustsurfaceflags], com_token, j+1);
 					// value
-					if (COM_ParseToken_QuakeC(&text, false))
+					if (COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)))
 						custsurfaceflags[numcustsurfaceflags] = strtol(com_token, NULL, 0);
 					else
 						custsurfaceflags[numcustsurfaceflags] = 0;
@@ -1771,7 +1773,7 @@ void Mod_LoadQ3Shaders(void)
 		text = f = (char *)FS_LoadFile(search->filenames[fileindex], tempmempool, false, NULL);
 		if (!f)
 			continue;
-		while (COM_ParseToken_QuakeC(&text, false))
+		while (COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)))
 		{
 			memset (&shader, 0, sizeof(shader));
 			shader.name[0] = 0;
@@ -1812,12 +1814,12 @@ void Mod_LoadQ3Shaders(void)
 			// JUST GREP FOR "specularscalemod = 1".
 
 			strlcpy(shader.name, com_token, sizeof(shader.name));
-			if (!COM_ParseToken_QuakeC(&text, false) || strcasecmp(com_token, "{"))
+			if (!COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)) || strcasecmp(com_token, "{"))
 			{
 				Con_DPrintf("%s parsing error - expected \"{\", found \"%s\"\n", search->filenames[fileindex], com_token);
 				break;
 			}
-			while (COM_ParseToken_QuakeC(&text, false))
+			while (COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)))
 			{
 				if (!strcasecmp(com_token, "}"))
 					break;
@@ -1841,7 +1843,7 @@ void Mod_LoadQ3Shaders(void)
 					layer->blendfunc[0] = GL_ONE;
 					layer->blendfunc[1] = GL_ZERO;
 					#endif
-					while (COM_ParseToken_QuakeC(&text, false))
+					while (COM_ParseToken_QuakeC(&text, false, com_token, sizeof(com_token)))
 					{
 						if (!strcasecmp(com_token, "}"))
 							break;
@@ -1859,7 +1861,7 @@ void Mod_LoadQ3Shaders(void)
 									strlcpy(parameter[j], com_token, sizeof(parameter[j]));
 								numparameters = j + 1;
 							}
-							if (!COM_ParseToken_QuakeC(&text, true))
+							if (!COM_ParseToken_QuakeC(&text, true, com_token, sizeof(com_token)))
 								break;
 						}
 						//for (j = numparameters;j < TEXTURE_MAXFRAMES + 4;j++)
@@ -2118,7 +2120,7 @@ void Mod_LoadQ3Shaders(void)
 							strlcpy(parameter[j], com_token, sizeof(parameter[j]));
 						numparameters = j + 1;
 					}
-					if (!COM_ParseToken_QuakeC(&text, true))
+					if (!COM_ParseToken_QuakeC(&text, true, com_token, sizeof(com_token)))
 						break;
 				}
 				//for (j = numparameters;j < TEXTURE_MAXFRAMES + 4;j++)
@@ -2908,6 +2910,7 @@ skinfile_t *Mod_LoadSkinFiles(void)
 	skinfileitem_t *skinfileitem;
 	char word[10][MAX_QPATH];
 	char vabuf[1024];
+	char com_token[MAX_INPUTLINE];
 
 /*
 sample file:
@@ -2943,7 +2946,7 @@ tag_torso,
 		for(line = 0;;line++)
 		{
 			// parse line
-			if (!COM_ParseToken_QuakeC(&data, true))
+			if (!COM_ParseToken_QuakeC(&data, true, com_token, sizeof(com_token)))
 				break;
 			if (!strcmp(com_token, "\n"))
 				continue;
@@ -2956,7 +2959,7 @@ tag_torso,
 				else
 					wordsoverflow = true;
 			}
-			while (COM_ParseToken_QuakeC(&data, true) && strcmp(com_token, "\n"));
+			while (COM_ParseToken_QuakeC(&data, true, com_token, sizeof(com_token)) && strcmp(com_token, "\n"));
 			if (wordsoverflow)
 			{
 				Con_Printf("Mod_LoadSkinFiles: parsing error in file \"%s_%i.skin\" on line #%i: line with too many statements, skipping\n", loadmodel->name, i, line);

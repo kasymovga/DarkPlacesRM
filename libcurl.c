@@ -1940,13 +1940,14 @@ void Curl_SendRequirements(void)
 	requirement *req;
 	qboolean foundone = false;
 	const char *p;
+	char com_token[MAX_INPUTLINE];
 
 	for(req = requirements; req; req = req->next)
 		foundone = Curl_SendRequirement(req->filename, foundone, sendbuffer, sizeof(sendbuffer)) || foundone;
 
 	Cvar_LockThreadMutex();
 	p = sv_curl_serverpackages.string;
-	while(COM_ParseToken_Simple(&p, false, false, true))
+	while(COM_ParseToken_Simple(&p, false, false, true, com_token, sizeof(com_token)))
 		foundone = Curl_SendRequirement(com_token, foundone, sendbuffer, sizeof(sendbuffer)) || foundone;
 
 	Cvar_UnlockThreadMutex();

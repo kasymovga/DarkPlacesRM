@@ -2836,6 +2836,7 @@ float tokenize(string s)
 void VM_tokenize (prvm_prog_t *prog)
 {
 	const char *p;
+	char com_token[MAX_INPUTLINE];
 
 	VM_SAFEPARMCOUNT(1,VM_tokenize);
 
@@ -2853,7 +2854,7 @@ void VM_tokenize (prvm_prog_t *prog)
 			++p;
 
 		prog->tokens_startpos[prog->num_tokens] = p - prog->tokenize_string;
-		if(!COM_ParseToken_VM_Tokenize(&p, false))
+		if(!COM_ParseToken_VM_Tokenize(&p, false, com_token, sizeof(com_token)))
 			break;
 		prog->tokens_endpos[prog->num_tokens] = p - prog->tokenize_string;
 		prog->tokens[prog->num_tokens] = PRVM_SetTempString(prog, com_token);
@@ -2867,6 +2868,7 @@ void VM_tokenize (prvm_prog_t *prog)
 void VM_tokenize_console (prvm_prog_t *prog)
 {
 	const char *p;
+	char com_token[MAX_INPUTLINE];
 
 	VM_SAFEPARMCOUNT(1,VM_tokenize);
 
@@ -2884,7 +2886,7 @@ void VM_tokenize_console (prvm_prog_t *prog)
 			++p;
 
 		prog->tokens_startpos[prog->num_tokens] = p - prog->tokenize_string;
-		if(!COM_ParseToken_Console(&p))
+		if(!COM_ParseToken_Console(&p, com_token, sizeof(com_token)))
 			break;
 		prog->tokens_endpos[prog->num_tokens] = p - prog->tokenize_string;
 		prog->tokens[prog->num_tokens] = PRVM_SetTempString(prog, com_token);
@@ -3245,6 +3247,7 @@ void VM_parseentitydata(prvm_prog_t *prog)
 {
 	prvm_edict_t *ent;
 	const char *data;
+	char com_token[MAX_INPUTLINE];
 
 	VM_SAFEPARMCOUNT(2, VM_parseentitydata);
 
@@ -3256,7 +3259,7 @@ void VM_parseentitydata(prvm_prog_t *prog)
 	data = PRVM_G_STRING(OFS_PARM1);
 
 	// parse the opening brace
-	if (!COM_ParseToken_Simple(&data, false, false, true) || com_token[0] != '{' )
+	if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)) || com_token[0] != '{' )
 		Host_Error(prog, "VM_parseentitydata: %s: Couldn't parse entity data:\n%s", prog->name, data );
 
 	PRVM_ED_ParseEdict (prog, data, ent);
@@ -3849,6 +3852,7 @@ void VM_loadfont(prvm_prog_t *prog)
 	int i, numsizes;
 	float sz, scale, voffset;
 	dp_font_t *f;
+	char com_token[MAX_INPUTLINE];
 
 	VM_SAFEPARMCOUNTRANGE(3,6,VM_loadfont);
 
@@ -3938,7 +3942,7 @@ void VM_loadfont(prvm_prog_t *prog)
 		f->req_sizes[i] = -1;
 	for (numsizes = 0,c = sizes;;)
 	{
-		if (!COM_ParseToken_VM_Tokenize(&c, 0))
+		if (!COM_ParseToken_VM_Tokenize(&c, 0, com_token, sizeof(com_token)))
 			break;
 		sz = atof(com_token);
 		// detect crap size

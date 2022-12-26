@@ -193,12 +193,10 @@ typedef float (*COM_WordWidthFunc_t) (void *passthrough, const char *w, size_t *
 typedef int (*COM_LineProcessorFunc) (void *passthrough, const char *line, size_t length, float width, qboolean isContination);
 int COM_Wordwrap(const char *string, size_t length, float continuationSize, float maxWidth, COM_WordWidthFunc_t wordWidth, void *passthroughCW, COM_LineProcessorFunc processLine, void *passthroughPL);
 
-extern char com_token[MAX_INPUTLINE];
-
-int COM_ParseToken_Simple(const char **datapointer, qboolean returnnewline, qboolean parsebackslash, qboolean parsecomments);
-int COM_ParseToken_QuakeC(const char **datapointer, qboolean returnnewline);
-int COM_ParseToken_VM_Tokenize(const char **datapointer, qboolean returnnewline);
-int COM_ParseToken_Console(const char **datapointer);
+int COM_ParseToken_Simple(const char **datapointer, qboolean returnnewline, qboolean parsebackslash, qboolean parsecomments, char *token, int token_size);
+int COM_ParseToken_QuakeC(const char **datapointer, qboolean returnnewline, char *token, int token_size);
+int COM_ParseToken_VM_Tokenize(const char **datapointer, qboolean returnnewline, char *token, int token_size);
+int COM_ParseToken_Console(const char **datapointer, char *token, int token_size);
 
 extern int com_argc;
 extern const char **com_argv;

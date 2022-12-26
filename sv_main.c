@@ -3039,6 +3039,7 @@ int SV_ParticleEffectIndex(const char *name)
 	//const char *textend;
 	char argv[16][1024];
 	char filename[MAX_QPATH];
+	char com_token[MAX_INPUTLINE];
 	if (!sv.particleeffectnamesloaded)
 	{
 		sv.particleeffectnamesloaded = true;
@@ -3064,7 +3065,7 @@ int SV_ParticleEffectIndex(const char *name)
 				argc = 0;
 				for (;;)
 				{
-					if (!COM_ParseToken_Simple(&text, true, false, true) || !strcmp(com_token, "\n"))
+					if (!COM_ParseToken_Simple(&text, true, false, true, com_token, sizeof(com_token)) || !strcmp(com_token, "\n"))
 						break;
 					if (argc < 16)
 					{

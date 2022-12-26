@@ -921,6 +921,7 @@ void Memory_Shutdown (void)
 
 void Memory_Init_Commands (void)
 {
+	char com_token[MAX_INPUTLINE];
 	Cmd_AddCommand ("memstats", MemStats_f, "prints memory system statistics");
 	Cmd_AddCommand ("memlist", MemList_f, "prints memory pool information (or if used as memlist 5 lists individual allocations of 5K or larger, 0 lists all allocations)");
 	Cvar_RegisterVariable (&developer_memory);
@@ -969,17 +970,17 @@ void Memory_Init_Commands (void)
 				while(fgets(buf, sizeof(buf), f))
 				{
 					const char *p = buf;
-					if(!COM_ParseToken_Console(&p))
+					if(!COM_ParseToken_Console(&p, com_token, sizeof(com_token)))
 						continue;
 					if(!strcmp(com_token, "MemTotal:"))
 					{
-						if(!COM_ParseToken_Console(&p))
+						if(!COM_ParseToken_Console(&p, com_token, sizeof(com_token)))
 							continue;
 						Cvar_SetValueQuick(&sys_memsize_physical, atof(com_token) / 1024.0);
 					}
 					if(!strcmp(com_token, "SwapTotal:"))
 					{
-						if(!COM_ParseToken_Console(&p))
+						if(!COM_ParseToken_Console(&p, com_token, sizeof(com_token)))
 							continue;
 						Cvar_SetValueQuick(&sys_memsize_virtual, min(sys_memsize_virtual.value , atof(com_token) / 1024.0 + sys_memsize_physical.value));
 					}

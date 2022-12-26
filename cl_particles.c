@@ -322,6 +322,7 @@ static void CL_Particles_ParseEffectInfo(const char *textstart, const char *text
 	particleeffectinfo_t *info = NULL;
 	const char *text = textstart;
 	char argv[16][1024];
+	char com_token[MAX_INPUTLINE];
 	for (linenumber = 1;;linenumber++)
 	{
 		argc = 0;
@@ -329,7 +330,7 @@ static void CL_Particles_ParseEffectInfo(const char *textstart, const char *text
 			argv[arrayindex][0] = 0;
 		for (;;)
 		{
-			if (!COM_ParseToken_Simple(&text, true, false, true))
+			if (!COM_ParseToken_Simple(&text, true, false, true, com_token, sizeof(com_token)))
 				return;
 			if (!strcmp(com_token, "\n"))
 				break;
@@ -2160,6 +2161,7 @@ static void R_InitParticleTexture (void)
 	fs_offset_t filesize;
 	char texturename[MAX_QPATH];
 	skinframe_t *sf;
+	char com_token[MAX_INPUTLINE];
 
 	// a note: decals need to modulate (multiply) the background color to
 	// properly darken it (stain), and they need to be able to alpha fade,
@@ -2372,7 +2374,7 @@ static void R_InitParticleTexture (void)
 		bufptr = buf;
 		for(;;)
 		{
-			if(!COM_ParseToken_Simple(&bufptr, true, false, true))
+			if(!COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token)))
 				break;
 			if(!strcmp(com_token, "\n"))
 				continue; // empty line
@@ -2384,22 +2386,22 @@ static void R_InitParticleTexture (void)
 			s2 = 1;
 			t2 = 1;
 
-			if (COM_ParseToken_Simple(&bufptr, true, false, true) && strcmp(com_token, "\n"))
+			if (COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token)) && strcmp(com_token, "\n"))
 			{
 				strlcpy(texturename, com_token, sizeof(texturename));
 				s1 = atof(com_token);
-				if (COM_ParseToken_Simple(&bufptr, true, false, true) && strcmp(com_token, "\n"))
+				if (COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token)) && strcmp(com_token, "\n"))
 				{
 					texturename[0] = 0;
 					t1 = atof(com_token);
-					if (COM_ParseToken_Simple(&bufptr, true, false, true) && strcmp(com_token, "\n"))
+					if (COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token)) && strcmp(com_token, "\n"))
 					{
 						s2 = atof(com_token);
-						if (COM_ParseToken_Simple(&bufptr, true, false, true) && strcmp(com_token, "\n"))
+						if (COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token)) && strcmp(com_token, "\n"))
 						{
 							t2 = atof(com_token);
 							strlcpy(texturename, "particles/particlefont.tga", sizeof(texturename));
-							if (COM_ParseToken_Simple(&bufptr, true, false, true) && strcmp(com_token, "\n"))
+							if (COM_ParseToken_Simple(&bufptr, true, false, true, com_token, sizeof(com_token)) && strcmp(com_token, "\n"))
 								strlcpy(texturename, com_token, sizeof(texturename));
 						}
 					}

@@ -1631,6 +1631,7 @@ static void COM_InsertFlags(const char *buf) {
 	const char **new_argv;
 	int i = 0;
 	int args_left = 256;
+	char com_token[MAX_INPUTLINE];
 	new_argv = (const char **)Mem_Alloc(fs_mempool, sizeof(*com_argv) * (com_argc + args_left + 2));
 	if(com_argc == 0)
 		new_argv[0] = "dummy";  // Can't really happen.
@@ -1638,7 +1639,7 @@ static void COM_InsertFlags(const char *buf) {
 		new_argv[0] = com_argv[0];
 	++i;
 	p = buf;
-	while(COM_ParseToken_Console(&p))
+	while(COM_ParseToken_Console(&p, com_token, sizeof(com_token)))
 	{
 		size_t sz = strlen(com_token) + 1; // shut up clang
 		if(i > args_left)

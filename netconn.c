@@ -181,11 +181,12 @@ static char favorites_idfp[MAX_FAVORITESERVERS][FP64_SIZE+1];
 void NetConn_UpdateFavorites(void)
 {
 	const char *p;
+	char com_token[MAX_INPUTLINE];
 	nFavorites = 0;
 	nFavorites_idfp = 0;
 	Cvar_LockThreadMutex();
 	p = net_slist_favorites.string;
-	while((size_t) nFavorites < sizeof(favorites) / sizeof(*favorites) && COM_ParseToken_Console(&p))
+	while((size_t) nFavorites < sizeof(favorites) / sizeof(*favorites) && COM_ParseToken_Console(&p, com_token, sizeof(com_token)))
 	{
 		if(com_token[0] != '[' && strlen(com_token) == FP64_SIZE && !strchr(com_token, '.'))
 		// currently 44 bytes, longest possible IPv6 address: 39 bytes, so this works
@@ -212,11 +213,12 @@ static char extra_idfp[MAX_EXTRASERVERS][FP64_SIZE+1];
 void NetConn_UpdateExtra(void)
 {
 	const char *p;
+	char com_token[MAX_INPUTLINE];
 	nExtra = 0;
 	nExtra_idfp = 0;
 	Cvar_LockThreadMutex();
 	p = net_slist_extra.string;
-	while((size_t) nExtra < sizeof(extra) / sizeof(*extra) && COM_ParseToken_Console(&p))
+	while((size_t) nExtra < sizeof(extra) / sizeof(*extra) && COM_ParseToken_Console(&p, com_token, sizeof(com_token)))
 	{
 		if(com_token[0] != '[' && strlen(com_token) == FP64_SIZE && !strchr(com_token, '.'))
 		// currently 44 bytes, longest possible IPv6 address: 39 bytes, so this works
@@ -2884,6 +2886,7 @@ static const char *_RCon_Authenticate(lhnetaddress_t *peeraddress, const char *p
 	qboolean restricted = false;
 	qboolean have_usernames = false;
 	static char vabuf[1024];
+	char com_token[MAX_INPUTLINE];
 
 	userpass_start = rcon_password.string;
 	while((userpass_end = strchr(userpass_start, ' ')))
@@ -2937,7 +2940,7 @@ check:
 			// sorry, we can't allow these substrings in wildcard expressions,
 			// as they can mess with the argument counts
 			text = rcon_restricted_commands.string;
-			while(COM_ParseToken_Console(&text))
+			while(COM_ParseToken_Console(&text, com_token, sizeof(com_token)))
 			{
 				// com_token now contains a pattern to check for...
 				if(strchr(com_token, '*') || strchr(com_token, '?')) // wildcard expression, * can only match a SINGLE argument

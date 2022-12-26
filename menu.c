@@ -477,6 +477,7 @@ static void M_ScanSaves (void)
 	char	buf[SAVEGAME_COMMENT_LENGTH + 256];
 	const char *t;
 	qfile_t	*f;
+	char com_token[MAX_INPUTLINE];
 //	int		version;
 
 	for (i=0 ; i<MAX_SAVEGAMES ; i++)
@@ -493,10 +494,10 @@ static void M_ScanSaves (void)
 		buf[len] = 0;
 		t = buf;
 		// version
-		COM_ParseToken_Simple(&t, false, false, true);
+		COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 		//version = atoi(com_token);
 		// description
-		COM_ParseToken_Simple(&t, false, false, true);
+		COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 		strlcpy (m_filenames[i], com_token, sizeof (m_filenames[i]));
 
 	// change _ back to space

@@ -459,6 +459,7 @@ void CDAudio_StartPlaylist(qboolean resume)
 	int listindex;
 	float position;
 	char trackname[MAX_QPATH];
+	char com_token[MAX_INPUTLINE];
 	CDAudio_Stop();
 	index = music_playlist_index.integer;
 	Cvar_LockThreadMutex();
@@ -474,7 +475,7 @@ void CDAudio_StartPlaylist(qboolean resume)
 		{
 			for (t = list;;count++)
 			{
-				if (!COM_ParseToken_Console(&t))
+				if (!COM_ParseToken_Console(&t, com_token, sizeof(com_token)))
 					break;
 				// if we don't find the desired track, use the first one
 				if (count == 0)
@@ -504,7 +505,7 @@ void CDAudio_StartPlaylist(qboolean resume)
 			{
 				for (listindex = 0, t = list;;listindex++)
 				{
-					if (!COM_ParseToken_Console(&t))
+					if (!COM_ParseToken_Console(&t, com_token, sizeof(com_token)))
 						break;
 					if (listindex == current)
 					{

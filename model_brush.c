@@ -2163,15 +2163,16 @@ static void Mod_Q1BSP_ParseWadsFromEntityLump(const char *data)
 {
 	char key[128], value[4096];
 	int i, j, k;
+	char com_token[MAX_INPUTLINE];
 	if (!data)
 		return;
-	if (!COM_ParseToken_Simple(&data, false, false, true))
+	if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 		return; // error
 	if (com_token[0] != '{')
 		return; // error
 	while (1)
 	{
-		if (!COM_ParseToken_Simple(&data, false, false, true))
+		if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 			return; // error
 		if (com_token[0] == '}')
 			break; // end of worldspawn
@@ -2181,7 +2182,7 @@ static void Mod_Q1BSP_ParseWadsFromEntityLump(const char *data)
 			strlcpy(key, com_token, sizeof(key));
 		while (key[strlen(key)-1] == ' ') // remove trailing spaces
 			key[strlen(key)-1] = 0;
-		if (!COM_ParseToken_Simple(&data, false, false, true))
+		if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 			return; // error
 		dpsnprintf(value, sizeof(value), "%s", com_token);
 		if (!strcmp("wad", key)) // for HalfLife maps
@@ -4797,6 +4798,7 @@ static void Mod_Q3BSP_LoadEntities(lump_t *l)
 	const char *data;
 	char key[128], value[MAX_INPUTLINE];
 	float v[3];
+	char com_token[MAX_INPUTLINE];
 	loadmodel->brushq3.num_lightgrid_cellsize[0] = 64;
 	loadmodel->brushq3.num_lightgrid_cellsize[1] = 64;
 	loadmodel->brushq3.num_lightgrid_cellsize[2] = 128;
@@ -4809,11 +4811,11 @@ static void Mod_Q3BSP_LoadEntities(lump_t *l)
 	// some Q3 maps override the lightgrid_cellsize with a worldspawn key
 	// VorteX: q3map2 FS-R generates tangentspace deluxemaps for q3bsp and sets 'deluxeMaps' key
 	loadmodel->brushq3.deluxemapping = false;
-	if (data && COM_ParseToken_Simple(&data, false, false, true) && com_token[0] == '{')
+	if (data && COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)) && com_token[0] == '{')
 	{
 		while (1)
 		{
-			if (!COM_ParseToken_Simple(&data, false, false, true))
+			if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 				break; // error
 			if (com_token[0] == '}')
 				break; // end of worldspawn
@@ -4823,7 +4825,7 @@ static void Mod_Q3BSP_LoadEntities(lump_t *l)
 				strlcpy(key, com_token, sizeof(key));
 			while (key[strlen(key)-1] == ' ') // remove trailing spaces
 				key[strlen(key)-1] = 0;
-			if (!COM_ParseToken_Simple(&data, false, false, true))
+			if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 				break; // error
 			strlcpy(value, com_token, sizeof(value));
 			if (!strcasecmp("gridsize", key)) // this one is case insensitive to 100% match q3map2

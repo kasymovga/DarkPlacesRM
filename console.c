@@ -453,6 +453,7 @@ static void Log_DestBuffer_Flush_NoLock(void)
 	lhnetsocket_t *log_dest_socket;
 	const char *s;
 	qboolean have_opened_temp_sockets = false;
+	char com_token[MAX_INPUTLINE];
 	Cvar_LockThreadMutex();
 	s = log_dest_udp.string;
 	if(s) if(log_dest_buffer_pos > 5)
@@ -466,7 +467,7 @@ static void Log_DestBuffer_Flush_NoLock(void)
 			NetConn_OpenServerPorts(true);
 		}
 
-		while(COM_ParseToken_Console(&s))
+		while(COM_ParseToken_Console(&s, com_token, sizeof(com_token)))
 			if(LHNETADDRESS_FromString(&log_dest_addr, com_token, 26000))
 			{
 				log_dest_socket = NetConn_ChooseClientSocketForAddress(&log_dest_addr);
@@ -2186,6 +2187,7 @@ qboolean GetMapList (const char *s, char *completedname, int completednamebuffer
 	unsigned char *len;
 	qfile_t		*f;
 	unsigned char buf[1024];
+	char com_token[MAX_INPUTLINE];
 
 	dpsnprintf(message, sizeof(message), "maps/%s*.bsp", s);
 	t = FS_Search(message, 1, true);
@@ -2289,7 +2291,7 @@ qboolean GetMapList (const char *s, char *completedname, int completednamebuffer
 				for (;;)
 				{
 					int l;
-					if (!COM_ParseToken_Simple(&data, false, false, true))
+					if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 						break;
 					if (com_token[0] == '{')
 						continue;
@@ -2300,7 +2302,7 @@ qboolean GetMapList (const char *s, char *completedname, int completednamebuffer
 					for (l = 0;l < (int)sizeof(keyname) - 1 && com_token[k+l] && !ISWHITESPACE(com_token[k+l]);l++)
 						keyname[l] = com_token[k+l];
 					keyname[l] = 0;
-					if (!COM_ParseToken_Simple(&data, false, false, true))
+					if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 						break;
 					if (developer_extra.integer)
 						Con_DPrintf("key: %s %s\n", keyname, com_token);
@@ -2847,6 +2849,7 @@ void Con_CompleteCommandLine (void)
 	int n; // nicks --blub
 	const char *space, *patterns;
 	char vabuf[1024];
+	char com_token[MAX_INPUTLINE];
 
 	//find what we want to complete
 	pos = key_linepos;
@@ -2919,7 +2922,7 @@ void Con_CompleteCommandLine (void)
 
 				stringlistinit(&resultbuf);
 				stringlistinit(&dirbuf);
-				while(COM_ParseToken_Simple(&patterns, false, false, true))
+				while(COM_ParseToken_Simple(&patterns, false, false, true, com_token, sizeof(com_token)))
 				{
 					fssearch_t *search;
 					if(strchr(com_token, '/'))

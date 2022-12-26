@@ -341,11 +341,12 @@ static int parsenodes(void)
 {
 	int num, parent;
 	char line[1024], name[1024];
+	char com_token[MAX_INPUTLINE];
 
 	memset(ctx->bones, 0, sizeof(bone_t) * MAX_BONES);
 	ctx->numbones = 0;
 
-	while (COM_ParseToken_VM_Tokenize(&tokenpos, true))
+	while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)))
 	{
 		// if this is the end keyword, we're done with this section of the file
 		if (!strcmp(com_token, "end"))
@@ -363,7 +364,7 @@ static int parsenodes(void)
 		num = atoi( com_token );
 
 		//get bone name
-		if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] < ' ')
+		if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] < ' ')
 		{
 			Con_Printf("error in nodes, expecting bone name in line:%s\n", line);
 			return 0;
@@ -371,7 +372,7 @@ static int parsenodes(void)
 		cleancopyname(name, com_token, MAX_NAME);//Con_Printf( "bone name: %s\n", name );
 
 		//get parent number
-		if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+		if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 		{
 			Con_Printf("error in nodes, expecting parent number in line:%s\n", line);
 			return 0;
@@ -404,10 +405,10 @@ static int parsenodes(void)
 		if (num >= ctx->numbones)
 			ctx->numbones = num + 1;
 		// skip any trailing parameters (might be a later version of smd)
-		while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+		while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 	}
 	// skip any trailing parameters (might be a later version of smd)
-	while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+	while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 	return 1;
 }
 
@@ -417,11 +418,12 @@ static int parseskeleton(void)
 	int i, frame, num;
 	double x, y, z, a, b, c;
 	int baseframe;
+	char com_token[MAX_INPUTLINE];
 
 	baseframe = ctx->numframes;
 	frame = baseframe;
 
-	while (COM_ParseToken_VM_Tokenize(&tokenpos, true))
+	while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)))
 	{
 		// if this is the end keyword, we're done with this section of the file
 		if (!strcmp(com_token, "end"))
@@ -440,7 +442,7 @@ static int parseskeleton(void)
 		if (!strcmp(com_token, "time"))
 		{
 			//get the time value
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parseskeleton, expecting time value in line:%s\n", line);
 				return 0;
@@ -484,21 +486,21 @@ static int parseskeleton(void)
 			num = atoi( com_token );
 
 			//get x, y, z tokens
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parseskeleton, expecting 'x' value in line:%s\n", line);
 				return 0;
 			}
 			x = atof( com_token );
 
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parseskeleton, expecting 'y' value in line:%s\n", line);
 				return 0;
 			}
 			y = atof( com_token );
 
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parseskeleton, expecting 'z' value in line:%s\n", line);
 				return 0;
@@ -506,21 +508,21 @@ static int parseskeleton(void)
 			z = atof( com_token );
 
 			//get a, b, c tokens
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parseskeleton, expecting 'a' value in line:%s\n", line);
 				return 0;
 			}
 			a = atof( com_token );
 
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parseskeleton, expecting 'b' value in line:%s\n", line);
 				return 0;
 			}
 			b = atof( com_token );
 
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parseskeleton, expecting 'c' value in line:%s\n", line);
 				return 0;
@@ -541,10 +543,10 @@ static int parseskeleton(void)
 			ctx->frames[frame].bones[num] = computebonematrix(x * ctx->modelscale, y * ctx->modelscale, z * ctx->modelscale, a, b, c);
 		}
 		// skip any trailing parameters (might be a later version of smd)
-		while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+		while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 	}
 	// skip any trailing parameters (might be a later version of smd)
-	while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+	while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 
 	if (frame >= baseframe && ctx->qcheaderfile)
 		FS_Printf(ctx->qcheaderfile, "$frame");
@@ -647,6 +649,7 @@ static int parsetriangles(void)
 	int		numinfluences;
 	int		temp_numbone[MAX_INFLUENCES];
 	double	temp_influence[MAX_INFLUENCES];
+	char com_token[MAX_INPUTLINE];
 
 	ctx->numtriangles = 0;
 	ctx->numshaders = 0;
@@ -659,7 +662,7 @@ static int parsetriangles(void)
 		else
 			ctx->bonematrix[i] = ctx->frames[0].bones[i];
 	}
-	while (COM_ParseToken_VM_Tokenize(&tokenpos, true))
+	while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)))
 	{
 		// if this is the end keyword, we're done with this section of the file
 		if (!strcmp(com_token, "end"))
@@ -693,7 +696,7 @@ static int parsetriangles(void)
 		if (com_token[0] != '\n')
 		{
 			// skip any trailing parameters (might be a later version of smd)
-			while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+			while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 		}
 		for (corner = 0;corner < 3;corner++)
 		{
@@ -703,7 +706,7 @@ static int parsetriangles(void)
 			vtexcoord[0] = 0;vtexcoord[1] = 0;
 
 			//get bonenum token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'bonenum', script line:%s\n", line);
 				return 0;
@@ -711,7 +714,7 @@ static int parsetriangles(void)
 			vbonenum = atoi( com_token );
 
 			//get org[0] token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'org[0]', script line:%s\n", line);
 				return 0;
@@ -719,7 +722,7 @@ static int parsetriangles(void)
 			org[0] = atof( com_token ) * ctx->modelscale;
 
 			//get org[1] token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'org[1]', script line:%s\n", line);
 				return 0;
@@ -727,7 +730,7 @@ static int parsetriangles(void)
 			org[1] = atof( com_token ) * ctx->modelscale;
 
 			//get org[2] token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'org[2]', script line:%s\n", line);
 				return 0;
@@ -735,7 +738,7 @@ static int parsetriangles(void)
 			org[2] = atof( com_token ) * ctx->modelscale;
 
 			//get normal[0] token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'normal[0]', script line:%s\n", line);
 				return 0;
@@ -743,7 +746,7 @@ static int parsetriangles(void)
 			normal[0] = atof( com_token );
 
 			//get normal[1] token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'normal[1]', script line:%s\n", line);
 				return 0;
@@ -751,7 +754,7 @@ static int parsetriangles(void)
 			normal[1] = atof( com_token );
 
 			//get normal[2] token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'normal[2]', script line:%s\n", line);
 				return 0;
@@ -759,7 +762,7 @@ static int parsetriangles(void)
 			normal[2] = atof( com_token );
 
 			//get vtexcoord[0] token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'vtexcoord[0]', script line:%s\n", line);
 				return 0;
@@ -767,7 +770,7 @@ static int parsetriangles(void)
 			vtexcoord[0] = atof( com_token );
 
 			//get vtexcoord[1] token
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				Con_Printf("error in parsetriangles, expecting 'vtexcoord[1]', script line:%s\n", line);
 				return 0;
@@ -775,7 +778,7 @@ static int parsetriangles(void)
 			vtexcoord[1] = atof( com_token );
 
 			// are there more words (HalfLife2) or not (HalfLife1)?
-			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
 				// one influence (HalfLife1)
 				numinfluences = 1;
@@ -803,7 +806,7 @@ static int parsetriangles(void)
 				for( c = 0; c < numinfluences; c++ )
 				{
 					//get bone number
-					if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+					if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 					{
 						Con_Printf("invalid vertex influence \"%s\"\n", line);
 						return 0;
@@ -815,7 +818,7 @@ static int parsetriangles(void)
 						return 0;
 					}
 					//get influence weight
-					if (!COM_ParseToken_VM_Tokenize(&tokenpos, true) || com_token[0] <= ' ')
+					if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 					{
 						Con_Printf("invalid vertex influence \"%s\"\n", line);
 						return 0;
@@ -910,7 +913,7 @@ static int parsetriangles(void)
 				}
 			}
 			// skip any trailing parameters (might be a later version of smd)
-			while (com_token[0] != '\n' && COM_ParseToken_VM_Tokenize(&tokenpos, true));
+			while (com_token[0] != '\n' && COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)));
 		}
 		ctx->numtriangles++;
 		if (ctx->numtriangles >= MAX_TRIS)
@@ -920,7 +923,7 @@ static int parsetriangles(void)
 		}
 	}
 	// skip any trailing parameters (might be a later version of smd)
-	while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+	while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 
 	Con_Printf("parsetriangles: done\n");
 	return 1;
@@ -928,12 +931,13 @@ static int parsetriangles(void)
 
 static int parsemodelfile(void)
 {
+	char com_token[MAX_INPUTLINE];
 	tokenpos = ctx->modelfile;
-	while (COM_ParseToken_VM_Tokenize(&tokenpos, false))
+	while (COM_ParseToken_VM_Tokenize(&tokenpos, false, com_token, sizeof(com_token)))
 	{
 		if (!strcmp(com_token, "version"))
 		{
-			COM_ParseToken_VM_Tokenize(&tokenpos, true);
+			COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token));
 			if (atoi(com_token) != 1)
 			{
 				Con_Printf("file is version %s, only version 1 is supported\n", com_token);
@@ -943,21 +947,21 @@ static int parsemodelfile(void)
 		else if (!strcmp(com_token, "nodes"))
 		{
 			// skip any trailing parameters (might be a later version of smd)
-			while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+			while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 			if (!parsenodes())
 				return 0;
 		}
 		else if (!strcmp(com_token, "skeleton"))
 		{
 			// skip any trailing parameters (might be a later version of smd)
-			while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+			while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 			if (!parseskeleton())
 				return 0;
 		}
 		else if (!strcmp(com_token, "triangles"))
 		{
 			// skip any trailing parameters (might be a later version of smd)
-			while (COM_ParseToken_VM_Tokenize(&tokenpos, true) && com_token[0] != '\n');
+			while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 			if (!parsetriangles())
 				return 0;
 		}

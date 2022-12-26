@@ -134,6 +134,7 @@ static void LoadSubtitles( clvideo_t *video, const char *subtitlesfile )
 	const char *data;
 	float subtime, sublen;
 	int numsubs = 0;
+	char com_token[MAX_INPUTLINE];
 	subtitle_text = (char *)FS_LoadFile(subtitlesfile, cls.permanentmempool, false, NULL);
 	if (!subtitle_text)
 	{
@@ -149,13 +150,13 @@ static void LoadSubtitles( clvideo_t *video, const char *subtitlesfile )
 	data = subtitle_text;
 	for (;;)
 	{
-		if (!COM_ParseToken_QuakeC(&data, false))
+		if (!COM_ParseToken_QuakeC(&data, false, com_token, sizeof(com_token)))
 			break;
 		subtime = atof( com_token );
-		if (!COM_ParseToken_QuakeC(&data, false))
+		if (!COM_ParseToken_QuakeC(&data, false, com_token, sizeof(com_token)))
 			break;
 		sublen = atof( com_token );
-		if (!COM_ParseToken_QuakeC(&data, false))
+		if (!COM_ParseToken_QuakeC(&data, false, com_token, sizeof(com_token)))
 			break;
 		if (!com_token[0])
 			continue;

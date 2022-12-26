@@ -33,7 +33,6 @@ cvar_t cl_rollangle = {0, "cl_rollangle", "2.0", "how much to tilt the view when
 cvar_t registered = {0, "registered","0", "indicates if this is running registered quake (whether gfx/pop.lmp was found)"};
 cvar_t cmdline = {0, "cmdline","0", "contains commandline the engine was launched with"};
 
-char com_token[MAX_INPUTLINE];
 int com_argc;
 const char **com_argv;
 int com_selffd = -1;
@@ -1000,14 +999,14 @@ COM_ParseToken_Simple
 Parse a token out of a string
 ==============
 */
-int COM_ParseToken_Simple(const char **datapointer, qboolean returnnewline, qboolean parsebackslash, qboolean parsecomments)
+int COM_ParseToken_Simple(const char **datapointer, qboolean returnnewline, qboolean parsebackslash, qboolean parsecomments, char *token, int token_size)
 {
 	int len;
 	int c;
 	const char *data = *datapointer;
 
 	len = 0;
-	com_token[0] = 0;
+	token[0] = 0;
 
 	if (!data)
 	{
@@ -1069,10 +1068,10 @@ skipwhite:
 				else if (c == 't')
 					c = '\t';
 			}
-			if (len < (int)sizeof(com_token) - 1)
-				com_token[len++] = c;
+			if (len < (int)token_size - 1)
+				token[len++] = c;
 		}
-		com_token[len] = 0;
+		token[len] = 0;
 		if (*data == '\"')
 			data++;
 		*datapointer = data;
@@ -1081,16 +1080,16 @@ skipwhite:
 	else if (*data == '\r')
 	{
 		// translate Mac line ending to UNIX
-		com_token[len++] = '\n';data++;
-		com_token[len] = 0;
+		token[len++] = '\n';data++;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
 	else if (*data == '\n')
 	{
 		// single character
-		com_token[len++] = *data++;
-		com_token[len] = 0;
+		token[len++] = *data++;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
@@ -1098,9 +1097,9 @@ skipwhite:
 	{
 		// regular word
 		for (;!ISWHITESPACE(*data);data++)
-			if (len < (int)sizeof(com_token) - 1)
-				com_token[len++] = *data;
-		com_token[len] = 0;
+			if (len < token_size - 1)
+				token[len++] = *data;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
@@ -1113,14 +1112,14 @@ COM_ParseToken_QuakeC
 Parse a token out of a string
 ==============
 */
-int COM_ParseToken_QuakeC(const char **datapointer, qboolean returnnewline)
+int COM_ParseToken_QuakeC(const char **datapointer, qboolean returnnewline, char *token, int token_size)
 {
 	int len;
 	int c;
 	const char *data = *datapointer;
 
 	len = 0;
-	com_token[0] = 0;
+	token[0] = 0;
 
 	if (!data)
 	{
@@ -1183,10 +1182,10 @@ skipwhite:
 				else if (c == 't')
 					c = '\t';
 			}
-			if (len < (int)sizeof(com_token) - 1)
-				com_token[len++] = c;
+			if (len < token_size - 1)
+				token[len++] = c;
 		}
-		com_token[len] = 0;
+		token[len] = 0;
 		if (*data == quote)
 			data++;
 		*datapointer = data;
@@ -1195,16 +1194,16 @@ skipwhite:
 	else if (*data == '\r')
 	{
 		// translate Mac line ending to UNIX
-		com_token[len++] = '\n';data++;
-		com_token[len] = 0;
+		token[len++] = '\n';data++;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
 	else if (*data == '\n' || *data == '{' || *data == '}' || *data == ')' || *data == '(' || *data == ']' || *data == '[' || *data == ':' || *data == ',' || *data == ';')
 	{
 		// single character
-		com_token[len++] = *data++;
-		com_token[len] = 0;
+		token[len++] = *data++;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
@@ -1212,9 +1211,9 @@ skipwhite:
 	{
 		// regular word
 		for (;!ISWHITESPACE(*data) && *data != '{' && *data != '}' && *data != ')' && *data != '(' && *data != ']' && *data != '[' && *data != ':' && *data != ',' && *data != ';';data++)
-			if (len < (int)sizeof(com_token) - 1)
-				com_token[len++] = *data;
-		com_token[len] = 0;
+			if (len < token_size - 1)
+				token[len++] = *data;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
@@ -1227,14 +1226,14 @@ COM_ParseToken_VM_Tokenize
 Parse a token out of a string
 ==============
 */
-int COM_ParseToken_VM_Tokenize(const char **datapointer, qboolean returnnewline)
+int COM_ParseToken_VM_Tokenize(const char **datapointer, qboolean returnnewline, char *token, int token_size)
 {
 	int len;
 	int c;
 	const char *data = *datapointer;
 
 	len = 0;
-	com_token[0] = 0;
+	token[0] = 0;
 
 	if (!data)
 	{
@@ -1297,10 +1296,10 @@ skipwhite:
 				else if (c == 't')
 					c = '\t';
 			}
-			if (len < (int)sizeof(com_token) - 1)
-				com_token[len++] = c;
+			if (len < token_size - 1)
+				token[len++] = c;
 		}
-		com_token[len] = 0;
+		token[len] = 0;
 		if (*data == quote)
 			data++;
 		*datapointer = data;
@@ -1309,16 +1308,16 @@ skipwhite:
 	else if (*data == '\r')
 	{
 		// translate Mac line ending to UNIX
-		com_token[len++] = '\n';data++;
-		com_token[len] = 0;
+		token[len++] = '\n';data++;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
 	else if (*data == '\n' || *data == '{' || *data == '}' || *data == ')' || *data == '(' || *data == ']' || *data == '[' || *data == ':' || *data == ',' || *data == ';')
 	{
 		// single character
-		com_token[len++] = *data++;
-		com_token[len] = 0;
+		token[len++] = *data++;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
@@ -1326,9 +1325,9 @@ skipwhite:
 	{
 		// regular word
 		for (;!ISWHITESPACE(*data) && *data != '{' && *data != '}' && *data != ')' && *data != '(' && *data != ']' && *data != '[' && *data != ':' && *data != ',' && *data != ';';data++)
-			if (len < (int)sizeof(com_token) - 1)
-				com_token[len++] = *data;
-		com_token[len] = 0;
+			if (len < token_size - 1)
+				token[len++] = *data;
+		token[len] = 0;
 		*datapointer = data;
 		return true;
 	}
@@ -1341,13 +1340,13 @@ COM_ParseToken_Console
 Parse a token out of a string, behaving like the qwcl console
 ==============
 */
-int COM_ParseToken_Console(const char **datapointer)
+int COM_ParseToken_Console(const char **datapointer, char *token, int token_size)
 {
 	int len;
 	const char *data = *datapointer;
 
 	len = 0;
-	com_token[0] = 0;
+	token[0] = 0;
 
 	if (!data)
 	{
@@ -1382,10 +1381,10 @@ skipwhite:
 			// allow escaped " and \ case
 			if (*data == '\\' && (data[1] == '\"' || data[1] == '\\'))
 				data++;
-			if (len < (int)sizeof(com_token) - 1)
-				com_token[len++] = *data;
+			if (len < token_size - 1)
+				token[len++] = *data;
 		}
-		com_token[len] = 0;
+		token[len] = 0;
 		if (*data == '\"')
 			data++;
 		*datapointer = data;
@@ -1394,9 +1393,9 @@ skipwhite:
 	{
 		// regular word
 		for (;!ISWHITESPACE(*data);data++)
-			if (len < (int)sizeof(com_token) - 1)
-				com_token[len++] = *data;
-		com_token[len] = 0;
+			if (len < token_size - 1)
+				token[len++] = *data;
+		token[len] = 0;
 		*datapointer = data;
 	}
 
@@ -2234,16 +2233,17 @@ char **XPM_DecodeString(const char *in)
 	static char *tokens[257];
 	static char lines[257][512];
 	size_t line = 0;
+	char com_token[MAX_INPUTLINE];
 
 	// skip until "{" token
-	while(COM_ParseToken_QuakeC(&in, false) && strcmp(com_token, "{"));
+	while(COM_ParseToken_QuakeC(&in, false, com_token, sizeof(com_token)) && strcmp(com_token, "{"));
 
 	// now, read in succession: string, comma-or-}
-	while(COM_ParseToken_QuakeC(&in, false))
+	while(COM_ParseToken_QuakeC(&in, false, com_token, sizeof(com_token)))
 	{
 		tokens[line] = lines[line];
 		strlcpy(lines[line++], com_token, sizeof(lines[0]));
-		if(!COM_ParseToken_QuakeC(&in, false))
+		if(!COM_ParseToken_QuakeC(&in, false, com_token, sizeof(com_token)))
 			return NULL;
 		if(!strcmp(com_token, "}"))
 			break;

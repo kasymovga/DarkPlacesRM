@@ -804,6 +804,7 @@ static void Host_Loadgame_f (void)
 	int version;
 	float spawn_parms[NUM_SPAWN_PARMS];
 	prvm_stringbuffer_t *stringbuffer;
+	char com_token[MAX_INPUTLINE];
 
 	if (Cmd_Argc() != 2)
 	{
@@ -840,7 +841,7 @@ static void Host_Loadgame_f (void)
 		Con_Printf("Host_Loadgame_f: loading version\n");
 
 	// version
-	COM_ParseToken_Simple(&t, false, false, true);
+	COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 	version = atoi(com_token);
 	if (version != SAVEGAME_VERSION)
 	{
@@ -853,15 +854,15 @@ static void Host_Loadgame_f (void)
 		Con_Printf("Host_Loadgame_f: loading description\n");
 
 	// description
-	COM_ParseToken_Simple(&t, false, false, true);
+	COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 
 	for (i = 0;i < NUM_SPAWN_PARMS;i++)
 	{
-		COM_ParseToken_Simple(&t, false, false, true);
+		COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 		spawn_parms[i] = atof(com_token);
 	}
 	// skill
-	COM_ParseToken_Simple(&t, false, false, true);
+	COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 // this silliness is so we can load 1.06 save files, which have float skill values
 	current_skill = (int)(atof(com_token) + 0.5);
 	Cvar_SetValue ("skill", (float)current_skill);
@@ -870,14 +871,14 @@ static void Host_Loadgame_f (void)
 		Con_Printf("Host_Loadgame_f: loading mapname\n");
 
 	// mapname
-	COM_ParseToken_Simple(&t, false, false, true);
+	COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 	strlcpy (mapname, com_token, sizeof(mapname));
 
 	if(developer_entityparsing.integer)
 		Con_Printf("Host_Loadgame_f: loading time\n");
 
 	// time
-	COM_ParseToken_Simple(&t, false, false, true);
+	COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 	time = atof(com_token);
 
 	allowcheats = sv_cheats.integer != 0;
@@ -916,7 +917,7 @@ static void Host_Loadgame_f (void)
 	{
 		// light style
 		start = t;
-		COM_ParseToken_Simple(&t, false, false, true);
+		COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 		// if this is a 64 lightstyle savegame produced by Quake, stop now
 		// we have to check this because darkplaces may save more than 64
 		if (com_token[0] == '{')
@@ -937,7 +938,7 @@ static void Host_Loadgame_f (void)
 	for (;;)
 	{
 		start = t;
-		if (!COM_ParseToken_Simple(&t, false, false, true))
+		if (!COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token)))
 			break;
 		if (com_token[0] == '{')
 		{
@@ -954,10 +955,10 @@ static void Host_Loadgame_f (void)
 	for (;;)
 	{
 		start = t;
-		while (COM_ParseToken_Simple(&t, false, false, true))
+		while (COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token)))
 			if (!strcmp(com_token, "}"))
 				break;
-		if (!COM_ParseToken_Simple(&start, false, false, true))
+		if (!COM_ParseToken_Simple(&start, false, false, true, com_token, sizeof(com_token)))
 		{
 			// end of file
 			break;
@@ -1035,13 +1036,13 @@ static void Host_Loadgame_f (void)
 			memset(sv.sound_precache[0], 0, sizeof(sv.sound_precache));
 			BufStr_Flush(prog);
 
-			while (COM_ParseToken_Simple(&t, false, false, true))
+			while (COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token)))
 			{
 				if (!strcmp(com_token, "sv.lightstyles"))
 				{
-					COM_ParseToken_Simple(&t, false, false, true);
+					COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 					i = atoi(com_token);
-					COM_ParseToken_Simple(&t, false, false, true);
+					COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 					if (i >= 0 && i < MAX_LIGHTSTYLES)
 						strlcpy(sv.lightstyles[i], com_token, sizeof(sv.lightstyles[i]));
 					else
@@ -1049,9 +1050,9 @@ static void Host_Loadgame_f (void)
 				}
 				else if (!strcmp(com_token, "sv.model_precache"))
 				{
-					COM_ParseToken_Simple(&t, false, false, true);
+					COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 					i = atoi(com_token);
-					COM_ParseToken_Simple(&t, false, false, true);
+					COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 					if (i >= 0 && i < MAX_MODELS)
 					{
 						strlcpy(sv.model_precache[i], com_token, sizeof(sv.model_precache[i]));
@@ -1062,9 +1063,9 @@ static void Host_Loadgame_f (void)
 				}
 				else if (!strcmp(com_token, "sv.sound_precache"))
 				{
-					COM_ParseToken_Simple(&t, false, false, true);
+					COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 					i = atoi(com_token);
-					COM_ParseToken_Simple(&t, false, false, true);
+					COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token));
 					if (i >= 0 && i < MAX_SOUNDS)
 						strlcpy(sv.sound_precache[i], com_token, sizeof(sv.sound_precache[i]));
 					else
@@ -1072,13 +1073,13 @@ static void Host_Loadgame_f (void)
 				}
 				else if (!strcmp(com_token, "sv.buffer"))
 				{
-					if (COM_ParseToken_Simple(&t, false, false, true))
+					if (COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token)))
 					{
 						i = atoi(com_token);
 						if (i >= 0)
 						{
 							k = STRINGBUFFER_SAVED;
-							if (COM_ParseToken_Simple(&t, false, false, true))
+							if (COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token)))
 								k |= atoi(com_token);
 							if (!BufStr_FindCreateReplace(prog, i, k, "string"))
 								Con_Printf("failed to create stringbuffer %i\n", i);
@@ -1091,7 +1092,7 @@ static void Host_Loadgame_f (void)
 				}
 				else if (!strcmp(com_token, "sv.bufstr"))
 				{
-					if (!COM_ParseToken_Simple(&t, false, false, true))
+					if (!COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token)))
 						Con_Printf("unexpected end of line when parsing sv.bufstr\n");
 					else
 					{
@@ -1099,10 +1100,10 @@ static void Host_Loadgame_f (void)
 						stringbuffer = BufStr_FindCreateReplace(prog, i, STRINGBUFFER_SAVED, "string");
 						if (stringbuffer)
 						{
-							if (COM_ParseToken_Simple(&t, false, false, true))
+							if (COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token)))
 							{
 								k = atoi(com_token);
-								if (COM_ParseToken_Simple(&t, false, false, true))
+								if (COM_ParseToken_Simple(&t, false, false, true, com_token, sizeof(com_token)))
 									BufStr_Set(prog, stringbuffer, k, com_token);
 								else
 									Con_Printf("unexpected end of line when parsing sv.bufstr (expected string)\n");
@@ -1115,7 +1116,7 @@ static void Host_Loadgame_f (void)
 					}
 				}
 				// skip any trailing text or unrecognized commands
-				while (COM_ParseToken_Simple(&t, true, false, true) && strcmp(com_token, "\n"))
+				while (COM_ParseToken_Simple(&t, true, false, true, com_token, sizeof(com_token)) && strcmp(com_token, "\n"))
 					;
 			}
 		}
@@ -2146,6 +2147,7 @@ static void Host_Kick_f (void)
 	client_t *save;
 	int i;
 	qboolean byNumber = false;
+	char com_token[MAX_INPUTLINE];
 
 	if (!sv.active)
 		return;
@@ -2196,7 +2198,7 @@ static void Host_Kick_f (void)
 		if (Cmd_Argc() > 2)
 		{
 			message = Cmd_Args();
-			COM_ParseToken_Simple(&message, false, false, true);
+			COM_ParseToken_Simple(&message, false, false, true, com_token, sizeof(com_token));
 			if (byNumber)
 			{
 				message++;							// skip the #

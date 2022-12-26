@@ -940,6 +940,7 @@ static const char *Cmd_GetDirectCvarValue(const char *varname, cmdalias_t *alias
 	long argno;
 	char *endptr;
 	static char vabuf[1024]; // cmd_mutex
+	char com_token[MAX_INPUTLINE];
 
 	if(is_multiple)
 		*is_multiple = false;
@@ -967,7 +968,7 @@ static const char *Cmd_GetDirectCvarValue(const char *varname, cmdalias_t *alias
 				// whole string is a number, apart from the -
 				const char *p = Cmd_Args();
 				for(; argno > 1; --argno)
-					if(!COM_ParseToken_Console(&p))
+					if(!COM_ParseToken_Console(&p, com_token, sizeof(com_token)))
 						break;
 				if(p)
 				{
@@ -1545,6 +1546,7 @@ Parses the given string into command line tokens.
 static void Cmd_TokenizeString (const char *text)
 {
 	int l;
+	char com_token[MAX_INPUTLINE];
 
 	cmd_argc = 0;
 	cmd_args = NULL;
@@ -1574,7 +1576,7 @@ static void Cmd_TokenizeString (const char *text)
 		if (cmd_argc == 1)
 			cmd_args = text;
 
-		if (!COM_ParseToken_Console(&text))
+		if (!COM_ParseToken_Console(&text, com_token, sizeof(com_token)))
 			return;
 
 		if (cmd_argc < MAX_ARGS)

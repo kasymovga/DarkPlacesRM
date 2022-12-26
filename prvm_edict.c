@@ -931,11 +931,12 @@ void PRVM_ED_ParseGlobals (prvm_prog_t *prog, const char *data)
 {
 	char keyname[MAX_INPUTLINE];
 	ddef_t *key;
+	char com_token[MAX_INPUTLINE];
 
 	while (1)
 	{
 		// parse key
-		if (!COM_ParseToken_Simple(&data, false, false, true))
+		if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 			Host_Error(prog, "PRVM_ED_ParseGlobals: EOF without closing brace");
 		if (com_token[0] == '}')
 			break;
@@ -946,7 +947,7 @@ void PRVM_ED_ParseGlobals (prvm_prog_t *prog, const char *data)
 		strlcpy (keyname, com_token, sizeof(keyname));
 
 		// parse value
-		if (!COM_ParseToken_Simple(&data, false, true, true))
+		if (!COM_ParseToken_Simple(&data, false, true, true, com_token, sizeof(com_token)))
 			Host_Error(prog, "PRVM_ED_ParseGlobals: EOF without closing brace");
 
 		if (developer_entityparsing.integer)
@@ -1290,6 +1291,7 @@ const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_
 	qboolean init;
 	char keyname[256];
 	size_t n;
+	char com_token[MAX_INPUTLINE];
 
 	init = false;
 
@@ -1297,7 +1299,7 @@ const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_
 	while (1)
 	{
 	// parse key
-		if (!COM_ParseToken_Simple(&data, false, false, true))
+		if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 			Host_Error(prog, "PRVM_ED_ParseEdict: EOF without closing brace");
 		if (developer_entityparsing.integer)
 			Con_Printf("Key: \"%s\"", com_token);
@@ -1329,7 +1331,7 @@ const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_
 		}
 
 	// parse value
-		if (!COM_ParseToken_Simple(&data, false, false, true))
+		if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 			Host_Error(prog, "PRVM_ED_ParseEdict: EOF without closing brace");
 		if (developer_entityparsing.integer)
 			Con_Printf(" \"%s\"\n", com_token);
@@ -1404,6 +1406,7 @@ void PRVM_ED_LoadFromFile (prvm_prog_t *prog, const char *data)
 	const char *funcname;
 	mfunction_t *func;
 	char vabuf[1024];
+	char com_token[MAX_INPUTLINE];
 
 	parsed = 0;
 	inhibited = 0;
@@ -1416,7 +1419,7 @@ void PRVM_ED_LoadFromFile (prvm_prog_t *prog, const char *data)
 	while (1)
 	{
 // parse the opening brace
-		if (!COM_ParseToken_Simple(&data, false, false, true))
+		if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 			break;
 		if (com_token[0] != '{')
 			Host_Error(prog, "PRVM_ED_LoadFromFile: %s: found %s when expecting {", prog->name, com_token);

@@ -385,19 +385,20 @@ void CL_ParseEntityLump(char *entdata)
 	qboolean loadedsky = false;
 	const char *data;
 	char key[128], value[MAX_INPUTLINE];
+	char com_token[MAX_INPUTLINE];
 	FOG_clear(); // LordHavoc: no fog until set
 	// LordHavoc: default to the map's sky (q3 shader parsing sets this)
 	R_SetSkyBox(cl.worldmodel->brush.skybox);
 	data = entdata;
 	if (!data)
 		return;
-	if (!COM_ParseToken_Simple(&data, false, false, true))
+	if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 		return; // error
 	if (com_token[0] != '{')
 		return; // error
 	while (1)
 	{
-		if (!COM_ParseToken_Simple(&data, false, false, true))
+		if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 			return; // error
 		if (com_token[0] == '}')
 			break; // end of worldspawn
@@ -407,7 +408,7 @@ void CL_ParseEntityLump(char *entdata)
 			strlcpy (key, com_token, sizeof (key));
 		while (key[strlen(key)-1] == ' ') // remove trailing spaces
 			key[strlen(key)-1] = 0;
-		if (!COM_ParseToken_Simple(&data, false, false, true))
+		if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)))
 			return; // error
 		strlcpy (value, com_token, sizeof (value));
 		if (!strcmp("sky", key))
