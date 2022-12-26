@@ -2833,39 +2833,34 @@ float tokenize(string s)
 //float(string s) tokenize = #441; // takes apart a string into individal words (access them with argv), returns how many
 //this function originally written by KrimZon, made shorter by LordHavoc
 //20040203: rewritten by LordHavoc (no longer uses allocations)
-static int num_tokens = 0;
-static int tokens[VM_STRINGTEMP_LENGTH / 2];
-static int tokens_startpos[VM_STRINGTEMP_LENGTH / 2];
-static int tokens_endpos[VM_STRINGTEMP_LENGTH / 2];
-static char tokenize_string[VM_STRINGTEMP_LENGTH];
 void VM_tokenize (prvm_prog_t *prog)
 {
 	const char *p;
 
 	VM_SAFEPARMCOUNT(1,VM_tokenize);
 
-	strlcpy(tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(tokenize_string));
-	p = tokenize_string;
+	strlcpy(prog->tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(prog->tokenize_string));
+	p = prog->tokenize_string;
 
-	num_tokens = 0;
+	prog->num_tokens = 0;
 	for(;;)
 	{
-		if (num_tokens >= (int)(sizeof(tokens)/sizeof(tokens[0])))
+		if (prog->num_tokens >= (int)(sizeof(prog->tokens)/sizeof(prog->tokens[0])))
 			break;
 
 		// skip whitespace here to find token start pos
 		while(*p && ISWHITESPACE(*p))
 			++p;
 
-		tokens_startpos[num_tokens] = p - tokenize_string;
+		prog->tokens_startpos[prog->num_tokens] = p - prog->tokenize_string;
 		if(!COM_ParseToken_VM_Tokenize(&p, false))
 			break;
-		tokens_endpos[num_tokens] = p - tokenize_string;
-		tokens[num_tokens] = PRVM_SetTempString(prog, com_token);
-		++num_tokens;
+		prog->tokens_endpos[prog->num_tokens] = p - prog->tokenize_string;
+		prog->tokens[prog->num_tokens] = PRVM_SetTempString(prog, com_token);
+		++prog->num_tokens;
 	}
 
-	PRVM_G_FLOAT(OFS_RETURN) = num_tokens;
+	PRVM_G_FLOAT(OFS_RETURN) = prog->num_tokens;
 }
 
 //float(string s) tokenize = #514; // takes apart a string into individal words (access them with argv), returns how many
@@ -2875,28 +2870,28 @@ void VM_tokenize_console (prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNT(1,VM_tokenize);
 
-	strlcpy(tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(tokenize_string));
-	p = tokenize_string;
+	strlcpy(prog->tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(prog->tokenize_string));
+	p = prog->tokenize_string;
 
-	num_tokens = 0;
+	prog->num_tokens = 0;
 	for(;;)
 	{
-		if (num_tokens >= (int)(sizeof(tokens)/sizeof(tokens[0])))
+		if (prog->num_tokens >= (int)(sizeof(prog->tokens)/sizeof(prog->tokens[0])))
 			break;
 
 		// skip whitespace here to find token start pos
 		while(*p && ISWHITESPACE(*p))
 			++p;
 
-		tokens_startpos[num_tokens] = p - tokenize_string;
+		prog->tokens_startpos[prog->num_tokens] = p - prog->tokenize_string;
 		if(!COM_ParseToken_Console(&p))
 			break;
-		tokens_endpos[num_tokens] = p - tokenize_string;
-		tokens[num_tokens] = PRVM_SetTempString(prog, com_token);
-		++num_tokens;
+		prog->tokens_endpos[prog->num_tokens] = p - prog->tokenize_string;
+		prog->tokens[prog->num_tokens] = PRVM_SetTempString(prog, com_token);
+		++prog->num_tokens;
 	}
 
-	PRVM_G_FLOAT(OFS_RETURN) = num_tokens;
+	PRVM_G_FLOAT(OFS_RETURN) = prog->num_tokens;
 }
 
 /*
@@ -2925,8 +2920,8 @@ void VM_tokenizebyseparator (prvm_prog_t *prog)
 
 	VM_SAFEPARMCOUNTRANGE(2, 8,VM_tokenizebyseparator);
 
-	strlcpy(tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(tokenize_string));
-	p = tokenize_string;
+	strlcpy(prog->tokenize_string, PRVM_G_STRING(OFS_PARM0), sizeof(prog->tokenize_string));
+	p = prog->tokenize_string;
 
 	numseparators = 0;
 	for (j = 1;j < prog->argc;j++)
@@ -2940,13 +2935,13 @@ void VM_tokenizebyseparator (prvm_prog_t *prog)
 		numseparators++;
 	}
 
-	num_tokens = 0;
+	prog->num_tokens = 0;
 	j = 0;
 
-	while (num_tokens < (int)(sizeof(tokens)/sizeof(tokens[0])))
+	while (prog->num_tokens < (int)(sizeof(prog->tokens)/sizeof(prog->tokens[0])))
 	{
 		token = tokentext + j;
-		tokens_startpos[num_tokens] = p - tokenize_string;
+		prog->tokens_startpos[prog->num_tokens] = p - prog->tokenize_string;
 		p0 = p;
 		while (*p)
 		{
@@ -2965,16 +2960,16 @@ void VM_tokenizebyseparator (prvm_prog_t *prog)
 			p++;
 			p0 = p;
 		}
-		tokens_endpos[num_tokens] = p0 - tokenize_string;
+		prog->tokens_endpos[prog->num_tokens] = p0 - prog->tokenize_string;
 		if (j >= (int)sizeof(tokentext))
 			break;
 		tokentext[j++] = 0;
-		tokens[num_tokens++] = PRVM_SetTempString(prog, token);
+		prog->tokens[prog->num_tokens++] = PRVM_SetTempString(prog, token);
 		if (!*p)
 			break;
 	}
 
-	PRVM_G_FLOAT(OFS_RETURN) = num_tokens;
+	PRVM_G_FLOAT(OFS_RETURN) = prog->num_tokens;
 }
 
 //string(float n) argv = #442; // returns a word from the tokenized string (returns nothing for an invalid index)
@@ -2988,10 +2983,10 @@ void VM_argv (prvm_prog_t *prog)
 	token_num = (int)PRVM_G_FLOAT(OFS_PARM0);
 
 	if(token_num < 0)
-		token_num += num_tokens;
+		token_num += prog->num_tokens;
 
-	if (token_num >= 0 && token_num < num_tokens)
-		PRVM_G_INT(OFS_RETURN) = tokens[token_num];
+	if (token_num >= 0 && token_num < prog->num_tokens)
+		PRVM_G_INT(OFS_RETURN) = prog->tokens[token_num];
 	else
 		PRVM_G_INT(OFS_RETURN) = OFS_NULL;
 }
@@ -3006,10 +3001,10 @@ void VM_argv_start_index (prvm_prog_t *prog)
 	token_num = (int)PRVM_G_FLOAT(OFS_PARM0);
 
 	if(token_num < 0)
-		token_num += num_tokens;
+		token_num += prog->num_tokens;
 
-	if (token_num >= 0 && token_num < num_tokens)
-		PRVM_G_FLOAT(OFS_RETURN) = tokens_startpos[token_num];
+	if (token_num >= 0 && token_num < prog->num_tokens)
+		PRVM_G_FLOAT(OFS_RETURN) = prog->tokens_startpos[token_num];
 	else
 		PRVM_G_FLOAT(OFS_RETURN) = -1;
 }
@@ -3024,10 +3019,10 @@ void VM_argv_end_index (prvm_prog_t *prog)
 	token_num = (int)PRVM_G_FLOAT(OFS_PARM0);
 
 	if(token_num < 0)
-		token_num += num_tokens;
+		token_num += prog->num_tokens;
 
-	if (token_num >= 0 && token_num < num_tokens)
-		PRVM_G_FLOAT(OFS_RETURN) = tokens_endpos[token_num];
+	if (token_num >= 0 && token_num < prog->num_tokens)
+		PRVM_G_FLOAT(OFS_RETURN) = prog->tokens_endpos[token_num];
 	else
 		PRVM_G_FLOAT(OFS_RETURN) = -1;
 }
@@ -7837,25 +7832,25 @@ void VM_regex_match(prvm_prog_t *prog) {
     if(size <= 0 || size > inlen)
         size = inlen;
 
-    num_tokens = 0;
+    prog->num_tokens = 0;
     PRVM_G_FLOAT(OFS_RETURN) = (float)slre_match(regex, input + offset, size, caps, REGEX_MAX_CAPS, flags);
 
     if(PRVM_G_FLOAT(OFS_RETURN) < 0)
         return;
 
-    for(; num_tokens < REGEX_MAX_CAPS; ++num_tokens) {
-        const char *m = caps[num_tokens].ptr;
+    for(; prog->num_tokens < REGEX_MAX_CAPS; ++(prog->num_tokens)) {
+        const char *m = caps[prog->num_tokens].ptr;
         char match[MAX_INPUTLINE];
 
         if(!m)
             break;
 
         memset(match, 0, MAX_INPUTLINE);
-        memcpy(match, m, caps[num_tokens].len);
+        memcpy(match, m, caps[prog->num_tokens].len);
 
-        tokens_startpos[num_tokens] = m - input;
-        tokens_endpos[num_tokens] = m - input + caps[num_tokens].len;
-        tokens[num_tokens] = PRVM_SetTempString(prog, match);
+        prog->tokens_startpos[prog->num_tokens] = m - input;
+        prog->tokens_endpos[prog->num_tokens] = m - input + caps[prog->num_tokens].len;
+        prog->tokens[prog->num_tokens] = PRVM_SetTempString(prog, match);
     }
 }
 
@@ -7922,8 +7917,8 @@ void IRC_Callback_QuakeC(prvm_prog_t *prog, int handle, const char *event, int n
     if(!prog || !(PRVM_allfunction(IRC_Event)))
         return;
 
-    for(num_tokens = 0; num_tokens < (int)count; ++num_tokens)
-        tokens[num_tokens] = PRVM_SetTempString(prog, params[num_tokens]);
+    for(prog->num_tokens = 0; prog->num_tokens < (int)count; ++prog->num_tokens)
+        prog->tokens[prog->num_tokens] = PRVM_SetTempString(prog, params[prog->num_tokens]);
 
     PRVM_G_FLOAT(OFS_PARM0) = handle;
     PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, event);

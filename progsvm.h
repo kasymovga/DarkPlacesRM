@@ -704,6 +704,13 @@ typedef struct prvm_prog_s
 
 	ddef_t				*self; // if self != 0 then there is a global self
 
+	//for tokenize functions
+	int num_tokens;
+	int tokens[MAX_INPUTLINE / 2];
+	int tokens_startpos[MAX_INPUTLINE / 2];
+	int tokens_endpos[MAX_INPUTLINE / 2];
+	char tokenize_string[MAX_INPUTLINE];
+
 	//============================================================================
 	// function pointers
 
