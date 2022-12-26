@@ -1313,6 +1313,7 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 				Sys_Error("Failed to get VPX config: %s\n", vpx_codec_err_to_string(vpx_err));
 				//FIXME: error handling
 			}
+			cfg.g_pass = VPX_RC_ONE_PASS;
 			cfg.g_w = cls.capturevideo.width;
 			cfg.g_h = cls.capturevideo.height;
 			cfg.g_threads = max(1, cl_capturevideo_ogg_vp8_threads.integer);
