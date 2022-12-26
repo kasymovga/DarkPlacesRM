@@ -46,6 +46,7 @@ static cvar_t cl_capturevideo_ogg_vp8_deadline = {CVAR_SAVE, "cl_capturevideo_og
 #endif
 #ifdef CONFIG_VOIP
 static cvar_t cl_capturevideo_ogg_opus = {CVAR_SAVE, "cl_capturevideo_ogg_opus", "1", "use opus codec to encode audio"};
+static cvar_t cl_capturevideo_ogg_opus_bitrate = {CVAR_SAVE, "cl_capturevideo_ogg_opus_bitrate", "256", "audio bitrate for opus (32 to 256 kbps)"};
 #endif
 
 #ifndef LINK_TO_LIBVORBIS
@@ -686,6 +687,7 @@ void SCR_CaptureVideo_Ogg_Init(void)
 	#endif
 	#ifdef CONFIG_VOIP
 	Cvar_RegisterVariable(&cl_capturevideo_ogg_opus);
+	Cvar_RegisterVariable(&cl_capturevideo_ogg_opus_bitrate);
 	#endif
 }
 
@@ -1261,7 +1263,17 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 		format->vp8 = cl_capturevideo_ogg_vp8.integer;
 		#endif
 		#ifdef CONFIG_VOIP
-		format->opus = cl_capturevideo_ogg_opus.integer && (cls.capturevideo.soundchannels <= 2);
+		format->opus = cl_capturevideo_ogg_opus.integer;
+		if (format->opus && cls.capturevideo.soundchannels > 2)
+		{
+			Con_Printf("Only mono and stereo audio supported for opus audio recording\n");
+			format->opus = false;
+		}
+		if (format->opus && cls.capturevideo.soundrate != 48000 && cls.capturevideo.soundrate != 24000 && cls.capturevideo.soundrate != 16000 && cls.capturevideo.soundrate != 8000)
+		{
+			Con_Printf("Only 48, 24, 16 and 8 kHz audio rate supported for opus audio recording\n");
+			format->opus = false;
+		}
 		#endif
 		if(cls.capturevideo.soundrate)
 		{
@@ -1447,7 +1459,7 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 				format->opus_buffer_len = 0;
 				if (!format->opus_encoder)
 					Sys_Error("SCR_CaptureVideo_Ogg_BeginVideo: Opus encoder creation error\n");
-				err = opus_encoder_ctl(format->opus_encoder, OPUS_SET_BITRATE(256000));
+				err = opus_encoder_ctl(format->opus_encoder, OPUS_SET_BITRATE(bound(32, cl_capturevideo_ogg_opus_bitrate.integer, 256) * 1000));
 				if (err)
 					Sys_Error("SCR_CaptureVideo_Ogg_BeginVideo: Opus bitrate setup failed\n");
 			}
