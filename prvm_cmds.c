@@ -1911,7 +1911,7 @@ void VM_registercvar(prvm_prog_t *prog)
 		goto finish;
 	}
 
-	Cvar_Get(name, value, flags, NULL, false);
+	Cvar_Get(name, value, flags, NULL);
 	PRVM_G_FLOAT(OFS_RETURN) = 1; // success
 finish:
 	Cvar_UnlockThreadMutex();
