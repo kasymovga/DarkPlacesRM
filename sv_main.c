@@ -3310,8 +3310,10 @@ void SV_SpawnServer (const char *server)
 	char modelname[sizeof(sv.worldname)];
 	char vabuf[1024];
 
+	#ifndef CONFIG_SV
 	if (!SV_ThreadIsLocked())
 		Sys_Error("SV_SpawnServer: server thread not locked!\n");
+	#endif
 	Con_DPrintf("SpawnServer: %s\n", server);
 	dpsnprintf (modelname, sizeof(modelname), "maps/%s.bsp", server);
 
