@@ -95,6 +95,63 @@ static void Buffer_Capture_Callback (void *userdata, Uint8 *stream, int len)
 {
 	S_VOIP_Capture_Callback(stream, len);
 }
+
+static void Snd_OpenInputDevice(const char *name)
+{
+	SDL_AudioSpec wantspec;
+	SDL_AudioSpec obtainspec;
+	wantspec.callback = Buffer_Capture_Callback;
+	wantspec.userdata = NULL;
+	wantspec.freq = VOIP_FREQ;
+	wantspec.format = (VOIP_WIDTH == 2 ? AUDIO_S16SYS : AUDIO_U8);
+	wantspec.channels = VOIP_CHANNELS;
+	wantspec.samples = 2048;  // needs to be a power of 2 on some platforms.
+	S_VOIP_Stop();
+	S_Echo_Stop();
+	if ((audio_device_capture = SDL_OpenAudioDevice(name, 1, &wantspec, &obtainspec, 0)) == 0)
+	{
+		Con_Printf( "Failed to open the audio capture device! (%s)\n", SDL_GetError() );
+	}
+	else
+	{
+		Con_Printf("Obtained audio capture specification:\n"
+					"   Channels  : %i\n"
+					"   Format    : 0x%X\n"
+					"   Frequency : %i\n"
+					"   Samples   : %i\n",
+					obtainspec.channels, obtainspec.format, obtainspec.freq, obtainspec.samples);
+		SDL_PauseAudioDevice(audio_device_capture, 1);
+	}
+}
+
+static void Snd_ListInputDevices_f(void)
+{
+	int i, n;
+	n = SDL_GetNumAudioDevices(true);
+	for (i = 0; i < n; i++)
+	{
+		Con_Printf("%i: %s\n", i, SDL_GetAudioDeviceName(i, true));
+	}
+}
+
+static void Snd_SetInputDevice_f(void)
+{
+	int i;
+	const char *name;
+	if (Cmd_Argc() != 2)
+	{
+		Con_Printf("Usage: %s <device number>\n", Cmd_Argv(0));
+		return;
+	}
+	i = atoi(Cmd_Argv(1));
+	SDL_CloseAudioDevice(audio_device_capture);
+	name = SDL_GetAudioDeviceName(i, true);
+	if (!name)
+	{
+		Con_Printf("There is no device %i, use default input device. Check snd_list_input_devices for available devices\n", i);
+	}
+	Snd_OpenInputDevice(name);
+}
 #endif
 
 /*
@@ -112,6 +169,11 @@ qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 	SDL_AudioSpec obtainspec;
 
 	snd_threaded = false;
+
+	#ifdef CONFIG_VOIP
+	Cmd_AddCommand("snd_list_input_devices", Snd_ListInputDevices_f, "list input audio devices");
+	Cmd_AddCommand("snd_set_input_device", Snd_SetInputDevice_f, "set input audio device");
+	#endif
 
 	Con_DPrint ("SndSys_Init: using the SDL module\n");
 
@@ -168,28 +230,7 @@ qboolean SndSys_Init (const snd_format_t* requested, snd_format_t* suggested)
 		return false;
 	}
 	#ifdef CONFIG_VOIP
-	wantspec.callback = Buffer_Capture_Callback;
-	wantspec.userdata = NULL;
-	wantspec.freq = VOIP_FREQ;
-	wantspec.format = (VOIP_WIDTH == 2 ? AUDIO_S16SYS : AUDIO_U8);
-	wantspec.channels = VOIP_CHANNELS;
-	wantspec.samples = 2048;  // needs to be a power of 2 on some platforms.
-	S_VOIP_Stop();
-	S_Echo_Stop();
-	if ((audio_device_capture = SDL_OpenAudioDevice(NULL, 1, &wantspec, &obtainspec, 0)) == 0)
-	{
-		Con_Printf( "Failed to open the audio capture device! (%s)\n", SDL_GetError() );
-	}
-	else
-	{
-		Con_Printf("Obtained audio capture specification:\n"
-					"   Channels  : %i\n"
-					"   Format    : 0x%X\n"
-					"   Frequency : %i\n"
-					"   Samples   : %i\n",
-					obtainspec.channels, obtainspec.format, obtainspec.freq, obtainspec.samples);
-		SDL_PauseAudioDevice(audio_device_capture, 1);
-	}
+	Snd_OpenInputDevice(NULL);
 	#endif
 
 	snd_threaded = true;
