@@ -626,7 +626,6 @@ qboolean SV_ThreadIsLocked(void);
 #else
 #define SV_LockThreadMutex() 
 #define SV_UnlockThreadMutex() 
-#define SV_ThreadIsLocked() false
 #define SV_ResetLock() 
 #endif
 
