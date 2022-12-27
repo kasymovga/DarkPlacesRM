@@ -42,6 +42,22 @@ static inline uint64_t siphash_Block(const char* name, const size_t len) {
 
 static void *cvar_mutex;
 
+qboolean Cvar_IsReadOnly(cvar_t **varp)
+{
+	if (*varp && ((*varp)->flags & CVAR_READONLY))
+	{
+		if (!strcmp((*varp)->name, "r_glsl"))
+		{
+			Con_Printf("Cvar_Set: Attempted to set r_glsl, updating vid_gl20 instead to preserve Nexuiz compatibility\n");
+			*varp = Cvar_FindVar("vid_gl20");
+			return false;
+		}
+		Con_Printf("Cvar_Set: cvar %s is read-only\n", (*varp)->name);
+		return true;
+	}
+	return false;
+}
+
 void Cvar_InitTable(void) {
     uint64_t tmp = 0;
     int i;
@@ -387,21 +403,6 @@ static void Cvar_SetQuick_Internal (cvar_t *var, const char *value, qboolean cva
 	// LordHavoc: don't reallocate when there is no change
 	if (!changed)
 		return;
-
-	if (var->flags & CVAR_READONLY)
-	{
-		if (strcmp(var->name, "r_glsl"))
-		{
-			Con_Printf("Cvar %s is read-only\n", var->name);
-			return;
-		}
-		else
-		{
-			if (!(var = Cvar_FindVar("vid_gl20")))
-				return;
-			Con_Printf("Cvar_Set: Attempted to set r_glsl, updating vid_gl20 instead to preserve Nexuiz compatibility\n");
-		}
-	}
 
 	if((var->flags & CVAR_WATCHED) && cvar_notify) {
 		valuelen = strlen(var->string);
@@ -763,6 +764,7 @@ qboolean	Cvar_Command (void)
 // check variables
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	v = Cvar_FindVar (Cmd_Argv(0));
+	if (Cvar_IsReadOnly(&v)) goto finish;
 	if (!v)
 		goto finish;
 
@@ -1043,6 +1045,7 @@ void Cvar_Set_f (void)
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
+	if (Cvar_IsReadOnly(&cvar)) goto finish;
 	if (cvar)
 	{
 		Cvar_SetQuick_Notify(cvar, Cmd_Argv(2));
@@ -1071,6 +1074,7 @@ void Cvar_SetA_f (void)
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	// check if it's read-only
 	cvar = Cvar_FindVar(Cmd_Argv(1));
+	if (Cvar_IsReadOnly(&cvar)) goto finish;
 	if (cvar)
 	{
 		Cvar_SetQuick_Notify(cvar, Cmd_Argv(2));

@@ -160,6 +160,8 @@ void Cvar_InitTable(void);
 /// archive elements set.
 void Cvar_RegisterVariable (cvar_t *variable);
 
+qboolean Cvar_IsReadOnly(cvar_t **var);
+
 /// equivelant to "<name> <variable>" typed at the console
 void Cvar_Set (const char *var_name, const char *value);
 

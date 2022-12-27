@@ -961,6 +961,7 @@ void VM_cvar_set(prvm_prog_t *prog)
 	}
 	if (!strcmp(var->string, string)) goto finish;
 	strlcpy(oldstring, var->string, sizeof(oldstring));
+	if (Cvar_IsReadOnly(&var)) goto finish;
 	Cvar_SetQuick(var, string);
 	#ifndef CONFIG_SV
 	if (prog == SVVM_prog)
