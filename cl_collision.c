@@ -10,6 +10,7 @@ float CL_SelectTraceLine(const vec3_t start, const vec3_t end, vec3_t impact, ve
 	vec_t tracemins[3], tracemaxs[3];
 	trace_t trace;
 	vec_t tempnormal[3], starttransformed[3], endtransformed[3];
+	extern cvar_t cl_prydoncursor_trace_simple;
 
 	memset (&trace, 0 , sizeof(trace_t));
 	trace.fraction = 1;
@@ -53,6 +54,14 @@ float CL_SelectTraceLine(const vec3_t start, const vec3_t end, vec3_t impact, ve
 		Collision_ClipTrace_Box(&trace, ent->model->normalmins, ent->model->normalmaxs, starttransformed, vec3_origin, vec3_origin, endtransformed, SUPERCONTENTS_SOLID, 0, SUPERCONTENTS_SOLID, 0, NULL);
 		if (maxfrac < trace.fraction)
 			continue;
+
+		if (cl_prydoncursor_trace_simple.value)
+		{
+			if (hitent) *hitent = n;
+			maxfrac = trace.fraction;
+			if (normal) VectorCopy(trace.plane.normal, normal);
+			continue;
+		}
 
 		ent->model->TraceLine(ent->model, ent->frameblend, ent->skeleton, &trace, starttransformed, endtransformed, SUPERCONTENTS_SOLID, 0);
 

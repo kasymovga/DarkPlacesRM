@@ -94,6 +94,7 @@ cvar_t qport = {0, "qport", "0", "identification key for playing on qw servers (
 
 cvar_t cl_prydoncursor = {0, "cl_prydoncursor", "0", "enables a mouse pointer which is able to click on entities in the world, useful for point and click mods, see PRYDON_CLIENTCURSOR extension in dpextensions.qc"};
 cvar_t cl_prydoncursor_notrace = {0, "cl_prydoncursor_notrace", "0", "disables traceline used in prydon cursor reporting to the game, saving some cpu time"};
+cvar_t cl_prydoncursor_trace_simple = {0, "cl_prydoncursor_trace_simple", "1", "only trace bbox for prydon cursor"};
 
 cvar_t cl_deathnoviewmodel = {0, "cl_deathnoviewmodel", "1", "hides gun model when dead"};
 
@@ -2479,6 +2480,7 @@ void CL_Init (void)
 
 	Cvar_RegisterVariable(&cl_prydoncursor);
 	Cvar_RegisterVariable(&cl_prydoncursor_notrace);
+	Cvar_RegisterVariable(&cl_prydoncursor_trace_simple);
 
 	Cvar_RegisterVariable(&cl_deathnoviewmodel);
 
