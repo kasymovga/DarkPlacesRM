@@ -1753,6 +1753,7 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 	matrix4x4_t pusherfinalmatrix, pusherfinalimatrix;
 	static unsigned short moved_edicts[MAX_EDICTS];
 	vec3_t pivot;
+	int pusher_existsonlyfor;
 
 	if (!PRVM_serveredictvector(pusher, velocity)[0] && !PRVM_serveredictvector(pusher, velocity)[1] && !PRVM_serveredictvector(pusher, velocity)[2] && !PRVM_serveredictvector(pusher, avelocity)[0] && !PRVM_serveredictvector(pusher, avelocity)[1] && !PRVM_serveredictvector(pusher, avelocity)[2])
 	{
@@ -1882,6 +1883,7 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 		numcheckentities = 0;
 	else // MOVETYPE_PUSH
 	        numcheckentities = SV_EntitiesInBox(mins, maxs, MAX_EDICTS, checkentities);
+	pusher_existsonlyfor = PRVM_serveredictedict(pusher, existsonlyfor);
 	for (e = 0;e < numcheckentities;e++)
 	{
 		prvm_edict_t *check = checkentities[e];
@@ -1904,6 +1906,16 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 		if (pusherowner == PRVM_EDICT_TO_PROG(check))
 			continue;
 
+		if (pusher_existsonlyfor
+				&& pusher_existsonlyfor != PRVM_EDICT_TO_PROG(check)
+				&& pusher_existsonlyfor != PRVM_serveredictedict(check, existsonlyfor)
+				&& pusher_existsonlyfor != PRVM_serveredictedict(check, owner))
+			continue;
+		if (PRVM_serveredictedict(check, existsonlyfor)
+				&& PRVM_serveredictedict(check, existsonlyfor) != pusherprog
+				&& PRVM_serveredictedict(check, existsonlyfor) != PRVM_serveredictedict(pusher, existsonlyfor)
+				&& PRVM_serveredictedict(check, existsonlyfor) != PRVM_serveredictedict(pusher, owner))
+			continue;
 		//Con_Printf("%i %s ", PRVM_NUM_FOR_EDICT(check), PRVM_GetString(PRVM_serveredictstring(check, classname)));
 
 		// tell any MOVETYPE_STEP entity that it may need to check for water transitions
