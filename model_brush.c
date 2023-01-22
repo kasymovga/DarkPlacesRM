@@ -7271,7 +7271,12 @@ bih_t *Mod_MakeCollisionBIH(dp_model_t *model, qboolean userendersurfaces, bih_t
 	if (userendersurfaces)
 	{
 		for (j = 0, surface = model->data_surfaces + model->firstmodelsurface;j < nummodelsurfaces;j++, surface++)
+		{
 			bihnumleafs += surface->num_triangles;
+			#ifdef CONFIG_SV
+			surface->texture->supercontents = SUPERCONTENTS_SOLID;
+			#endif
+		}
 	}
 	else
 	{
