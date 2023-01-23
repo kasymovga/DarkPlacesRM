@@ -1223,7 +1223,7 @@ void Mod_CollisionBIH_TracePoint_Mesh(dp_model_t *model, const struct frameblend
 qboolean Mod_CollisionBIH_TraceLineOfSight(struct model_s *model, const vec3_t start, const vec3_t end, qboolean slow);
 int Mod_CollisionBIH_PointSuperContents(struct model_s *model, int frame, const vec3_t point);
 int Mod_CollisionBIH_PointSuperContents_Mesh(struct model_s *model, int frame, const vec3_t point);
-bih_t *Mod_MakeCollisionBIH(dp_model_t *model, qboolean userendersurfaces, bih_t *out);
+bih_t *Mod_MakeCollisionBIH(dp_model_t *model, qboolean userendersurfaces, qboolean forcesolid, bih_t *out);
 
 // alias models
 struct frameblend_s;

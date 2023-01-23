@@ -1368,7 +1368,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
-		Mod_MakeCollisionBIH(loadmodel, true, &loadmodel->collision_bih);
+		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
 		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
 		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
 		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
@@ -1654,7 +1654,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
-		Mod_MakeCollisionBIH(loadmodel, true, &loadmodel->collision_bih);
+		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
 		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
 		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
 		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
@@ -1858,7 +1858,7 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
-		Mod_MakeCollisionBIH(loadmodel, true, &loadmodel->collision_bih);
+		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
 		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
 		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
 		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
@@ -2266,7 +2266,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
-		Mod_MakeCollisionBIH(loadmodel, true, &loadmodel->collision_bih);
+		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
 		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
 		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
 		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
@@ -2672,7 +2672,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
-		Mod_MakeCollisionBIH(loadmodel, true, &loadmodel->collision_bih);
+		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
 		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
 		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
 		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
@@ -3358,7 +3358,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
-		Mod_MakeCollisionBIH(loadmodel, true, &loadmodel->collision_bih);
+		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
 		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
 		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
 		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
@@ -4132,7 +4132,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	if (!loadmodel->surfmesh.isanimated && loadmodel->surfmesh.num_triangles >= 1)
 	{
-		Mod_MakeCollisionBIH(loadmodel, true, &loadmodel->collision_bih);
+		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
 		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
 		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
 		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;

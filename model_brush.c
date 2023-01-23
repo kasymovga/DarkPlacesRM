@@ -3783,7 +3783,7 @@ void Mod_Q1BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		//mod->brushq1.num_visleafs = bm->visleafs;
 
 		// build a Bounding Interval Hierarchy for culling triangles in light rendering
-		Mod_MakeCollisionBIH(mod, true, &mod->render_bih);
+		Mod_MakeCollisionBIH(mod, true, false, &mod->render_bih);
 
 		if (mod_q1bsp_polygoncollisions.integer)
 		{
@@ -4774,10 +4774,10 @@ static void Mod_Q2BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		//mod->brushq1.num_visleafs = bm->visleafs;
 
 		// build a Bounding Interval Hierarchy for culling triangles in light rendering
-		Mod_MakeCollisionBIH(mod, false, &mod->collision_bih);
+		Mod_MakeCollisionBIH(mod, false, false, &mod->collision_bih);
 
 		// build a Bounding Interval Hierarchy for culling brushes in collision detection
-		Mod_MakeCollisionBIH(mod, true, &mod->render_bih);
+		Mod_MakeCollisionBIH(mod, true, false, &mod->render_bih);
 
 		// generate VBOs and other shared data before cloning submodels
 		#ifndef CONFIG_SV
@@ -7244,7 +7244,7 @@ void Mod_CollisionBIH_TraceLineAgainstSurfaces(dp_model_t *model, const frameble
 }
 
 
-bih_t *Mod_MakeCollisionBIH(dp_model_t *model, qboolean userendersurfaces, bih_t *out)
+bih_t *Mod_MakeCollisionBIH(dp_model_t *model, qboolean userendersurfaces, qboolean forcesolid, bih_t *out)
 {
 	int j;
 	int bihnumleafs;
@@ -7273,9 +7273,8 @@ bih_t *Mod_MakeCollisionBIH(dp_model_t *model, qboolean userendersurfaces, bih_t
 		for (j = 0, surface = model->data_surfaces + model->firstmodelsurface;j < nummodelsurfaces;j++, surface++)
 		{
 			bihnumleafs += surface->num_triangles;
-			#ifdef CONFIG_SV
-			surface->texture->supercontents = SUPERCONTENTS_SOLID;
-			#endif
+			if (forcesolid)
+				surface->texture->supercontents = SUPERCONTENTS_SOLID;
 		}
 	}
 	else
@@ -7697,8 +7696,8 @@ static void Mod_Q3BSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (j < mod->nummodelsurfaces)
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 		#endif
-		Mod_MakeCollisionBIH(mod, false, &mod->collision_bih);
-		Mod_MakeCollisionBIH(mod, true, &mod->render_bih);
+		Mod_MakeCollisionBIH(mod, false, false, &mod->collision_bih);
+		Mod_MakeCollisionBIH(mod, true, false, &mod->render_bih);
 
 		// generate VBOs and other shared data before cloning submodels
 		#ifndef CONFIG_SV
@@ -8357,7 +8356,7 @@ void Mod_OBJ_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		if (j < mod->nummodelsurfaces)
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 		#endif
-		Mod_MakeCollisionBIH(mod, true, &mod->collision_bih);
+		Mod_MakeCollisionBIH(mod, true, false, &mod->collision_bih);
 		mod->render_bih = mod->collision_bih;
 
 		// generate VBOs and other shared data before cloning submodels
