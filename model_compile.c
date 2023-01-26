@@ -467,8 +467,7 @@ static int parseskeleton(void)
 			sprintf(temp, "%s_%i", ctx->scene_name, i);
 			if (strlen(temp) > 31)
 			{
-				Con_Printf("error: frame name \"%s\" is longer than 31 characters\n", temp);
-				return 0;
+				sprintf(temp, "frame%i", i);
 			}
 			cleancopyname(ctx->frames[frame].name, temp, MAX_NAME);
 
@@ -567,8 +566,7 @@ static int parseskeleton(void)
 			sprintf(temp, "%s_%i", ctx->scene_name, frame - baseframe);
 			if (strlen(temp) > 31)
 			{
-				Con_Printf("error: frame name \"%s\" is longer than 31 characters\n", temp);
-				return 0;
+				sprintf(temp, "frame%i", frame - baseframe);
 			}
 			Con_Printf("frame %s missing, duplicating previous frame %s with new name %s\n", temp, ctx->frames[frame - 1].name, temp);
 			ctx->frames[frame].defined = 1;
