@@ -337,17 +337,15 @@ static void inverserotate(double in[3], bonepose_t matrix, double out[3])
 	out[2] = in[0] * matrix.m[0][2] + in[1] * matrix.m[1][2] + in[2] * matrix.m[2][2];
 }
 
-static int parsenodes(void)
+static int parsenodes(int *bones_map)
 {
-	int num, parent;
+	int i, num, parent, num_exists;
 	char line[1024], name[1024];
 	char com_token[MAX_INPUTLINE];
 
-	memset(ctx->bones, 0, sizeof(bone_t) * MAX_BONES);
-	ctx->numbones = 0;
-
 	while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)))
 	{
+		num_exists = -1;
 		// if this is the end keyword, we're done with this section of the file
 		if (!strcmp(com_token, "end"))
 			break;
@@ -399,10 +397,20 @@ static int parsenodes(void)
 			Con_Printf("bone's parent bone has not been defined\n");
 			return 0;
 		}
-		memcpy(ctx->bones[num].name, name, MAX_NAME);
-		ctx->bones[num].defined = 1;
-		ctx->bones[num].parent = parent;
-		if (num >= ctx->numbones)
+		for (i = 0; i < ctx->numbones; i++)
+		{
+			if (!strcmp(ctx->bones[i].name, name))
+			{
+				num_exists = i;
+				break;
+			}
+		}
+		if (num_exists < 0) num_exists = ctx->numbones;
+		bones_map[num] = num_exists;
+		memcpy(ctx->bones[bones_map[num]].name, name, MAX_NAME);
+		ctx->bones[bones_map[num]].defined = 1;
+		ctx->bones[bones_map[num]].parent = parent;
+		if (bones_map[num] >= ctx->numbones)
 			ctx->numbones = num + 1;
 		// skip any trailing parameters (might be a later version of smd)
 		while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
@@ -412,7 +420,7 @@ static int parsenodes(void)
 	return 1;
 }
 
-static int parseskeleton(void)
+static int parseskeleton(int *bones_map)
 {
 	char line[1024], temp[2048];
 	int i, frame, num;
@@ -482,7 +490,7 @@ static int parseskeleton(void)
 		else
 		{
 			//the token was bone number
-			num = atoi( com_token );
+			num = bones_map[atoi(com_token)];
 
 			//get x, y, z tokens
 			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
@@ -930,6 +938,8 @@ static int parsetriangles(void)
 static int parsemodelfile(void)
 {
 	char com_token[MAX_INPUTLINE];
+	int bones_map[MAX_BONES];
+	memset(bones_map, 0, sizeof(bones_map));
 	tokenpos = ctx->modelfile;
 	while (COM_ParseToken_VM_Tokenize(&tokenpos, false, com_token, sizeof(com_token)))
 	{
@@ -946,14 +956,14 @@ static int parsemodelfile(void)
 		{
 			// skip any trailing parameters (might be a later version of smd)
 			while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
-			if (!parsenodes())
+			if (!parsenodes(bones_map))
 				return 0;
 		}
 		else if (!strcmp(com_token, "skeleton"))
 		{
 			// skip any trailing parameters (might be a later version of smd)
 			while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
-			if (!parseskeleton())
+			if (!parseskeleton(bones_map))
 				return 0;
 		}
 		else if (!strcmp(com_token, "triangles"))
