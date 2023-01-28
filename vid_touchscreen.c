@@ -248,7 +248,11 @@ qboolean VID_TouchscreenInMove(int x, int y, int st)
 	int n = 0, p = 0;
 	static qboolean oldbuttons[TOUCHSCREEN_AREAS_MAXCOUNT];
 	static qboolean buttons[TOUCHSCREEN_AREAS_MAXCOUNT];
+	float scale = vid_touchscreen_scale.value;
 	keydest_t keydest = (key_consoleactive & KEY_CONSOLEACTIVE_USER) ? key_console : key_dest;
+	if (scale <= 0)
+		scale = 1;
+
 	memcpy(oldbuttons, buttons, sizeof(oldbuttons));
 	// simple quake controls
 	multitouch[MAXFINGERS-1].x = ((float)x) / vid.width;
@@ -272,7 +276,7 @@ qboolean VID_TouchscreenInMove(int x, int y, int st)
 		n++;
 		p += VID_TouchscreenArea(7, 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n], n);
 		n++;
-		p += VID_TouchscreenArea(6, 0,   0,   0, vid_conwidth.integer, vid_conheight.integer, NULL, "*click", &buttons[n], n);
+		p += VID_TouchscreenArea(6, 0,   0,   0, vid_conwidth.value / scale, vid_conheight.value / scale, NULL, "*click", &buttons[n], n);
 	}
 	if (keydest == key_console && !VID_ShowingKeyboard())
 	{
