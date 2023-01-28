@@ -65,6 +65,7 @@ OBJ_CL= \
 	r_sky.o \
 	r_sprites.o \
 	vid_shared.o \
+	vid_touchscreen.o \
 	ft2.o \
 	csprogs.o \
 	cl_parse.o \

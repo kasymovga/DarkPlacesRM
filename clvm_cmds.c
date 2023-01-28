@@ -7,6 +7,7 @@
 #include "jpeg.h"
 #include "image.h"
 #include "random.h"
+#include "vid_touchscreen.h"
 
 //============================================================================
 // Client

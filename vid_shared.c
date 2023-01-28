@@ -5,6 +5,7 @@
 #endif
 #include "image.h"
 #include "random.h"
+#include "vid_touchscreen.h"
 
 #ifdef WIN32
 //#include <XInput.h>
@@ -168,9 +169,6 @@ cvar_t gl_finish = {0, "gl_finish", "0", "make the cpu wait for the graphics pro
 cvar_t vid_sRGB = {CVAR_SAVE, "vid_sRGB", "0", "if hardware is capable, modify rendering to be gamma corrected for the sRGB color standard (computer monitors, TVs), recommended"};
 cvar_t vid_sRGB_fallback = {CVAR_SAVE, "vid_sRGB_fallback", "0", "do an approximate sRGB fallback if not properly supported by hardware (3: always use the fallback even if sRGB is supported)"};
 
-cvar_t vid_touchscreen = {0, "vid_touchscreen", "0", "Use touchscreen-style input (no mouse grab, track mouse motion only while button is down, screen areas for mimicing joystick axes and buttons"};
-cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "shows the platform's screen keyboard for text entry, can be set by csqc or menu qc if it wants to receive text input, does nothing if the platform has no screen keyboard"};
-cvar_t vid_touchscreen_active = {0, "vid_touchscreen_active", "1", "activate/deactivate touchscreen controls" };
 cvar_t vid_stick_mouse = {CVAR_SAVE, "vid_stick_mouse", "0", "have the mouse stuck in the center of the screen" };
 cvar_t vid_resizable = {CVAR_SAVE, "vid_resizable", "0", "0: window not resizable, 1: resizable, 2: window can be resized but the framebuffer isn't adjusted" };
 cvar_t vid_desktopfullscreen = {CVAR_SAVE, "vid_desktopfullscreen", "0", "force desktop resolution for fullscreen; also use some OS dependent tricks for better fullscreen integration"};
@@ -1731,9 +1729,6 @@ void VID_Shared_Init(void)
 	Cvar_RegisterVariable(&vid_vsync);
 	Cvar_RegisterVariable(&vid_mouse);
 	Cvar_RegisterVariable(&vid_grabkeyboard);
-	Cvar_RegisterVariable(&vid_touchscreen);
-	Cvar_RegisterVariable(&vid_touchscreen_showkeyboard);
-	Cvar_RegisterVariable(&vid_touchscreen_active);
 	Cvar_RegisterVariable(&vid_stick_mouse);
 	Cvar_RegisterVariable(&vid_resizable);
 	Cvar_RegisterVariable(&vid_desktopfullscreen);
@@ -1797,6 +1792,7 @@ void VID_Shared_Init(void)
 
 	Cmd_AddCommand("force_centerview", Force_CenterView_f, "recenters view (stops looking up/down)");
 	Cmd_AddCommand("vid_restart", VID_Restart_f, "restarts video system (closes and reopens the window, restarts renderer)");
+	VID_TouchscreenInit();
 }
 
 static int VID_Mode(int fullscreen, int width, int height, int bpp, float refreshrate, int stereobuffer, int samples)
