@@ -16,9 +16,7 @@
 # endif
 #endif
 
-#ifndef STANDALONETEST
 #include "quakedef.h"
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -43,18 +41,12 @@
 #endif
 
 // for Z_Malloc/Z_Free in quake
-#ifndef STANDALONETEST
 #include "zone.h"
 #include "sys.h"
 #include "netconn.h"
-#else
-#define Con_Print printf
-#define Con_Printf printf
-#define Z_Malloc malloc
-#define Z_Free free
-#endif
 
 #include "lhnet.h"
+#include "thread.h"
 
 #if defined(WIN32)
 
@@ -124,6 +116,7 @@ static struct namecache_s
 }
 namecache[MAX_NAMECACHE];
 static int namecacheposition = 0;
+static void *namecache_mutex;
 
 int LHNETADDRESS_FromPort(lhnetaddress_t *vaddress, lhnetaddresstype_t addresstype, int port)
 {
@@ -207,20 +200,18 @@ static int LHNETADDRESS_Resolve(lhnetaddressnative_t *address, const char *name,
 int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int defaultport)
 {
 	lhnetaddressnative_t *address = (lhnetaddressnative_t *)vaddress;
-	int i, port, d1, d2, d3, d4, resolved;
+	int i, port, d1, d2, d3, d4, resolved = 0;
 	size_t namelen;
 	unsigned char *a;
 	char name[128];
-#ifdef STANDALONETEST
-	char string2[128];
-#endif
 	const char* addr_start;
 	const char* addr_end = NULL;
 	const char* port_name = NULL;
 	int addr_family = AF_UNSPEC;
+	qboolean namecache_mutex_locked = false;
 
 	if (!address || !string || !*string)
-		return 0;
+		goto finish;
 	memset(address, 0, sizeof(*address));
 	address->addresstype = LHNETADDRESSTYPE_NONE;
 	port = 0;
@@ -231,12 +222,12 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 		const char* end_bracket = strchr(string, ']');
 
 		if (end_bracket == NULL)
-			return 0;
+			goto finish;
 
 		if (end_bracket[1] == ':')
 			port_name = end_bracket + 2;
 		else if (end_bracket[1] != '\0')
-			return 0;
+			goto finish;
 
 		addr_family = AF_INET6;
 		addr_start = &string[1];
@@ -287,7 +278,8 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 	{
 		address->addresstype = LHNETADDRESSTYPE_LOOP;
 		address->port = port;
-		return 1;
+		resolved = 1;
+		goto finish;
 	}
 	// try to parse as dotted decimal ipv4 address first
 	// note this supports partial ip addresses
@@ -308,92 +300,79 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 		a[1] = d2;
 		a[2] = d3;
 		a[3] = d4;
-#ifdef STANDALONETEST
-		LHNETADDRESS_ToString(address, string2, sizeof(string2), 1);
-		printf("manual parsing of ipv4 dotted decimal address \"%s\" successful: %s\n", string, string2);
-#endif
-		return 1;
+		resolved = 1;
+		goto finish;
+	}
+	if (namecache_mutex)
+	{
+		namecache_mutex_locked = true;
+		Thread_LockMutex(namecache_mutex);
 	}
 	for (i = 0;i < MAX_NAMECACHE;i++)
 		if (!strcmp(namecache[i].name, name))
 			break;
-#ifdef STANDALONETEST
-	if (i < MAX_NAMECACHE)
-#else
 	if (i < MAX_NAMECACHE && realtime < namecache[i].expirationtime)
-#endif
 	{
 		*address = namecache[i].address;
 		address->port = port;
 		if (address->addresstype == LHNETADDRESSTYPE_INET6)
 		{
 			address->addr.in6.sin6_port = htons((unsigned short)port);
-			return 1;
+			resolved = 1;
+			goto finish;
 		}
 		else if (address->addresstype == LHNETADDRESSTYPE_INET4)
 		{
 			address->addr.in.sin_port = htons((unsigned short)port);
-			return 1;
+			resolved = 1;
+			goto finish;
 		}
-		return 0;
+		goto finish;
 	}
 
 	for (i = 0;i < (int)sizeof(namecache[namecacheposition].name)-1 && name[i];i++)
 		namecache[namecacheposition].name[i] = name[i];
 	namecache[namecacheposition].name[i] = 0;
-#ifndef STANDALONETEST
 	namecache[namecacheposition].expirationtime = realtime + 12 * 3600; // 12 hours
-#endif
 
 	// try resolving the address (handles dns and other ip formats)
+	if (namecache_mutex_locked)
+	{
+		Thread_UnlockMutex(namecache_mutex);
+		namecache_mutex_locked = false;
+	}
 	resolved = LHNETADDRESS_Resolve(address, name, port);
+	if (namecache_mutex)
+	{
+		Thread_LockMutex(namecache_mutex);
+		namecache_mutex_locked = true;
+	}
 	if (resolved)
 	{
-#ifdef STANDALONETEST
-		const char *protoname;
-
-		switch (address->addresstype)
-		{
-			case LHNETADDRESSTYPE_INET6:
-				protoname = "ipv6";
-				break;
-			case LHNETADDRESSTYPE_INET4:
-				protoname = "ipv4";
-				break;
-			default:
-				protoname = "UNKNOWN";
-				break;
-		}
-		LHNETADDRESS_ToString(vaddress, string2, sizeof(string2), 1);
-		Con_Printf("LHNETADDRESS_Resolve(\"%s\") returned %s address %s\n", string, protoname, string2);
-#endif
 		namecache[namecacheposition].address = *address;
 	}
 	else
 	{
-#ifdef STANDALONETEST
-		printf("name resolution failed on address \"%s\"\n", name);
-#endif
 		namecache[namecacheposition].address.addresstype = LHNETADDRESSTYPE_NONE;
 	}
 	
 	namecacheposition = (namecacheposition + 1) % MAX_NAMECACHE;
+finish:
+	if (namecache_mutex_locked) Thread_UnlockMutex(namecache_mutex);
 	return resolved;
 }
 #else
 int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int defaultport)
 {
 	lhnetaddressnative_t *address = (lhnetaddressnative_t *)vaddress;
-	int i, port, namelen, d1, d2, d3, d4;
+	int i, port, namelen, d1, d2, d3, d4, resolved = 0;
 	struct hostent *hostentry;
 	unsigned char *a;
 	const char *colon;
 	char name[128];
-#ifdef STANDALONETEST
-	char string2[128];
-#endif
+	qboolean namecache_mutex_locked = false;
 	if (!address || !string || !*string)
-		return 0;
+		goto finish;
 	memset(address, 0, sizeof(*address));
 	address->addresstype = LHNETADDRESSTYPE_NONE;
 	port = 0;
@@ -423,7 +402,8 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 	{
 		address->addresstype = LHNETADDRESSTYPE_LOOP;
 		address->port = port;
-		return 1;
+		resolved = 1;
+		goto finish;
 	}
 	// try to parse as dotted decimal ipv4 address first
 	// note this supports partial ip addresses
@@ -443,20 +423,18 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 		a[1] = d2;
 		a[2] = d3;
 		a[3] = d4;
-#ifdef STANDALONETEST
-		LHNETADDRESS_ToString(address, string2, sizeof(string2), 1);
-		printf("manual parsing of ipv4 dotted decimal address \"%s\" successful: %s\n", string, string2);
-#endif
-		return 1;
+		resolved = 1;
+		goto finish;
+	}
+	if (namecache_mutex)
+	{
+		Thread_LockMutex(namecache_mutex);
+		namecache_mutex_locked = true;
 	}
 	for (i = 0;i < MAX_NAMECACHE;i++)
 		if (!strcmp(namecache[i].name, name))
 			break;
-#ifdef STANDALONETEST
-	if (i < MAX_NAMECACHE)
-#else
 	if (i < MAX_NAMECACHE && realtime < namecache[i].expirationtime)
-#endif
 	{
 		*address = namecache[i].address;
 		address->port = port;
@@ -464,18 +442,30 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 		{
 #ifndef NOSUPPORTIPV6
 			address->addr.in6.sin6_port = htons((unsigned short)port);
-			return 1;
+			resolved = true;
+			goto finish;
 #endif
 		}
 		else if (address->addresstype == LHNETADDRESSTYPE_INET4)
 		{
 			address->addr.in.sin_port = htons((unsigned short)port);
-			return 1;
+			resolved = true;
+			goto finish;
 		}
-		return 0;
+		goto finish;
 	}
 	// try gethostbyname (handles dns and other ip formats)
+	if (namecache_mutex_locked)
+	{
+		Thread_UnlockMutex(namecache_mutex);
+		namecache_mutex_locked = false;
+	}
 	hostentry = gethostbyname(name);
+	if (namecache_mutex)
+	{
+		Thread_LockMutex(namecache_mutex);
+		namecache_mutex_locked = true;
+	}
 	if (hostentry)
 	{
 		if (hostentry->h_addrtype == AF_INET6)
@@ -490,16 +480,11 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 			for (i = 0;i < (int)sizeof(namecache[namecacheposition].name)-1 && name[i];i++)
 				namecache[namecacheposition].name[i] = name[i];
 			namecache[namecacheposition].name[i] = 0;
-#ifndef STANDALONETEST
 			namecache[namecacheposition].expirationtime = realtime + 12 * 3600; // 12 hours
-#endif
 			namecache[namecacheposition].address = *address;
 			namecacheposition = (namecacheposition + 1) % MAX_NAMECACHE;
-#ifdef STANDALONETEST
-			LHNETADDRESS_ToString(address, string2, sizeof(string2), 1);
-			printf("gethostbyname(\"%s\") returned ipv6 address %s\n", string, string2);
-#endif
-			return 1;
+			resolved = true;
+			goto finish;
 #endif
 		}
 		else if (hostentry->h_addrtype == AF_INET)
@@ -513,30 +498,22 @@ int LHNETADDRESS_FromString(lhnetaddress_t *vaddress, const char *string, int de
 			for (i = 0;i < (int)sizeof(namecache[namecacheposition].name)-1 && name[i];i++)
 				namecache[namecacheposition].name[i] = name[i];
 			namecache[namecacheposition].name[i] = 0;
-#ifndef STANDALONETEST
 			namecache[namecacheposition].expirationtime = realtime + 12 * 3600; // 12 hours
-#endif
 			namecache[namecacheposition].address = *address;
 			namecacheposition = (namecacheposition + 1) % MAX_NAMECACHE;
-#ifdef STANDALONETEST
-			LHNETADDRESS_ToString(address, string2, sizeof(string2), 1);
-			printf("gethostbyname(\"%s\") returned ipv4 address %s\n", string, string2);
-#endif
-			return 1;
+			resolved = true;
+			goto finish;
 		}
 	}
-#ifdef STANDALONETEST
-	printf("gethostbyname failed on address \"%s\"\n", name);
-#endif
 	for (i = 0;i < (int)sizeof(namecache[namecacheposition].name)-1 && name[i];i++)
 		namecache[namecacheposition].name[i] = name[i];
 	namecache[namecacheposition].name[i] = 0;
-#ifndef STANDALONETEST
 	namecache[namecacheposition].expirationtime = realtime + 12 * 3600; // 12 hours
-#endif
 	namecache[namecacheposition].address.addresstype = LHNETADDRESSTYPE_NONE;
 	namecacheposition = (namecacheposition + 1) % MAX_NAMECACHE;
-	return 0;
+finish:
+	if (namecache_mutex_locked) Thread_UnlockMutex(namecache_mutex);
+	return resolved;
 }
 #endif
 
@@ -722,9 +699,7 @@ typedef struct lhnetpacket_s
 	int sourceport;
 	int destinationport;
 	time_t timeout;
-#ifndef STANDALONETEST
 	double sentdoubletime;
-#endif
 	struct lhnetpacket_s *next, *prev;
 }
 lhnetpacket_t;
@@ -750,6 +725,8 @@ void LHNET_Init(void)
 	if (!lhnet_didWSAStartup)
 		Con_Print("LHNET_Init: WSAStartup failed, networking disabled\n");
 #endif
+	if (Thread_HasThreads())
+		namecache_mutex = Thread_CreateMutex();
 }
 
 int LHNET_DefaultDSCP(int dscp)
@@ -786,6 +763,10 @@ void LHNET_Shutdown(void)
 	}
 #endif
 	lhnet_active = 0;
+	if (namecache_mutex) {
+		Thread_DestroyMutex(namecache_mutex);
+		namecache_mutex = NULL;
+	}
 }
 
 static const char *LHNETPRIVATE_StrError(void)
@@ -1115,10 +1096,8 @@ int LHNET_Read(lhnetsocket_t *lhnetsocket, void *content, int maxcontentlength, 
 				Z_Free(p);
 				continue;
 			}
-#ifndef STANDALONETEST
 			if (cl_netlocalping.value && (realtime - cl_netlocalping.value * (1.0 / 2000.0)) < p->sentdoubletime)
 				continue;
-#endif
 			if (value == 0 && p->destinationport == lhnetsocket->address.port)
 			{
 				if (p->length <= maxcontentlength)
@@ -1217,9 +1196,7 @@ int LHNET_Write(lhnetsocket_t *lhnetsocket, const void *content, int contentleng
 		p->prev = p->next->prev;
 		p->next->prev = p;
 		p->prev->next = p;
-#ifndef STANDALONETEST
 		p->sentdoubletime = realtime;
-#endif
 		value = contentlength;
 	}
 	else if (lhnetsocket->address.addresstype == LHNETADDRESSTYPE_INET4)
@@ -1246,199 +1223,3 @@ int LHNET_Write(lhnetsocket_t *lhnetsocket, const void *content, int contentleng
 #endif
 	return value;
 }
-
-#ifdef STANDALONETEST
-int main(int argc, char **argv)
-{
-#if 1
-	char *buffer = "test", buffer2[1024];
-	int blen = strlen(buffer);
-	int b2len = 1024;
-	lhnetsocket_t *sock1;
-	lhnetsocket_t *sock2;
-	lhnetaddress_t myaddy1;
-	lhnetaddress_t myaddy2;
-	lhnetaddress_t myaddy3;
-	lhnetaddress_t localhostaddy1;
-	lhnetaddress_t localhostaddy2;
-	int test1;
-	int test2;
-
-	printf("calling LHNET_Init\n");
-    Cvar_InitTable();
-	LHNET_Init();
-
-	printf("calling LHNET_FromPort twice to create two local addresses\n");
-	LHNETADDRESS_FromPort(&myaddy1, LHNETADDRESSTYPE_INET4, 4000);
-	LHNETADDRESS_FromPort(&myaddy2, LHNETADDRESSTYPE_INET4, 4001);
-	LHNETADDRESS_FromString(&localhostaddy1, "127.0.0.1", 4000);
-	LHNETADDRESS_FromString(&localhostaddy2, "127.0.0.1", 4001);
-
-	printf("calling LHNET_OpenSocket_Connectionless twice to create two local sockets\n");
-	sock1 = LHNET_OpenSocket_Connectionless(&myaddy1);
-	sock2 = LHNET_OpenSocket_Connectionless(&myaddy2);
-
-	printf("calling LHNET_Write to send a packet from the first socket to the second socket\n");
-	test1 = LHNET_Write(sock1, buffer, blen, &localhostaddy2);
-	printf("sleeping briefly\n");
-#ifdef WIN32
-	Sleep (100);
-#else
-	usleep (100000);
-#endif
-	printf("calling LHNET_Read on the second socket to read the packet sent from the first socket\n");
-	test2 = LHNET_Read(sock2, buffer2, b2len - 1, &myaddy3);
-	if (test2 > 0)
-		Con_Printf("socket to socket test succeeded\n");
-	else
-		Con_Printf("socket to socket test failed\n");
-
-#ifdef WIN32
-	printf("press any key to exit\n");
-	getchar();
-#endif
-
-	printf("calling LHNET_Shutdown\n");
-	LHNET_Shutdown();
-	printf("exiting\n");
-	return 0;
-#else
-	lhnetsocket_t *sock[16], *sendsock;
-	int i;
-	int numsockets;
-	int count;
-	int length;
-	int port;
-	time_t oldtime;
-	time_t newtime;
-	char *sendmessage;
-	int sendmessagelength;
-	lhnetaddress_t destaddress;
-	lhnetaddress_t receiveaddress;
-	lhnetaddress_t sockaddress[16];
-	char buffer[1536], addressstring[128], addressstring2[128];
-	if ((argc == 2 || argc == 5) && (port = atoi(argv[1])) >= 1 && port < 65535)
-	{
-		printf("calling LHNET_Init()\n");
-		LHNET_Init();
-
-		numsockets = 0;
-		LHNETADDRESS_FromPort(&sockaddress[numsockets++], LHNETADDRESSTYPE_LOOP, port);
-		LHNETADDRESS_FromPort(&sockaddress[numsockets++], LHNETADDRESSTYPE_INET4, port);
-		LHNETADDRESS_FromPort(&sockaddress[numsockets++], LHNETADDRESSTYPE_INET6, port+1);
-
-		sendsock = NULL;
-		sendmessage = NULL;
-		sendmessagelength = 0;
-
-		for (i = 0;i < numsockets;i++)
-		{
-			LHNETADDRESS_ToString(&sockaddress[i], addressstring, sizeof(addressstring), 1);
-			printf("calling LHNET_OpenSocket_Connectionless(<%s>)\n", addressstring);
-			if ((sock[i] = LHNET_OpenSocket_Connectionless(&sockaddress[i])))
-			{
-				LHNETADDRESS_ToString(LHNET_AddressFromSocket(sock[i]), addressstring2, sizeof(addressstring2), 1);
-				printf("opened socket successfully (address \"%s\")\n", addressstring2);
-			}
-			else
-			{
-				printf("failed to open socket\n");
-				if (i == 0)
-				{
-					LHNET_Shutdown();
-					return -1;
-				}
-			}
-		}
-		count = 0;
-		if (argc == 5)
-		{
-			count = atoi(argv[2]);
-			if (LHNETADDRESS_FromString(&destaddress, argv[3], -1))
-			{
-				sendmessage = argv[4];
-				sendmessagelength = strlen(sendmessage);
-				sendsock = NULL;
-				for (i = 0;i < numsockets;i++)
-					if (sock[i] && LHNETADDRESS_GetAddressType(&destaddress) == LHNETADDRESS_GetAddressType(&sockaddress[i]))
-						sendsock = sock[i];
-				if (sendsock == NULL)
-				{
-					printf("Could not find an open socket matching the addresstype (%i) of destination address, switching to listen only mode\n", LHNETADDRESS_GetAddressType(&destaddress));
-					argc = 2;
-				}
-			}
-			else
-			{
-				printf("LHNETADDRESS_FromString did not like the address \"%s\", switching to listen only mode\n", argv[3]);
-				argc = 2;
-			}
-		}
-		printf("started, now listening for \"exit\" on the opened sockets\n");
-		oldtime = time(NULL);
-		for(;;)
-		{
-#ifdef WIN32
-			Sleep(1);
-#else
-			usleep(1);
-#endif
-			for (i = 0;i < numsockets;i++)
-			{
-				if (sock[i])
-				{
-					length = LHNET_Read(sock[i], buffer, sizeof(buffer), &receiveaddress);
-					if (length < 0)
-						printf("localsock read error: length < 0");
-					else if (length > 0 && length < (int)sizeof(buffer))
-					{
-						buffer[length] = 0;
-						LHNETADDRESS_ToString(&receiveaddress, addressstring, sizeof(addressstring), 1);
-						LHNETADDRESS_ToString(LHNET_AddressFromSocket(sock[i]), addressstring2, sizeof(addressstring2), 1);
-						printf("received message \"%s\" from \"%s\" on socket \"%s\"\n", buffer, addressstring, addressstring2);
-						if (!strcmp(buffer, "exit"))
-							break;
-					}
-				}
-			}
-			if (i < numsockets)
-				break;
-			if (argc == 5 && count > 0)
-			{
-				newtime = time(NULL);
-				if (newtime != oldtime)
-				{
-					LHNETADDRESS_ToString(&destaddress, addressstring, sizeof(addressstring), 1);
-					LHNETADDRESS_ToString(LHNET_AddressFromSocket(sendsock), addressstring2, sizeof(addressstring2), 1);
-					printf("calling LHNET_Write(<%s>, \"%s\", %i, <%s>)\n", addressstring2, sendmessage, sendmessagelength, addressstring);
-					length = LHNET_Write(sendsock, sendmessage, sendmessagelength, &destaddress);
-					if (length == sendmessagelength)
-						printf("sent successfully\n");
-					else
-						printf("LH_Write failed, returned %i (length of message was %i)\n", length, strlen(argv[4]));
-					oldtime = newtime;
-					count--;
-					if (count <= 0)
-						printf("Done sending, still listening for \"exit\"\n");
-				}
-			}
-		}
-		for (i = 0;i < numsockets;i++)
-		{
-			if (sock[i])
-			{
-				LHNETADDRESS_ToString(LHNET_AddressFromSocket(sock[i]), addressstring2, sizeof(addressstring2), 1);
-				printf("calling LHNET_CloseSocket(<%s>)\n", addressstring2);
-				LHNET_CloseSocket(sock[i]);
-			}
-		}
-		printf("calling LHNET_Shutdown()\n");
-		LHNET_Shutdown();
-		return 0;
-	}
-	printf("Testing code for lhnet.c\nusage: lhnettest <localportnumber> [<sendnumberoftimes> <sendaddress:port> <sendmessage>]\n");
-	return -1;
-#endif
-}
-#endif
-

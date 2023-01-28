@@ -2424,6 +2424,8 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 }
 
 #ifdef CONFIG_MENU
+static int query_masters_next_frame_dp, query_masters_next_frame_qw;
+
 void NetConn_QueryQueueFrame(void)
 {
 	int index;
@@ -2431,6 +2433,12 @@ void NetConn_QueryQueueFrame(void)
 	int maxqueries;
 	double timeouttime;
 	static double querycounter = 0;
+
+	if (query_masters_next_frame_qw || query_masters_next_frame_dp)
+	{
+		NetConn_QueryMasters(query_masters_next_frame_dp, query_masters_next_frame_qw);
+		query_masters_next_frame_dp = query_masters_next_frame_qw = false;
+	}
 
 	if(!net_slist_pause.integer && serverlist_paused)
 		ServerList_RebuildViewList();
@@ -3761,6 +3769,118 @@ void NetConn_SleepMicroseconds(int microseconds)
 }
 
 #ifdef CONFIG_MENU
+typedef struct masterlist_resolve_list_s
+{
+	char *name;
+	int port;
+	struct masterlist_resolve_list_s *next;
+}
+masterlist_resolve_list_t;
+static masterlist_resolve_list_t *masterlist_resolve_list;
+static void* masterlist_resolve_thread;
+static void* masterlist_resolve_mutex;
+static volatile qboolean masterlist_resolve_thread_finished;
+static qboolean masterlist_resolved_dp, masterlist_resolved_qw;
+
+static int NetConn_QueryMasters_Resolve_Thread(void *data)
+{
+	masterlist_resolve_list_t *m;
+	lhnetaddress_t address;
+	for (m = masterlist_resolve_list; m; m = m->next)
+	{
+		LHNETADDRESS_FromString(&address, m->name, m->port);
+	}
+	Thread_LockMutex(masterlist_resolve_mutex);
+	masterlist_resolve_thread_finished = true;
+	Thread_UnlockMutex(masterlist_resolve_mutex);
+	return 0;
+}
+
+static qboolean NetConn_QueryMasters_Resolve(qboolean querydp, qboolean queryqw)
+{
+	int i, j;
+	if ((querydp && !masterlist_resolved_dp) || (queryqw && !masterlist_resolved_qw) || masterlist_resolve_thread)
+	{
+		if (Thread_HasThreads())
+		{
+			masterlist_resolve_list_t *m;
+			if (masterlist_resolve_thread)
+			{
+				Thread_LockMutex(masterlist_resolve_mutex);
+				if (masterlist_resolve_thread_finished)
+				{
+					masterlist_resolve_thread_finished = false;
+					Thread_WaitThread(masterlist_resolve_thread, 0);
+					masterlist_resolve_thread = NULL;
+					while (masterlist_resolve_list)
+					{
+						m = masterlist_resolve_list->next;
+						Z_Free(masterlist_resolve_list->name);
+						Z_Free(masterlist_resolve_list);
+						masterlist_resolve_list = m;
+					}
+					Thread_UnlockMutex(masterlist_resolve_mutex);
+					Thread_DestroyMutex(masterlist_resolve_mutex);
+					masterlist_resolve_mutex = NULL;
+				}
+				else
+				{
+					Thread_UnlockMutex(masterlist_resolve_mutex);
+					return false;
+				}
+			}
+			else
+			{
+				if (querydp)
+				{
+					masterlist_resolved_dp = true;
+					for (i = 0;sv_masters[i].name;i++)
+					{
+						if (!sv_masters[i].string[0]) continue;
+						m = Z_Malloc(sizeof(masterlist_resolve_list_t));
+						m->next = masterlist_resolve_list;
+						j = strlen(sv_masters[i].string);
+						m->port = DPMASTER_PORT;
+						m->name = Z_Malloc(j + 1);
+						strlcpy(m->name, sv_masters[i].string, j + 1);
+						masterlist_resolve_list = m;
+					}
+				}
+				if (queryqw)
+				{
+					masterlist_resolved_qw = true;
+					for (i = 0;sv_qwmasters[i].name;i++)
+					{
+						if (!sv_qwmasters[i].string[0]) continue;
+						m = Z_Malloc(sizeof(masterlist_resolve_list_t));
+						m->next = masterlist_resolve_list;
+						j = strlen(sv_qwmasters[i].string);
+						m->port = QWMASTER_PORT;
+						m->name = Z_Malloc(j + 1);
+						strlcpy(m->name, sv_qwmasters[i].string, j + 1);
+						masterlist_resolve_list = m;
+					}
+				}
+				masterlist_resolve_mutex = Thread_CreateMutex();
+				if (masterlist_resolve_mutex)
+					masterlist_resolve_thread = Thread_CreateThread(NetConn_QueryMasters_Resolve_Thread, masterlist_resolve_list);
+
+				if (!masterlist_resolve_thread) {
+					while (masterlist_resolve_list)
+					{
+						m = masterlist_resolve_list->next;
+						Z_Free(masterlist_resolve_list->name);
+						Z_Free(masterlist_resolve_list);
+						masterlist_resolve_list = m;
+					}
+				}
+				return false;
+			}
+		}
+	}
+	return !masterlist_resolve_thread;
+}
+
 void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 {
 	int i, j;
@@ -3768,6 +3888,12 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 	lhnetaddress_t masteraddress;
 	lhnetaddress_t broadcastaddress;
 	char request[256];
+	if (!NetConn_QueryMasters_Resolve(querydp, queryqw))
+	{
+		query_masters_next_frame_dp = querydp;
+		query_masters_next_frame_qw = queryqw;
+		return;
+	}
 
 	if (serverlist_cachecount >= SERVERLIST_TOTALSIZE)
 		return;
@@ -4130,6 +4256,13 @@ void NetConn_Init(void)
 
 void NetConn_Shutdown(void)
 {
+#ifdef CONFIG_MENU
+	if (masterlist_resolve_thread)
+	{
+		Thread_WaitThread(masterlist_resolve_thread, 0);
+		masterlist_resolve_thread = NULL;
+	}
+#endif
 	NetConn_CloseClientPorts();
 	NetConn_CloseServerPorts();
 	LHNET_Shutdown();
