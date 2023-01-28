@@ -5,6 +5,7 @@ cvar_t vid_touchscreen_sensitivity = {CVAR_SAVE, "vid_touchscreen_sensitivity", 
 cvar_t vid_touchscreen = {0, "vid_touchscreen", "0", "Use touchscreen-style input (no mouse grab, track mouse motion only while button is down, screen areas for mimicing joystick axes and buttons"};
 cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "shows the platform's screen keyboard for text entry, can be set by csqc or menu qc if it wants to receive text input, does nothing if the platform has no screen keyboard"};
 cvar_t vid_touchscreen_active = {0, "vid_touchscreen_active", "1", "activate/deactivate touchscreen controls" };
+cvar_t vid_touchscreen_scale = {CVAR_SAVE, "vid_touchscreen_scale", "1", "scale of touchscreen items" };
 static cvar_t vid_touchscreen_outlinealpha = {0, "vid_touchscreen_outlinealpha", "0", "opacity of touchscreen area outlines"};
 static cvar_t vid_touchscreen_overlayalpha = {0, "vid_touchscreen_overlayalpha", "0.25", "opacity of touchscreen area icons"};
 struct finger multitouch[MAXFINGERS];
@@ -51,6 +52,13 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 	qboolean button = false;
 	qboolean check_dest = false;
 	char command_part[32];
+	if (vid_touchscreen_scale.value > 0)
+	{
+		px *= vid_touchscreen_scale.value;
+		py *= vid_touchscreen_scale.value;
+		pwidth *= vid_touchscreen_scale.value;
+		pheight *= vid_touchscreen_scale.value;
+	}
 	if (vid_touchscreen_active.integer) {
 		if ((dest & 32)) {
 			*resultbutton = false;
@@ -265,4 +273,5 @@ void VID_TouchscreenInit(void) {
 	Cvar_RegisterVariable(&vid_touchscreen_sensitivity);
 	Cvar_RegisterVariable(&vid_touchscreen_outlinealpha);
 	Cvar_RegisterVariable(&vid_touchscreen_overlayalpha);
+	Cvar_RegisterVariable(&vid_touchscreen_scale);
 }
