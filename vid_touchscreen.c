@@ -6,6 +6,7 @@ cvar_t vid_touchscreen = {0, "vid_touchscreen", "0", "Use touchscreen-style inpu
 cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "shows the platform's screen keyboard for text entry, can be set by csqc or menu qc if it wants to receive text input, does nothing if the platform has no screen keyboard"};
 cvar_t vid_touchscreen_active = {0, "vid_touchscreen_active", "1", "activate/deactivate touchscreen controls" };
 cvar_t vid_touchscreen_scale = {CVAR_SAVE, "vid_touchscreen_scale", "1", "scale of touchscreen items" };
+cvar_t vid_touchscreen_mirror = {CVAR_SAVE, "vid_touchscreen_mirror", "0", "mirroring position of touchscreen in-game items" };
 static cvar_t vid_touchscreen_outlinealpha = {0, "vid_touchscreen_outlinealpha", "0", "opacity of touchscreen area outlines"};
 static cvar_t vid_touchscreen_overlayalpha = {0, "vid_touchscreen_overlayalpha", "0.25", "opacity of touchscreen area icons"};
 struct finger multitouch[MAXFINGERS];
@@ -58,6 +59,22 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 		py *= vid_touchscreen_scale.value;
 		pwidth *= vid_touchscreen_scale.value;
 		pheight *= vid_touchscreen_scale.value;
+	}
+	if (vid_touchscreen_mirror.integer)
+	{
+		if (dest == 2) //only for in-game controls
+		{
+			if (corner & 1)
+			{
+				px = -px - pwidth;
+				corner &= ~1;
+			}
+			else if (!(corner & 4))
+			{
+				px = -px - pwidth;
+				corner |= 1;
+			}
+		}
 	}
 	if (vid_touchscreen_active.integer) {
 		if ((dest & 32)) {
@@ -274,4 +291,5 @@ void VID_TouchscreenInit(void) {
 	Cvar_RegisterVariable(&vid_touchscreen_outlinealpha);
 	Cvar_RegisterVariable(&vid_touchscreen_overlayalpha);
 	Cvar_RegisterVariable(&vid_touchscreen_scale);
+	Cvar_RegisterVariable(&vid_touchscreen_mirror);
 }
