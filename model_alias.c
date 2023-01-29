@@ -4161,6 +4161,7 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 {
 	char file_path[MAX_QPATH];
 	char dir_path[MAX_QPATH];
+	char anim_path[MAX_QPATH];
 	char short_name[MAX_QPATH];
 	char script[16384];
 	char *c;
@@ -4196,17 +4197,27 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	{
 		fps = 10;
 		noloop = 0;
-		dpsnprintf(temp, sizeof(temp), "%s_anim%i.smd", file_path, i);
-		if (!FS_FileExists(temp)) break;
+		dpsnprintf(anim_path, sizeof(anim_path), "%s_anim%i.smd", short_name, i);
+		dpsnprintf(temp, sizeof(temp), "%s%s", dir_path, anim_path);
+		if (!FS_FileExists(temp))
+		{
+			dpsnprintf(anim_path, sizeof(anim_path), "anims/%s_anim%i.smd", short_name, i);
+			dpsnprintf(temp, sizeof(temp), "%s%s", dir_path, anim_path);
+			if (!FS_FileExists(temp))
+			{
+				break;
+			}
+		}
 		dpsnprintf(temp2, sizeof(temp2), "%s.opts", temp);
 		mem = Mem_AllocPool("smd_load", 0, NULL);
 		if ((opts = (const char*)FS_LoadFile(temp2, mem, FALSE, NULL)))
 			sscanf(opts, "%f %i", &fps, &noloop);
+		else
+			Con_Printf("animation option file %s not found\n", temp2);
 		Mem_FreePool(&mem);
 		l = strlen(script);
-		dpsnprintf(temp, sizeof(temp), "%s_anim%i.smd", short_name, i);
 		dpsnprintf(&script[l], sizeof(script) - l,
-				"scene %s fps %.6f%s\n", temp, fps, (noloop ? " noloop" : ""));
+				"scene %s fps %.6f%s\n", anim_path, fps, (noloop ? " noloop" : ""));
 	}
 	//Skins
 	dpsnprintf(temp, sizeof(temp), "%s_compiled", file_path);
