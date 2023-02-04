@@ -3371,7 +3371,7 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 			for (transformindex = 0;transformindex < model->num_bones;transformindex++)
 			{
 				float angles[3];
-				float mtest[4][3];
+				float mtest[12];
 				matrix4x4_t posematrix;
 				if (outbufferpos >= outbuffermax >> 1)
 				{
@@ -3405,8 +3405,8 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 				else
 					Matrix4x4_FromBonePose7s(&posematrix, model->num_posescale, model->data_poses7s + 7*(model->num_bones * (poseindex + firstpose) + transformindex));
 
-				Matrix4x4_ToArray12FloatGL(&posematrix, mtest[0]);
-				AnglesFromVectors(angles, mtest[0], mtest[2], false);
+				Matrix4x4_ToArray12FloatGL(&posematrix, mtest);
+				AnglesFromVectors(angles, mtest, &mtest[6], false);
 				if (angles[0] >= 180) angles[0] -= 360;
 				if (angles[1] >= 180) angles[1] -= 360;
 				if (angles[2] >= 180) angles[2] -= 360;
@@ -3440,7 +3440,7 @@ static void Mod_Decompile_SMD(dp_model_t *model, const char *filename, int first
 				test[3][2] = pose[11];
 	}
 #endif
-				l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i %f %f %f %f %f %f\n", transformindex, mtest[3][0], mtest[3][1], mtest[3][2], DEG2RAD(angles[ROLL]), DEG2RAD(angles[PITCH]), DEG2RAD(angles[YAW]));
+				l = dpsnprintf(outbuffer + outbufferpos, outbuffermax - outbufferpos, "%3i %f %f %f %f %f %f\n", transformindex, mtest[9], mtest[10], mtest[11], DEG2RAD(angles[ROLL]), DEG2RAD(angles[PITCH]), DEG2RAD(angles[YAW]));
 				if (l > 0)
 					outbufferpos += l;
 			}
