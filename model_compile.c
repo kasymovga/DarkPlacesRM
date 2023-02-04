@@ -115,6 +115,8 @@ typedef struct ctx_s {
 	const char *scriptbytes;
 	float scene_fps;
 	int scene_looping;
+	float scene_suborigin[3];
+	float scene_subrotate;
 	mempool_t *mempool;
 	const char *workdir_name;
 	const char *model_path;
@@ -545,6 +547,13 @@ static int parseskeleton(int *bones_map)
 			{
 				Con_Printf("error: bone %i not defined\n", num);
 				return 0;
+			}
+			if (ctx->bones[num].parent < 0)
+			{
+				x += ctx->scene_suborigin[0] / ctx->modelscale;
+				y += ctx->scene_suborigin[1] / ctx->modelscale;
+				z += ctx->scene_suborigin[2] / ctx->modelscale;
+				c += (ctx->scene_subrotate / 180) * M_PI;
 			}
 			// LordHavoc: compute matrix
 			ctx->frames[frame].bones[num] = computebonematrix(x * ctx->modelscale, y * ctx->modelscale, z * ctx->modelscale, a, b, c);
@@ -1317,6 +1326,10 @@ static int sc_scene(void)
 	char *c;
 	char filename[MAX_FILEPATH * 3];
 	c = gettoken();
+	ctx->scene_suborigin[0] = 0;
+	ctx->scene_suborigin[1] = 0;
+	ctx->scene_suborigin[2] = 0;
+	ctx->scene_subrotate = 0;
 	if (!c)
 		return 0;
 	if (!isfilename(c))
@@ -1374,6 +1387,24 @@ static int sc_scene(void)
 		}
 		if (!strcmp(c, "noloop"))
 			ctx->scene_looping = 0;
+		if (!strcmp(c, "suborigin"))
+		{
+			c = gettoken();
+			if (c[0] == '\n') break;
+			ctx->scene_suborigin[0] = atof(c);
+			c = gettoken();
+			if (c[0] == '\n') break;
+			ctx->scene_suborigin[1] = atof(c);
+			c = gettoken();
+			if (c[0] == '\n') break;
+			ctx->scene_suborigin[2] = atof(c);
+		}
+		if (!strcmp(c, "subrotate"))
+		{
+			c = gettoken();
+			if (c[0] == '\n') break;
+			ctx->scene_subrotate = atof(c);
+		}
 	}
 	if (!parsemodelfile())
 	{

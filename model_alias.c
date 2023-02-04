@@ -4178,7 +4178,9 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	const char *skin;
 	fs_offset_t skinsize;
 	float model_origin[3] = {0, 0, 0};
+	float model_suborigin[3] = {0, 0, 0};
 	float model_rotate = 0;
+	float model_subrotate = 0;
 	float model_scale = 1;
 	mempool_t *mem;
 	strlcpy(file_path, mod->name, sizeof(file_path));
@@ -4214,14 +4216,18 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		}
 		dpsnprintf(temp2, sizeof(temp2), "%s.opts", temp);
 		mem = Mem_AllocPool("smd_load", 0, NULL);
+		model_subrotate = 0;
+		model_suborigin[0] = 0;
+		model_suborigin[1] = 0;
+		model_suborigin[2] = 0;
 		if ((opts = (const char*)FS_LoadFile(temp2, mem, FALSE, NULL)))
-			sscanf(opts, "%f %i", &fps, &noloop);
+			sscanf(opts, "%f %i %f %f %f %f", &fps, &noloop, &model_subrotate, &model_suborigin[0], &model_suborigin[1], &model_suborigin[2]);
 		else
 			Con_Printf("animation option file %s not found\n", temp2);
 		Mem_FreePool(&mem);
 		l = strlen(script);
 		dpsnprintf(&script[l], sizeof(script) - l,
-				"scene %s fps %.6f%s\n", anim_path, fps, (noloop ? " noloop" : ""));
+				"scene %s fps %.6f%s subrotate %f suborigin %f %f %f\n", anim_path, fps, (noloop ? " noloop" : ""), model_subrotate, model_suborigin[0], model_suborigin[1], model_suborigin[2]);
 	}
 	//Skins
 	dpsnprintf(temp, sizeof(temp), "%s_compiled", file_path);

@@ -3649,7 +3649,7 @@ static void Mod_Decompile_f(void)
 			dpsnprintf(outname, sizeof(outname), "%s_decompiled_anim%i.smd", basename, animnum);
 			Mod_Decompile_SMD(mod, outname, first, count, false);
 			dpsnprintf(outname, sizeof(outname), "%s_decompiled_anim%i.smd.opts", basename, animnum);
-			dpsnprintf(opts, sizeof(opts), "%.6f %i // framerate noloop", (float)mod->animscenes[i].framerate, !mod->animscenes[i].loop);
+			dpsnprintf(opts, sizeof(opts), "%.6f %i 0 0 0 0// framerate noloop rotate origin-x origin-y origin-z", (float)mod->animscenes[i].framerate, !mod->animscenes[i].loop);
 			FS_WriteFile(outname, opts, strlen(opts));
 			if (zymtextsize < (int)sizeof(zymtextbuffer) - 100)
 			{
