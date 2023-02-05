@@ -637,11 +637,11 @@ static void r_shadow_shutdown(void)
 		Mem_Free(r_shadow_scenelightlist);
 	r_shadow_scenelightlist = NULL;
 	r_shadow_bouncegrid_state.highpixels = NULL;
-	if (r_shadow_bouncegrid_state.blurpixels[0]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]); r_shadow_bouncegrid_state.blurpixels[0] = NULL;
-	if (r_shadow_bouncegrid_state.blurpixels[1]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]); r_shadow_bouncegrid_state.blurpixels[1] = NULL;
-	if (r_shadow_bouncegrid_state.u8pixels) Mem_Free(r_shadow_bouncegrid_state.u8pixels); r_shadow_bouncegrid_state.u8pixels = NULL;
-	if (r_shadow_bouncegrid_state.fp16pixels) Mem_Free(r_shadow_bouncegrid_state.fp16pixels); r_shadow_bouncegrid_state.fp16pixels = NULL;
-	if (r_shadow_bouncegrid_state.splatpaths) Mem_Free(r_shadow_bouncegrid_state.splatpaths); r_shadow_bouncegrid_state.splatpaths = NULL;
+	if (r_shadow_bouncegrid_state.blurpixels[0]) { Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]); r_shadow_bouncegrid_state.blurpixels[0] = NULL; }
+	if (r_shadow_bouncegrid_state.blurpixels[1]) { Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]); r_shadow_bouncegrid_state.blurpixels[1] = NULL; }
+	if (r_shadow_bouncegrid_state.u8pixels) { Mem_Free(r_shadow_bouncegrid_state.u8pixels); r_shadow_bouncegrid_state.u8pixels = NULL; }
+	if (r_shadow_bouncegrid_state.fp16pixels) { Mem_Free(r_shadow_bouncegrid_state.fp16pixels); r_shadow_bouncegrid_state.fp16pixels = NULL; }
+	if (r_shadow_bouncegrid_state.splatpaths) { Mem_Free(r_shadow_bouncegrid_state.splatpaths); r_shadow_bouncegrid_state.splatpaths = NULL; }
 	r_shadow_bouncegrid_state.maxsplatpaths = 0;
 	memset(&r_shadow_bouncegrid_state, 0, sizeof(r_shadow_bouncegrid_state));
 	r_shadow_attenuationgradienttexture = NULL;
@@ -3489,11 +3489,11 @@ void R_Shadow_UpdateBounceGridTexture(void)
 			r_shadow_bouncegrid_state.texture = NULL;
 		}
 		r_shadow_bouncegrid_state.highpixels = NULL;
-		if (r_shadow_bouncegrid_state.blurpixels[0]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]); r_shadow_bouncegrid_state.blurpixels[0] = NULL;
-		if (r_shadow_bouncegrid_state.blurpixels[1]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]); r_shadow_bouncegrid_state.blurpixels[1] = NULL;
-		if (r_shadow_bouncegrid_state.u8pixels) Mem_Free(r_shadow_bouncegrid_state.u8pixels); r_shadow_bouncegrid_state.u8pixels = NULL;
-		if (r_shadow_bouncegrid_state.fp16pixels) Mem_Free(r_shadow_bouncegrid_state.fp16pixels); r_shadow_bouncegrid_state.fp16pixels = NULL;
-		if (r_shadow_bouncegrid_state.splatpaths) Mem_Free(r_shadow_bouncegrid_state.splatpaths); r_shadow_bouncegrid_state.splatpaths = NULL;
+		if (r_shadow_bouncegrid_state.blurpixels[0]) { Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]); r_shadow_bouncegrid_state.blurpixels[0] = NULL; }
+		if (r_shadow_bouncegrid_state.blurpixels[1]) { Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]); r_shadow_bouncegrid_state.blurpixels[1] = NULL; }
+		if (r_shadow_bouncegrid_state.u8pixels) { Mem_Free(r_shadow_bouncegrid_state.u8pixels); r_shadow_bouncegrid_state.u8pixels = NULL; }
+		if (r_shadow_bouncegrid_state.fp16pixels) { Mem_Free(r_shadow_bouncegrid_state.fp16pixels); r_shadow_bouncegrid_state.fp16pixels = NULL; }
+		if (r_shadow_bouncegrid_state.splatpaths) { Mem_Free(r_shadow_bouncegrid_state.splatpaths); r_shadow_bouncegrid_state.splatpaths = NULL; }
 		r_shadow_bouncegrid_state.maxsplatpaths = 0;
 		r_shadow_bouncegrid_state.numpixels = 0;
 		r_shadow_bouncegrid_state.directional = false;
@@ -3541,11 +3541,11 @@ void R_Shadow_UpdateBounceGridTexture(void)
 	if (settings.staticmode)
 	{
 		r_shadow_bouncegrid_state.highpixels = NULL;
-		if (r_shadow_bouncegrid_state.blurpixels[0]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]); r_shadow_bouncegrid_state.blurpixels[0] = NULL;
-		if (r_shadow_bouncegrid_state.blurpixels[1]) Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]); r_shadow_bouncegrid_state.blurpixels[1] = NULL;
-		if (r_shadow_bouncegrid_state.u8pixels) Mem_Free(r_shadow_bouncegrid_state.u8pixels); r_shadow_bouncegrid_state.u8pixels = NULL;
-		if (r_shadow_bouncegrid_state.fp16pixels) Mem_Free(r_shadow_bouncegrid_state.fp16pixels); r_shadow_bouncegrid_state.fp16pixels = NULL;
-		if (r_shadow_bouncegrid_state.splatpaths) Mem_Free(r_shadow_bouncegrid_state.splatpaths); r_shadow_bouncegrid_state.splatpaths = NULL;
+		if (r_shadow_bouncegrid_state.blurpixels[0]) { Mem_Free(r_shadow_bouncegrid_state.blurpixels[0]); r_shadow_bouncegrid_state.blurpixels[0] = NULL; }
+		if (r_shadow_bouncegrid_state.blurpixels[1]) { Mem_Free(r_shadow_bouncegrid_state.blurpixels[1]); r_shadow_bouncegrid_state.blurpixels[1] = NULL; }
+		if (r_shadow_bouncegrid_state.u8pixels) { Mem_Free(r_shadow_bouncegrid_state.u8pixels); r_shadow_bouncegrid_state.u8pixels = NULL; }
+		if (r_shadow_bouncegrid_state.fp16pixels) { Mem_Free(r_shadow_bouncegrid_state.fp16pixels); r_shadow_bouncegrid_state.fp16pixels = NULL; }
+		if (r_shadow_bouncegrid_state.splatpaths) { Mem_Free(r_shadow_bouncegrid_state.splatpaths); r_shadow_bouncegrid_state.splatpaths = NULL; }
 		r_shadow_bouncegrid_state.maxsplatpaths = 0;
 	}
 }
@@ -7438,7 +7438,7 @@ void R_LightPoint(float *color, const vec3_t p, const int flags)
 	}
 }
 
-void R_CompleteLightPoint(vec3_t ambient, vec3_t diffuse, vec3_t lightdir, const vec3_t p, const int flags)
+void R_CompleteLightPoint(float *ambient, float *diffuse, float *lightdir, const vec3_t p, const int flags)
 {
 	int i, numlights, flag;
 	rtlight_t *light;
