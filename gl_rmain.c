@@ -6609,7 +6609,7 @@ void R_CalcBeam_Vertex3f (float *vert, const float *org1, const float *org2, flo
 	vert[11] = org2[2] + width * right2[2];
 }
 
-void R_CalcSprite_Vertex3f(float *vertex3f, const vec3_t origin, const vec3_t left, const vec3_t up, float scalex1, float scalex2, float scaley1, float scaley2)
+void R_CalcSprite_Vertex3f(float *vertex3f, const float *origin, const float *left, const float *up, float scalex1, float scalex2, float scaley1, float scaley2)
 {
 	vertex3f[ 0] = origin[0] + left[0] * scalex2 + up[0] * scaley1;
 	vertex3f[ 1] = origin[1] + left[1] * scalex2 + up[1] * scaley1;
@@ -7708,7 +7708,7 @@ void RSurf_ActiveCustomEntity(const matrix4x4_t *matrix, const matrix4x4_t *inve
 	}
 }
 
-float RSurf_FogPoint(const float *v)
+float RSurf_FogPoint(const vec3_t v)
 {
 	// this code is identical to the USEFOGINSIDE/USEFOGOUTSIDE code in the shader
 	float FogPlaneViewDist = r_refdef.fogplaneviewdist;
@@ -7724,7 +7724,7 @@ float RSurf_FogPoint(const float *v)
 	return r_refdef.fogmasktable[min(fogmasktableindex, FOGMASKTABLEWIDTH - 1)];
 }
 
-float RSurf_FogVertex(const float *v)
+float RSurf_FogVertex(const vec3_t v)
 {
 	// this code is identical to the USEFOGINSIDE/USEFOGOUTSIDE code in the shader
 	float FogPlaneViewDist = rsurface.fogplaneviewdist;
