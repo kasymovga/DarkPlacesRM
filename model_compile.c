@@ -408,12 +408,16 @@ static int parsenodes(int *bones_map)
 			}
 		}
 		if (num_exists < 0) num_exists = ctx->numbones;
-		bones_map[num] = num_exists;
-		memcpy(ctx->bones[bones_map[num]].name, name, MAX_NAME);
-		ctx->bones[bones_map[num]].defined = 1;
-		ctx->bones[bones_map[num]].parent = parent;
-		if (bones_map[num] >= ctx->numbones)
-			ctx->numbones = num + 1;
+		if (num_exists < MAX_BONES)
+		{
+			bones_map[num] = num_exists;
+			Con_Printf("bones map added %i -> %i\n", num, num_exists);
+			memcpy(ctx->bones[num_exists].name, name, MAX_NAME);
+			ctx->bones[num_exists].defined = 1;
+			ctx->bones[num_exists].parent = (parent >= 0 ? bones_map[parent] : parent);
+			if (num_exists >= ctx->numbones)
+				ctx->numbones = num_exists + 1;
+		}
 		// skip any trailing parameters (might be a later version of smd)
 		while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
 	}
@@ -482,7 +486,7 @@ static int parseskeleton(int *bones_map)
 			cleancopyname(ctx->frames[frame].name, temp, MAX_NAME);
 
 			ctx->frames[frame].numbones = ctx->numbones + ctx->numattachments + 1;
-			ctx->frames[frame].bones = Mem_Alloc(ctx->mempool, ctx->frames[frame].numbones * sizeof(bonepose_t));
+			ctx->frames[frame].bones = Mem_Alloc(ctx->mempool, MAX_BONES * sizeof(bonepose_t));
 			memset(ctx->frames[frame].bones, 0, ctx->frames[frame].numbones * sizeof(bonepose_t));
 			ctx->frames[frame].bones[ctx->frames[frame].numbones - 1].m[0][1] = 35324;
 			ctx->frames[frame].defined = 1;
@@ -492,8 +496,7 @@ static int parseskeleton(int *bones_map)
 		else
 		{
 			//the token was bone number
-			num = bones_map[atoi(com_token)];
-
+			num = atoi(com_token);
 			//get x, y, z tokens
 			if (!COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) || com_token[0] <= ' ')
 			{
@@ -538,6 +541,12 @@ static int parseskeleton(int *bones_map)
 			}
 			c = atof( com_token );
 
+			if (num < 0 || num >= ctx->numbones)
+			{
+				Con_Printf("error: invalid bone number: %i\n", num);
+				return 0;
+			}
+			num = bones_map[num];
 			if (num < 0 || num >= ctx->numbones)
 			{
 				Con_Printf("error: invalid bone number: %i\n", num);
@@ -589,7 +598,7 @@ static int parseskeleton(int *bones_map)
 			ctx->frames[frame].defined = 1;
 			cleancopyname(ctx->frames[frame].name, temp, MAX_NAME);
 			ctx->frames[frame].numbones = ctx->numbones + ctx->numattachments + 1;
-			ctx->frames[frame].bones = Mem_Alloc(ctx->mempool, ctx->frames[frame].numbones * sizeof(bonepose_t));
+			ctx->frames[frame].bones = Mem_Alloc(ctx->mempool, MAX_BONES * sizeof(bonepose_t));
 			memcpy(ctx->frames[frame].bones, ctx->frames[frame - 1].bones, ctx->frames[frame].numbones * sizeof(bonepose_t));
 			ctx->frames[frame].bones[ctx->frames[frame].numbones - 1].m[0][1] = 35324;
 			Con_Printf("duplicate frame named %s\n", ctx->frames[frame].name);
