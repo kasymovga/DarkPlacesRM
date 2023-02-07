@@ -411,7 +411,6 @@ static int parsenodes(int *bones_map)
 		if (num_exists < MAX_BONES)
 		{
 			bones_map[num] = num_exists;
-			Con_Printf("bones map added %i -> %i\n", num, num_exists);
 			memcpy(ctx->bones[num_exists].name, name, MAX_NAME);
 			ctx->bones[num_exists].defined = 1;
 			ctx->bones[num_exists].parent = (parent >= 0 ? bones_map[parent] : parent);
