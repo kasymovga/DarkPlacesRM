@@ -115,8 +115,8 @@ typedef struct ctx_s {
 	const char *scriptbytes;
 	float scene_fps;
 	int scene_looping;
-	float scene_suborigin[3];
-	float scene_subrotate;
+	double scene_suborigin[3];
+	double scene_subrotate;
 	mempool_t *mempool;
 	const char *workdir_name;
 	const char *model_path;
@@ -484,10 +484,10 @@ static int parseskeleton(int *bones_map)
 			}
 			cleancopyname(ctx->frames[frame].name, temp, MAX_NAME);
 
-			ctx->frames[frame].numbones = ctx->numbones + ctx->numattachments + 1;
+			ctx->frames[frame].numbones = ctx->numbones;
 			ctx->frames[frame].bones = Mem_Alloc(ctx->mempool, MAX_BONES * sizeof(bonepose_t));
-			memset(ctx->frames[frame].bones, 0, ctx->frames[frame].numbones * sizeof(bonepose_t));
-			ctx->frames[frame].bones[ctx->frames[frame].numbones - 1].m[0][1] = 35324;
+			memset(ctx->frames[frame].bones, 0, MAX_BONES * sizeof(bonepose_t));
+			ctx->frames[frame].bones[ctx->frames[frame].numbones - 1].m[0][1] = 1;
 			ctx->frames[frame].defined = 1;
 			if (ctx->numframes < frame + 1)
 				ctx->numframes = frame + 1;
@@ -596,10 +596,10 @@ static int parseskeleton(int *bones_map)
 			Con_Printf("frame %s missing, duplicating previous frame %s with new name %s\n", temp, ctx->frames[frame - 1].name, temp);
 			ctx->frames[frame].defined = 1;
 			cleancopyname(ctx->frames[frame].name, temp, MAX_NAME);
-			ctx->frames[frame].numbones = ctx->numbones + ctx->numattachments + 1;
+			ctx->frames[frame].numbones = ctx->numbones;
 			ctx->frames[frame].bones = Mem_Alloc(ctx->mempool, MAX_BONES * sizeof(bonepose_t));
 			memcpy(ctx->frames[frame].bones, ctx->frames[frame - 1].bones, ctx->frames[frame].numbones * sizeof(bonepose_t));
-			ctx->frames[frame].bones[ctx->frames[frame].numbones - 1].m[0][1] = 35324;
+			ctx->frames[frame].bones[ctx->frames[frame].numbones - 1].m[0][1] = 1;
 			Con_Printf("duplicate frame named %s\n", ctx->frames[frame].name);
 		}
 		if (frame >= baseframe && ctx->headerfile)
@@ -644,7 +644,7 @@ int sentinelcheckframes(char *filename, int fileline)
 	{
 		if (ctx->frames[i].defined && ctx->frames[i].bones)
 		{
-			if (ctx->frames[i].bones[ctx->frames[i].numbones - 1].m[0][1] != 35324)
+			if (ctx->frames[i].bones[ctx->frames[i].numbones - 1].m[0][1] != 1)
 			{
 				Con_Printf("sentinelcheckframes: error on frame %s detected at %s:%i\n", ctx->frames[i].name, filename, fileline);
 				exit(1);
@@ -1005,6 +1005,11 @@ static int addattachments(void)
 	//sentinelcheckframes(__FILE__, __LINE__);
 	for (i = 0;i < ctx->numattachments;i++)
 	{
+		if (ctx->numbones >= MAX_BONES)
+		{
+			Con_Printf("addattachments: too much bones\n");
+			return 0;
+		}
 		ctx->bones[ctx->numbones].defined = 1;
 		ctx->bones[ctx->numbones].parent = -1;
 		ctx->bones[ctx->numbones].flags = DPMBONEFLAG_ATTACH;
@@ -1017,7 +1022,10 @@ static int addattachments(void)
 		// we have to duplicate the attachment in every frame
 		//sentinelcheckframes(__FILE__, __LINE__);
 		for (j = 0;j < ctx->numframes;j++)
+		{
 			ctx->frames[j].bones[ctx->numbones] = ctx->attachments[i].matrix;
+			ctx->frames[j].numbones = ctx->numbones + 1;
+		}
 		//sentinelcheckframes(__FILE__, __LINE__);
 		ctx->numbones++;
 	}
