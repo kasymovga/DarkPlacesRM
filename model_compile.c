@@ -42,9 +42,9 @@
 #define DPMBONEFLAG_ATTACH 1
 
 #if 1
-#define EPSILON_VERTEX 0.1
-#define EPSILON_NORMAL 0.001
-#define EPSILON_TEXCOORD 0.0001
+#define EPSILON_VERTEX 0.001
+#define EPSILON_NORMAL 1
+#define EPSILON_TEXCOORD 0.001
 #else
 #define EPSILON_VERTEX 0
 #define EPSILON_NORMAL 0
@@ -881,7 +881,6 @@ static int parsetriangles(void)
 			for (i = 0;i < ctx->numverts;i++)
 			{
 				if (ctx->vertices[i].shadernum != ctx->triangles[ctx->numtriangles].shadernum
-					|| ctx->vertices[i].numinfluences != numinfluences
 					|| VectorDistance(ctx->vertices[i].originalorigin, org) > EPSILON_VERTEX
 					|| VectorDistance(ctx->vertices[i].originalnormal, normal) > EPSILON_NORMAL
 					|| VectorDistance2D(ctx->vertices[i].texcoord, vtexcoord) > EPSILON_TEXCOORD)
