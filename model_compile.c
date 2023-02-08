@@ -560,7 +560,7 @@ static int parseskeleton(int *bones_map)
 			{
 				x += ctx->scene_suborigin[0] / ctx->modelscale;
 				y += ctx->scene_suborigin[1] / ctx->modelscale;
-				z += ctx->scene_suborigin[2] / ctx->modelscale;
+				z -= ctx->scene_suborigin[2] / ctx->modelscale;
 				c += (ctx->scene_subrotate / 180) * M_PI;
 			}
 			// LordHavoc: compute matrix
