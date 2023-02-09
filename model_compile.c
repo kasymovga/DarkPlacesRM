@@ -412,8 +412,11 @@ static int parsenodes(int *bones_map)
 		{
 			bones_map[num] = num_exists;
 			memcpy(ctx->bones[num_exists].name, name, MAX_NAME);
-			ctx->bones[num_exists].defined = 1;
-			ctx->bones[num_exists].parent = (parent >= 0 ? bones_map[parent] : parent);
+			if (!ctx->bones[num_exists].defined)
+			{
+				ctx->bones[num_exists].defined = 1;
+				ctx->bones[num_exists].parent = (parent >= 0 ? bones_map[parent] : -1);
+			}
 			if (num_exists >= ctx->numbones)
 				ctx->numbones = num_exists + 1;
 		}
