@@ -2437,7 +2437,6 @@ void NetConn_QueryQueueFrame(void)
 	if (query_masters_next_frame_qw || query_masters_next_frame_dp)
 	{
 		NetConn_QueryMasters(query_masters_next_frame_dp, query_masters_next_frame_qw);
-		query_masters_next_frame_dp = query_masters_next_frame_qw = false;
 	}
 
 	if(!net_slist_pause.integer && serverlist_paused)
@@ -3894,6 +3893,7 @@ void NetConn_QueryMasters(qboolean querydp, qboolean queryqw)
 		query_masters_next_frame_qw = queryqw;
 		return;
 	}
+	query_masters_next_frame_dp = query_masters_next_frame_qw = false;
 
 	if (serverlist_cachecount >= SERVERLIST_TOTALSIZE)
 		return;
