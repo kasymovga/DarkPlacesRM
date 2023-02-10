@@ -150,9 +150,9 @@ static int match_op(const unsigned char *re, const unsigned char *s,
                 FAIL_IF(!isxdigit(*(++s)), SLRE_NO_MATCH); result++;
                 FAIL_IF(!isxdigit(*(++s)), SLRE_NO_MATCH); result++;
                 FAIL_IF(!isxdigit(*(++s)), SLRE_NO_MATCH); result++;
-            } else
+            } else {
                 FAIL_IF(!isdigit(*s), SLRE_NO_MATCH); result++;
-
+            }
             break;
         }
 
