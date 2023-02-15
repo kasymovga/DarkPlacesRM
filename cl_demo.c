@@ -304,12 +304,22 @@ void CL_ReadDemoMessage(void)
 		}
 
 		// get the next message
-		FS_Read(cls.demofile, &cl_message.cursize, 4);
+		if (FS_Read(cls.demofile, &cl_message.cursize, 4) < 4)
+		{
+			Con_Printf("CL_ReadDemoMessage: FS_Read failed\n");
+			CL_Disconnect();
+			return;
+		}
 		cl_message.cursize = LittleLong(cl_message.cursize);
 		if(cl_message.cursize & DEMOMSG_CLIENT_TO_SERVER) // This is a client->server message! Ignore for now!
 		{
 			// skip over demo packet
-			FS_Seek(cls.demofile, 12 + (cl_message.cursize & (~DEMOMSG_CLIENT_TO_SERVER)), SEEK_CUR);
+			if (FS_Seek(cls.demofile, 12 + (cl_message.cursize & (~DEMOMSG_CLIENT_TO_SERVER)), SEEK_CUR))
+			{
+				Con_Printf("CL_ReadDemoMessage: FS_Seek failed\n");
+				CL_Disconnect();
+				return;
+			}
 			continue;
 		}
 		if (cl_message.cursize > cl_message.maxsize)
@@ -322,7 +332,11 @@ void CL_ReadDemoMessage(void)
 		VectorCopy(cl.mviewangles[0], cl.mviewangles[1]);
 		for (i = 0;i < 3;i++)
 		{
-			FS_Read(cls.demofile, &f, 4);
+			if (FS_Read(cls.demofile, &f, 4) < 4)
+			{
+				Con_Printf("CL_ReadDemoMessage: FS_Read failed\n");
+				CL_Disconnect();
+			}
 			cl.mviewangles[0][i] = LittleFloat(f);
 		}
 
@@ -343,6 +357,7 @@ void CL_ReadDemoMessage(void)
 		}
 		else
 		{
+			Con_Printf("CL_ReadDemoMessage: FS_Read failed\n");
 			CL_Disconnect();
 			return;
 		}
