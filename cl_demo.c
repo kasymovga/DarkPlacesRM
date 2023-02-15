@@ -50,9 +50,12 @@ read from the demo file.
 
 static void Demo_FS_Close (void)
 {
-	Con_Printf("Flushing demo buffer into file...\n");
-	FS_Write(cls.demofile, demo_buffer, demo_buffer_length);
-	demo_buffer_length = 0;
+	if (demo_buffer_length)
+	{
+		Con_Printf("Flushing demo buffer into file...\n");
+		FS_Write(cls.demofile, demo_buffer, demo_buffer_length);
+		demo_buffer_length = 0;
+	}
 	FS_Close (cls.demofile);
 }
 
