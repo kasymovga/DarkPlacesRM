@@ -91,7 +91,7 @@ static void Mod_SpriteSetupTexture(texture_t *texture, skinframe_t *skinframe, q
 
 extern cvar_t gl_texturecompression_sprites;
 
-static void Mod_Sprite_SharedSetup(const unsigned char *datapointer, int version, const unsigned int *palette, qboolean additive)
+static void Mod_Sprite_SharedSetup(dp_model_t *loadmodel, const unsigned char *datapointer, int version, const unsigned int *palette, qboolean additive)
 {
 	int					i, j, groupframes, realframes, x, y, origin[2], width, height;
 	qboolean			fullbright;
@@ -270,7 +270,7 @@ static void Mod_Sprite_SharedSetup(const unsigned char *datapointer, int version
 }
 #endif
 
-void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_IDSP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	int version;
 	const unsigned char *datapointer;
@@ -301,7 +301,7 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->sprite.sprnum_type = LittleLong (pinqsprite->type);
 		loadmodel->synctype = (synctype_t)LittleLong (pinqsprite->synctype);
 		#ifndef CONFIG_SV
-		Mod_Sprite_SharedSetup(datapointer, LittleLong (pinqsprite->version), NULL, false);
+		Mod_Sprite_SharedSetup(loadmodel, datapointer, LittleLong (pinqsprite->version), NULL, false);
 		#endif
 	}
 	else if (version == SPRITEHL_VERSION)
@@ -373,7 +373,7 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			return;
 		}
 		#ifndef CONFIG_SV
-		Mod_Sprite_SharedSetup(datapointer, LittleLong (pinhlsprite->version), (unsigned int *)(&palette[0][0]), rendermode == SPRHL_ADDITIVE);
+		Mod_Sprite_SharedSetup(loadmodel, datapointer, LittleLong (pinhlsprite->version), (unsigned int *)(&palette[0][0]), rendermode == SPRHL_ADDITIVE);
 		#endif
 	}
 	else
@@ -387,7 +387,7 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend)
 }
 
 
-void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_IDS2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	int i, version;
 	const dsprite2_t *pinqsprite;

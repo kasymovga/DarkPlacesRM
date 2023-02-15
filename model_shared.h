@@ -1084,7 +1084,6 @@ dp_model_t;
 //============================================================================
 
 // model loading
-extern dp_model_t *loadmodel;
 extern unsigned char *mod_base;
 // sky/water subdivision
 //extern cvar_t gl_subdivide_size;
@@ -1107,7 +1106,6 @@ void Mod_ClearUsed(void);
 void Mod_PurgeUnused(void);
 void Mod_RemoveStaleWorldModels(dp_model_t *skip); // only used during loading!
 
-extern dp_model_t *loadmodel;
 extern char loadname[32];	// for hunk tags
 
 int Mod_BuildVertexRemapTableFromElements(int numelements, const int *elements, int numvertices, int *remapvertices);
@@ -1163,7 +1161,7 @@ skinfile_t;
 skinfile_t *Mod_LoadSkinFiles(void);
 void Mod_FreeSkinFiles(skinfile_t *skinfile);
 int Mod_CountSkinFiles(skinfile_t *skinfile);
-void Mod_BuildAliasSkinsFromSkinFiles(texture_t *skin, skinfile_t *skinfile, const char *meshname, const char *shadername);
+void Mod_BuildAliasSkinsFromSkinFiles(dp_model_t *loadmodel, texture_t *skin, skinfile_t *skinfile, const char *meshname, const char *shadername);
 
 void Mod_SnapVertices(int numcomponents, int numvertices, float *vertices, float snap);
 int Mod_RemoveDegenerateTriangles(int numtriangles, const int *inelement3i, int *outelement3i, const float *vertex3f);

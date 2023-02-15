@@ -607,7 +607,7 @@ int Mod_Alias_GetTagIndexForName(const dp_model_t *model, unsigned int skin, con
 	return 0;
 }
 
-static void Mod_BuildBaseBonePoses(void)
+static void Mod_BuildBaseBonePoses(dp_model_t *loadmodel)
 {
 	int boneindex;
 	matrix4x4_t *basebonepose;
@@ -632,7 +632,7 @@ static void Mod_BuildBaseBonePoses(void)
 	Mem_Free(basebonepose);
 }
 
-static qboolean Mod_Alias_CalculateBoundingBox(void)
+static qboolean Mod_Alias_CalculateBoundingBox(dp_model_t *loadmodel)
 {
 	int vnum;
 	qboolean firstvertex = true;
@@ -733,7 +733,7 @@ static qboolean Mod_Alias_CalculateBoundingBox(void)
 	return isanimated;
 }
 
-static void Mod_Alias_MorphMesh_CompileFrames(void)
+static void Mod_Alias_MorphMesh_CompileFrames(dp_model_t *loadmodel)
 {
 	int i, j;
 	frameblend_t frameblend[MAX_FRAMEBLENDS];
@@ -849,7 +849,7 @@ static void Mod_ConvertAliasVerts (int inverts, trivertx_t *v, trivertx_t *out, 
 	}
 }
 
-static void Mod_MDL_LoadFrames (unsigned char* datapointer, int inverts, int *vertremap)
+static void Mod_MDL_LoadFrames (dp_model_t *loadmodel, unsigned char* datapointer, int inverts, int *vertremap)
 {
 	int i, f, pose, groupframes;
 	float interval;
@@ -951,7 +951,7 @@ static void Mod_BuildAliasSkinFromSkinFrame(texture_t *texture, skinframe_t *ski
 }
 #endif
 
-void Mod_BuildAliasSkinsFromSkinFiles(texture_t *skin, skinfile_t *skinfile, const char *meshname, const char *shadername)
+void Mod_BuildAliasSkinsFromSkinFiles(dp_model_t *loadmodel, texture_t *skin, skinfile_t *skinfile, const char *meshname, const char *shadername)
 {
 	int i;
 	char stripbuf[MAX_QPATH];
@@ -1004,7 +1004,7 @@ void Mod_BuildAliasSkinsFromSkinFiles(texture_t *skin, skinfile_t *skinfile, con
 
 #define BOUNDI(VALUE,MIN,MAX) if (VALUE < MIN || VALUE >= MAX) MODEL_LOAD_ERROR("invalid ##VALUE (%d exceeds %d - %d)", VALUE, MIN, MAX);
 #define BOUNDF(VALUE,MIN,MAX) if (VALUE < MIN || VALUE >= MAX) MODEL_LOAD_ERROR("invalid ##VALUE (%f exceeds %f - %f)", VALUE, MIN, MAX);
-static void Mod_ForceAnimate(void)
+static void Mod_ForceAnimate(dp_model_t *loadmodel)
 {
 	Cvar_LockThreadMutex();
 	if(mod_alias_force_animated.string[0])
@@ -1013,7 +1013,7 @@ static void Mod_ForceAnimate(void)
 	Cvar_UnlockThreadMutex();
 }
 
-void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_IDP0_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	int i, j, version, totalskins, skinwidth, skinheight, groupframes, groupskins, numverts;
 	float scales, scalet, interval;
@@ -1236,11 +1236,11 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->surfmesh.data_neighbor3i = (int *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_triangles * sizeof(int[3]));
 	}
 	#endif
-	Mod_MDL_LoadFrames (startframes, numverts, vertremap);
+	Mod_MDL_LoadFrames (loadmodel, startframes, numverts, vertremap);
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
-	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
-	Mod_Alias_MorphMesh_CompileFrames();
+	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
+	Mod_Alias_MorphMesh_CompileFrames(loadmodel);
 
 	Mem_Free(vertst);
 	Mem_Free(vertremap);
@@ -1253,7 +1253,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
 		loadmodel->num_texturesperskin = loadmodel->num_surfaces;
 		loadmodel->data_textures = (texture_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t));
-		Mod_BuildAliasSkinsFromSkinFiles(loadmodel->data_textures, skinfiles, "default", "");
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures, skinfiles, "default", "");
 		Mod_FreeSkinFiles(skinfiles);
 		for (i = 0;i < loadmodel->numskins;i++)
 		{
@@ -1364,7 +1364,7 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	surface->num_firstvertex = 0;
 	surface->num_vertices = loadmodel->surfmesh.num_vertices;
 
-	Mod_ForceAnimate();
+	Mod_ForceAnimate(loadmodel);
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -1381,14 +1381,14 @@ void Mod_IDP0_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			mod->DrawSky = R_Q1BSP_DrawSky;
+			loadmodel->DrawSky = R_Q1BSP_DrawSky;
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
+			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
 }
 
-void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_IDP2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	int i, j, hashindex, numxyz, numst, xyz, st, skinwidth, skinheight, *vertremap, version, end;
 	float iskinwidth, iskinheight;
@@ -1503,7 +1503,7 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
 		loadmodel->num_texturesperskin = loadmodel->num_surfaces;
 		loadmodel->data_textures = (texture_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t));
-		Mod_BuildAliasSkinsFromSkinFiles(loadmodel->data_textures, skinfiles, "default", "");
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures, skinfiles, "default", "");
 		Mod_FreeSkinFiles(skinfiles);
 	}
 	else if (loadmodel->numskins)
@@ -1641,9 +1641,9 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
-	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
-	Mod_Alias_MorphMesh_CompileFrames();
-	Mod_ForceAnimate();
+	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
+	Mod_Alias_MorphMesh_CompileFrames(loadmodel);
+	Mod_ForceAnimate(loadmodel);
 
 	surface = loadmodel->data_surfaces;
 	surface->texture = loadmodel->data_textures;
@@ -1667,14 +1667,14 @@ void Mod_IDP2_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			mod->DrawSky = R_Q1BSP_DrawSky;
+			loadmodel->DrawSky = R_Q1BSP_DrawSky;
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
+			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
 }
 
-void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_IDP3_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	int i, j, k, version, meshvertices, meshtriangles;
 	unsigned char *data;
@@ -1841,7 +1841,7 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			}
 		}
 
-		Mod_BuildAliasSkinsFromSkinFiles(loadmodel->data_textures + i, skinfiles, pinmesh->name, LittleLong(pinmesh->num_shaders) >= 1 ? ((md3shader_t *)((unsigned char *) pinmesh + LittleLong(pinmesh->lump_shaders)))->name : "");
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + i, skinfiles, pinmesh->name, LittleLong(pinmesh->num_shaders) >= 1 ? ((md3shader_t *)((unsigned char *) pinmesh + LittleLong(pinmesh->lump_shaders)))->name : "");
 
 		Mod_ValidateElements(loadmodel->surfmesh.data_element3i + surface->num_firsttriangle * 3, surface->num_triangles, surface->num_firstvertex, surface->num_vertices, __FILE__, __LINE__);
 	}
@@ -1850,11 +1850,11 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 			loadmodel->surfmesh.data_element3s[i] = loadmodel->surfmesh.data_element3i[i];
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
-	Mod_Alias_MorphMesh_CompileFrames();
-	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
+	Mod_Alias_MorphMesh_CompileFrames(loadmodel);
+	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
 	Mod_FreeSkinFiles(skinfiles);
 	Mod_MakeSortedSurfaces(loadmodel);
-	Mod_ForceAnimate();
+	Mod_ForceAnimate(loadmodel);
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -1871,14 +1871,14 @@ void Mod_IDP3_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			mod->DrawSky = R_Q1BSP_DrawSky;
+			loadmodel->DrawSky = R_Q1BSP_DrawSky;
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
+			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
 }
 
-void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_ZYMOTICMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	zymtype1header_t *pinmodel, *pheader;
 	unsigned char *pbase;
@@ -2244,7 +2244,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		// since zym models do not have named sections, reuse their shader
 		// name as the section name
 		shadername = (char *) (pheader->lump_shaders.start + pbase) + i * 32;
-		Mod_BuildAliasSkinsFromSkinFiles(loadmodel->data_textures + i, skinfiles, shadername, shadername);
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + i, skinfiles, shadername, shadername);
 	}
 	Mod_FreeSkinFiles(skinfiles);
 	Mem_Free(vertbonecounts);
@@ -2256,13 +2256,13 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		for (i = 0;i < loadmodel->surfmesh.num_triangles*3;i++)
 			loadmodel->surfmesh.data_element3s[i] = loadmodel->surfmesh.data_element3i[i];
 	Mod_ValidateElements(loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles, 0, loadmodel->surfmesh.num_vertices, __FILE__, __LINE__);
-	Mod_BuildBaseBonePoses();
+	Mod_BuildBaseBonePoses(loadmodel);
 	Mod_BuildNormals(0, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->surfmesh.data_vertex3f, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.data_normal3f, r_smoothnormals_areaweighting.integer != 0);
 	Mod_BuildTextureVectorsFromNormals(0, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->surfmesh.data_vertex3f, loadmodel->surfmesh.data_texcoordtexture2f, loadmodel->surfmesh.data_normal3f, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.data_svector3f, loadmodel->surfmesh.data_tvector3f, r_smoothnormals_areaweighting.integer != 0);
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
-	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
-	Mod_ForceAnimate();
+	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
+	Mod_ForceAnimate(loadmodel);
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -2279,14 +2279,14 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			mod->DrawSky = R_Q1BSP_DrawSky;
+			loadmodel->DrawSky = R_Q1BSP_DrawSky;
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
+			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
 }
 
-void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_DARKPLACESMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	dpmheader_t *pheader;
 	dpmframe_t *frames;
@@ -2649,7 +2649,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		}
 
 		// since dpm models do not have named sections, reuse their shader name as the section name
-		Mod_BuildAliasSkinsFromSkinFiles(loadmodel->data_textures + i, skinfiles, dpmmesh->shadername, dpmmesh->shadername);
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + i, skinfiles, dpmmesh->shadername, dpmmesh->shadername);
 
 		Mod_ValidateElements(loadmodel->surfmesh.data_element3i + surface->num_firsttriangle * 3, surface->num_triangles, surface->num_firstvertex, surface->num_vertices, __FILE__, __LINE__);
 	}
@@ -2663,12 +2663,12 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	if (loadmodel->surfmesh.data_element3s)
 		for (i = 0;i < loadmodel->surfmesh.num_triangles*3;i++)
 			loadmodel->surfmesh.data_element3s[i] = loadmodel->surfmesh.data_element3i[i];
-	Mod_BuildBaseBonePoses();
+	Mod_BuildBaseBonePoses(loadmodel);
 	Mod_BuildTextureVectorsFromNormals(0, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->surfmesh.data_vertex3f, loadmodel->surfmesh.data_texcoordtexture2f, loadmodel->surfmesh.data_normal3f, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.data_svector3f, loadmodel->surfmesh.data_tvector3f, r_smoothnormals_areaweighting.integer != 0);
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
-	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
-	Mod_ForceAnimate();
+	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
+	Mod_ForceAnimate(loadmodel);
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -2684,16 +2684,16 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			mod->DrawSky = R_Q1BSP_DrawSky;
+			loadmodel->DrawSky = R_Q1BSP_DrawSky;
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
+			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
 }
 
 // no idea why PSK/PSA files contain weird quaternions but they do...
 #define PSKQUATNEGATIONS
-void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_PSKMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	int i, j, index, version, recordsize, numrecords, meshvertices, meshtriangles;
 	int numpnts, numvtxw, numfaces, nummatts, numbones, numrawweights, numanimbones, numanims, numanimkeys;
@@ -3141,7 +3141,7 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	for (index = 0, i = 0;index < nummatts;index++)
 	{
 		// since psk models do not have named sections, reuse their shader name as the section name
-		Mod_BuildAliasSkinsFromSkinFiles(loadmodel->data_textures + index, skinfiles, matts[index].name, matts[index].name);
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + index, skinfiles, matts[index].name, matts[index].name);
 		loadmodel->sortedmodelsurfaces[index] = index;
 		loadmodel->data_surfaces[index].texture = loadmodel->data_textures + index;
 		loadmodel->data_surfaces[index].num_firstvertex = 0;
@@ -3353,8 +3353,8 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	Mod_BuildTextureVectorsFromNormals(0, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->surfmesh.data_vertex3f, loadmodel->surfmesh.data_texcoordtexture2f, loadmodel->surfmesh.data_normal3f, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.data_svector3f, loadmodel->surfmesh.data_tvector3f, r_smoothnormals_areaweighting.integer != 0);
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
-	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox();
-	Mod_ForceAnimate();
+	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
+	Mod_ForceAnimate(loadmodel);
 
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -3371,14 +3371,14 @@ void Mod_PSKMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			mod->DrawSky = R_Q1BSP_DrawSky;
+			loadmodel->DrawSky = R_Q1BSP_DrawSky;
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
+			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
 }
 
-void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_INTERQUAKEMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	unsigned char *data;
 	const char *text;
@@ -3746,7 +3746,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	}
 
 	loadmodel->surfmesh.isanimated = loadmodel->num_bones > 1 || loadmodel->numframes > 1 || (loadmodel->animscenes && loadmodel->animscenes[0].framecount > 1);
-	Mod_ForceAnimate();
+	Mod_ForceAnimate(loadmodel);
 
 	biggestorigin = 0;
 	if (header.version == 1)
@@ -4111,7 +4111,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 		surface->num_firstvertex = mesh.first_vertex;
 		surface->num_vertices = mesh.num_vertexes;
 
-		Mod_BuildAliasSkinsFromSkinFiles(loadmodel->data_textures + i, skinfiles, &text[mesh.name], &text[mesh.material]);
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + i, skinfiles, &text[mesh.name], &text[mesh.material]);
 	}
 
 	Mod_FreeSkinFiles(skinfiles);
@@ -4128,7 +4128,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	if (!header.ofs_neighbors && loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	if (!header.ofs_bounds)
-		Mod_Alias_CalculateBoundingBox();
+		Mod_Alias_CalculateBoundingBox(loadmodel);
 
 	if (!loadmodel->surfmesh.isanimated && loadmodel->surfmesh.num_triangles >= 1)
 	{
@@ -4154,14 +4154,14 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	for (i = 0;i < loadmodel->num_textures;i++)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			mod->DrawSky = R_Q1BSP_DrawSky;
+			loadmodel->DrawSky = R_Q1BSP_DrawSky;
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
+			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
 }
 
-void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
+void Mod_SMD_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	char file_path[MAX_QPATH];
 	char dir_path[MAX_QPATH];
@@ -4183,21 +4183,21 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	float model_subrotate = 0;
 	float model_scale = 1;
 	mempool_t *mem;
-	strlcpy(file_path, mod->name, sizeof(file_path));
+	strlcpy(file_path, loadmodel->name, sizeof(file_path));
 	if ((c = strrchr(file_path, '.'))) c[0] = '\0';
-	strlcpy(dir_path, mod->name, sizeof(dir_path));
+	strlcpy(dir_path, loadmodel->name, sizeof(dir_path));
 	if ((c = strrchr(dir_path, '/'))) c[1] = '\0';
 	else dir_path[0] = '\0';
-	strlcpy(short_name, FS_FileWithoutPath(mod->name), sizeof(short_name));
+	strlcpy(short_name, FS_FileWithoutPath(loadmodel->name), sizeof(short_name));
 	if ((c = strrchr(short_name, '.'))) c[0] = '\0';
 	//SMD mesh
-	dpsnprintf(temp, sizeof(temp), "%s.opts", mod->name);
+	dpsnprintf(temp, sizeof(temp), "%s.opts", loadmodel->name);
 	mem = Mem_AllocPool("smd_load", 0, NULL);
 	if ((opts = (const char*)FS_LoadFile(temp, mem, FALSE, NULL)))
 		sscanf(opts, "%f %f %f %f %f", &model_scale, &model_rotate, &model_origin[0], &model_origin[1], &model_origin[2]);
 	Mem_FreePool(&mem);
 	dpsnprintf(script, sizeof(script),
-			"model %s\nscale %f\nrotate %f\norigin %f %f %f\nscene %s\n", short_name, model_scale, model_rotate, model_origin[0], model_origin[1], model_origin[2], FS_FileWithoutPath(mod->name));
+			"model %s\nscale %f\nrotate %f\norigin %f %f %f\nscene %s\n", short_name, model_scale, model_rotate, model_origin[0], model_origin[1], model_origin[2], FS_FileWithoutPath(loadmodel->name));
 	//SMD animation scenes
 	for (i = 1; i < 1000; i++)
 	{
@@ -4233,7 +4233,7 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	dpsnprintf(temp, sizeof(temp), "%s_compiled", file_path);
 	for (i = 0; i < 256; i++)
 	{
-		dpsnprintf(temp2, sizeof(temp2), "%s_%i.skin", mod->name, i);
+		dpsnprintf(temp2, sizeof(temp2), "%s_%i.skin", loadmodel->name, i);
 		mem = Mem_AllocPool("smd_load", 0, NULL);
 		skin = (const char*)FS_LoadFile(temp2, mem, FALSE, &skinsize);
 		if (skin)
@@ -4249,8 +4249,8 @@ void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend)
 	Mod_Compile_DPM_MD3(script, dir_path, temp);
 	//Model
 	dpsnprintf(temp, sizeof(temp), "%s_compiled.dpm", file_path);
-	strlcpy(temp2, mod->name, sizeof(temp2));
-	strlcpy(mod->name, temp, sizeof(mod->name));
-	Mod_LoadModel(mod, false, false);
-	strlcpy(mod->name, temp2, sizeof(mod->name));
+	strlcpy(temp2, loadmodel->name, sizeof(temp2));
+	strlcpy(loadmodel->name, temp, sizeof(loadmodel->name));
+	Mod_LoadModel(loadmodel, false, false);
+	strlcpy(loadmodel->name, temp2, sizeof(loadmodel->name));
 }
