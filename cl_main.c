@@ -1132,9 +1132,15 @@ static void CL_UpdateNetworkEntity(entity_t *e, int recursionlimit, qboolean int
 			// switch between them infrequently)
 			float maxdelta = cl_lerpanim_maxdelta_server.value;
 			if(e->render.model)
-			if(e->render.model->animscenes)
-			if(e->render.model->animscenes[e->render.framegroupblend[0].frame].framecount > 1 || e->render.model->animscenes[e->render.framegroupblend[1].frame].framecount > 1)
-				maxdelta = cl_lerpanim_maxdelta_framegroups.value;
+			{
+				if(e->render.model->animscenes)
+				{
+					if (e->render.framegroupblend[1].frame >= e->render.model->numframes) //sometimes it's happen. WHY?
+						e->render.framegroupblend[1].frame = frame;
+					if(e->render.model->animscenes[e->render.framegroupblend[0].frame].framecount > 1 || e->render.model->animscenes[e->render.framegroupblend[1].frame].framecount > 1)
+						maxdelta = cl_lerpanim_maxdelta_framegroups.value;
+				}
+			}
 			maxdelta = max(maxdelta, cl.mtime[0] - cl.mtime[1]);
 			e->render.framegroupblend[0].lerp = (cl.time - e->render.framegroupblend[0].start) / min(e->render.framegroupblend[0].start - e->render.framegroupblend[1].start, maxdelta);
 			e->render.framegroupblend[0].lerp = bound(0, e->render.framegroupblend[0].lerp, 1);
