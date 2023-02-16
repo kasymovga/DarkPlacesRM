@@ -10663,7 +10663,8 @@ static void R_DrawModelDecals_Entity(entity_render_t *ent)
 		if (!decal->color4f[0][3])
 			continue;
 
-		if (surfacevisible && !surfacevisible[decal->surfaceindex])
+		//sometimes surfaceindex is out of bounds. WHY?
+		if (surfacevisible && decal->surfaceindex < r_refdef.viewcache.world_numsurfaces && decal->surfaceindex >= 0 && !surfacevisible[decal->surfaceindex])
 			continue;
 
 		// skip backfaces
