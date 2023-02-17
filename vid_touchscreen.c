@@ -49,7 +49,6 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 	int finger;
 	float fx, fy, fwidth, fheight;
 	float rel[3];
-	float sqsum;
 	qboolean button = false;
 	qboolean check_dest = false;
 	char command_part[32];
@@ -114,16 +113,9 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 			if (multitouch[finger].state && ((multitouch[finger].start_x >= fx && multitouch[finger].start_y >= fy && multitouch[finger].start_x < fx + fwidth && multitouch[finger].start_y < fy + fheight && multitouch[finger].area_id < 0) || multitouch[finger].area_id == id))
 			{
 				multitouch[finger].area_id = id;
-				rel[0] = bound(-1, (multitouch[finger].x - multitouch[finger].start_x) * 32, 1);
-				rel[1] = bound(-1, (multitouch[finger].y - multitouch[finger].start_y) * 32, 1);
+				rel[0] = (multitouch[finger].x - multitouch[finger].start_x) * 32;
+				rel[1] = (multitouch[finger].y - multitouch[finger].start_y) * 32;
 				rel[2] = 0;
-
-				sqsum = rel[0]*rel[0] + rel[1]*rel[1];
-				if (sqsum > 1)
-				{
-					// ignore the third component
-					Vector2Normalize2(rel, rel);
-				}
 				button = true;
 				break;
 			}
