@@ -88,7 +88,7 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 		}
 	}
 	VectorClear(rel);
-	if (key_consoleactive & KEY_CONSOLEACTIVE_USER) {
+	if (key_consoleactive) {
 		check_dest = dest & 1;
 	} else {
 		if (key_dest == key_console)
