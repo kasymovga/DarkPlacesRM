@@ -2135,7 +2135,7 @@ Key_Event (int key, int ascii, qboolean down, qboolean skipbinds)
 	// handle toggleconsole in menu too
 	if (keydest == key_menu)
 	{
-		if (con_closeontoggleconsole.integer && bind && !strncmp(bind, "toggleconsole", strlen("toggleconsole")) && ascii != STRING_COLOR_TAG)
+		if (bind && !strncmp(bind, "toggleconsole", strlen("toggleconsole")) && ascii != STRING_COLOR_TAG)
 		{
 			if (!down)
 				Con_ToggleConsole_f ();
