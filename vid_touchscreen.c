@@ -27,6 +27,7 @@ void VID_TouchscreenDraw(void)
 	int i;
 	scr_touchscreenarea_t *a;
 	cachepic_t *pic;
+	if (!vid_touchscreen.integer) return;
 	for (i = 0, a = scr_touchscreenareas;i < scr_numtouchscreenareas;i++, a++)
 	{
 		if (vid_touchscreen_outlinealpha.value > 0 && a->rect[0] >= 0 && a->rect[1] >= 0 && a->rect[2] >= 4 && a->rect[3] >= 4)
