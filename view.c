@@ -75,6 +75,9 @@ cvar_t cl_followmodel_up_highpass = {CVAR_SAVE, "cl_followmodel_up_highpass", "2
 cvar_t cl_followmodel_up_lowpass = {CVAR_SAVE, "cl_followmodel_up_lowpass", "10", "gun following upward lowpass in 1/s"};
 
 cvar_t cl_viewmodel_scale = {0, "cl_viewmodel_scale", "1", "changes size of gun model, lower values prevent poking into walls but cause strange artifacts on lighting and especially r_stereo/vid_stereobuffer options where the size of the gun becomes visible"};
+cvar_t cl_viewmodel_ofsx = {0, "cl_viewmodel_ofsx", "0", "x origin of gun model"};
+cvar_t cl_viewmodel_ofsy = {0, "cl_viewmodel_ofsy", "0", "y origin of gun model"};
+cvar_t cl_viewmodel_ofsz = {0, "cl_viewmodel_ofsz", "0", "z origin of gun model"};
 
 cvar_t v_kicktime = {0, "v_kicktime", "0.5", "how long a view kick from damage lasts"};
 cvar_t v_kickroll = {0, "v_kickroll", "0.6", "how much a view kick from damage rolls your view"};
@@ -606,6 +609,8 @@ void V_CalcRefdefUsing (const matrix4x4_t *entrendermatrix, const vec3_t clviewa
 		{
 			// first person view from entity
 			// angles
+			vec3_t forward, right, up;
+			vec3_t gunorg_ofs;
 			if (cldead && v_deathtilt.integer)
 				viewangles[ROLL] = v_deathtiltangle.value;
 			VectorAdd(viewangles, cl.punchangle, viewangles);
@@ -723,12 +728,16 @@ void V_CalcRefdefUsing (const matrix4x4_t *entrendermatrix, const vec3_t clviewa
 					// that followmodel would work on the munged-by-bob vieworg and do feedback
 					gunorg[2] += bob;
 				}
-
+				// calculate the front and side of the player between the X and Y axes
+				AngleVectors(viewangles, forward, right, up);
+				VectorMAMAM(cl_viewmodel_ofsx.value, forward, cl_viewmodel_ofsy.value, right, cl_viewmodel_ofsz.value, up, gunorg_ofs);
+				gunorg[0] += gunorg_ofs[0];
+				gunorg[1] += gunorg_ofs[1];
+				gunorg[2] += gunorg_ofs[2];
 				// horizontal view bobbing code
 				if (cl_bob2.value && cl_bob2cycle.value)
 				{
 					vec3_t bob2vel;
-					vec3_t forward, right, up;
 					float side, front;
 
 					cycle = cl.time / cl_bob2cycle.value;
@@ -751,8 +760,6 @@ void V_CalcRefdefUsing (const matrix4x4_t *entrendermatrix, const vec3_t clviewa
 							cl.bob2_smooth = 0;
 					}
 
-					// calculate the front and side of the player between the X and Y axes
-					AngleVectors(viewangles, forward, right, up);
 					// now get the speed based on those angles. The bounds should match the same value as xyspeed's
 					side = bound(-cl_bob_velocity_limit.value, DotProduct (clvelocity, right) * cl.bob2_smooth, cl_bob_velocity_limit.value);
 					front = bound(-cl_bob_velocity_limit.value, DotProduct (clvelocity, forward) * cl.bob2_smooth, cl_bob_velocity_limit.value);
@@ -801,7 +808,6 @@ void V_CalcRefdefUsing (const matrix4x4_t *entrendermatrix, const vec3_t clviewa
 					// Sajt: I tried to smooth out the transitions between bob and no bob, which works
 					// for the most part, but for some reason when you go through a message trigger or
 					// pick up an item or anything like that it will momentarily jolt the gun.
-					vec3_t forward, right, up;
 					float bspeed;
 					float s;
 					float t;
@@ -1113,6 +1119,9 @@ void V_Init (void)
 	Cvar_RegisterVariable (&cl_followmodel_up_highpass);
 
 	Cvar_RegisterVariable (&cl_viewmodel_scale);
+	Cvar_RegisterVariable (&cl_viewmodel_ofsx);
+	Cvar_RegisterVariable (&cl_viewmodel_ofsy);
+	Cvar_RegisterVariable (&cl_viewmodel_ofsz);
 
 	Cvar_RegisterVariable (&v_kicktime);
 	Cvar_RegisterVariable (&v_kickroll);
