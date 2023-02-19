@@ -1701,8 +1701,6 @@ void *GL_GetProcAddress(const char *name)
 	return p;
 }
 
-static qboolean vid_sdl_initjoysticksystem = false;
-
 void VID_Init (void)
 {
 #ifndef __IPHONEOS__
@@ -1720,8 +1718,7 @@ void VID_Init (void)
 	Cvar_RegisterVariable(&vid_sdl_use_scancodes);
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 		Sys_Error ("Failed to init SDL video subsystem: %s", SDL_GetError());
-	vid_sdl_initjoysticksystem = SDL_InitSubSystem(SDL_INIT_JOYSTICK) >= 0;
-	if (vid_sdl_initjoysticksystem)
+	if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) < 0)
 		Con_Printf("Failed to init SDL joystick subsystem: %s\n", SDL_GetError());
 	vid_isfullscreen = false;
 }
