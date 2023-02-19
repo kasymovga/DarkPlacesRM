@@ -22,13 +22,8 @@
 
 #ifdef WIN32
 #ifdef _MSC_VER
-#if SDL_MAJOR_VERSION == 1
-#pragma comment(lib, "sdl.lib")
-#pragma comment(lib, "sdlmain.lib")
-#else
 #pragma comment(lib, "sdl2.lib")
 #pragma comment(lib, "sdl2main.lib")
-#endif
 #endif
 #endif
 
