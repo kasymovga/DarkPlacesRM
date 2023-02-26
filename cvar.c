@@ -1078,6 +1078,7 @@ void Cvar_SetA_f (void)
 	if (cvar)
 	{
 		Cvar_SetQuick_Notify(cvar, Cmd_Argv(2));
+		cvar->flags |= CVAR_SAVE;
 		goto finish;
 	}
 	if (developer_extra.integer)
