@@ -1694,7 +1694,7 @@ Curl_downloadinfo_t *Curl_GetDownloadInfo(int *nDownloads, const char **addition
 {
 	int i;
 	downloadinfo *di;
-	Curl_downloadinfo_t *downinfo;
+	Curl_downloadinfo_t *downinfo = NULL;
 
 	if (curl_mutex) Thread_LockMutex(curl_mutex);
 
@@ -1707,7 +1707,7 @@ Curl_downloadinfo_t *Curl_GetDownloadInfo(int *nDownloads, const char **addition
 		*nDownloads = 0;
 		if(additional_info)
 			*additional_info = NULL;
-		return NULL;
+		goto finish;
 	}
 
 	downinfo = (Curl_downloadinfo_t *) Z_Malloc(sizeof(*downinfo) * i);
@@ -1750,6 +1750,7 @@ Curl_downloadinfo_t *Curl_GetDownloadInfo(int *nDownloads, const char **addition
 	}
 
 	*nDownloads = i;
+finish:
 	if (curl_mutex) Thread_UnlockMutex(curl_mutex);
 	return downinfo;
 }
