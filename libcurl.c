@@ -512,6 +512,7 @@ static unsigned char *decode_image(downloadinfo *di, const char *content_type)
 static void Curl_EndDownload_Event(int error, const char *URL, const char *filename)
 {
 	prvm_prog_t *prog;
+	SV_LockThreadMutex();
 	if((prog = SVVM_prog)->loaded)
 	{
 		PRVM_G_FLOAT(OFS_PARM0) = error;
@@ -521,6 +522,8 @@ static void Curl_EndDownload_Event(int error, const char *URL, const char *filen
 		if(PRVM_serverfunction(curl_event))
 			prog->ExecuteProgram(prog, PRVM_serverfunction(curl_event), "");
 	}
+	SV_UnlockThreadMutex();
+
 #ifndef CONFIG_SV
 	if((prog = CLVM_prog)->loaded)
 	{
@@ -554,7 +557,8 @@ static void Curl_EndDownload_Free(downloadinfo *di, CurlStatus status, qboolean 
 		di->next->prev = di->prev;
 
 	--numdownloads;
-	Curl_EndDownload_Event(status, di->url, di->filename);
+	if (!di->buffer) //this event only for downloading with "curl" command
+		Curl_EndDownload_Event(status, di->url, di->filename);
 	if(di->forthismap)
 	{
 		if(ok)
