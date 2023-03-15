@@ -764,7 +764,6 @@ qboolean	Cvar_Command (void)
 // check variables
 	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
 	v = Cvar_FindVar (Cmd_Argv(0));
-	if (Cvar_IsReadOnly(&v)) goto finish;
 	if (!v)
 		goto finish;
 
@@ -775,6 +774,8 @@ qboolean	Cvar_Command (void)
 		Con_Printf("\"%s\" is \"%s\" [\"%s\"]\n", v->name, ((v->flags & CVAR_PRIVATE) ? "********"/*hunter2*/ : v->string), v->defstring);
 		goto finish;
 	}
+	else if (Cvar_IsReadOnly(&v))
+		goto finish;
 
 	if (developer_extra.integer)
 		Con_DPrint("Cvar_Command: ");
