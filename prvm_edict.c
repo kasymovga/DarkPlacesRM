@@ -1284,7 +1284,7 @@ ed should be a properly initialized empty edict.
 Used for initial level load and for savegames.
 ====================
 */
-const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_t *ent)
+const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_t *ent, qboolean loadgame)
 {
 	ddef_t *key;
 	qboolean anglehack;
@@ -1363,7 +1363,7 @@ const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_
 			strlcpy (temp, com_token, sizeof(temp));
 			dpsnprintf (com_token, sizeof(com_token), "0 %s 0", temp);
 		}
-		if (com_token[0] == '$' && po_kex)
+		if (!loadgame && com_token[0] == '$' && po_kex)
 		{
 			//Translation
 			const char *translated = PRVM_PO_Lookup(po_kex, &com_token[1]);
@@ -1373,6 +1373,13 @@ const char *PRVM_ED_ParseEdict (prvm_prog_t *prog, const char *data, prvm_edict_
 
 		if (!PRVM_ED_ParseEpair(prog, ent, key, com_token, strcmp(keyname, "wad") != 0))
 			Host_Error(prog, "PRVM_ED_ParseEdict: parse error");
+
+		if (!loadgame && (key->type & ~DEF_SAVEGLOBAL) == ev_float) {
+			strlcat(keyname, "_str", sizeof(keyname));
+			key = PRVM_ED_FindField(prog, keyname);
+			if (key && (key->type & ~DEF_SAVEGLOBAL) == ev_string && !PRVM_ED_ParseEpair(prog, ent, key, com_token, false))
+				Host_Error(prog, "PRVM_ED_ParseEdict: parse error");
+		}
 	}
 
 	if (!init) {
@@ -1399,7 +1406,7 @@ Used for both fresh maps and savegame loads.  A fresh map would also need
 to call PRVM_ED_CallSpawnFunctions () to let the objects initialize themselves.
 ================
 */
-void PRVM_ED_LoadFromFile (prvm_prog_t *prog, const char *data)
+void PRVM_ED_LoadFromFile (prvm_prog_t *prog, const char *data, qboolean loadgame)
 {
 	prvm_edict_t *ent;
 	int parsed, inhibited, spawned, died;
@@ -1437,7 +1444,7 @@ void PRVM_ED_LoadFromFile (prvm_prog_t *prog, const char *data)
 		if (ent != prog->edicts)	// hack
 			memset (ent->fields.fp, 0, prog->entityfields * sizeof(prvm_vec_t));
 
-		data = PRVM_ED_ParseEdict (prog, data, ent);
+		data = PRVM_ED_ParseEdict (prog, data, ent, loadgame);
 		parsed++;
 
 		// remove the entity ?

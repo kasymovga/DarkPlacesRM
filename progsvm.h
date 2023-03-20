@@ -830,12 +830,12 @@ void PRVM_ED_ClearEdict(prvm_prog_t *prog, prvm_edict_t *e);
 void PRVM_PrintFunctionStatements(prvm_prog_t *prog, const char *name);
 void PRVM_ED_Print(prvm_prog_t *prog, prvm_edict_t *ed, const char *wildcard_fieldname);
 void PRVM_ED_Write(prvm_prog_t *prog, qfile_t *f, prvm_edict_t *ed);
-const char *PRVM_ED_ParseEdict(prvm_prog_t *prog, const char *data, prvm_edict_t *ent);
+const char *PRVM_ED_ParseEdict(prvm_prog_t *prog, const char *data, prvm_edict_t *ent, qboolean loadgame);
 
 void PRVM_ED_WriteGlobals(prvm_prog_t *prog, qfile_t *f);
 void PRVM_ED_ParseGlobals(prvm_prog_t *prog, const char *data);
 
-void PRVM_ED_LoadFromFile(prvm_prog_t *prog, const char *data);
+void PRVM_ED_LoadFromFile(prvm_prog_t *prog, const char *data, qboolean loadgame);
 
 unsigned int PRVM_EDICT_NUM_ERROR(prvm_prog_t *prog, unsigned int n, const char *filename, int fileline);
 #define	PRVM_EDICT(n) (((unsigned)(n) < (unsigned int)prog->max_edicts) ? (unsigned int)(n) : PRVM_EDICT_NUM_ERROR(prog, (unsigned int)(n), __FILE__, __LINE__))

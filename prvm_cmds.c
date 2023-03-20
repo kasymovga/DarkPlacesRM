@@ -3234,7 +3234,7 @@ void VM_loadfromdata(prvm_prog_t *prog)
 {
 	VM_SAFEPARMCOUNT(1,VM_loadentsfromfile);
 
-	PRVM_ED_LoadFromFile(prog, PRVM_G_STRING(OFS_PARM0));
+	PRVM_ED_LoadFromFile(prog, PRVM_G_STRING(OFS_PARM0), true);
 }
 
 /*
@@ -3263,7 +3263,7 @@ void VM_parseentitydata(prvm_prog_t *prog)
 	if (!COM_ParseToken_Simple(&data, false, false, true, com_token, sizeof(com_token)) || com_token[0] != '{' )
 		Host_Error(prog, "VM_parseentitydata: %s: Couldn't parse entity data:\n%s", prog->name, data );
 
-	PRVM_ED_ParseEdict (prog, data, ent);
+	PRVM_ED_ParseEdict (prog, data, ent, true);
 }
 
 /*
@@ -3293,7 +3293,7 @@ void VM_loadfromfile(prvm_prog_t *prog)
 	if (data == NULL)
 		PRVM_G_FLOAT(OFS_RETURN) = -1;
 
-	PRVM_ED_LoadFromFile(prog, data);
+	PRVM_ED_LoadFromFile(prog, data, true);
 
 	if(data)
 		Mem_Free(data);

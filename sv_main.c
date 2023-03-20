@@ -3540,11 +3540,11 @@ void SV_SpawnServer (const char *server)
 	if (sv_entpatch.integer && (entities = (char *)FS_LoadFile(va(vabuf, sizeof(vabuf), "%s.ent", sv.worldnamenoextension), tempmempool, true, NULL)))
 	{
 		Con_Printf("Loaded %s.ent\n", sv.worldnamenoextension);
-		PRVM_ED_LoadFromFile(prog, entities);
+		PRVM_ED_LoadFromFile(prog, entities, false);
 		Mem_Free(entities);
 	}
 	else
-		PRVM_ED_LoadFromFile(prog, sv.worldmodel->brush.entities);
+		PRVM_ED_LoadFromFile(prog, sv.worldmodel->brush.entities, false);
 
 
 	// LordHavoc: clear world angles (to fix e3m3.bsp)

@@ -997,7 +997,7 @@ static void Host_Loadgame_f (void)
 			if(developer_entityparsing.integer)
 				Con_Printf("Host_Loadgame_f: loading edict %d\n", entnum);
 
-			PRVM_ED_ParseEdict (prog, start, ent);
+			PRVM_ED_ParseEdict (prog, start, ent, true);
 
 			// link it into the bsp tree
 			if (!ent->priv.server->free)
