@@ -584,7 +584,7 @@ static void Curl_EndDownload(downloadinfo *di, CurlStatus status, CURLcode error
 	char content_type[64];
 	qboolean ok = false;
 	#ifndef CONFIG_SV
-	if(di->udp == CURL_UDP_NONE && di->loadtype == LOADTYPE_PAK && (status == CURL_DOWNLOAD_FAILED || status == CURL_DOWNLOAD_SERVERERROR))
+	if(di->udp == CURL_UDP_NONE && di->loadtype == LOADTYPE_PAK && (status == CURL_DOWNLOAD_FAILED || status == CURL_DOWNLOAD_SERVERERROR) && cls.state == ca_connected && !cls.demoplayback)
 	{
 		if(!strncmp(di->url, "http://", 7) || !strncmp(di->url, "ftp://", 6) || !strncmp(di->url, "https://", 8))
 		{
@@ -1119,7 +1119,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 		// URL scheme (so one can't read local files using file://)
 		if(strncmp(URL, "http://", 7) && strncmp(URL, "ftp://", 6) && strncmp(URL, "https://", 8))
 		{
-			if (loadtype == LOADTYPE_PAK && !strncmp(URL, "udp:/", 5))
+			if (loadtype == LOADTYPE_PAK && !strncmp(URL, "udp:/", 5) && cls.state == ca_connected && !cls.demoplayback)
 			{
 				forceudp = true;
 			}
