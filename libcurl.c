@@ -1117,6 +1117,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 		}
 		// if we get here, we actually want to download... so first verify the
 		// URL scheme (so one can't read local files using file://)
+		#ifndef CONFIG_SV
 		if(strncmp(URL, "http://", 7) && strncmp(URL, "ftp://", 6) && strncmp(URL, "https://", 8))
 		{
 			if (loadtype == LOADTYPE_PAK && !strncmp(URL, "udp:/", 5) && cls.state == ca_connected && !cls.demoplayback)
@@ -1132,7 +1133,7 @@ static qboolean Curl_Begin(const char *URL, const char *extraheaders, double max
 				return false;
 			}
 		}
-
+		#endif
 		if(forthismap)
 			++numdownloads_added;
 		di = (downloadinfo *) Z_Malloc(sizeof(*di));
