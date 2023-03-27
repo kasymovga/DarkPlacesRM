@@ -246,7 +246,8 @@ Handles playback of demos
 void CL_ReadDemoMessage(void)
 {
 	int i;
-	float f;
+	float f, lasttime;
+	vec3_t angles;
 
 	if (!cls.demoplayback)
 		return;
@@ -329,7 +330,7 @@ void CL_ReadDemoMessage(void)
 			CL_Disconnect();
 			return;
 		}
-		VectorCopy(cl.mviewangles[0], cl.mviewangles[1]);
+		lasttime = cl.mtime[0];
 		for (i = 0;i < 3;i++)
 		{
 			if (FS_Read(cls.demofile, &f, 4) < 4)
@@ -337,14 +338,18 @@ void CL_ReadDemoMessage(void)
 				Con_Printf("CL_ReadDemoMessage: FS_Read failed\n");
 				CL_Disconnect();
 			}
-			cl.mviewangles[0][i] = LittleFloat(f);
+			angles[i] = LittleFloat(f);
 		}
 
 		if (FS_Read(cls.demofile, cl_message.data, cl_message.cursize) == cl_message.cursize)
 		{
 			MSG_BeginReading(&cl_message);
 			CL_ParseServerMessage();
-
+			if (lasttime != cl.mtime[0])
+			{
+				VectorCopy(cl.mviewangles[0], cl.mviewangles[1]);
+				VectorCopy(angles, cl.mviewangles[0]);
+			}
 			if (cls.signon != SIGNONS)
 				Cbuf_Execute(); // immediately execute svc_stufftext if in the demo before connect!
 
