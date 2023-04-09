@@ -3313,6 +3313,9 @@ void SV_SpawnServer (const char *server)
 	#ifndef CONFIG_SV
 	if (!SV_ThreadIsLocked())
 		Sys_Error("SV_SpawnServer: server thread not locked!\n");
+	SV_UnlockThreadMutex();
+	SV_StopThread();
+	SV_LockThreadMutex();
 	#endif
 	Con_DPrintf("SpawnServer: %s\n", server);
 	dpsnprintf (modelname, sizeof(modelname), "maps/%s.bsp", server);
