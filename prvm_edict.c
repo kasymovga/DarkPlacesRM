@@ -1478,7 +1478,6 @@ void PRVM_ED_LoadFromFile (prvm_prog_t *prog, const char *data, qboolean loadgam
 			{
 				Con_Print("No classname for:\n");
 				PRVM_ED_Print(prog, ent, NULL);
-				PRVM_ED_Free (prog, ent);
 				continue;
 			}
 
