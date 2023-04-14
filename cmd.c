@@ -999,7 +999,7 @@ static const char *Cmd_GetDirectCvarValue(const char *varname, cmdalias_t *alias
 	if((cvar = Cvar_FindVar(varname)) && !(cvar->flags & CVAR_PRIVATE))
 		return cvar->string;
 
-	if (!strcmp(varname, "r_glsl_contrastboost") && (cvar = Cvar_FindVar("v_contrastboos")))
+	if (!strcmp(varname, "r_glsl_contrastboost") && (cvar = Cvar_FindVar("v_contrastboost")))
 		return cvar->string;
 
 	return NULL;
