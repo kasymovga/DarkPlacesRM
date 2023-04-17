@@ -111,6 +111,7 @@ cvar_t r_cullentities_trace_delay = {0, "r_cullentities_trace_delay", "1", "numb
 cvar_t r_sortentities = {0, "r_sortentities", "0", "sort entities before drawing (might be faster)"};
 cvar_t r_speeds = {0, "r_speeds","0", "displays rendering statistics and per-subsystem timings"};
 cvar_t r_fullbright = {0, "r_fullbright","0", "makes map very bright and renders faster"};
+cvar_t r_fullbright_entities = {0, "r_fullbright_entities","0", "makes entities very bright and renders faster"};
 
 cvar_t r_fakelight = {0, "r_fakelight","0", "render 'fake' lighting instead of real lightmaps"};
 cvar_t r_fakelight_intensity = {0, "r_fakelight_intensity","0.75", "fakelight intensity modifier"};
@@ -3362,6 +3363,7 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_fakelight);
 	Cvar_RegisterVariable(&r_fakelight_intensity);
 	Cvar_RegisterVariable(&r_fullbright);
+	Cvar_RegisterVariable(&r_fullbright_entities);
 	Cvar_RegisterVariable(&r_shadows);
 	Cvar_RegisterVariable(&r_shadows_darken);
 	Cvar_RegisterVariable(&r_shadows_drawafterrtlighting);
@@ -4104,7 +4106,7 @@ static void R_View_UpdateEntityLighting (void)
 			VectorClear(ent->modellight_ambient);
 			VectorClear(ent->modellight_diffuse);
 			VectorClear(tempdiffusenormal);
-			if (ent->flags & RENDER_LIGHT)
+			if (ent->flags & RENDER_LIGHT && !(r_fullbright_entities.integer && !ent->model->brush.submodel))
 			{
 				vec3_t org;
 				Matrix4x4_OriginFromMatrix(&ent->matrix, org);
