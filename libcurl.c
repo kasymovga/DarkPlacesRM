@@ -238,6 +238,7 @@ typedef struct downloadinfo_s
 downloadinfo;
 static downloadinfo *downloads = NULL;
 static int numdownloads = 0;
+static int numfiledownloads = 0;
 
 static qboolean noclear = FALSE;
 
@@ -518,7 +519,7 @@ static void Curl_EndDownload_Event(int error, const char *URL, const char *filen
 		PRVM_G_FLOAT(OFS_PARM0) = error;
 		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, URL);
 		PRVM_G_INT(OFS_PARM2) = PRVM_SetTempString(prog, filename);
-		PRVM_G_FLOAT(OFS_PARM3) = numdownloads;
+		PRVM_G_FLOAT(OFS_PARM3) = numfiledownloads;
 		if(PRVM_serverfunction(curl_event))
 			prog->ExecuteProgram(prog, PRVM_serverfunction(curl_event), "");
 	}
@@ -530,7 +531,7 @@ static void Curl_EndDownload_Event(int error, const char *URL, const char *filen
 		PRVM_G_FLOAT(OFS_PARM0) = error;
 		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, URL);
 		PRVM_G_INT(OFS_PARM2) = PRVM_SetTempString(prog, filename);
-		PRVM_G_FLOAT(OFS_PARM3) = numdownloads;
+		PRVM_G_FLOAT(OFS_PARM3) = numfiledownloads;
 		if(PRVM_clientfunction(curl_event))
 			prog->ExecuteProgram(prog, PRVM_clientfunction(curl_event), "");
 	}
@@ -539,7 +540,7 @@ static void Curl_EndDownload_Event(int error, const char *URL, const char *filen
 		PRVM_G_FLOAT(OFS_PARM0) = error;
 		PRVM_G_INT(OFS_PARM1) = PRVM_SetTempString(prog, URL);
 		PRVM_G_INT(OFS_PARM2) = PRVM_SetTempString(prog, filename);
-		PRVM_G_FLOAT(OFS_PARM3) = numdownloads;
+		PRVM_G_FLOAT(OFS_PARM3) = numfiledownloads;
 		if(PRVM_menufunction(curl_event))
 			prog->ExecuteProgram(prog, PRVM_menufunction(curl_event), "");
 	}
@@ -558,7 +559,10 @@ static void Curl_EndDownload_Free(downloadinfo *di, CurlStatus status, qboolean 
 
 	--numdownloads;
 	if (!di->buffer) //this event only for downloading with "curl" command
+	{
 		Curl_EndDownload_Event(status, di->url, di->filename);
+		--numfiledownloads;
+	}
 	if(di->forthismap)
 	{
 		if(ok)
@@ -766,6 +770,7 @@ static void CheckPendingDownloads(void)
 						di->started = true;
 						di->udp = CURL_UDP_QUEUED;
 						numdownloads++;
+						numfiledownloads++;
 					}
 					if(numdownloads >= cl_curl_maxdownloads.integer)
 						break;
@@ -874,6 +879,8 @@ static void CheckPendingDownloads(void)
 				}
 				di->started = true;
 				++numdownloads;
+				if (!di->buffer)
+					++numfiledownloads;
 				if(numdownloads >= cl_curl_maxdownloads.integer)
 					break;
 			}
