@@ -62,6 +62,7 @@ const char *vm_m_extensions =
 #ifdef CONFIG_VOIP
 "DP_RM_VOIP "
 #endif
+"DP_RM_FILE "
 ;
 
 /*

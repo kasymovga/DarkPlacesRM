@@ -247,6 +247,7 @@ const char *vm_sv_extensions =
 #ifdef CONFIG_VOIP
 "DP_RM_VOIP "
 #endif
+"DP_RM_FILE "
 //"EXT_CSQC " // not ready yet
 ;
 

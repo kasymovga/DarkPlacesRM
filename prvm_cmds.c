@@ -2048,7 +2048,7 @@ float	fopen(string filename, float mode)
 =========
 */
 // float(string filename, float mode) fopen = #110;
-// opens a file inside quake/gamedir/data/ (mode is FILE_READ, FILE_APPEND, or FILE_WRITE),
+// opens a file inside quake/gamedir/data/ (mode is FILE_READ, FILE_APPEND, FILE_WRITE or FILE_READ_NODATA),
 // returns fhandle >= 0 if successful, or fhandle < 0 if unable to open file for any reason
 void VM_fopen(prvm_prog_t *prog)
 {
@@ -2084,6 +2084,10 @@ void VM_fopen(prvm_prog_t *prog)
 	case 2: // FILE_WRITE
 		modestring = "w";
 		prog->openfiles[filenum] = FS_OpenRealFile(va(vabuf, sizeof(vabuf), "data/%s", filename), modestring, false);
+		break;
+	case 3: // FILE_READ_NODATA, DP_RM_FILE extension
+		modestring = "r";
+		prog->openfiles[filenum] = FS_OpenVirtualFile(va(vabuf, sizeof(vabuf), "%s", filename), false);
 		break;
 	default:
 		PRVM_G_FLOAT(OFS_RETURN) = -3;
