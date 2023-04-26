@@ -190,7 +190,7 @@ cvar_t snd_spatialization_occlusion = {CVAR_SAVE, "snd_spatialization_occlusion"
 // Cvars declared in snd_main.h (shared with other snd_*.c files)
 cvar_t _snd_mixahead = {CVAR_SAVE, "_snd_mixahead", "0.15", "how much sound to mix ahead of time"};
 cvar_t snd_streaming = { CVAR_SAVE, "snd_streaming", "1", "enables keeping compressed ogg sound files compressed, decompressing them only as needed, otherwise they will be decompressed completely at load (may use a lot of memory); when set to 2, streaming is performed even if this would waste memory"};
-cvar_t snd_streaming_length = { CVAR_SAVE, "snd_streaming_length", "1", "decompress sounds completely if they are less than this play time when snd_streaming is 1"};
+cvar_t snd_streaming_length = { CVAR_SAVE, "snd_streaming_length", "3", "decompress sounds completely if they are less than this play time when snd_streaming is 1"};
 cvar_t snd_swapstereo = {CVAR_SAVE, "snd_swapstereo", "0", "swaps left/right speakers for old ISA soundblaster cards"};
 extern cvar_t v_flipped;
 cvar_t snd_channellayout = {0, "snd_channellayout", "0", "channel layout. Can be 0 (auto - snd_restart needed), 1 (standard layout), or 2 (ALSA layout)"};
