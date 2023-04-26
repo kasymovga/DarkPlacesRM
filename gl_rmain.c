@@ -257,6 +257,7 @@ cvar_t r_buffermegs[R_BUFFERDATA_COUNT] =
 	{CVAR_SAVE, "r_buffermegs_uniform", "0.25", "uniform buffer size for one frame"},
 };
 cvar_t r_lightmap_updates_per_frame = {0, "r_lightmap_updates_per_frame", "1024", "Amount of lightmap updates per frame"};
+cvar_t r_extra_texture_effects = {CVAR_SAVE, "r_extra_texture_effects", "1", "Enable support of _gloss, _norm, _reflect and _bump textures"};
 
 extern cvar_t v_glslgamma;
 extern cvar_t v_glslgamma_2d;
@@ -282,7 +283,6 @@ rtexture_t *r_texture_fogheighttexture;
 rtexture_t *r_texture_gammaramps;
 unsigned int r_texture_gammaramps_serial;
 //rtexture_t *r_texture_fogintensity;
-rtexture_t *r_texture_reflectcube;
 
 // TODO: hash lookups?
 typedef struct cubemapinfo_s
@@ -2544,7 +2544,8 @@ skinframe_t *R_SkinFrame_LoadExternal(const char *name, int textureflags, qboole
 			skinframe->gloss = R_LoadTextureDDSFile(r_main_texturepool, va(vabuf, sizeof(vabuf), "dds/%s_gloss.dds", skinframe->basename), vid.sRGB3D, textureflags, NULL, NULL, mymiplevel, true);
 		skinframe->pants = R_LoadTextureDDSFile(r_main_texturepool, va(vabuf, sizeof(vabuf), "dds/%s_pants.dds", skinframe->basename), vid.sRGB3D, textureflags, NULL, NULL, mymiplevel, true);
 		skinframe->shirt = R_LoadTextureDDSFile(r_main_texturepool, va(vabuf, sizeof(vabuf), "dds/%s_shirt.dds", skinframe->basename), vid.sRGB3D, textureflags, NULL, NULL, mymiplevel, true);
-		skinframe->reflect = R_LoadTextureDDSFile(r_main_texturepool, va(vabuf, sizeof(vabuf), "dds/%s_reflect.dds", skinframe->basename), vid.sRGB3D, textureflags, NULL, NULL, mymiplevel, true);
+		if (r_extra_texture_effects.integer)
+			skinframe->reflect = R_LoadTextureDDSFile(r_main_texturepool, va(vabuf, sizeof(vabuf), "dds/%s_reflect.dds", skinframe->basename), vid.sRGB3D, textureflags, NULL, NULL, mymiplevel, true);
 	}
 
 	// _norm is the name used by tenebrae and has been adopted as standard
@@ -2557,7 +2558,7 @@ skinframe_t *R_SkinFrame_LoadExternal(const char *name, int textureflags, qboole
 			Mem_Free(pixels);
 			pixels = NULL;
 		}
-		else if (r_shadow_bumpscale_bumpmap.value > 0 && (bumppixels = loadimagepixelsbgra(va(vabuf, sizeof(vabuf), "%s_bump", skinframe->basename), false, false, false, &mymiplevel)) != NULL)
+		else if (r_shadow_bumpscale_bumpmap.value > 0 && r_extra_texture_effects.integer && (bumppixels = loadimagepixelsbgra(va(vabuf, sizeof(vabuf), "%s_bump", skinframe->basename), false, false, false, &mymiplevel)) != NULL)
 		{
 			pixels = (unsigned char *)Mem_Alloc(tempmempool, image_width * image_height * 4);
 			Image_HeightmapToNormalmap_BGRA(bumppixels, pixels, image_width, image_height, false, r_shadow_bumpscale_bumpmap.value);
@@ -2628,7 +2629,7 @@ skinframe_t *R_SkinFrame_LoadExternal(const char *name, int textureflags, qboole
 	}
 
 	mymiplevel = savemiplevel;
-	if (skinframe->reflect == NULL && (pixels = loadimagepixelsbgra(va(vabuf, sizeof(vabuf), "%s_reflect", skinframe->basename), false, false, false, &mymiplevel)))
+	if (skinframe->reflect == NULL && r_extra_texture_effects.integer && (pixels = loadimagepixelsbgra(va(vabuf, sizeof(vabuf), "%s_reflect", skinframe->basename), false, false, false, &mymiplevel)))
 	{
 		skinframe->reflect = R_LoadTexture2D (r_main_texturepool, va(vabuf, sizeof(vabuf), "%s_reflect", skinframe->basename), image_width, image_height, pixels, vid.sRGB3D ? TEXTYPE_SRGB_BGRA : TEXTYPE_BGRA, textureflags & (gl_texturecompression_reflectmask.integer && gl_texturecompression.integer ? ~0 : ~TEXF_COMPRESS), mymiplevel, NULL);
 #ifndef USE_GLES2
@@ -3128,8 +3129,8 @@ static void gl_main_start(void)
 		Cvar_SetValueQuick(&r_textureunits, vid.texunits);
 		Cvar_SetValueQuick(&gl_combine, 1);
 		Cvar_SetValueQuick(&r_glsl, 1);
-		r_loadnormalmap = true;
-		r_loadgloss = true;
+		r_loadnormalmap = r_extra_texture_effects.integer;
+		r_loadgloss = r_extra_texture_effects.integer;
 		r_loadfog = false;
 #ifdef GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT
 		if (vid.support.arb_uniform_buffer_object)
@@ -3140,7 +3141,7 @@ static void gl_main_start(void)
 		Cvar_SetValueQuick(&r_textureunits, vid.texunits);
 		Cvar_SetValueQuick(&gl_combine, 1);
 		Cvar_SetValueQuick(&r_glsl, 0);
-		r_loadnormalmap = false;
+		r_loadnormalmap = r_extra_texture_effects.integer;
 		r_loadgloss = false;
 		r_loadfog = true;
 		break;
@@ -3468,6 +3469,7 @@ void GL_Main_Init(void)
 		Cvar_RegisterVariable(&r_buffermegs[i]);
 	Cvar_RegisterVariable(&r_batch_dynamicbuffer);
 	Cvar_RegisterVariable(&r_lightmap_updates_per_frame);
+	Cvar_RegisterVariable(&r_extra_texture_effects);
 #ifdef DP_MOBILETOUCH
 	// GLES devices have terrible depth precision in general, so...
 	Cvar_SetValueQuick(&r_nearclip, 4);
