@@ -5308,10 +5308,14 @@ static void R_Bloom_StartFrame(void)
 	if (!((r_glsl_postprocess.integer || r_fxaa.integer) || (!R_Stereo_ColorMasking() && r_glsl_saturation.value != 1) || (v_glslgamma.integer && !vid_gammatables_trivial))
 	 && !r_bloom.integer
 	 && (R_Stereo_Active() || (r_motionblur.value <= 0 && r_damageblur.value <= 0))
-	 && !useviewfbo
 	 && r_viewscale.value == 1.0f
 	 && !r_viewscale_fpsscaling.integer)
-		screentexturewidth = screentextureheight = 0;
+	{
+		if (!r_bloom.integer)
+			useviewfbo = 0;
+		if (!useviewfbo)
+			screentexturewidth = screentextureheight = 0;
+	}
 	if (!r_bloom.integer)
 		bloomtexturewidth = bloomtextureheight = 0;
 
