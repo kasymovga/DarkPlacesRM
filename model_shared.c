@@ -1695,7 +1695,9 @@ extern cvar_t mod_q3shader_default_polygonoffset;
 extern cvar_t mod_q3shader_default_polygonfactor;
 extern cvar_t mod_q3shader_force_addalpha;
 extern cvar_t mod_q3shader_force_terrain_alphaflag;
+#ifndef CONFIG_SV
 extern cvar_t r_extra_texture_effects;
+#endif
 void Mod_LoadQ3Shaders(void)
 {
 	int j;
@@ -1999,7 +2001,11 @@ void Mod_LoadQ3Shaders(void)
 							}
 							else Con_DPrintf("%s parsing warning: unknown alphagen %s\n", search->filenames[fileindex], parameter[1]);
 						}
-						else if (numparameters >= 2 && (!strcasecmp(parameter[0], "texgen") || !strcasecmp(parameter[0], "tcgen")) && r_extra_texture_effects.integer)
+						else if (numparameters >= 2 && (!strcasecmp(parameter[0], "texgen") || !strcasecmp(parameter[0], "tcgen"))
+						#ifndef CONFIG_SV
+								&& r_extra_texture_effects.integer
+						#endif
+						)
 						{
 							int i;
 							// observed values: tcgen environment
