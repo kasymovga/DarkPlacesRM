@@ -2233,7 +2233,11 @@ void Mod_LoadQ3Shaders(void)
 					shader.dpnoshadow = true;
 				else if (!strcasecmp(parameter[0], "dpnortlight"))
 					shader.dpnortlight = true;
-				else if (!strcasecmp(parameter[0], "dpreflectcube"))
+				else if (!strcasecmp(parameter[0], "dpreflectcube")
+				#ifndef CONFIG_SV
+						&& r_extra_texture_effects.integer
+				#endif
+				)
 					strlcpy(shader.dpreflectcube, parameter[1], sizeof(shader.dpreflectcube));
 				else if (!strcasecmp(parameter[0], "dpmeshcollisions"))
 					shader.dpmeshcollisions = true;
@@ -2428,14 +2432,22 @@ void Mod_LoadQ3Shaders(void)
 						else if (!strcasecmp(parameter[1], "text7"           )) shader.deforms[deformindex].deform = Q3DEFORM_TEXT7;
 						else if (!strcasecmp(parameter[1], "bulge"           )) shader.deforms[deformindex].deform = Q3DEFORM_BULGE;
 						else if (!strcasecmp(parameter[1], "normal"          )) shader.deforms[deformindex].deform = Q3DEFORM_NORMAL;
-						else if (!strcasecmp(parameter[1], "wave"            ))
+						else if (!strcasecmp(parameter[1], "wave")
+						#ifndef CONFIG_SV
+								&& r_extra_texture_effects.integer
+						#endif
+						)
 						{
 							shader.deforms[deformindex].deform = Q3DEFORM_WAVE;
 							shader.deforms[deformindex].wavefunc = Mod_LoadQ3Shaders_EnumerateWaveFunc(parameter[3]);
 							for (i = 0;i < numparameters - 4 && i < Q3WAVEPARMS;i++)
 								shader.deforms[deformindex].waveparms[i] = atof(parameter[i+4]);
 						}
-						else if (!strcasecmp(parameter[1], "move"            ))
+						else if (!strcasecmp(parameter[1], "move")
+						#ifndef CONFIG_SV
+								&& r_extra_texture_effects.integer
+						#endif
+						)
 						{
 							shader.deforms[deformindex].deform = Q3DEFORM_MOVE;
 							shader.deforms[deformindex].wavefunc = Mod_LoadQ3Shaders_EnumerateWaveFunc(parameter[5]);
