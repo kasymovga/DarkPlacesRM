@@ -68,6 +68,7 @@ typedef enum
 	CINIT(POST, LONG, 47),         /* HTTP POST method */
 	CINIT(FOLLOWLOCATION, LONG, 52),  /* use Location: Luke! */
 	CINIT(POSTFIELDSIZE, LONG, 60),
+	CINIT(SSL_VERIFYPEER, LONG, 64),
 	CINIT(CONNECTTIMEOUT, LONG, 78),
 	CINIT(PRIVATE, OBJECTPOINT, 103),
 	CINIT(PROTOCOLS, LONG, 181),
@@ -841,6 +842,7 @@ static void CheckPendingDownloads(void)
 					qcurl_easy_setopt(di->curle, CURLOPT_PRIVATE, (void *) di);
 					qcurl_easy_setopt(di->curle, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS | CURLPROTO_FTP);
 					qcurl_easy_setopt(di->curle, CURLOPT_CONNECTTIMEOUT, (long) cl_curl_connecttimeout.integer);
+					qcurl_easy_setopt(di->curle, CURLOPT_SSL_VERIFYPEER, (long) 0);
 					if(qcurl_easy_setopt(di->curle, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS | CURLPROTO_FTP) != CURLE_OK)
 					{
 						Con_Printf("^1WARNING:^7 for security reasons, please upgrade to libcurl 7.19.4 or above. In a later version of DarkPlaces, HTTP redirect support will be disabled for this libcurl version.\n");
