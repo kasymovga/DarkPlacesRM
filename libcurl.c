@@ -370,6 +370,7 @@ static qboolean CURL_OpenLibrary (void)
 		"libcurl.4.dylib", // Mac OS X Notyetreleased
 		"libcurl.3.dylib", // Mac OS X Tiger
 		"libcurl.2.dylib", // Mac OS X Panther
+		"libcurl-fallback.dylib", // Fallback library
 #else
 		"libcurl.so.4",
 		"libcurl.so.3",
