@@ -90,7 +90,7 @@ cvar_t cl_maxfps = {CVAR_SAVE, "cl_maxfps", "125", "maximum fps cap, 0 = unlimit
 cvar_t cl_maxidlefps = {CVAR_SAVE, "cl_maxidlefps", "20", "maximum fps cap when the game is not the active window (makes cpu time available to other programs"};
 
 cvar_t sys_first_run = {CVAR_SAVE, "sys_first_run", "1", "active when the game is run for the first time"};
-cvar_t developer = {CVAR_SAVE, "developer","0", "shows debugging messages and information (recommended for all developers and level designers); the value -1 also suppresses buffering and logging these messages"};
+cvar_t developer = {CVAR_SAVE, "developer","-1", "shows debugging messages and information (recommended for all developers and level designers); the value -1 also suppresses buffering and logging these messages"};
 cvar_t developer_extra = {0, "developer_extra", "0", "prints additional debugging messages, often very verbose!"};
 cvar_t developer_insane = {0, "developer_insane", "0", "prints huge streams of information about internal workings, entire contents of files being read/written, etc.  Not recommended!"};
 cvar_t developer_loadfile = {0, "developer_loadfile","0", "prints name and size of every file loaded via the FS_LoadFile function (which is almost everything)"};
