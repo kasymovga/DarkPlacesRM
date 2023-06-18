@@ -326,18 +326,18 @@ static char *ConBuffer_BytesLeft(conbuffer_t *buf, int len)
 		if(firstline_start < lastline_onepastend) // buffer is contiguous
 		{
 			// put at end?
-			if(len <= buf->text + buf->textsize - lastline_onepastend)
-				return lastline_onepastend;
+			if(len + 1 <= buf->text + buf->textsize - lastline_onepastend)
+				return lastline_onepastend + 1;
 			// put at beginning?
-			else if(len <= firstline_start - buf->text)
-				return buf->text;
+			else if(len + 1 <= firstline_start - buf->text)
+				return buf->text + 1;
 			else
 				return NULL;
 		}
 		else // buffer has a contiguous hole
 		{
-			if(len <= firstline_start - lastline_onepastend)
-				return lastline_onepastend;
+			if(len + 1 <= firstline_start - lastline_onepastend)
+				return lastline_onepastend + 1;
 			else
 				return NULL;
 		}
