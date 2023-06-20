@@ -120,6 +120,9 @@ typedef struct dp_font_s
 	struct ft2_font_s *ft2;
 
 	ft2_settings_t settings;
+
+	rtexture_t *extra_symbols_tex[256];
+	float extra_symbols_width_of[256];
 }
 dp_font_t;
 

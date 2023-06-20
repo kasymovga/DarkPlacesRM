@@ -42,6 +42,7 @@ cvar_t r_font_postprocess_shadow_y = {CVAR_SAVE, "r_font_postprocess_shadow_y", 
 cvar_t r_font_postprocess_shadow_z = {CVAR_SAVE, "r_font_postprocess_shadow_z", "0", "font shadow Z shift amount, applied during blurring"};
 cvar_t r_font_hinting = {CVAR_SAVE, "r_font_hinting", "3", "0 = no hinting, 1 = light autohinting, 2 = full autohinting, 3 = full hinting"};
 cvar_t r_font_antialias = {CVAR_SAVE, "r_font_antialias", "1", "0 = monochrome, 1 = grey" /* , 2 = rgb, 3 = bgr" */};
+cvar_t r_font_extra_symbols = {CVAR_SAVE, "r_font_extra_symbols", "1", "enable image embedding into font"};
 cvar_t r_nearest_2d = {CVAR_SAVE, "r_nearest_2d", "0", "use nearest filtering on all 2d textures (including conchars)"};
 cvar_t r_nearest_conchars = {CVAR_SAVE, "r_nearest_conchars", "0", "use nearest filtering on conchars texture"};
 
@@ -602,6 +603,8 @@ void LoadFont(qboolean override, const char *name, dp_font_t *fnt, float scale, 
 		fnt->settings.shadowy = r_font_postprocess_shadow_y.value;
 		fnt->settings.shadowz = r_font_postprocess_shadow_z.value;
 	}
+	for (i = 0; i < 256; i++)
+		fnt->extra_symbols_tex[i] = NULL;
 	// fix bad scale
 	if (fnt->settings.scale <= 0)
 		fnt->settings.scale = 1;
@@ -792,6 +795,36 @@ static float snap_to_pixel_y(float y, float roundUpAt)
 	y = (y * vid_conheight.value / vid.height);
 	return y;
 	*/
+}
+
+static void LoadFontExtraSymbol_f(void)
+{
+	dp_font_t *f;
+	int sym;
+	cachepic_t *pic;
+	if(Cmd_Argc() < 4)
+	{
+		Con_Printf("Usage: loadfontextrasymbol <font> <symbol> <image>\n");
+		return;
+	}
+	f = FindFont(Cmd_Argv(1), true);
+	if (!f)
+	{
+		Con_Printf("Font %s not found\n", Cmd_Argv(1));
+		return;
+	}
+	sym = atoi(Cmd_Argv(2));
+	if (sym < 0 || sym >= 256) {
+		Con_Printf("Wrong symbol number, allowed values: 0-255\n");
+		return;
+	}
+	pic = Draw_CachePic_Flags(Cmd_Argv(3), CACHEPICFLAG_QUIET | CACHEPICFLAG_NOCOMPRESSION | (r_nearest_conchars.integer ? CACHEPICFLAG_NEAREST : 0));
+	if (pic->tex == r_texture_notexture)
+	{
+		Con_Printf("Texture %s for extra symbol %i not found\n", Cmd_Argv(3), sym);
+	}
+	f->extra_symbols_width_of[sym] = ((float)pic->width) / ((float)pic->height);
+	f->extra_symbols_tex[sym] = pic->tex;
 }
 
 static void LoadFont_f(void)
@@ -992,6 +1025,7 @@ void GL_Draw_Init (void)
 	Cvar_RegisterVariable(&r_font_postprocess_shadow_z);
 	Cvar_RegisterVariable(&r_font_hinting);
 	Cvar_RegisterVariable(&r_font_antialias);
+	Cvar_RegisterVariable(&r_font_extra_symbols);
 	Cvar_RegisterVariable(&r_textshadow);
 	Cvar_RegisterVariable(&r_textbrightness);
 	Cvar_RegisterVariable(&r_textcontrast);
@@ -1019,6 +1053,7 @@ void GL_Draw_Init (void)
 			dpsnprintf(FONT_USER(i)->title, sizeof(FONT_USER(i)->title), "user%d", j++);
 
 	Cmd_AddCommand ("loadfont",LoadFont_f, "loadfont function tganame loads a font; example: loadfont console gfx/veramono; loadfont without arguments lists the available functions");
+	Cmd_AddCommand ("loadfontextrasymbol",LoadFontExtraSymbol_f, "loads a embedding image into font (will be available as a symbol in range 0xE100-0xE1FF); example: loadfontextrasymbol console 1 gfx/icon");
 	R_RegisterModule("GL_Draw", gl_draw_start, gl_draw_shutdown, gl_draw_newmap, NULL, NULL);
 }
 
@@ -1405,7 +1440,13 @@ float DrawQ_TextWidth_UntilWidth_TrackColors_Scale(const char *text, size_t *max
 		}
 		ch = nextch;
 
-		if (!fontmap || (ch <= 0xFF && fontmap->glyphs[ch].image) || (ch >= 0xE000 && ch <= 0xE0FF))
+		if (ch >= 0xE100 && ch <= 0xE1FF && r_font_extra_symbols.integer)
+		{
+			i = ch - 0xE100;
+			if (!fnt->extra_symbols_tex[i]) continue;
+			x += fnt->extra_symbols_width_of[i] * dw;
+		}
+		else if (!fontmap || (ch <= 0xFF && fontmap->glyphs[ch].image) || (ch >= 0xE000 && ch <= 0xE0FF))
 		{
 			if (ch > 0xE000)
 				ch -= 0xE000;
@@ -1555,13 +1596,11 @@ float DrawQ_String_Scale(float startx, float starty, const char *text, size_t ma
 
 		x = startx;
 		y = starty;
-		/*
 		if (shadow)
 		{
-			x += r_textshadow.value * vid.width / vid_conwidth.value;
-			y += r_textshadow.value * vid.height / vid_conheight.value;
+			x += 1.0/pix_x * r_textshadow.value;
+			y += 1.0/pix_y * r_textshadow.value;
 		}
-		*/
 		while (((bytes_left = maxlen - (text - text_start)) > 0) && *text)
 		{
 			nextch = ch = u8_getnchar(text, &text, bytes_left);
@@ -1628,17 +1667,50 @@ float DrawQ_String_Scale(float startx, float starty, const char *text, size_t ma
 			// using a value of -1 for the oldstyle map because NULL means uninitialized...
 			// this way we don't need to rebind fnt->tex for every old-style character
 			// E000..E0FF: emulate old-font characters (to still have smileys and such available)
-			if (shadow)
+			if (ch >= 0xE100 && ch <= 0xE1FF && r_font_extra_symbols.integer)
 			{
-				x += 1.0/pix_x * r_textshadow.value;
-				y += 1.0/pix_y * r_textshadow.value;
+				i = ch - 0xE100;
+				if (!fnt->extra_symbols_tex[i]) continue;
+				thisw = fnt->extra_symbols_width_of[i];
+				if (shadow)
+				{
+					x += thisw * dw;
+					continue;
+				}
+				if (batchcount)
+				{
+					R_Mesh_PrepareVertices_Generic_Arrays(batchcount * 4, vertex3f, color4f, texcoord2f);
+					R_Mesh_Draw(0, batchcount * 4, 0, batchcount * 2, quadelement3i, NULL, 0, quadelement3s, NULL, 0);
+					batchcount = 0;
+					ac = color4f;
+					at = texcoord2f;
+					av = vertex3f;
+				}
+				ac[ 0] = 1; ac[ 1] = 1; ac[ 2] = 1; ac[ 3] = 1;
+				ac[ 4] = 1; ac[ 5] = 1; ac[ 6] = 1; ac[ 7] = 1;
+				ac[ 8] = 1; ac[ 9] = 1; ac[10] = 1; ac[11] = 1;
+				ac[12] = 1; ac[13] = 1; ac[14] = 1; ac[15] = 1;
+				at[ 0] = 0; at[ 1] = 0;
+				at[ 2] = 1; at[ 3] = 0;
+				at[ 4] = 1; at[ 5] = 1;
+				at[ 6] = 0; at[ 7] = 1;
+				av[ 0] = x			; av[ 1] = y	; av[ 2] = 10;
+				av[ 3] = x+dw*thisw	; av[ 4] = y	; av[ 5] = 10;
+				av[ 6] = x+dw*thisw	; av[ 7] = y+dh	; av[ 8] = 10;
+				av[ 9] = x			; av[10] = y+dh	; av[11] = 10;
+				R_SetupShader_Generic(fnt->extra_symbols_tex[i], NULL, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
+				R_Mesh_PrepareVertices_Generic_Arrays(4, vertex3f, color4f, texcoord2f);
+				R_Mesh_Draw(0, 4, 0, 2, quadelement3i, NULL, 0, quadelement3s, NULL, 0);
+				x += thisw * dw;
+				map = NULL;
+				prevch = 0;
 			}
-			if (!fontmap || (ch <= 0xFF && fontmap->glyphs[ch].image) || (ch >= 0xE000 && ch <= 0xE0FF))
+			else if (!fontmap || (ch <= 0xFF && fontmap->glyphs[ch].image) || (ch >= 0xE000 && ch <= 0xE0FF))
 			{
 				if (ch >= 0xE000)
 					ch -= 0xE000;
 				if (ch > 0xFF)
-					goto out;
+					continue;
 				if (fontmap)
 				{
 					if (map != ft2_oldstyle_map)
@@ -1780,12 +1852,11 @@ float DrawQ_String_Scale(float startx, float starty, const char *text, size_t ma
 				//prevmap = map;
 				prevch = ch;
 			}
-out:
-			if (shadow)
-			{
-				x -= 1.0/pix_x * r_textshadow.value;
-				y -= 1.0/pix_y * r_textshadow.value;
-			}
+		}
+		if (shadow)
+		{
+			x -= 1.0/pix_x * r_textshadow.value;
+			y -= 1.0/pix_y * r_textshadow.value;
 		}
 	}
 	if (batchcount > 0)
