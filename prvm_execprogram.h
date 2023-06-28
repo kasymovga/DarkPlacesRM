@@ -356,7 +356,7 @@
 				}
 				else
 				{
-					if (developer.integer)
+					if (developer.integer > 0)
 					{
                         PRE_ERROR();
 						VM_Warning(prog, "%s: Attempted division by zero in: %s\n", prog->name, PRVM_GetString(prog, prog->xfunction->s_name));

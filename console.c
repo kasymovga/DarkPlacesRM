@@ -1277,7 +1277,7 @@ void Con_MaskPrint(int additionalmask, const char *msg)
 			#endif
 			// send to terminal or dedicated server window
 			if (!sys_nostdout)
-			if (developer.integer || !(mask & CON_MASK_DEVELOPER))
+			if (developer.integer > 0 || !(mask & CON_MASK_DEVELOPER))
 			{
 				if(sys_specialcharactertranslation.integer)
 				{

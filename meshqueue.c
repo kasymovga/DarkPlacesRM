@@ -32,7 +32,7 @@ void R_MeshQueue_BeginScene(void)
 }
 
 static void bad_meshqueue_t_callback (const entity_render_t *ent, const rtlight_t *rtlight, int numsurfaces, int *surfacelist) {
-	if (developer.integer) {
+	if (developer.integer > 0) {
 		Con_DPrintf("^1bad_meshqueue_t_callback: Would be call back to NULL!\n");
 	} else {
 		Sys_Error("^1bad_meshqueue_t_callback:  Would be call back to NULL!\n");
