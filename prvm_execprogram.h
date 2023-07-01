@@ -36,213 +36,213 @@
 #if USE_COMPUTED_GOTOS
   // Must exactly match opcode_e enum in pr_comp.h
     const static void *dispatchtable[] = {
-	&&handle_OP_DONE,
-	&&handle_OP_MUL_F,
-	&&handle_OP_MUL_V,
-	&&handle_OP_MUL_FV,
-	&&handle_OP_MUL_VF,
-	&&handle_OP_DIV_F,
-	&&handle_OP_ADD_F,
-	&&handle_OP_ADD_V,
-	&&handle_OP_SUB_F,
-	&&handle_OP_SUB_V,
+	&&handle_OP_DONE, // 0
+	&&handle_OP_MUL_F, // 1
+	&&handle_OP_MUL_V, // 2
+	&&handle_OP_MUL_FV, // 3
+	&&handle_OP_MUL_VF, // 4
+	&&handle_OP_DIV_F, // 5
+	&&handle_OP_ADD_F, // 6
+	&&handle_OP_ADD_V, // 7
+	&&handle_OP_SUB_F, // 8
+	&&handle_OP_SUB_V, // 9
 
-	&&handle_OP_EQ_F,
-	&&handle_OP_EQ_V,
-	&&handle_OP_EQ_S,
-	&&handle_OP_EQ_E,
-	&&handle_OP_EQ_FNC,
+	&&handle_OP_EQ_F, // 10
+	&&handle_OP_EQ_V, // 11
+	&&handle_OP_EQ_S, // 12
+	&&handle_OP_EQ_E, // 13
+	&&handle_OP_EQ_FNC, // 14
 
-	&&handle_OP_NE_F,
-	&&handle_OP_NE_V,
-	&&handle_OP_NE_S,
-	&&handle_OP_NE_E,
-	&&handle_OP_NE_FNC,
+	&&handle_OP_NE_F, // 15
+	&&handle_OP_NE_V, // 16
+	&&handle_OP_NE_S, // 17
+	&&handle_OP_NE_E, // 18
+	&&handle_OP_NE_FNC, // 19
 
-	&&handle_OP_LE,
-	&&handle_OP_GE,
-	&&handle_OP_LT,
-	&&handle_OP_GT,
+	&&handle_OP_LE, // 20
+	&&handle_OP_GE, // 21
+	&&handle_OP_LT, // 22
+	&&handle_OP_GT, // 23
 
-	&&handle_OP_LOAD_F,
-	&&handle_OP_LOAD_V,
-	&&handle_OP_LOAD_S,
-	&&handle_OP_LOAD_ENT,
-	&&handle_OP_LOAD_FLD,
-	&&handle_OP_LOAD_FNC,
+	&&handle_OP_LOAD_F, // 24
+	&&handle_OP_LOAD_V, // 25
+	&&handle_OP_LOAD_S, // 26
+	&&handle_OP_LOAD_ENT, // 27
+	&&handle_OP_LOAD_FLD, // 28
+	&&handle_OP_LOAD_FNC, // 29
 
-	&&handle_OP_ADDRESS,
+	&&handle_OP_ADDRESS, // 30
 
-	&&handle_OP_STORE_F,
-	&&handle_OP_STORE_V,
-	&&handle_OP_STORE_S,
-	&&handle_OP_STORE_ENT,
-	&&handle_OP_STORE_FLD,
-	&&handle_OP_STORE_FNC,
+	&&handle_OP_STORE_F, // 31
+	&&handle_OP_STORE_V, // 32
+	&&handle_OP_STORE_S, // 33
+	&&handle_OP_STORE_ENT, // 34
+	&&handle_OP_STORE_FLD, // 35
+	&&handle_OP_STORE_FNC, // 36
 
-	&&handle_OP_STOREP_F,
-	&&handle_OP_STOREP_V,
-	&&handle_OP_STOREP_S,
-	&&handle_OP_STOREP_ENT,
-	&&handle_OP_STOREP_FLD,
-	&&handle_OP_STOREP_FNC,
+	&&handle_OP_STOREP_F, // 37
+	&&handle_OP_STOREP_V, // 38
+	&&handle_OP_STOREP_S, // 39
+	&&handle_OP_STOREP_ENT, // 40
+	&&handle_OP_STOREP_FLD, // 41
+	&&handle_OP_STOREP_FNC, // 42
 
-	&&handle_OP_RETURN,
-	&&handle_OP_NOT_F,
-	&&handle_OP_NOT_V,
-	&&handle_OP_NOT_S,
-	&&handle_OP_NOT_ENT,
-	&&handle_OP_NOT_FNC,
-	&&handle_OP_IF,
-	&&handle_OP_IFNOT,
-	&&handle_OP_CALL0,
-	&&handle_OP_CALL1,
-	&&handle_OP_CALL2,
-	&&handle_OP_CALL3,
-	&&handle_OP_CALL4,
-	&&handle_OP_CALL5,
-	&&handle_OP_CALL6,
-	&&handle_OP_CALL7,
-	&&handle_OP_CALL8,
-	&&handle_OP_STATE,
-	&&handle_OP_GOTO,
-	&&handle_OP_AND,
-	&&handle_OP_OR,
+	&&handle_OP_RETURN, // 43
+	&&handle_OP_NOT_F, // 44
+	&&handle_OP_NOT_V, // 45
+	&&handle_OP_NOT_S, // 46
+	&&handle_OP_NOT_ENT, // 47
+	&&handle_OP_NOT_FNC, // 48
+	&&handle_OP_IF, // 49
+	&&handle_OP_IFNOT, // 50
+	&&handle_OP_CALL0, // 51
+	&&handle_OP_CALL1, // 52
+	&&handle_OP_CALL2, // 53
+	&&handle_OP_CALL3, // 54
+	&&handle_OP_CALL4, // 55
+	&&handle_OP_CALL5, // 56
+	&&handle_OP_CALL6, // 57
+	&&handle_OP_CALL7, // 58
+	&&handle_OP_CALL8, // 59
+	&&handle_OP_STATE, // 60
+	&&handle_OP_GOTO, // 61
+	&&handle_OP_AND, // 62
+	&&handle_OP_OR, // 63
 
-	&&handle_OP_BITAND,
+	&&handle_OP_BITAND, // 64
 	&&handle_OP_BITOR, // 65
 
-    NULL,    // 66
-    NULL,    // 67
-    NULL,    // 68
-    NULL,    // 69
-    NULL,    // 70
-    NULL,    // 71
-    NULL,    // 72
-    NULL,    // 73
-    NULL,    // 74
-    NULL,    // 75
-    NULL,    // 76
-    NULL,    // 77
-    NULL,    // 78
-    NULL,    // 79
+    &&handle_OP_ERROR,    // 66
+    &&handle_OP_ERROR,    // 67
+    &&handle_OP_ERROR,    // 68
+    &&handle_OP_ERROR,    // 69
+    &&handle_OP_ERROR,    // 70
+    &&handle_OP_ERROR,    // 71
+    &&handle_OP_ERROR,    // 72
+    &&handle_OP_ERROR,    // 73
+    &&handle_OP_ERROR,    // 74
+    &&handle_OP_ERROR,    // 75
+    &&handle_OP_ERROR,    // 76
+    &&handle_OP_ERROR,    // 77
+    &&handle_OP_ERROR,    // 78
+    &&handle_OP_ERROR,    // 79
     &&handle_OP_FETCH_GBL_F,      // 80
     &&handle_OP_FETCH_GBL_V,      // 81
     &&handle_OP_FETCH_GBL_S,      // 82
     &&handle_OP_FETCH_GBL_E,      // 83
     &&handle_OP_FETCH_GBL_FNC,    // 84
-    NULL,    // 85
-    NULL,    // 86
-    NULL,    // 87
-    NULL,    // 88
-    NULL,    // 89
-    NULL,    // 90
-    NULL,    // 91
-    NULL,    // 92
-    NULL,    // 93
-    NULL,    // 94
-    NULL,    // 95
-    NULL,    // 96
-    NULL,    // 97
-    NULL,    // 98
-    NULL,    // 99
-    NULL,    // 100
-    NULL,    // 101
-    NULL,    // 102
-    NULL,    // 103
-    NULL,    // 104
-    NULL,    // 105
-    NULL,    // 106
-    NULL,    // 107
-    NULL,    // 108
-    NULL,    // 109
-    NULL,    // 110
-    NULL,    // 111
-    NULL,    // 112
-    NULL,    // 113
-    NULL,    // 114
-    NULL,    // 115
-    NULL,    // 116
-    NULL,    // 117
-    NULL,    // 118
-    NULL,    // 119
-    NULL,    // 120
-    NULL,    // 121
-    NULL,    // 122
+    &&handle_OP_ERROR,    // 85
+    &&handle_OP_ERROR,    // 86
+    &&handle_OP_ERROR,    // 87
+    &&handle_OP_ERROR,    // 88
+    &&handle_OP_ERROR,    // 89
+    &&handle_OP_ERROR,    // 90
+    &&handle_OP_ERROR,    // 91
+    &&handle_OP_ERROR,    // 92
+    &&handle_OP_ERROR,    // 93
+    &&handle_OP_ERROR,    // 94
+    &&handle_OP_ERROR,    // 95
+    &&handle_OP_ERROR,    // 96
+    &&handle_OP_ERROR,    // 97
+    &&handle_OP_ERROR,    // 98
+    &&handle_OP_ERROR,    // 99
+    &&handle_OP_ERROR,    // 100
+    &&handle_OP_ERROR,    // 101
+    &&handle_OP_ERROR,    // 102
+    &&handle_OP_ERROR,    // 103
+    &&handle_OP_ERROR,    // 104
+    &&handle_OP_ERROR,    // 105
+    &&handle_OP_ERROR,    // 106
+    &&handle_OP_ERROR,    // 107
+    &&handle_OP_ERROR,    // 108
+    &&handle_OP_ERROR,    // 109
+    &&handle_OP_ERROR,    // 110
+    &&handle_OP_ERROR,    // 111
+    &&handle_OP_ERROR,    // 112
+    &&handle_OP_ERROR,    // 113
+    &&handle_OP_ERROR,    // 114
+    &&handle_OP_ERROR,    // 115
+    &&handle_OP_ERROR,    // 116
+    &&handle_OP_ERROR,    // 117
+    &&handle_OP_ERROR,    // 118
+    &&handle_OP_ERROR,    // 119
+    &&handle_OP_ERROR,    // 120
+    &&handle_OP_ERROR,    // 121
+    &&handle_OP_ERROR,    // 122
     &&handle_OP_CONV_FTOI,    // 123
-    NULL,    // 124
-    NULL,    // 125
-    NULL,    // 126
-    NULL,    // 127
-    NULL,    // 128
-    NULL,    // 129
-    NULL,    // 130
-    NULL,    // 131
+    &&handle_OP_ERROR,    // 124
+    &&handle_OP_ERROR,    // 125
+    &&handle_OP_ERROR,    // 126
+    &&handle_OP_ERROR,    // 127
+    &&handle_OP_ERROR,    // 128
+    &&handle_OP_ERROR,    // 129
+    &&handle_OP_ERROR,    // 130
+    &&handle_OP_ERROR,    // 131
     &&handle_OP_MUL_I,    // 132
-    NULL,    // 133
-    NULL,    // 134
-    NULL,    // 135
-    NULL,    // 136
-    NULL,    // 137
-    NULL,    // 138
-    NULL,    // 139
-    NULL,    // 140
-    NULL,    // 141
-    NULL,    // 142
+    &&handle_OP_ERROR,    // 133
+    &&handle_OP_ERROR,    // 134
+    &&handle_OP_ERROR,    // 135
+    &&handle_OP_ERROR,    // 136
+    &&handle_OP_ERROR,    // 137
+    &&handle_OP_ERROR,    // 138
+    &&handle_OP_ERROR,    // 139
+    &&handle_OP_ERROR,    // 140
+    &&handle_OP_ERROR,    // 141
+    &&handle_OP_ERROR,    // 142
     &&handle_OP_GLOBALADDRESS,    // 143
-    NULL,    // 144
-    NULL,    // 145
-    NULL,    // 146
-    NULL,    // 147
-    NULL,    // 148
-    NULL,    // 149
-    NULL,    // 150
-    NULL,    // 151
-    NULL,    // 152
-    NULL,    // 153
-    NULL,    // 154
-    NULL,    // 155
-    NULL,    // 156
-    NULL,    // 157
-    NULL,    // 158
-    NULL,    // 159
-    NULL,    // 160
-    NULL,    // 161
-    NULL,    // 162
-    NULL,    // 163
-    NULL,    // 164
-    NULL,    // 165
-    NULL,    // 166
-    NULL,    // 167
-    NULL,    // 168
-    NULL,    // 169
-    NULL,    // 170
-    NULL,    // 171
-    NULL,    // 172
-    NULL,    // 173
-    NULL,    // 174
-    NULL,    // 175
-    NULL,    // 176
-    NULL,    // 177
-    NULL,    // 178
-    NULL,    // 179
-    NULL,    // 180
-    NULL,    // 181
-    NULL,    // 182
-    NULL,    // 183
-    NULL,    // 184
-    NULL,    // 185
-    NULL,    // 186
-    NULL,    // 187
-    NULL,    // 188
-    NULL,    // 189
-    NULL,    // 190
-    NULL,    // 191
-    NULL,    // 192
-    NULL,    // 193
-    NULL,    // 194
-    NULL,    // 195
-    NULL,    // 196
+    &&handle_OP_ERROR,    // 144
+    &&handle_OP_ERROR,    // 145
+    &&handle_OP_ERROR,    // 146
+    &&handle_OP_ERROR,    // 147
+    &&handle_OP_ERROR,    // 148
+    &&handle_OP_ERROR,    // 149
+    &&handle_OP_ERROR,    // 150
+    &&handle_OP_ERROR,    // 151
+    &&handle_OP_ERROR,    // 152
+    &&handle_OP_ERROR,    // 153
+    &&handle_OP_ERROR,    // 154
+    &&handle_OP_ERROR,    // 155
+    &&handle_OP_ERROR,    // 156
+    &&handle_OP_ERROR,    // 157
+    &&handle_OP_ERROR,    // 158
+    &&handle_OP_ERROR,    // 159
+    &&handle_OP_ERROR,    // 160
+    &&handle_OP_ERROR,    // 161
+    &&handle_OP_ERROR,    // 162
+    &&handle_OP_ERROR,    // 163
+    &&handle_OP_ERROR,    // 164
+    &&handle_OP_ERROR,    // 165
+    &&handle_OP_ERROR,    // 166
+    &&handle_OP_ERROR,    // 167
+    &&handle_OP_ERROR,    // 168
+    &&handle_OP_ERROR,    // 169
+    &&handle_OP_ERROR,    // 170
+    &&handle_OP_ERROR,    // 171
+    &&handle_OP_ERROR,    // 172
+    &&handle_OP_ERROR,    // 173
+    &&handle_OP_ERROR,    // 174
+    &&handle_OP_ERROR,    // 175
+    &&handle_OP_ERROR,    // 176
+    &&handle_OP_ERROR,    // 177
+    &&handle_OP_ERROR,    // 178
+    &&handle_OP_ERROR,    // 179
+    &&handle_OP_ERROR,    // 180
+    &&handle_OP_ERROR,    // 181
+    &&handle_OP_ERROR,    // 182
+    &&handle_OP_ERROR,    // 183
+    &&handle_OP_ERROR,    // 184
+    &&handle_OP_ERROR,    // 185
+    &&handle_OP_ERROR,    // 186
+    &&handle_OP_ERROR,    // 187
+    &&handle_OP_ERROR,    // 188
+    &&handle_OP_ERROR,    // 189
+    &&handle_OP_ERROR,    // 190
+    &&handle_OP_ERROR,    // 191
+    &&handle_OP_ERROR,    // 192
+    &&handle_OP_ERROR,    // 193
+    &&handle_OP_ERROR,    // 194
+    &&handle_OP_ERROR,    // 195
+    &&handle_OP_ERROR,    // 196
     &&handle_OP_GSTOREP_I,    // 197
     &&handle_OP_GSTOREP_F,    // 198
     &&handle_OP_GSTOREP_ENT,  // 199
@@ -250,27 +250,61 @@
     &&handle_OP_GSTOREP_S,    // 201
     &&handle_OP_GSTOREP_FNC,  // 202
     &&handle_OP_GSTOREP_V,    // 203
-    NULL,    // 204
-    NULL,    // 205
-    NULL,    // 206
-    NULL,    // 207
-    NULL,    // 208
-    NULL,    // 209
-    NULL,    // 210
+    &&handle_OP_ERROR,    // 204
+    &&handle_OP_ERROR,    // 205
+    &&handle_OP_ERROR,    // 206
+    &&handle_OP_ERROR,    // 207
+    &&handle_OP_ERROR,    // 208
+    &&handle_OP_ERROR,    // 209
+    &&handle_OP_ERROR,    // 210
     &&handle_OP_BOUNDCHECK,   // 211
-    NULL,    // 212
-    NULL,    // 213
-    NULL,    // 214
-    NULL,    // 215
-    NULL,    // 216
-    NULL,    // 217
-    NULL,    // 218
-    NULL,    // 219
-
-    NULL, // 
+    &&handle_OP_ERROR,    // 212
+    &&handle_OP_ERROR,    // 213
+    &&handle_OP_ERROR,    // 214
+    &&handle_OP_ERROR,    // 215
+    &&handle_OP_ERROR,    // 216
+    &&handle_OP_ERROR,    // 217
+    &&handle_OP_ERROR,    // 218
+    &&handle_OP_ERROR,    // 219
+    &&handle_OP_ERROR,    // 220
+    &&handle_OP_ERROR,    // 221
+    &&handle_OP_ERROR,    // 222
+    &&handle_OP_ERROR,    // 223
+    &&handle_OP_ERROR,    // 224
+    &&handle_OP_ERROR,    // 225
+    &&handle_OP_ERROR,    // 226
+    &&handle_OP_ERROR,    // 227
+    &&handle_OP_ERROR,    // 228
+    &&handle_OP_ERROR,    // 229
+    &&handle_OP_ERROR,    // 230
+    &&handle_OP_ERROR,    // 231
+    &&handle_OP_ERROR,    // 232
+    &&handle_OP_ERROR,    // 233
+    &&handle_OP_ERROR,    // 234
+    &&handle_OP_ERROR,    // 235
+    &&handle_OP_ERROR,    // 236
+    &&handle_OP_ERROR,    // 237
+    &&handle_OP_ERROR,    // 238
+    &&handle_OP_ERROR,    // 239
+    &&handle_OP_ERROR,    // 240
+    &&handle_OP_ERROR,    // 241
+    &&handle_OP_ERROR,    // 242
+    &&handle_OP_ERROR,    // 243
+    &&handle_OP_ERROR,    // 244
+    &&handle_OP_ERROR,    // 245
+    &&handle_OP_ERROR,    // 246
+    &&handle_OP_ERROR,    // 247
+    &&handle_OP_ERROR,    // 248
+    &&handle_OP_ERROR,    // 249
+    &&handle_OP_ERROR,    // 250
+    &&handle_OP_ERROR,    // 251
+    &&handle_OP_ERROR,    // 252
+    &&handle_OP_ERROR,    // 253
+    &&handle_OP_ERROR,    // 254
+    &&handle_OP_ERROR,    // 255
 	    };
 #define DISPATCH_OPCODE() \
-    goto *dispatchtable[(++st)->op]
+    goto *dispatchtable[(unsigned char)((++st)->op)]
 #define HANDLE_OPCODE(opcode) handle_##opcode
 
     DISPATCH_OPCODE(); // jump to first opcode
@@ -1134,6 +1168,11 @@
 			}
 #endif
 		}
+#else
+			HANDLE_OPCODE(OP_ERROR):
+				PRE_ERROR();
+				Host_Error(prog, "Bad opcode %i in %s", st->op, prog->name);
+				goto cleanup;
 #endif // !USE_COMPUTED_GOTOS
 
 #undef DISPATCH_OPCODE
