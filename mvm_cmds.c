@@ -49,7 +49,6 @@ const char *vm_m_extensions =
 "DP_QC_URI_POST "
 "DP_QC_WHICHPACK "
 "FTE_STRINGS "
-"DP_RM_IRC "
 "DP_RM_CALLFUNCTIONEX "
 "DP_RM_GLOBALACCESS "
 "DP_RM_ALTCSPROGS "
@@ -57,7 +56,6 @@ const char *vm_m_extensions =
 "DP_RM_CVAR_WATCHED "
 "DP_RM_REGEX2 "
 "DP_RM_QCSENDPACKET "
-"DP_RM_GEOIP "
 "DP_RM_CURL_EVENT "
 #ifdef CONFIG_VOIP
 "DP_RM_VOIP "
@@ -1774,7 +1772,6 @@ NULL,                            // #798
 NULL,                            // #799
 VM_regex_match,                  // #800 float(string regex, string input, float offset, float size, float flags) regex_match = #800; (DP_RM_REGEX2)
 VM_net_sendpacket,               // #801 float(string addr, string data) net_sendpacket = #801; (DP_RM_QCSENDPACKET)
-VM_GeoIP_LookUp,				 // #802 string(string addr) GeoIP_LookUp = #802; (DP_RM_GEOIP)
 NULL
 };
 

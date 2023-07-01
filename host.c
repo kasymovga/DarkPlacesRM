@@ -35,8 +35,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "snd_main.h"
 #include "thread.h"
 #include "utf8lib.h"
-#include "irc.h"
-#include "geoip.h"
 #include "random.h"
 #include "net_httpserver.h"
 #include "discord.h"
@@ -1220,9 +1218,6 @@ void Host_Main(void)
 				svs.perf_acc_lost += sv_timer;
 			sv_timer = 0;
 		}
-#ifndef __ANDROID__
-        IRC_Frame();
-#endif
 		host_framecount++;
 #ifndef __EMSCRIPTEN__
 	}
@@ -1444,12 +1439,8 @@ static void Host_Init (void)
 	Host_InitCommands();
 	Host_InitLocal();
 	Host_ServerOptions();
-#ifndef __ANDROID__
-	IRC_Init();
-#endif
 	Thread_Init();
 	Net_HttpServerInit();
-	GeoIP_Init();
 
 	#ifndef CONFIG_SV
 	if (cls.state == ca_dedicated)
@@ -1612,12 +1603,6 @@ void Host_Shutdown(void)
 	// AK hmm, no PRVM_Shutdown(); yet
 
 	CL_Video_Shutdown();
-	#endif
-#ifndef __ANDROID__
-    IRC_Shutdown();
-#endif
-    GeoIP_Shutdown();
-	#ifndef CONFIG_SV
 	Host_SaveConfig();
 #ifdef CONFIG_CD
 	CDAudio_Shutdown ();

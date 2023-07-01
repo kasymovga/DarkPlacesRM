@@ -87,7 +87,6 @@ OBJ_COMMON= \
 	palette.o \
 	crypto.o \
 	host.o \
-	irc.o \
 	mathlib.o \
 	image.o \
 	sv_main.o \
@@ -138,7 +137,6 @@ OBJ_COMMON= \
 	sys_shared.o \
 	zone.o \
 	slre.o \
-	geoip.o \
 	model_compile.o \
 	net_file_server.o
 
