@@ -20,12 +20,13 @@ cvar_t v_glslgamma_video = {CVAR_SAVE, "v_glslgamma_video", "1", "applies GLSL g
 // DPV stream decoder
 #include "dpvsimpledecode.h"
 
-// VorteX: libavcodec implementation
-#include "cl_video_libavw.c"
-
 // JAM video decoder used by Blood Omnicide
 #ifdef JAMVIDEO
 #include "cl_video_jamdecode.c"
+#endif
+
+#ifdef CONFIG_VIDEO_OGV
+#include "cl_video_ogv.c"
 #endif
 
 // constants (and semi-constants)
@@ -61,9 +62,11 @@ static qboolean OpenStream( clvideo_t * video )
 		return true;
 #endif
 
-	video->stream = LibAvW_OpenVideo( video, video->filename, &errorstring);
+#ifdef CONFIG_VIDEO_OGV
+	video->stream = ogv_open( video, video->filename, &errorstring);
 	if (video->stream)
 		return true;
+#endif
 
 	Con_Printf("unable to open \"%s\", error: %s\n", video->filename, errorstring);
 	return false;
@@ -712,8 +715,6 @@ void CL_Video_Init( void )
 	Cvar_RegisterVariable(&v_glslgamma_video);
 
 	R_RegisterModule( "CL_Video", cl_video_start, cl_video_shutdown, cl_video_newmap, NULL, NULL );
-
-	LibAvW_OpenLibrary();
 }
 
 void CL_Video_Shutdown( void )
@@ -722,6 +723,4 @@ void CL_Video_Shutdown( void )
 
 	for (i = 0 ; i < cl_num_videos ; i++)
 		CL_CloseVideo(&cl_videos[ i ]);
-
-	LibAvW_CloseLibrary();
 }

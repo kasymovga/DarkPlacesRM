@@ -75,6 +75,7 @@ TARGETS_REXUIZ=sv-rexuiz sdl-rexuiz
 ###### Optional features #####
 OBJ_SDLCD=$(OBJ_CD_COMMON)
 
+DP_VIDEO_OGV?=disabled
 DP_VIDEO_CAPTURE?=enabled
 ifeq ($(DP_VIDEO_CAPTURE), enabled)
 	CFLAGS_VIDEO_CAPTURE=-DCONFIG_VIDEO_CAPTURE
@@ -99,7 +100,8 @@ DP_LINK_PNG?=shared
 DP_LINK_ODE?=dlopen
 DP_LINK_CRYPTO?=dlopen
 DP_LINK_CRYPTO_RIJNDAEL?=dlopen
-DP_LINK_OGGVORBIS?=dlopen
+DP_LINK_OGGVORBIS?=shared
+DP_LINK_OGGZ?=shared
 DP_LINK_FREETYPE?=dlopen
 DP_LINK_OPUS?=shared
 
@@ -284,8 +286,13 @@ endif
 # ogg and vorbis
 ifeq ($(DP_LINK_OGGVORBIS), static)
 ifeq ($(DP_VIDEO_CAPTURE), enabled)
+ifeq ($(DP_VIDEO_OGV), enabled)
+	LIB_OGGVORBIS=`pkg-config --static --libs ogg vorbis vorbisfile theora vorbisenc theoraenc oggz`
+	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile theora vorbisenc theoraenc oggz` -DLINK_TO_LIBVORBIS -DCONFIG_VIDEO_OGV
+else
 	LIB_OGGVORBIS=`pkg-config --static --libs ogg vorbis vorbisfile theora vorbisenc theoraenc`
 	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile theora vorbisenc theoraenc` -DLINK_TO_LIBVORBIS
+endif
 else
 	LIB_OGGVORBIS=`pkg-config --static --libs ogg vorbis vorbisfile`
 	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile` -DLINK_TO_LIBVORBIS
@@ -293,8 +300,13 @@ endif
 endif
 ifeq ($(DP_LINK_OGGVORBIS), shared)
 ifeq ($(DP_VIDEO_CAPTURE), enabled)
+ifeq ($(DP_VIDEO_OGV), enabled)
+	LIB_OGGVORBIS=`pkg-config --libs ogg vorbis vorbisfile theora vorbisenc theoraenc oggz`
+	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile theora vorbisenc theoraenc oggz` -DLINK_TO_LIBVORBIS -DCONFIG_VIDEO_OGV
+else
 	LIB_OGGVORBIS=`pkg-config --libs ogg vorbis vorbisfile theora vorbisenc theoraenc`
 	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile theora vorbisenc theoraenc` -DLINK_TO_LIBVORBIS
+endif
 else
 	LIB_OGGVORBIS=`pkg-config --libs ogg vorbis vorbisfile`
 	CFLAGS_OGGVORBIS=`pkg-config --cflags ogg vorbis vorbisfile` -DLINK_TO_LIBVORBIS

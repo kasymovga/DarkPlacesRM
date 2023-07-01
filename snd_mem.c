@@ -338,7 +338,7 @@ qboolean S_LoadSound (sfx_t *sfx, qboolean complain)
 				goto loaded;
 			memcpy (namebuffer + len - 3, "ogg", 4);
 		}
-		if (len >= 4 && !strcasecmp (namebuffer + len - 4, ".ogg"))
+		if (len >= 4 && (!strcasecmp (namebuffer + len - 4, ".ogg") || !strcasecmp (namebuffer + len - 4, ".ogv")))
 		{
 			if (OGG_LoadVorbisFile (namebuffer, sfx))
 				goto loaded;
@@ -357,7 +357,7 @@ qboolean S_LoadSound (sfx_t *sfx, qboolean complain)
 			goto loaded;
 		memcpy (namebuffer + len - 3, "ogg", 4);
 	}
-	if (len >= 4 && !strcasecmp (namebuffer + len - 4, ".ogg"))
+	if (len >= 4 && (!strcasecmp (namebuffer + len - 4, ".ogg") || !strcasecmp (namebuffer + len - 4, ".ogv")))
 	{
 		if (OGG_LoadVorbisFile (namebuffer, sfx))
 			goto loaded;

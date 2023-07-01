@@ -1,9 +1,5 @@
 // JAM format decoder, used by Blood Omnicide
 
-#ifdef LIBAVCODEC
-//#define JAM_USELIBAVCODECSCALE
-#endif
-
 typedef struct jamdecodestream_s
 {
 	qfile_t       *file;
@@ -22,15 +18,6 @@ typedef struct jamdecodestream_s
 	unsigned char *frame_compressed;
 	unsigned int   framesize;
 	unsigned int   framenum;
-
-	// libavcodec scaling
-#ifdef JAM_USELIBAVCODECSCALE
-	unsigned char *frame_output_buffer;
-	AVFrame       *frame_output;
-	AVFrame       *frame_output_scale;
-	unsigned int   framewidth;
-	unsigned int   frameheight;
-#endif
 
 	// channel the sound file is being played on
 	int sndchan;
@@ -109,30 +96,6 @@ void *jam_open(clvideo_t *video, char *filename, const char **errorstring)
 		return NULL;
 	}
 
-	// scale support provided by libavcodec
-#ifdef JAM_USELIBAVCODECSCALE
-	s->framewidth = s->info_imagewidth;
-	s->frameheight = s->info_imageheight;
-
-	// min size
-	if (cl_video_libavcodec_minwidth.integer > 0)
-		s->info_imagewidth = max(s->info_imagewidth, (unsigned int)cl_video_libavcodec_minwidth.integer);
-	if (cl_video_libavcodec_minheight.integer > 0)
-		s->info_imageheight = max(s->info_imageheight, (unsigned int)cl_video_libavcodec_minheight.integer);
-
-	// allocate output
-	s->frame_output_buffer = (unsigned char *)Z_Malloc(s->framesize * 4);
-	s->frame_output = AvCodec_AllocFrame();
-	s->frame_output_scale = AvCodec_AllocFrame();
-	if (!s->frame_output_buffer || !s->frame_output || !s->frame_output_scale)
-    {
-		*errorstring = "JamDecoder: failed to allocate LibAvcodec frame";
-		jam_close(s);
-		Z_Free(s);
-        return NULL;
-	}
-#endif
-
 	// everything is ok
 	// set the module functions
 	s->framenum = 0;
@@ -184,17 +147,6 @@ void jam_close(void *stream)
 	if (s->file)
 		FS_Close(s->file);
 	s->file = NULL;
-#ifdef JAM_USELIBAVCODECSCALE
-	if (s->frame_output_buffer)
-		Z_Free(s->frame_output_buffer);
-	s->frame_output_buffer = NULL;
-	if (s->frame_output)
-		AvUtil_Free(s->frame_output);
-	s->frame_output = NULL;
-	if (s->frame_output_scale)
-		AvUtil_Free(s->frame_output_scale);
-	s->frame_output_scale = NULL;
-#endif
 	Z_Free(s);
 }
 
@@ -339,29 +291,6 @@ readframe:
 		s->frame_prev = s->frame;
 		s->frame = b;
 		jam_decodeframe(s->frame_compressed, s->frame, s->frame_prev, outsize, frameHead[4]);
-#ifdef JAM_USELIBAVCODECSCALE
-		// make BGRA imagepixels from 8bit palettized frame
-		b = (unsigned char *)s->frame_output_buffer;
-		for(i = 0; i < s->framesize; i++)
-		{
-			*b++ = s->frame_palette[s->frame[i]*3 + 2];
-			*b++ = s->frame_palette[s->frame[i]*3 + 1];
-			*b++ = s->frame_palette[s->frame[i]*3];
-			*b++ = 255;
-		}
-		// scale
-		AvCodec_FillPicture((AVPicture *)s->frame_output, (uint8_t *)s->frame_output_buffer, PIX_FMT_BGRA, s->framewidth, s->frameheight);
-		AvCodec_FillPicture((AVPicture *)s->frame_output_scale, (uint8_t *)imagedata, PIX_FMT_BGRA, s->info_imagewidth, s->info_imageheight);
-		SwsContext *scale_context = SwScale_GetCachedContext(NULL, s->framewidth, s->frameheight, PIX_FMT_BGRA, s->info_imagewidth, s->info_imageheight, PIX_FMT_BGRA, libavcodec_scalers[max(0, min(LIBAVCODEC_SCALERS, cl_video_libavcodec_scaler.integer))], NULL, NULL, NULL); 
-		if (!scale_context)
-		{
-			Con_Printf("JamDecoder: LibAvcodec: error creating scale context frame %i\n", s->framenum);
-			return 1;
-		}
-		if (!SwScale_Scale(scale_context, s->frame_output->data, s->frame_output->linesize, 0, s->frameheight, s->frame_output_scale->data, s->frame_output_scale->linesize))
-			Con_Printf("JamDecoder: LibAvcodec : error scaling frame\n", s->framenum);
-		SwScale_FreeContext(scale_context); 
-#else
 		// make BGRA imagepixels from 8bit palettized frame
 		b = (unsigned char *)imagedata;
 		for(i = 0; i < s->framesize; i++)
@@ -372,7 +301,6 @@ readframe:
 			*b++ = s->frame_palette[s->frame[i]*3];
 			*b++ = 255;
 		}
-#endif
 	}
 	return 0;
 }
