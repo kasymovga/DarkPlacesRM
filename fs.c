@@ -1741,21 +1741,22 @@ static int FS_ChooseUserDir(userdirmode_t userdirmode, char *userdir, size_t use
 	case USERDIRMODE_NOHOME:
 		strlcpy(userdir, fs_basedir, userdirsize);
 		break;
-	case USERDIRMODE_MYGAMES:
-		if (!shfolder_dll)
-			Sys_LoadLibrary(shfolderdllnames, &shfolder_dll, shfolderfuncs);
-		mydocsdir[0] = 0;
-		if (qSHGetFolderPathW && qSHGetFolderPathW(NULL, CSIDL_PERSONAL, NULL, 0, mydocsdirw) == S_OK)
-		{
-			fs_wcstombs(mydocsdir, mydocsdirw, sizeof(mydocsdir));
-			dpsnprintf(userdir, userdirsize, "%s/My Games/%s/", mydocsdir, gameuserdirname);
-			break;
-		}
+	case USERDIRMODE_HOME:
 		homedirw = _wgetenv(L"USERPROFILE");
 		if(homedirw)
 		{
 			fs_wcstombs(mydocsdir, homedirw, sizeof(mydocsdir));
 			dpsnprintf(userdir, userdirsize, "%s/.%s/", mydocsdir, gameuserdirname);
+			break;
+		}
+		return -1;
+	case USERDIRMODE_MYGAMES:
+		if (!shfolder_dll)
+			Sys_LoadLibrary(shfolderdllnames, &shfolder_dll, shfolderfuncs);
+		if (qSHGetFolderPathW && qSHGetFolderPathW(NULL, CSIDL_PERSONAL, NULL, 0, mydocsdirw) == S_OK)
+		{
+			fs_wcstombs(mydocsdir, mydocsdirw, sizeof(mydocsdir));
+			dpsnprintf(userdir, userdirsize, "%s/My Games/%s/", mydocsdir, gameuserdirname);
 			break;
 		}
 		return -1;
