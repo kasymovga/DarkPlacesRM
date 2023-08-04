@@ -746,7 +746,7 @@ packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
 static void FS_mkdir (const char *path)
 {
 #ifdef WIN32
-	int n = strlen(path);
+	int n = strlen(path) + 1;
 	wchar_t path16[n];
 	fs_mbstowcs(path16, path, n);
 #endif
