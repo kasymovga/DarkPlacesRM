@@ -166,18 +166,21 @@ void listdirectory(stringlist_t *list, const char *basepath, const char *path)
 {
 	int i;
 	char pattern[4096], *c;
-	WIN32_FIND_DATA n_file;
+	wchar_t pattern16[4096];
+	WIN32_FIND_DATAW n_file;
 	HANDLE hFile;
 	strlcpy (pattern, basepath, sizeof(pattern));
 	strlcat (pattern, path, sizeof (pattern));
 	strlcat (pattern, "*", sizeof (pattern));
+	fs_mbstowcs(pattern16, pattern, sizeof(pattern));
 	// ask for the directory listing handle
-	hFile = FindFirstFile(pattern, &n_file);
+	hFile = FindFirstFileW(pattern16, &n_file);
 	if(hFile == INVALID_HANDLE_VALUE)
 		return;
 	do {
-		adddirentry(list, path, n_file.cFileName);
-	} while (FindNextFile(hFile, &n_file) != 0);
+		fs_wcstombs(pattern, n_file.cFileName, sizeof(pattern));
+		adddirentry(list, path, pattern);
+	} while (FindNextFileW(hFile, &n_file) != 0);
 	FindClose(hFile);
 
 	// convert names to lowercase because windows does not care, but pattern matching code often does

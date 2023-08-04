@@ -153,3 +153,7 @@ void FS_Shutdown(void);
 void FS_Init_Commands(void);
 
 #endif
+#ifdef _WIN32
+int fs_wcstombs(char *str, const wchar_t *wstr, int str_size);
+int fs_mbstowcs(wchar_t *wstr, const char *str, int wstr_size);
+#endif
