@@ -1973,7 +1973,7 @@ void CL_ParticleRain (const vec3_t mins, const vec3_t maxs, const vec3_t dir, in
 	switch(type)
 	{
 	case 0:
-		if (!cl_particles_rain.integer) break;
+		if (!cl_particles_rain.integer || count <= 0) break;
 		count *= 4; // ick, this should be in the mod or maps?
 
 		while(count--)
@@ -1984,7 +1984,7 @@ void CL_ParticleRain (const vec3_t mins, const vec3_t maxs, const vec3_t dir, in
 		}
 		break;
 	case 1:
-		if (!cl_particles_snow.integer) break;
+		if (!cl_particles_snow.integer || count <= 0) break;
 		while(count--)
 		{
 			k = particlepalette[colorbase + (xrand()&3)];
