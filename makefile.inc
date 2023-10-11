@@ -80,6 +80,7 @@ OBJ_CL= \
 	dpvsimpledecode.o \
 	view.o \
 	net_file_client.o \
+	model_assimp.c \
 	#
 
 # Common objects

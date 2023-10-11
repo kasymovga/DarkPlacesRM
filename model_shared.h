@@ -1250,6 +1250,7 @@ void Mod_IDSP_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_IDS2_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_INTERQUAKEMODEL_Load(dp_model_t *mod, void *buffer, void *bufferend);
 void Mod_SMD_Load(dp_model_t *mod, void *buffer, void *bufferend);
+void Mod_ASSIMP_Load(dp_model_t *mod, void *buffer, void *bufferend);
 
 #define MODEL_LOAD_ERROR(...) { Con_Printf("%s:%i:%s:%s: ", __FILE__, __LINE__, __func__, loadmodel->name);  Con_Printf(__VA_ARGS__); Con_Printf("\n"); loadmodel->failed = true; return; }
 

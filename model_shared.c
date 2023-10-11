@@ -531,7 +531,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 		else if (!memcmp(buf, "INTERQUAKEMODEL", 16)) Mod_INTERQUAKEMODEL_Load(mod, buf, bufend);
 		else if (num == BSPVERSION || num == 30 || !memcmp(buf, "BSP2", 4) || !memcmp(buf, "2PSB", 4)) Mod_Q1BSP_Load(mod, buf, bufend);
 		else if (!strcasecmp(FS_FileExtension(mod->name), "smd")) Mod_SMD_Load(mod, buf, bufend);
-		else Con_Printf("Mod_LoadModel: model \"%s\" is of unknown/unsupported type\n", mod->name);
+		else Mod_ASSIMP_Load(mod, buf, bufend);
 		Mem_Free(buf);
 
 		Mod_FindPotentialDeforms(mod);

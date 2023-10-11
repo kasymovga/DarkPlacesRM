@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "image.h"
 #include "model_compile.h"
+#include "model_assimp.h"
 #ifndef CONFIG_SV
 #include "r_shadow.h"
 #else
@@ -4253,4 +4254,294 @@ void Mod_SMD_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	strlcpy(loadmodel->name, temp, sizeof(loadmodel->name));
 	Mod_LoadModel(loadmodel, false, false);
 	strlcpy(loadmodel->name, temp2, sizeof(loadmodel->name));
+}
+
+void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
+{
+	const struct aiScene *ais;
+	unsigned int i, j, k, m, n;
+	int vertices_count = 0;
+	int triangles_count = 0;
+	int vertex_index;
+	int triangle_index;
+	skinfile_t *skinfiles;
+	msurface_t *surface;
+	if (!Assimp_Init()) {
+		Con_Printf("assimp library failed to initialize\n");
+		return;
+	}
+	ais = qaiImportFileFromMemory(buffer, bufferend - buffer, aiProcess_Triangulate | aiProcess_PopulateArmatureData, FS_FileExtension(loadmodel->name));
+	if (!ais) {
+		Con_Printf("Failed to load model %s\n", loadmodel->name);
+		goto fail;
+	}
+	if (!ais->mNumMeshes) {
+		Con_Printf("No meshes found in model: %s\n", loadmodel->name);
+		goto fail;
+	}
+	loadmodel->modeldatatypestring = "ASSIMP";
+	loadmodel->type = mod_alias;
+	#ifndef CONFIG_SV
+	loadmodel->DrawSky = NULL;
+	loadmodel->DrawAddWaterPlanes = NULL;
+	loadmodel->Draw = R_Q1BSP_Draw;
+	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
+	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
+	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
+	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
+	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
+	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
+	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
+	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
+	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
+	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
+	loadmodel->PointSuperContents = NULL;
+	// load external .skin files if present
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
+	if (loadmodel->numskins < 1)
+		loadmodel->numskins = 1;
+
+	// make skinscenes for the skins (no groups)
+	loadmodel->skinscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * loadmodel->numskins);
+	for (i = 0;i < loadmodel->numskins;i++)
+	{
+		loadmodel->skinscenes[i].firstframe = i;
+		loadmodel->skinscenes[i].framecount = 1;
+		loadmodel->skinscenes[i].loop = true;
+		loadmodel->skinscenes[i].framerate = 10;
+	}
+
+	if (loadmodel->numskins < 1)
+		loadmodel->numskins = 1;
+
+	loadmodel->numframes = 0;
+	loadmodel->num_bones = 0;
+	loadmodel->num_poses = 0;
+
+	loadmodel->nummodelsurfaces = loadmodel->num_surfaces = ais->mNumMeshes;
+	loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
+	loadmodel->num_texturesperskin = loadmodel->num_surfaces;
+
+	vertices_count = 0;
+	for (i = 0; i < ais->mNumMeshes; i++) {
+		vertices_count += ais->mMeshes[i]->mNumVertices;
+		for (j = 0; j < ais->mMeshes[i]->mNumFaces; j++) {
+			if (ais->mMeshes[i]->mFaces->mNumIndices != 3) continue;
+			triangles_count++;
+		}
+	}
+	loadmodel->surfmesh.num_vertices = vertices_count;
+	loadmodel->surfmesh.num_triangles = triangles_count;
+	loadmodel->surfmesh.data_element3i = (int *)Mem_Alloc(loadmodel->mempool, triangles_count * sizeof(int[3]));
+	loadmodel->surfmesh.data_vertex3f = (float *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(float[3]));
+	loadmodel->surfmesh.data_normal3f = (float *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(float[3]));
+	loadmodel->surfmesh.data_tvector3f = (float *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(float[3]));
+	loadmodel->surfmesh.data_svector3f = (float *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(float[3]));
+	loadmodel->data_surfaces = (msurface_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(msurface_t));
+	loadmodel->sortedmodelsurfaces = (int *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(int));
+	loadmodel->data_textures = (texture_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * sizeof(texture_t));
+	for (i = 0; i < ais->mNumMeshes; i++) {
+		loadmodel->num_bones += ais->mMeshes[i]->mNumBones;
+	}
+	if (loadmodel->num_bones) {
+		matrix4x4_t posematrix;
+		int bone_index = 0;
+		int animation_offset = 0;
+		int vertices_offset = 0;
+		loadmodel->num_poses = 1;
+		for (i = 0; i < ais->mNumAnimations; i++) {
+			loadmodel->num_poses += (ais->mAnimations[i]->mDuration + 1);
+		}
+		loadmodel->surfmesh.isanimated = (loadmodel->num_poses > 1);
+		loadmodel->num_poseinvscale = 16.0f;
+		loadmodel->num_posescale = 1.0f / 16.0f;
+		loadmodel->AnimateVertices = Mod_Skeletal_AnimateVertices;
+		loadmodel->data_bones = (aliasbone_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_bones * sizeof(aliasbone_t));
+		loadmodel->data_poses7s = (short *)Mem_Alloc(loadmodel->mempool, loadmodel->num_bones * loadmodel->num_poses * sizeof(short[7]));
+		loadmodel->data_baseboneposeinverse = (float *)Mem_Alloc(loadmodel->mempool, loadmodel->num_bones * sizeof(float[12]));
+		loadmodel->surfmesh.data_skeletalindex4ub = (unsigned char *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(unsigned char[4]));
+		loadmodel->surfmesh.data_skeletalweight4ub = (unsigned char *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(unsigned char[4]));
+		loadmodel->surfmesh.num_blends = loadmodel->surfmesh.num_vertices;
+		loadmodel->surfmesh.blends = (unsigned short *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_vertices * sizeof(short));
+		loadmodel->surfmesh.data_blendweights = (blendweights_t *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_vertices * sizeof(blendweights_t));
+		bone_index = 0;
+		vertices_offset = 0;
+		for (i = 0; i < ais->mNumMeshes; i++) {
+			for (j = 0; j < ais->mMeshes[i]->mNumBones; j++) {
+				matrix4x4_t mtmp, mtmpinv;
+				loadmodel->data_bones[bone_index].parent = -1;
+				loadmodel->data_bones[bone_index].flags = 0;
+				posematrix.m[0][0] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.a1;
+				posematrix.m[0][1] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.a2;
+				posematrix.m[0][2] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.a3;
+				posematrix.m[0][3] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.a4;
+				posematrix.m[1][0] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.b1;
+				posematrix.m[1][1] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.b2;
+				posematrix.m[1][2] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.b3;
+				posematrix.m[1][3] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.b4;
+				posematrix.m[2][0] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.c1;
+				posematrix.m[2][1] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.c2;
+				posematrix.m[2][2] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.c3;
+				posematrix.m[2][3] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.c4;
+				posematrix.m[3][0] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.d1;
+				posematrix.m[3][1] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.d2;
+				posematrix.m[3][2] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.d3;
+				posematrix.m[3][3] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.d4;
+				if (ais->mMeshes[i]->mBones[j]->mNode->mParent) {
+					int bone_index2 = 0;
+					for (n = 0; n < ais->mNumMeshes; n++) {
+						for (k = 0; k < ais->mMeshes[n]->mNumBones; k++) {
+							if (ais->mMeshes[i]->mBones[j]->mNode->mParent == ais->mMeshes[n]->mBones[k]->mNode) {
+								loadmodel->data_bones[bone_index].parent = bone_index2;
+								mtmp.m[0][0] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.a1;
+								mtmp.m[0][1] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.a2;
+								mtmp.m[0][2] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.a3;
+								mtmp.m[0][3] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.a4;
+								mtmp.m[1][0] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.b1;
+								mtmp.m[1][1] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.b2;
+								mtmp.m[1][2] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.b3;
+								mtmp.m[1][3] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.b4;
+								mtmp.m[2][0] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.c1;
+								mtmp.m[2][1] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.c2;
+								mtmp.m[2][2] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.c3;
+								mtmp.m[2][3] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.c4;
+								mtmp.m[3][0] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.d1;
+								mtmp.m[3][1] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.d2;
+								mtmp.m[3][2] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.d3;
+								mtmp.m[3][3] = ais->mMeshes[n]->mBones[k]->mOffsetMatrix.d4;
+								Matrix4x4_Invert_Full(&mtmpinv, &mtmp);
+								mtmp = posematrix;
+								Matrix4x4_Concat(&posematrix, &mtmp, &mtmpinv);
+								goto parentfound;
+							}
+							bone_index2++;
+						}
+					}
+				}
+parentfound:
+				mtmpinv = posematrix;
+				Matrix4x4_Invert_Full(&posematrix, &mtmpinv);
+				Matrix4x4_ToBonePose7s(&posematrix, loadmodel->num_poseinvscale, loadmodel->data_poses7s + 7*bone_index);
+				strlcpy(loadmodel->data_bones[bone_index].name, ais->mMeshes[i]->mBones[j]->mName.data, MD3NAME);
+				for (k = 0; k < ais->mMeshes[i]->mBones[j]->mNumWeights; k++) {
+					int weight_offset = vertices_offset + ais->mMeshes[i]->mBones[j]->mWeights[k].mVertexId;
+					int weight_offset4 = weight_offset * 4;
+					loadmodel->surfmesh.blends[weight_offset] = weight_offset;
+					for (n = 0; n < 4; n++) {
+						if (!loadmodel->surfmesh.data_skeletalweight4ub[weight_offset4 + n]) {
+							loadmodel->surfmesh.data_skeletalweight4ub[weight_offset4] = ais->mMeshes[i]->mBones[j]->mWeights[k].mWeight * 255;
+							loadmodel->surfmesh.data_skeletalindex4ub[weight_offset4] = bone_index;
+							loadmodel->surfmesh.data_blendweights[weight_offset].index[n] = bone_index;
+							loadmodel->surfmesh.data_blendweights[weight_offset].influence[n] = loadmodel->surfmesh.data_skeletalweight4ub[weight_offset4];
+							break;
+						}
+					}
+				}
+				bone_index++;
+			}
+			vertices_offset += ais->mMeshes[i]->mNumVertices;
+		}
+		Mod_BuildBaseBonePoses(loadmodel);
+		loadmodel->numframes = ais->mNumAnimations + 1;
+		loadmodel->animscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * (loadmodel->numframes + 1));
+		strlcpy(loadmodel->animscenes[0].name, "noanimation", 32);
+		loadmodel->animscenes[0].firstframe = 0;
+		loadmodel->animscenes[0].framecount = 1;
+		loadmodel->animscenes[0].framerate = 1;
+		loadmodel->animscenes[0].loop = true;
+		animation_offset = 1;
+		for (i = 1; i < loadmodel->num_poses; i++) {
+			memcpy(loadmodel->data_poses7s + i * loadmodel->num_bones * 7, loadmodel->data_poses7s, loadmodel->num_bones * 7 * sizeof(short));
+		}
+		for (i = 0; i < ais->mNumAnimations; i++) {
+			strlcpy(loadmodel->animscenes[i + 1].name, ais->mAnimations[i]->mName.data, 32);
+			loadmodel->animscenes[i + 1].firstframe = animation_offset;
+			loadmodel->animscenes[i + 1].framecount = ais->mAnimations[i]->mDuration;
+			loadmodel->animscenes[i + 1].framerate = ais->mAnimations[i]->mTicksPerSecond;
+			loadmodel->animscenes[i + 1].loop = true; //fixme
+			for (j = 0; j < ais->mAnimations[i]->mNumChannels; j++) {
+				bone_index = 0;
+				for (k = 0; k < ais->mNumMeshes; k++) {
+					for (n = 0; n < ais->mMeshes[k]->mNumBones; n++) {
+						if (!strcmp(ais->mMeshes[k]->mBones[n]->mNode->mName.data, ais->mAnimations[i]->mChannels[j]->mNodeName.data)) {
+							for (m = 0; m < ais->mAnimations[i]->mChannels[j]->mNumRotationKeys; m++) {
+								int animation_offset2 = animation_offset + ais->mAnimations[i]->mChannels[j]->mRotationKeys[m].mTime;
+								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 6] =
+										ais->mAnimations[i]->mChannels[j]->mRotationKeys[m].mValue.w * 32767.0f;
+								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 3] =
+										ais->mAnimations[i]->mChannels[j]->mRotationKeys[m].mValue.x * 32767.0f;
+								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 4] =
+										ais->mAnimations[i]->mChannels[j]->mRotationKeys[m].mValue.y * 32767.0f;
+								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 5] =
+										ais->mAnimations[i]->mChannels[j]->mRotationKeys[m].mValue.z * 32767.0f;
+							}
+							for (m = 0; m < ais->mAnimations[i]->mChannels[j]->mNumPositionKeys; m++) {
+								int animation_offset2 = animation_offset + ais->mAnimations[i]->mChannels[j]->mPositionKeys[m].mTime;
+								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 0] =
+										ais->mAnimations[i]->mChannels[j]->mPositionKeys[m].mValue.x * loadmodel->num_poseinvscale;
+								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 1] =
+										ais->mAnimations[i]->mChannels[j]->mPositionKeys[m].mValue.y * loadmodel->num_poseinvscale;
+								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 2] =
+										ais->mAnimations[i]->mChannels[j]->mPositionKeys[m].mValue.z * loadmodel->num_poseinvscale;
+							}
+						}
+						bone_index++;
+					}
+				}
+			}
+			animation_offset += ais->mAnimations[i]->mDuration + 1;
+		}
+	}
+	#ifndef CONFIG_SV
+	if (r_enableshadowvolumes.integer)
+	{
+		loadmodel->surfmesh.data_neighbor3i = (int *)Mem_Alloc(loadmodel->mempool, triangles_count * sizeof(int[3]));
+	}
+	#endif
+	loadmodel->surfmesh.data_texcoordtexture2f = (float *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(float[2]));
+	vertex_index = 0;
+	triangle_index = 0;
+	for (i = 0; i < ais->mNumMeshes; i++) {
+		surface = loadmodel->data_surfaces + i;
+		surface->num_firsttriangle = triangle_index;
+		surface->num_firstvertex = vertex_index;
+		for (j = 0; j < ais->mMeshes[i]->mNumVertices; j++) {
+			loadmodel->surfmesh.data_vertex3f[vertex_index * 3] = ais->mMeshes[i]->mVertices[j].x;
+			loadmodel->surfmesh.data_vertex3f[vertex_index * 3 + 1] = ais->mMeshes[i]->mVertices[j].y;
+			loadmodel->surfmesh.data_vertex3f[vertex_index * 3 + 2] = ais->mMeshes[i]->mVertices[j].z;
+			loadmodel->surfmesh.data_normal3f[vertex_index * 3] = ais->mMeshes[i]->mNormals[j].x;
+			loadmodel->surfmesh.data_normal3f[vertex_index * 3 + 1] = ais->mMeshes[i]->mNormals[j].y;
+			loadmodel->surfmesh.data_normal3f[vertex_index * 3 + 2] = ais->mMeshes[i]->mNormals[j].z;
+			if (ais->mMeshes[i]->mTextureCoords[0]) {
+				loadmodel->surfmesh.data_texcoordtexture2f[vertex_index * 2] = ais->mMeshes[i]->mTextureCoords[0][j].x;
+				loadmodel->surfmesh.data_texcoordtexture2f[vertex_index * 2 + 1] = ais->mMeshes[i]->mTextureCoords[0][j].y;
+			} else {
+				loadmodel->surfmesh.data_texcoordtexture2f[vertex_index * 2] = 0;
+				loadmodel->surfmesh.data_texcoordtexture2f[vertex_index * 2 + 1] = 0;
+			}
+			vertex_index++;
+		}
+		for (m = 0; m < ais->mMeshes[i]->mNumFaces; m++) {
+			if (ais->mMeshes[i]->mFaces[m].mNumIndices != 3) continue;
+			loadmodel->surfmesh.data_element3i[triangle_index * 3] = ais->mMeshes[i]->mFaces[m].mIndices[0];
+			loadmodel->surfmesh.data_element3i[triangle_index * 3 + 2] = ais->mMeshes[i]->mFaces[m].mIndices[1];
+			loadmodel->surfmesh.data_element3i[triangle_index * 3 + 1] = ais->mMeshes[i]->mFaces[m].mIndices[2];
+			triangle_index++;
+		}
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + i, skinfiles, ais->mMeshes[i]->mName.data, ais->mMeshes[i]->mName.data);
+		surface->texture = loadmodel->data_textures + i;
+		surface->num_triangles = triangle_index - surface->num_firsttriangle;
+		surface->num_vertices = vertex_index - surface->num_firstvertex;
+	}
+	Mod_FreeSkinFiles(skinfiles);
+	Mod_MakeSortedSurfaces(loadmodel);
+	Mod_BuildTextureVectorsFromNormals(0, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->surfmesh.data_vertex3f, loadmodel->surfmesh.data_texcoordtexture2f, loadmodel->surfmesh.data_normal3f, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.data_svector3f, loadmodel->surfmesh.data_tvector3f, r_smoothnormals_areaweighting.integer != 0);
+	if (loadmodel->surfmesh.data_neighbor3i)
+		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
+fail:
+	if (ais)
+		qaiReleaseImport(ais);
+
+	Assimp_Shutdown();
 }
