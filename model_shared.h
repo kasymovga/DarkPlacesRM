@@ -1114,12 +1114,12 @@ void Mod_ValidateElements(int *elements, int numtriangles, int firstvertex, int 
 void Mod_BuildNormals(int firstvertex, int numvertices, int numtriangles, const float *vertex3f, const int *elements, float *normal3f, qboolean areaweighting);
 void Mod_BuildTextureVectorsFromNormals(int firstvertex, int numvertices, int numtriangles, const float *vertex3f, const float *texcoord2f, const float *normal3f, const int *elements, float *svector3f, float *tvector3f, qboolean areaweighting);
 
-void Mod_AllocSurfMesh(mempool_t *mempool, int numvertices, int numtriangles, qboolean lightmapoffsets, qboolean vertexcolors, qboolean neighbors);
+void Mod_AllocSurfMesh(dp_model_t *loadmodel, mempool_t *mempool, int numvertices, int numtriangles, qboolean lightmapoffsets, qboolean vertexcolors, qboolean neighbors);
 void Mod_MakeSortedSurfaces(dp_model_t *mod);
 
 // called specially by brush model loaders before generating submodels
 // automatically called after model loader returns
-void Mod_BuildVBOs(void);
+void Mod_BuildVBOs(dp_model_t *loadmodel);
 
 shadowmesh_t *Mod_ShadowMesh_Alloc(mempool_t *mempool, int maxverts, int maxtriangles, rtexture_t *map_diffuse, rtexture_t *map_specular, rtexture_t *map_normal, int light, int neighbors, int expandable);
 shadowmesh_t *Mod_ShadowMesh_ReAlloc(mempool_t *mempool, shadowmesh_t *oldmesh, int light, int neighbors);
@@ -1136,9 +1136,9 @@ void Mod_CreateCollisionMesh(dp_model_t *mod);
 void Mod_FreeQ3Shaders(void);
 void Mod_LoadQ3Shaders(void);
 q3shaderinfo_t *Mod_LookupQ3Shader(const char *name);
-qboolean Mod_LoadTextureFromQ3Shader(texture_t *texture, const char *name, qboolean warnmissing, qboolean fallback, int defaulttexflags);
-texture_shaderpass_t *Mod_CreateShaderPass(skinframe_t *skinframe);
-texture_shaderpass_t *Mod_CreateShaderPassFromQ3ShaderLayer(q3shaderinfo_layer_t *layer, int layerindex, int texflags, const char *texturename);
+qboolean Mod_LoadTextureFromQ3Shader(dp_model_t *loadmodel, texture_t *texture, const char *name, qboolean warnmissing, qboolean fallback, int defaulttexflags);
+texture_shaderpass_t *Mod_CreateShaderPass(dp_model_t *loadmodel, skinframe_t *skinframe);
+texture_shaderpass_t *Mod_CreateShaderPassFromQ3ShaderLayer(dp_model_t *loadmodel, q3shaderinfo_layer_t *layer, int layerindex, int texflags, const char *texturename);
 
 extern cvar_t r_mipskins;
 extern cvar_t r_mipnormalmaps;
@@ -1158,7 +1158,7 @@ typedef struct skinfile_s
 }
 skinfile_t;
 
-skinfile_t *Mod_LoadSkinFiles(void);
+skinfile_t *Mod_LoadSkinFiles(dp_model_t *loadmodel);
 void Mod_FreeSkinFiles(skinfile_t *skinfile);
 int Mod_CountSkinFiles(skinfile_t *skinfile);
 void Mod_BuildAliasSkinsFromSkinFiles(dp_model_t *loadmodel, texture_t *skin, skinfile_t *skinfile, const char *meshname, const char *shadername);

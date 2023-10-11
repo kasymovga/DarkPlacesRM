@@ -58,7 +58,7 @@ void Mod_SpriteInit (void)
 }
 
 #ifndef CONFIG_SV
-static void Mod_SpriteSetupTexture(texture_t *texture, skinframe_t *skinframe, qboolean fullbright, qboolean additive)
+static void Mod_SpriteSetupTexture(dp_model_t *loadmodel, texture_t *texture, skinframe_t *skinframe, qboolean fullbright, qboolean additive)
 {
 	if (!skinframe)
 		skinframe = R_SkinFrame_LoadMissing();
@@ -77,7 +77,7 @@ static void Mod_SpriteSetupTexture(texture_t *texture, skinframe_t *skinframe, q
 		texture->basematerialflags |= MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_NOSHADOW;
 	texture->currentmaterialflags = texture->basematerialflags;
 	#ifndef CONFIG_SV
-	texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(skinframe);
+	texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(loadmodel, skinframe);
 	#endif
 	texture->currentskinframe = skinframe;
 	texture->surfaceflags = 0;
@@ -248,7 +248,7 @@ static void Mod_Sprite_SharedSetup(dp_model_t *loadmodel, const unsigned char *d
 				}
 				if (skinframe == NULL)
 					skinframe = R_SkinFrame_LoadMissing();
-				Mod_SpriteSetupTexture(&loadmodel->data_textures[realframes], skinframe, fullbright, additive);
+				Mod_SpriteSetupTexture(loadmodel, &loadmodel->data_textures[realframes], skinframe, fullbright, additive);
 			}
 			#endif
 			if (version == SPRITE32_VERSION)
@@ -480,7 +480,7 @@ void Mod_IDS2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 				Con_Printf("Mod_IDS2_Load: failed to load %s", pinframe->name);
 				skinframe = R_SkinFrame_LoadMissing();
 			}
-			Mod_SpriteSetupTexture(&loadmodel->data_textures[i], skinframe, fullbright, false);
+			Mod_SpriteSetupTexture(loadmodel, &loadmodel->data_textures[i], skinframe, fullbright, false);
 		}
 	}
 	#endif

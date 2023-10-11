@@ -1687,7 +1687,7 @@ static void Mod_Q1BSP_LoadTextures(dp_model_t *loadmodel, sizebuf_t *sb)
 		#ifndef CONFIG_SV
 		if (cls.state != ca_dedicated)
 		{
-			tx->materialshaderpass = tx->shaderpasses[0] = Mod_CreateShaderPass(skinframemissing);
+			tx->materialshaderpass = tx->shaderpasses[0] = Mod_CreateShaderPass(loadmodel, skinframemissing);
 			tx->currentskinframe = skinframemissing;
 		}
 		#endif
@@ -1795,7 +1795,7 @@ static void Mod_Q1BSP_LoadTextures(dp_model_t *loadmodel, sizebuf_t *sb)
 		// LordHavoc: backup the texture_t because q3 shader loading overwrites it
 		backuptex = loadmodel->data_textures[i];
 		#ifndef CONFIG_SV
-		if (name[0] && Mod_LoadTextureFromQ3Shader(loadmodel->data_textures + i, name, false, false, 0))
+		if (name[0] && Mod_LoadTextureFromQ3Shader(loadmodel, loadmodel->data_textures + i, name, false, false, 0))
 			continue;
 		#endif
 		loadmodel->data_textures[i] = backuptex;
@@ -2562,7 +2562,7 @@ static void Mod_Q1BSP_LoadFaces(dp_model_t *loadmodel, sizebuf_t *sb)
 		totaltris += numedges - 2;
 	}
 
-	Mod_AllocSurfMesh(loadmodel->mempool, totalverts, totaltris, true, false, false);
+	Mod_AllocSurfMesh(loadmodel, loadmodel->mempool, totalverts, totaltris, true, false, false);
 	#ifndef CONFIG_SV
 	lightmaptexture = NULL;
 	lightmapnumber = 0;
@@ -3800,7 +3800,7 @@ void Mod_Q1BSP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		if (i == 0)
 		{
 			#ifndef CONFIG_SV
-			Mod_BuildVBOs();
+			Mod_BuildVBOs(mod);
 			#endif
 			Mod_Q1BSP_LoadMapBrushes();
 			//Mod_Q1BSP_ProcessLightList();
@@ -4003,7 +4003,7 @@ static void Mod_Q2BSP_LoadTexinfo(dp_model_t *loadmodel, sizebuf_t *sb)
 				unsigned char *walfile = NULL;
 				fs_offset_t walfilesize = 0;
 				#ifndef CONFIG_SV
-				Mod_LoadTextureFromQ3Shader(tx, filename, true, true, TEXF_ALPHA | TEXF_MIPMAP | TEXF_ISWORLD | TEXF_PICMIP | TEXF_COMPRESS);
+				Mod_LoadTextureFromQ3Shader(loadmodel, tx, filename, true, true, TEXF_ALPHA | TEXF_MIPMAP | TEXF_ISWORLD | TEXF_PICMIP | TEXF_COMPRESS);
 				#endif
 				// now read the .wal file to get metadata (even if a .tga was overriding it, we still need the wal data)
 				walfile = FS_LoadFile(filename, tempmempool, true, &walfilesize);
@@ -4784,7 +4784,7 @@ static void Mod_Q2BSP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		// generate VBOs and other shared data before cloning submodels
 		#ifndef CONFIG_SV
 		if (i == 0)
-			Mod_BuildVBOs();
+			Mod_BuildVBOs(mod);
 		#endif
 		if (i > 0)
 			mod->mempool = NULL;
@@ -4885,7 +4885,7 @@ static void Mod_Q3BSP_LoadTextures(dp_model_t *loadmodel, lump_t *l)
 		out[i].surfaceflags = LittleLong(in[i].surfaceflags);
 		out[i].supercontents = Mod_Q3BSP_SuperContentsFromNativeContents(loadmodel, LittleLong(in[i].contents));
 		#ifndef CONFIG_SV
-		Mod_LoadTextureFromQ3Shader(out + i, in[i].name, true, true, TEXF_MIPMAP | TEXF_ISWORLD | TEXF_PICMIP | TEXF_COMPRESS);
+		Mod_LoadTextureFromQ3Shader(loadmodel, out + i, in[i].name, true, true, TEXF_MIPMAP | TEXF_ISWORLD | TEXF_PICMIP | TEXF_COMPRESS);
 		// restore the surfaceflags and supercontents
 		out[i].surfaceflags = LittleLong(in[i].surfaceflags);
 		out[i].supercontents = Mod_Q3BSP_SuperContentsFromNativeContents(loadmodel, LittleLong(in[i].contents));
@@ -5742,7 +5742,7 @@ static void Mod_Q3BSP_LoadFaces(dp_model_t *loadmodel, lump_t *l)
 	i = oldi;
 	in = oldin;
 	out = oldout;
-	Mod_AllocSurfMesh(loadmodel->mempool, meshvertices, meshtriangles, false, true, false);
+	Mod_AllocSurfMesh(loadmodel, loadmodel->mempool, meshvertices, meshtriangles, false, true, false);
 	if (collisiontriangles)
 	{
 		loadmodel->brush.data_collisionvertex3f = (float *)Mem_Alloc(loadmodel->mempool, collisionvertices * sizeof(float[3]));
@@ -7705,7 +7705,7 @@ static void Mod_Q3BSP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		// generate VBOs and other shared data before cloning submodels
 		#ifndef CONFIG_SV
 		if (i == 0)
-			Mod_BuildVBOs();
+			Mod_BuildVBOs(mod);
 		#endif
 		if (i > 0)
 			mod->mempool = NULL;
@@ -7844,7 +7844,7 @@ void Mod_OBJ_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
 	loadmodel->DrawLight = R_Q1BSP_DrawLight;
 	#endif
-	skinfiles = Mod_LoadSkinFiles();
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (loadmodel->numskins < 1)
 		loadmodel->numskins = 1;
 
@@ -8367,7 +8367,7 @@ void Mod_OBJ_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		// generate VBOs and other shared data before cloning submodels
 		#ifndef CONFIG_SV
 		if (i == 0)
-			Mod_BuildVBOs();
+			Mod_BuildVBOs(mod);
 		#endif
 		if (i > 0)
 			mod->mempool = NULL;

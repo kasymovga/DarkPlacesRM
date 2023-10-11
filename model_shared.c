@@ -45,8 +45,6 @@ cvar_t mod_generatelightmaps_vertexradius = {CVAR_SAVE, "mod_generatelightmaps_v
 cvar_t mod_generatelightmaps_gridradius = {CVAR_SAVE, "mod_generatelightmaps_gridradius", "64", "sampling area around each lightgrid cell center"};
 #endif
 
-dp_model_t *loadmodel;
-
 static mempool_t *mod_mempool;
 static memexpandablearray_t models;
 static void *model_mutex;
@@ -520,7 +518,6 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 
 		num = LittleLong(*((int *)buf));
 		// call the apropriate loader
-		loadmodel = mod;
 		if (!strcasecmp(FS_FileExtension(mod->name), "obj")) Mod_OBJ_Load(mod, buf, bufend);
 		else if (!memcmp(buf, "IDPO", 4)) Mod_IDP0_Load(mod, buf, bufend);
 		else if (!memcmp(buf, "IDP2", 4)) Mod_IDP2_Load(mod, buf, bufend);
@@ -546,7 +543,7 @@ dp_model_t *Mod_LoadModel(dp_model_t *mod, qboolean crash, qboolean checkdisk)
 			Mem_Free(buf);
 		}
 		#ifndef CONFIG_SV
-		Mod_BuildVBOs();
+		Mod_BuildVBOs(mod);
 		#endif
 	}
 	else if (crash)
@@ -1061,7 +1058,7 @@ void Mod_BuildTextureVectorsFromNormals(int firstvertex, int numvertices, int nu
 	}
 }
 
-void Mod_AllocSurfMesh(mempool_t *mempool, int numvertices, int numtriangles, qboolean lightmapoffsets, qboolean vertexcolors, qboolean neighbors)
+void Mod_AllocSurfMesh(dp_model_t *loadmodel, mempool_t *mempool, int numvertices, int numtriangles, qboolean lightmapoffsets, qboolean vertexcolors, qboolean neighbors)
 {
 	unsigned char *data;
 	data = (unsigned char *)Mem_Alloc(mempool, numvertices * (3 + 3 + 3 + 3 + 2 + 2 + (vertexcolors ? 4 : 0)) * sizeof(float) + numvertices * (lightmapoffsets ? 1 : 0) * sizeof(int) + numtriangles * (3 + (neighbors ? 3 : 0)) * sizeof(int) + (numvertices <= 65536 ? numtriangles * sizeof(unsigned short[3]) : 0));
@@ -1280,11 +1277,11 @@ static void Mod_ShadowMesh_CreateVBOs(shadowmesh_t *mesh, mempool_t *mempool)
 
 	// upload short indices as a buffer
 	if (mesh->element3s && !mesh->element3s_indexbuffer)
-		mesh->element3s_indexbuffer = R_Mesh_CreateMeshBuffer(mesh->element3s, mesh->numtriangles * sizeof(short[3]), loadmodel->name, true, false, false, true);
+		mesh->element3s_indexbuffer = R_Mesh_CreateMeshBuffer(mesh->element3s, mesh->numtriangles * sizeof(short[3]), "model", true, false, false, true);
 
 	// upload int indices as a buffer
 	if (mesh->element3i && !mesh->element3i_indexbuffer && !mesh->element3s)
-		mesh->element3i_indexbuffer = R_Mesh_CreateMeshBuffer(mesh->element3i, mesh->numtriangles * sizeof(int[3]), loadmodel->name, true, false, false, false);
+		mesh->element3i_indexbuffer = R_Mesh_CreateMeshBuffer(mesh->element3i, mesh->numtriangles * sizeof(int[3]), "model", true, false, false, false);
 
 	// vertex buffer is several arrays and we put them in the same buffer
 	//
@@ -2492,7 +2489,7 @@ q3shaderinfo_t *Mod_LookupQ3Shader(const char *name)
 }
 
 #ifndef CONFIG_SV
-texture_shaderpass_t *Mod_CreateShaderPass(skinframe_t *skinframe)
+texture_shaderpass_t *Mod_CreateShaderPass(dp_model_t *loadmodel, skinframe_t *skinframe)
 {
 	texture_shaderpass_t *shaderpass = (texture_shaderpass_t *)Mem_Alloc(loadmodel->mempool, sizeof(*shaderpass));
 	shaderpass->framerate = 0.0f;
@@ -2507,7 +2504,7 @@ texture_shaderpass_t *Mod_CreateShaderPass(skinframe_t *skinframe)
 	return shaderpass;
 }
 
-texture_shaderpass_t *Mod_CreateShaderPassFromQ3ShaderLayer(q3shaderinfo_layer_t *layer, int layerindex, int texflags, const char *texturename)
+texture_shaderpass_t *Mod_CreateShaderPassFromQ3ShaderLayer(dp_model_t *loadmodel, q3shaderinfo_layer_t *layer, int layerindex, int texflags, const char *texturename)
 {
 	int j;
 	texture_shaderpass_t *shaderpass = (texture_shaderpass_t *)Mem_Alloc(loadmodel->mempool, sizeof(*shaderpass));
@@ -2536,7 +2533,7 @@ texture_shaderpass_t *Mod_CreateShaderPassFromQ3ShaderLayer(q3shaderinfo_layer_t
 	return shaderpass;
 }
 
-qboolean Mod_LoadTextureFromQ3Shader(texture_t *texture, const char *name, qboolean warnmissing, qboolean fallback, int defaulttexflags)
+qboolean Mod_LoadTextureFromQ3Shader(dp_model_t *loadmodel, texture_t *texture, const char *name, qboolean warnmissing, qboolean fallback, int defaulttexflags)
 {
 	int texflagsmask, texflagsor;
 	qboolean success = true;
@@ -2726,19 +2723,19 @@ nothing                GL_ZERO GL_ONE
 			// convert the main material layer
 			// FIXME: if alphagenspecularlayer is used, we should pass a specular texture name to R_SkinFrame_LoadExternal and have it load that texture instead of the assumed name for _gloss texture
 			if (materiallayer >= 0)
-				texture->materialshaderpass = texture->shaderpasses[shaderpassindex++] = Mod_CreateShaderPassFromQ3ShaderLayer(&shader->layers[materiallayer], materiallayer, (shader->layers[materiallayer].texflags & texflagsmask) | texflagsor, texture->name);
+				texture->materialshaderpass = texture->shaderpasses[shaderpassindex++] = Mod_CreateShaderPassFromQ3ShaderLayer(loadmodel, &shader->layers[materiallayer], materiallayer, (shader->layers[materiallayer].texflags & texflagsmask) | texflagsor, texture->name);
 			// convert the terrain background blend layer (if any)
 			if (terrainbackgroundlayer >= 0)
-				texture->backgroundshaderpass = texture->shaderpasses[shaderpassindex++] = Mod_CreateShaderPassFromQ3ShaderLayer(&shader->layers[terrainbackgroundlayer], terrainbackgroundlayer, (shader->layers[terrainbackgroundlayer].texflags & texflagsmask) | texflagsor, texture->name);
+				texture->backgroundshaderpass = texture->shaderpasses[shaderpassindex++] = Mod_CreateShaderPassFromQ3ShaderLayer(loadmodel, &shader->layers[terrainbackgroundlayer], terrainbackgroundlayer, (shader->layers[terrainbackgroundlayer].texflags & texflagsmask) | texflagsor, texture->name);
 			// convert the prepass layers (if any)
 			texture->startpreshaderpass = shaderpassindex;
 			for (i = 0; i < endofprelayers; i++)
-				texture->shaderpasses[shaderpassindex++] = Mod_CreateShaderPassFromQ3ShaderLayer(&shader->layers[i], i, (shader->layers[i].texflags & texflagsmask) | texflagsor, texture->name);
+				texture->shaderpasses[shaderpassindex++] = Mod_CreateShaderPassFromQ3ShaderLayer(loadmodel, &shader->layers[i], i, (shader->layers[i].texflags & texflagsmask) | texflagsor, texture->name);
 			texture->endpreshaderpass = shaderpassindex;
 			texture->startpostshaderpass = shaderpassindex;
 			// convert the postpass layers (if any)
 			for (i = firstpostlayer; i < shader->numlayers; i++)
-				texture->shaderpasses[shaderpassindex++] = Mod_CreateShaderPassFromQ3ShaderLayer(&shader->layers[i], i, (shader->layers[i].texflags & texflagsmask) | texflagsor, texture->name);
+				texture->shaderpasses[shaderpassindex++] = Mod_CreateShaderPassFromQ3ShaderLayer(loadmodel, &shader->layers[i], i, (shader->layers[i].texflags & texflagsmask) | texflagsor, texture->name);
 			texture->startpostshaderpass = shaderpassindex;
 		}
 
@@ -2891,7 +2888,7 @@ nothing                GL_ZERO GL_ONE
 		{
 			if (fallback)
 			{
-				texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(R_SkinFrame_LoadExternal(texture->name, defaulttexflags, false));
+				texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(loadmodel, R_SkinFrame_LoadExternal(texture->name, defaulttexflags, false));
 				if (texture->materialshaderpass->skinframes[0])
 				{
 					if (texture->materialshaderpass->skinframes[0]->hasalpha)
@@ -2911,7 +2908,7 @@ nothing                GL_ZERO GL_ONE
 	// init the animation variables
 	texture->currentframe = texture;
 	if (!texture->materialshaderpass)
-		texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(R_SkinFrame_LoadMissing());
+		texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(loadmodel, R_SkinFrame_LoadMissing());
 	if (!texture->materialshaderpass->skinframes[0])
 		texture->materialshaderpass->skinframes[0] = R_SkinFrame_LoadMissing();
 	texture->currentskinframe = texture->materialshaderpass ? texture->materialshaderpass->skinframes[0] : NULL;
@@ -2920,7 +2917,7 @@ nothing                GL_ZERO GL_ONE
 }
 #endif
 
-skinfile_t *Mod_LoadSkinFiles(void)
+skinfile_t *Mod_LoadSkinFiles(dp_model_t *loadmodel)
 {
 	int i, words, line, wordsoverflow;
 	char *text;
@@ -3110,7 +3107,7 @@ void Mod_MakeSortedSurfaces(dp_model_t *mod)
 	int *firstsurfacefortexture;
 	int *numsurfacesfortexture;
 	if (!mod->sortedmodelsurfaces)
-		mod->sortedmodelsurfaces = (int *) Mem_Alloc(loadmodel->mempool, mod->nummodelsurfaces * sizeof(*mod->sortedmodelsurfaces));
+		mod->sortedmodelsurfaces = (int *) Mem_Alloc(mod->mempool, mod->nummodelsurfaces * sizeof(*mod->sortedmodelsurfaces));
 	firstsurfacefortexture = (int *) Mem_Alloc(tempmempool, mod->num_textures * sizeof(*firstsurfacefortexture));
 	numsurfacesfortexture = (int *) Mem_Alloc(tempmempool, mod->num_textures * sizeof(*numsurfacesfortexture));
 	memset(numsurfacesfortexture, 0, mod->num_textures * sizeof(*numsurfacesfortexture));
@@ -3137,7 +3134,7 @@ void Mod_MakeSortedSurfaces(dp_model_t *mod)
 }
 
 #ifndef CONFIG_SV
-void Mod_BuildVBOs(void)
+void Mod_BuildVBOs(dp_model_t *loadmodel)
 {
 	if (!loadmodel->surfmesh.num_vertices)
 		return;
@@ -4507,7 +4504,7 @@ static void Mod_GenerateLightmaps_CreateLightmaps(dp_model_t *model)
 	lm_borderpixels = mod_generatelightmaps_borderpixels.integer;
 	lm_texturesize = bound(lm_borderpixels*2+1, 64, (int)vid.maxtexturesize_2d);
 	//lm_maxpixels = lm_texturesize-(lm_borderpixels*2+1);
-	Mod_AllocLightmap_Init(&lmstate, loadmodel->mempool, lm_texturesize, lm_texturesize);
+	Mod_AllocLightmap_Init(&lmstate, model->mempool, lm_texturesize, lm_texturesize);
 	lightmapnumber = 0;
 	for (surfaceindex = 0;surfaceindex < model->num_surfaces;surfaceindex++)
 	{
@@ -4554,7 +4551,7 @@ static void Mod_GenerateLightmaps_CreateLightmaps(dp_model_t *model)
 				surfaceindex = -1;
 				lightmapnumber = 0;
 				Mod_AllocLightmap_Free(&lmstate);
-				Mod_AllocLightmap_Init(&lmstate, loadmodel->mempool, lm_texturesize, lm_texturesize);
+				Mod_AllocLightmap_Init(&lmstate, model->mempool, lm_texturesize, lm_texturesize);
 				break;
 			}
 			// if we have maxed out the lightmap size, and this triangle does
@@ -4748,9 +4745,6 @@ extern cvar_t mod_q3bsp_nolightmaps;
 static void Mod_GenerateLightmaps(dp_model_t *model)
 {
 	//lightmaptriangle_t *lightmaptriangles = Mem_Alloc(model->mempool, model->surfmesh.num_triangles * sizeof(lightmaptriangle_t));
-	dp_model_t *oldloadmodel = loadmodel;
-	loadmodel = model;
-
 	Mod_GenerateLightmaps_InitSampleOffsets(model);
 	Mod_GenerateLightmaps_DestroyLightmaps(model);
 	Mod_GenerateLightmaps_UnweldTriangles(model);
@@ -4762,8 +4756,6 @@ static void Mod_GenerateLightmaps(dp_model_t *model)
 	Mod_GenerateLightmaps_UpdateLightGrid(model);
 	Mod_GenerateLightmaps_DestroyLights(model);
 	Mod_GenerateLightmaps_DestroyTriangleInformation(model);
-
-	loadmodel = oldloadmodel;
 }
 
 static void Mod_GenerateLightmaps_f(void)

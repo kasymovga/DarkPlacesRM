@@ -911,7 +911,7 @@ static void Mod_MDL_LoadFrames (dp_model_t *loadmodel, unsigned char* datapointe
 }
 
 #ifndef CONFIG_SV
-static void Mod_BuildAliasSkinFromSkinFrame(texture_t *texture, skinframe_t *skinframe)
+static void Mod_BuildAliasSkinFromSkinFrame(dp_model_t *loadmodel, texture_t *texture, skinframe_t *skinframe)
 {
 	if (cls.state == ca_dedicated)
 		return;
@@ -921,7 +921,7 @@ static void Mod_BuildAliasSkinFromSkinFrame(texture_t *texture, skinframe_t *ski
 	memset(texture, 0, sizeof(*texture));
 	texture->currentframe = texture;
 	//texture->animated = false;
-	texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(skinframe);
+	texture->materialshaderpass = texture->shaderpasses[0] = Mod_CreateShaderPass(loadmodel, skinframe);
 	texture->currentskinframe = skinframe;
 	//texture->backgroundnumskinframes = 0;
 	//texture->customblendfunc[0] = 0;
@@ -974,7 +974,7 @@ void Mod_BuildAliasSkinsFromSkinFiles(dp_model_t *loadmodel, texture_t *skin, sk
 					if(developer_extra.integer)
 						Con_DPrintf("--> got %s from skin file\n", stripbuf);
 					#ifndef CONFIG_SV
-					Mod_LoadTextureFromQ3Shader(skin, stripbuf, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
+					Mod_LoadTextureFromQ3Shader(loadmodel, skin, stripbuf, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
 					#endif
 					break;
 				}
@@ -983,7 +983,7 @@ void Mod_BuildAliasSkinsFromSkinFiles(dp_model_t *loadmodel, texture_t *skin, sk
 			{
 				// don't render unmentioned meshes
 				#ifndef CONFIG_SV
-				Mod_BuildAliasSkinFromSkinFrame(skin, NULL);
+				Mod_BuildAliasSkinFromSkinFrame(loadmodel, skin, NULL);
 				#endif
 				if(developer_extra.integer)
 					Con_DPrintf("--> skipping\n");
@@ -997,7 +997,7 @@ void Mod_BuildAliasSkinsFromSkinFiles(dp_model_t *loadmodel, texture_t *skin, sk
 			Con_DPrintf("--> using default\n");
 		Image_StripImageExtension(shadername, stripbuf, sizeof(stripbuf));
 		#ifndef CONFIG_SV
-		Mod_LoadTextureFromQ3Shader(skin, stripbuf, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
+		Mod_LoadTextureFromQ3Shader(loadmodel, skin, stripbuf, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
 		#endif
 	}
 }
@@ -1246,7 +1246,7 @@ void Mod_IDP0_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	Mem_Free(vertremap);
 
 	// load the skins
-	skinfiles = Mod_LoadSkinFiles();
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (skinfiles)
 	{
 		loadmodel->skinscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, loadmodel->numskins * sizeof(animscene_t));
@@ -1312,8 +1312,8 @@ void Mod_IDP0_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 					dpsnprintf (name, sizeof(name), "%s_%i_%i", loadmodel->name, i, j);
 				else
 					dpsnprintf (name, sizeof(name), "%s_%i", loadmodel->name, i);
-				if (!Mod_LoadTextureFromQ3Shader(loadmodel->data_textures + totalskins * loadmodel->num_surfaces, name, false, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS))
-					Mod_BuildAliasSkinFromSkinFrame(loadmodel->data_textures + totalskins * loadmodel->num_surfaces, R_SkinFrame_LoadInternalQuake(name, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_PICMIP, true, r_fullbrights.integer, (unsigned char *)datapointer, skinwidth, skinheight));
+				if (!Mod_LoadTextureFromQ3Shader(loadmodel, loadmodel->data_textures + totalskins * loadmodel->num_surfaces, name, false, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS))
+					Mod_BuildAliasSkinFromSkinFrame(loadmodel, loadmodel->data_textures + totalskins * loadmodel->num_surfaces, R_SkinFrame_LoadInternalQuake(name, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_PICMIP, true, r_fullbrights.integer, (unsigned char *)datapointer, skinwidth, skinheight));
 				datapointer += skinwidth * skinheight;
 				totalskins++;
 			}
@@ -1337,7 +1337,7 @@ void Mod_IDP0_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 			Mem_Free(tempaliasskins);
 
 			// store the info about the new skin
-			Mod_BuildAliasSkinFromSkinFrame(loadmodel->data_textures + totalskins * loadmodel->num_surfaces, tempskinframe);
+			Mod_BuildAliasSkinFromSkinFrame(loadmodel, loadmodel->data_textures + totalskins * loadmodel->num_surfaces, tempskinframe);
 			strlcpy(loadmodel->skinscenes[loadmodel->numskins].name, name, sizeof(loadmodel->skinscenes[loadmodel->numskins].name));
 			loadmodel->skinscenes[loadmodel->numskins].firstframe = totalskins;
 			loadmodel->skinscenes[loadmodel->numskins].framecount = 1;
@@ -1497,7 +1497,7 @@ void Mod_IDP2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	#ifndef CONFIG_SV
 	inskin = (char *)(base + LittleLong(pinmodel->ofs_skins));
 	#endif
-	skinfiles = Mod_LoadSkinFiles();
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (skinfiles)
 	{
 		loadmodel->num_textures = loadmodel->num_surfaces * loadmodel->numskins;
@@ -1514,7 +1514,7 @@ void Mod_IDP2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		loadmodel->data_textures = (texture_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t));
 		#ifndef CONFIG_SV
 		for (i = 0;i < loadmodel->numskins;i++, inskin += MD2_SKINNAME)
-			Mod_LoadTextureFromQ3Shader(loadmodel->data_textures + i * loadmodel->num_surfaces, inskin, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
+			Mod_LoadTextureFromQ3Shader(loadmodel, loadmodel->data_textures + i * loadmodel->num_surfaces, inskin, true, true, (r_mipskins.integer ? TEXF_MIPMAP : 0) | TEXF_ALPHA | TEXF_PICMIP | TEXF_COMPRESS);
 		#endif
 	}
 	else
@@ -1525,7 +1525,7 @@ void Mod_IDP2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		loadmodel->num_texturesperskin = loadmodel->num_surfaces;
 		loadmodel->data_textures = (texture_t *)Mem_Alloc(loadmodel->mempool, loadmodel->num_surfaces * loadmodel->numskins * sizeof(texture_t));
 		#ifndef CONFIG_SV
-		Mod_BuildAliasSkinFromSkinFrame(loadmodel->data_textures, NULL);
+		Mod_BuildAliasSkinFromSkinFrame(loadmodel, loadmodel->data_textures, NULL);
 		#endif
 	}
 
@@ -1694,7 +1694,7 @@ void Mod_IDP3_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		MODEL_LOAD_ERROR ("wrong version number (%i should be %i)",
 			version, MD3VERSION);
 
-	skinfiles = Mod_LoadSkinFiles();
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (loadmodel->numskins < 1)
 		loadmodel->numskins = 1;
 
@@ -1970,7 +1970,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	loadmodel->numframes = pheader->numscenes;
 	loadmodel->num_surfaces = pheader->numshaders;
 
-	skinfiles = Mod_LoadSkinFiles();
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (loadmodel->numskins < 1)
 		loadmodel->numskins = 1;
 
@@ -2376,7 +2376,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 	loadmodel->radius2 = pheader->allradius * pheader->allradius;
 
 	// load external .skin files if present
-	skinfiles = Mod_LoadSkinFiles();
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (loadmodel->numskins < 1)
 		loadmodel->numskins = 1;
 
@@ -3082,7 +3082,7 @@ void Mod_PSKMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	meshtriangles = numfaces;
 
 	// load external .skin files if present
-	skinfiles = Mod_LoadSkinFiles();
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (loadmodel->numskins < 1)
 		loadmodel->numskins = 1;
 	loadmodel->num_bones = numbones;
@@ -3582,7 +3582,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 	loadmodel->AnimateVertices = Mod_Skeletal_AnimateVertices;
 
 	// load external .skin files if present
-	skinfiles = Mod_LoadSkinFiles();
+	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (loadmodel->numskins < 1)
 		loadmodel->numskins = 1;
 
