@@ -1014,6 +1014,31 @@ static void Mod_ForceAnimate(dp_model_t *loadmodel)
 	Cvar_UnlockThreadMutex();
 }
 
+static void Mod_Alias_Finalize(dp_model_t *loadmodel)
+{
+	int i;
+	Mod_ForceAnimate(loadmodel);
+	if (!loadmodel->surfmesh.isanimated)
+	{
+		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
+		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
+		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
+		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
+		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
+		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
+	}
+	#ifndef CONFIG_SV
+	// because shaders can do somewhat unexpected things, check for unusual features now
+	for (i = 0;i < loadmodel->num_textures;i++)
+	{
+		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
+			loadmodel->DrawSky = R_Q1BSP_DrawSky;
+		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
+			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
+	}
+	#endif
+}
+
 void Mod_IDP0_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	int i, j, version, totalskins, skinwidth, skinheight, groupframes, groupskins, numverts;
@@ -1365,28 +1390,7 @@ void Mod_IDP0_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	surface->num_firstvertex = 0;
 	surface->num_vertices = loadmodel->surfmesh.num_vertices;
 
-	Mod_ForceAnimate(loadmodel);
-
-	if (!loadmodel->surfmesh.isanimated)
-	{
-		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
-		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
-		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
-		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
-		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
-		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
-	}
-
-	#ifndef CONFIG_SV
-	// because shaders can do somewhat unexpected things, check for unusual features now
-	for (i = 0;i < loadmodel->num_textures;i++)
-	{
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			loadmodel->DrawSky = R_Q1BSP_DrawSky;
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
-	}
-	#endif
+	Mod_Alias_Finalize(loadmodel);
 }
 
 void Mod_IDP2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
@@ -1644,7 +1648,6 @@ void Mod_IDP2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
 	Mod_Alias_MorphMesh_CompileFrames(loadmodel);
-	Mod_ForceAnimate(loadmodel);
 
 	surface = loadmodel->data_surfaces;
 	surface->texture = loadmodel->data_textures;
@@ -1653,26 +1656,7 @@ void Mod_IDP2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	surface->num_firstvertex = 0;
 	surface->num_vertices = loadmodel->surfmesh.num_vertices;
 
-	if (!loadmodel->surfmesh.isanimated)
-	{
-		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
-		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
-		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
-		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
-		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
-		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
-	}
-
-	// because shaders can do somewhat unexpected things, check for unusual features now
-	#ifndef CONFIG_SV
-	for (i = 0;i < loadmodel->num_textures;i++)
-	{
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			loadmodel->DrawSky = R_Q1BSP_DrawSky;
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
-	}
-	#endif
+	Mod_Alias_Finalize(loadmodel);
 }
 
 void Mod_IDP3_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
@@ -1855,28 +1839,7 @@ void Mod_IDP3_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
 	Mod_FreeSkinFiles(skinfiles);
 	Mod_MakeSortedSurfaces(loadmodel);
-	Mod_ForceAnimate(loadmodel);
-
-	if (!loadmodel->surfmesh.isanimated)
-	{
-		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
-		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
-		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
-		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
-		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
-		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
-	}
-
-	// because shaders can do somewhat unexpected things, check for unusual features now
-	#ifndef CONFIG_SV
-	for (i = 0;i < loadmodel->num_textures;i++)
-	{
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			loadmodel->DrawSky = R_Q1BSP_DrawSky;
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
-	}
-	#endif
+	Mod_Alias_Finalize(loadmodel);
 }
 
 void Mod_ZYMOTICMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
@@ -2263,28 +2226,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
-	Mod_ForceAnimate(loadmodel);
-
-	if (!loadmodel->surfmesh.isanimated)
-	{
-		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
-		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
-		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
-		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
-		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
-		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
-	}
-
-	// because shaders can do somewhat unexpected things, check for unusual features now
-	#ifndef CONFIG_SV
-	for (i = 0;i < loadmodel->num_textures;i++)
-	{
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			loadmodel->DrawSky = R_Q1BSP_DrawSky;
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
-	}
-	#endif
+	Mod_Alias_Finalize(loadmodel);
 }
 
 void Mod_DARKPLACESMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
@@ -2669,27 +2611,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
-	Mod_ForceAnimate(loadmodel);
-
-	if (!loadmodel->surfmesh.isanimated)
-	{
-		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
-		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
-		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
-		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
-		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
-		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
-	}
-	#ifndef CONFIG_SV
-	// because shaders can do somewhat unexpected things, check for unusual features now
-	for (i = 0;i < loadmodel->num_textures;i++)
-	{
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			loadmodel->DrawSky = R_Q1BSP_DrawSky;
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
-	}
-	#endif
+	Mod_Alias_Finalize(loadmodel);
 }
 
 // no idea why PSK/PSA files contain weird quaternions but they do...
@@ -3355,28 +3277,7 @@ void Mod_PSKMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
 	loadmodel->surfmesh.isanimated = Mod_Alias_CalculateBoundingBox(loadmodel);
-	Mod_ForceAnimate(loadmodel);
-
-	if (!loadmodel->surfmesh.isanimated)
-	{
-		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
-		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
-		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
-		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
-		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
-		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
-	}
-
-	// because shaders can do somewhat unexpected things, check for unusual features now
-	#ifndef CONFIG_SV
-	for (i = 0;i < loadmodel->num_textures;i++)
-	{
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			loadmodel->DrawSky = R_Q1BSP_DrawSky;
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
-	}
-	#endif
+	Mod_Alias_Finalize(loadmodel);
 }
 
 void Mod_INTERQUAKEMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
@@ -3747,7 +3648,6 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 	}
 
 	loadmodel->surfmesh.isanimated = loadmodel->num_bones > 1 || loadmodel->numframes > 1 || (loadmodel->animscenes && loadmodel->animscenes[0].framecount > 1);
-	Mod_ForceAnimate(loadmodel);
 
 	biggestorigin = 0;
 	if (header.version == 1)
@@ -4131,16 +4031,6 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 	if (!header.ofs_bounds)
 		Mod_Alias_CalculateBoundingBox(loadmodel);
 
-	if (!loadmodel->surfmesh.isanimated && loadmodel->surfmesh.num_triangles >= 1)
-	{
-		Mod_MakeCollisionBIH(loadmodel, true, true, &loadmodel->collision_bih);
-		loadmodel->TraceBox = Mod_CollisionBIH_TraceBox;
-		loadmodel->TraceBrush = Mod_CollisionBIH_TraceBrush;
-		loadmodel->TraceLine = Mod_CollisionBIH_TraceLine;
-		loadmodel->TracePoint = Mod_CollisionBIH_TracePoint_Mesh;
-		loadmodel->PointSuperContents = Mod_CollisionBIH_PointSuperContents_Mesh;
-	}
-
 	if (joint) Mem_Free(joint);
 	joint = NULL;
 	if (joint1) Mem_Free(joint1);
@@ -4150,16 +4040,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 	if (pose1) Mem_Free(pose1);
 	pose1 = NULL;
 
-	// because shaders can do somewhat unexpected things, check for unusual features now
-	#ifndef CONFIG_SV
-	for (i = 0;i < loadmodel->num_textures;i++)
-	{
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
-			loadmodel->DrawSky = R_Q1BSP_DrawSky;
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
-			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
-	}
-	#endif
+	Mod_Alias_Finalize(loadmodel);
 }
 
 void Mod_SMD_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
@@ -4539,6 +4420,9 @@ parentfound:
 	Mod_BuildTextureVectorsFromNormals(0, loadmodel->surfmesh.num_vertices, loadmodel->surfmesh.num_triangles, loadmodel->surfmesh.data_vertex3f, loadmodel->surfmesh.data_texcoordtexture2f, loadmodel->surfmesh.data_normal3f, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.data_svector3f, loadmodel->surfmesh.data_tvector3f, r_smoothnormals_areaweighting.integer != 0);
 	if (loadmodel->surfmesh.data_neighbor3i)
 		Mod_BuildTriangleNeighbors(loadmodel->surfmesh.data_neighbor3i, loadmodel->surfmesh.data_element3i, loadmodel->surfmesh.num_triangles);
+
+	Mod_Alias_CalculateBoundingBox(loadmodel);
+	Mod_Alias_Finalize(loadmodel);
 fail:
 	if (ais)
 		qaiReleaseImport(ais);
