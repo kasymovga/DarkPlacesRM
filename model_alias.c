@@ -1014,6 +1014,28 @@ static void Mod_ForceAnimate(dp_model_t *loadmodel)
 	Cvar_UnlockThreadMutex();
 }
 
+static void Mod_Alias_Prepare(dp_model_t *loadmodel)
+{
+	loadmodel->type = mod_alias;
+	#ifndef CONFIG_SV
+	loadmodel->DrawSky = NULL;
+	loadmodel->DrawAddWaterPlanes = NULL;
+	loadmodel->Draw = R_Q1BSP_Draw;
+	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
+	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
+	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
+	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
+	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
+	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
+	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
+	loadmodel->DrawLight = R_Q1BSP_DrawLight;
+	#endif
+	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
+	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
+	// FIXME add TraceBrush!
+	loadmodel->PointSuperContents = NULL;
+}
+
 static void Mod_Alias_Finalize(dp_model_t *loadmodel)
 {
 	int i;
@@ -1076,25 +1098,7 @@ void Mod_IDP0_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 				version, ALIAS_VERSION);
 
 	loadmodel->modeldatatypestring = "MDL";
-
-	loadmodel->type = mod_alias;
-	#ifndef CONFIG_SV
-	loadmodel->DrawSky = NULL;
-	loadmodel->DrawAddWaterPlanes = NULL;
-	loadmodel->Draw = R_Q1BSP_Draw;
-	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
-	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
-	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
-	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
-	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
-	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
-	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
-	loadmodel->DrawLight = R_Q1BSP_DrawLight;
-	#endif
-	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
-	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
-	// FIXME add TraceBrush!
-	loadmodel->PointSuperContents = NULL;
+	Mod_Alias_Prepare(loadmodel);
 	loadmodel->AnimateVertices = Mod_MDL_AnimateVertices;
 
 	loadmodel->num_surfaces = 1;
@@ -1426,23 +1430,7 @@ void Mod_IDP2_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 
 	loadmodel->modeldatatypestring = "MD2";
 
-	loadmodel->type = mod_alias;
-	#ifndef CONFIG_SV
-	loadmodel->DrawSky = NULL;
-	loadmodel->DrawAddWaterPlanes = NULL;
-	loadmodel->Draw = R_Q1BSP_Draw;
-	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
-	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
-	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
-	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
-	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
-	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
-	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
-	loadmodel->DrawLight = R_Q1BSP_DrawLight;
-	#endif
-	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
-	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
-	loadmodel->PointSuperContents = NULL;
+	Mod_Alias_Prepare(loadmodel);
 	loadmodel->AnimateVertices = Mod_MDL_AnimateVertices;
 	if (LittleLong(pinmodel->num_tris) < 1 || LittleLong(pinmodel->num_tris) > 65536)
 		MODEL_LOAD_ERROR ("invalid number of triangles: %i", LittleLong(pinmodel->num_tris));
@@ -1685,23 +1673,7 @@ void Mod_IDP3_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 
 	loadmodel->modeldatatypestring = "MD3";
 
-	loadmodel->type = mod_alias;
-	#ifndef CONFIG_SV
-	loadmodel->DrawSky = NULL;
-	loadmodel->DrawAddWaterPlanes = NULL;
-	loadmodel->Draw = R_Q1BSP_Draw;
-	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
-	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
-	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
-	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
-	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
-	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
-	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
-	loadmodel->DrawLight = R_Q1BSP_DrawLight;
-	#endif
-	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
-	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
-	loadmodel->PointSuperContents = NULL;
+	Mod_Alias_Prepare(loadmodel);
 	loadmodel->AnimateVertices = Mod_MD3_AnimateVertices;
 	loadmodel->synctype = ST_RAND;
 	// convert model flags to EF flags (MF_ROCKET becomes EF_ROCKET, etc)
@@ -1865,7 +1837,6 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 
 	loadmodel->modeldatatypestring = "ZYM";
 
-	loadmodel->type = mod_alias;
 	loadmodel->synctype = ST_RAND;
 
 	// byteswap header
@@ -1913,22 +1884,7 @@ void Mod_ZYMOTICMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		Con_Printf("%s has no animations\n", loadmodel->name);
 		return;
 	}
-	#ifndef CONFIG_SV
-	loadmodel->DrawSky = NULL;
-	loadmodel->DrawAddWaterPlanes = NULL;
-	loadmodel->Draw = R_Q1BSP_Draw;
-	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
-	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
-	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
-	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
-	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
-	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
-	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
-	loadmodel->DrawLight = R_Q1BSP_DrawLight;
-	#endif
-	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
-	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
-	loadmodel->PointSuperContents = NULL;
+	Mod_Alias_Prepare(loadmodel);
 	loadmodel->AnimateVertices = Mod_Skeletal_AnimateVertices;
 
 	loadmodel->numframes = pheader->numscenes;
@@ -2255,7 +2211,6 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 
 	loadmodel->modeldatatypestring = "DPM";
 
-	loadmodel->type = mod_alias;
 	loadmodel->synctype = ST_RAND;
 
 	// byteswap header
@@ -2286,22 +2241,7 @@ void Mod_DARKPLACESMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 		Con_Printf("%s has no frames\n", loadmodel->name);
 		return;
 	}
-	#ifndef CONFIG_SV
-	loadmodel->DrawSky = NULL;
-	loadmodel->DrawAddWaterPlanes = NULL;
-	loadmodel->Draw = R_Q1BSP_Draw;
-	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
-	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
-	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
-	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
-	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
-	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
-	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
-	loadmodel->DrawLight = R_Q1BSP_DrawLight;
-	#endif
-	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
-	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
-	loadmodel->PointSuperContents = NULL;
+	Mod_Alias_Prepare(loadmodel);
 	loadmodel->AnimateVertices = Mod_Skeletal_AnimateVertices;
 
 	// model bbox
@@ -2644,23 +2584,7 @@ void Mod_PSKMODEL_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 
 	loadmodel->modeldatatypestring = "PSK";
 
-	loadmodel->type = mod_alias;
-	#ifndef CONFIG_SV
-	loadmodel->DrawSky = NULL;
-	loadmodel->DrawAddWaterPlanes = NULL;
-	loadmodel->Draw = R_Q1BSP_Draw;
-	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
-	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
-	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
-	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
-	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
-	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
-	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
-	loadmodel->DrawLight = R_Q1BSP_DrawLight;
-	#endif
-	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
-	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
-	loadmodel->PointSuperContents = NULL;
+	Mod_Alias_Prepare(loadmodel);
 	loadmodel->AnimateVertices = Mod_Skeletal_AnimateVertices;
 	loadmodel->synctype = ST_RAND;
 
@@ -3331,7 +3255,6 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 
 	loadmodel->modeldatatypestring = "IQM";
 
-	loadmodel->type = mod_alias;
 	loadmodel->synctype = ST_RAND;
 
 	// byteswap header
@@ -3465,22 +3388,7 @@ void Mod_INTERQUAKEMODEL_Load(dp_model_t *loadmodel, void *buffer, void *buffere
 	}
 
 	text = header.num_text && header.ofs_text ? (const char *)(pbase + header.ofs_text) : "";
-	#ifndef CONFIG_SV
-	loadmodel->DrawSky = NULL;
-	loadmodel->DrawAddWaterPlanes = NULL;
-	loadmodel->Draw = R_Q1BSP_Draw;
-	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
-	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
-	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
-	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
-	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
-	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
-	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
-	loadmodel->DrawLight = R_Q1BSP_DrawLight;
-	#endif
-	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
-	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
-	loadmodel->PointSuperContents = NULL;
+	Mod_Alias_Prepare(loadmodel);
 	loadmodel->AnimateVertices = Mod_Skeletal_AnimateVertices;
 
 	// load external .skin files if present
@@ -4161,23 +4069,7 @@ void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		goto fail;
 	}
 	loadmodel->modeldatatypestring = "ASSIMP";
-	loadmodel->type = mod_alias;
-	#ifndef CONFIG_SV
-	loadmodel->DrawSky = NULL;
-	loadmodel->DrawAddWaterPlanes = NULL;
-	loadmodel->Draw = R_Q1BSP_Draw;
-	loadmodel->DrawDepth = R_Q1BSP_DrawDepth;
-	loadmodel->DrawDebug = R_Q1BSP_DrawDebug;
-	loadmodel->DrawPrepass = R_Q1BSP_DrawPrepass;
-	loadmodel->CompileShadowMap = R_Q1BSP_CompileShadowMap;
-	loadmodel->DrawShadowMap = R_Q1BSP_DrawShadowMap;
-	loadmodel->CompileShadowVolume = R_Q1BSP_CompileShadowVolume;
-	loadmodel->DrawShadowVolume = R_Q1BSP_DrawShadowVolume;
-	loadmodel->DrawLight = R_Q1BSP_DrawLight;
-	#endif
-	loadmodel->TraceBox = Mod_MDLMD2MD3_TraceBox;
-	loadmodel->TraceLine = Mod_MDLMD2MD3_TraceLine;
-	loadmodel->PointSuperContents = NULL;
+	Mod_Alias_Prepare(loadmodel);
 	// load external .skin files if present
 	skinfiles = Mod_LoadSkinFiles(loadmodel);
 	if (loadmodel->numskins < 1)
