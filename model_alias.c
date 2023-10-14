@@ -4243,7 +4243,7 @@ void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		loadmodel->data_baseboneposeinverse = (float *)Mem_Alloc(loadmodel->mempool, loadmodel->num_bones * sizeof(float[12]));
 		loadmodel->surfmesh.data_skeletalindex4ub = (unsigned char *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(unsigned char[4]));
 		loadmodel->surfmesh.data_skeletalweight4ub = (unsigned char *)Mem_Alloc(loadmodel->mempool, vertices_count * sizeof(unsigned char[4]));
-		loadmodel->surfmesh.num_blends = loadmodel->surfmesh.num_vertices;
+		loadmodel->surfmesh.num_blends = 0;
 		loadmodel->surfmesh.blends = (unsigned short *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_vertices * sizeof(short));
 		loadmodel->surfmesh.data_blendweights = (blendweights_t *)Mem_Alloc(loadmodel->mempool, loadmodel->surfmesh.num_vertices * sizeof(blendweights_t));
 		bone_index = 0;
@@ -4308,13 +4308,10 @@ parentfound:
 				for (k = 0; k < ais->mMeshes[i]->mBones[j]->mNumWeights; k++) {
 					int weight_offset = vertices_offset + ais->mMeshes[i]->mBones[j]->mWeights[k].mVertexId;
 					int weight_offset4 = weight_offset * 4;
-					loadmodel->surfmesh.blends[weight_offset] = weight_offset;
 					for (n = 0; n < 4; n++) {
 						if (!loadmodel->surfmesh.data_skeletalweight4ub[weight_offset4 + n]) {
-							loadmodel->surfmesh.data_skeletalweight4ub[weight_offset4] = ais->mMeshes[i]->mBones[j]->mWeights[k].mWeight * 255;
-							loadmodel->surfmesh.data_skeletalindex4ub[weight_offset4] = bone_index;
-							loadmodel->surfmesh.data_blendweights[weight_offset].index[n] = bone_index;
-							loadmodel->surfmesh.data_blendweights[weight_offset].influence[n] = loadmodel->surfmesh.data_skeletalweight4ub[weight_offset4];
+							loadmodel->surfmesh.data_skeletalweight4ub[weight_offset4 + n] = ais->mMeshes[i]->mBones[j]->mWeights[k].mWeight * 255;
+							loadmodel->surfmesh.data_skeletalindex4ub[weight_offset4 + n] = bone_index;
 							break;
 						}
 					}
@@ -4324,6 +4321,20 @@ parentfound:
 			vertices_offset += ais->mMeshes[i]->mNumVertices;
 		}
 		Mod_BuildBaseBonePoses(loadmodel);
+		for (i = 0; i < loadmodel->surfmesh.num_vertices; i++) {
+			int indexes[4];
+			float influences[4];
+			if (!loadmodel->surfmesh.data_skeletalweight4ub[i * 4]) continue;
+			indexes[0] = loadmodel->surfmesh.data_skeletalindex4ub[i * 4 + 0];
+			indexes[1] = loadmodel->surfmesh.data_skeletalindex4ub[i * 4 + 1];
+			indexes[2] = loadmodel->surfmesh.data_skeletalindex4ub[i * 4 + 2];
+			indexes[3] = loadmodel->surfmesh.data_skeletalindex4ub[i * 4 + 3];
+			influences[0] = loadmodel->surfmesh.data_skeletalweight4ub[i * 4 + 0] / 255.0f;
+			influences[1] = loadmodel->surfmesh.data_skeletalweight4ub[i * 4 + 1] / 255.0f;
+			influences[2] = loadmodel->surfmesh.data_skeletalweight4ub[i * 4 + 2] / 255.0f;
+			influences[3] = loadmodel->surfmesh.data_skeletalweight4ub[i * 4 + 3] / 255.0f;
+			loadmodel->surfmesh.blends[i] = Mod_Skeletal_CompressBlend(loadmodel, indexes, influences);
+		}
 		loadmodel->numframes = ais->mNumAnimations + 1;
 		loadmodel->animscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * (loadmodel->numframes + 1));
 		strlcpy(loadmodel->animscenes[0].name, "noanimation", 32);
@@ -4405,9 +4416,9 @@ parentfound:
 		}
 		for (m = 0; m < ais->mMeshes[i]->mNumFaces; m++) {
 			if (ais->mMeshes[i]->mFaces[m].mNumIndices != 3) continue;
-			loadmodel->surfmesh.data_element3i[triangle_index * 3] = ais->mMeshes[i]->mFaces[m].mIndices[0];
-			loadmodel->surfmesh.data_element3i[triangle_index * 3 + 2] = ais->mMeshes[i]->mFaces[m].mIndices[1];
-			loadmodel->surfmesh.data_element3i[triangle_index * 3 + 1] = ais->mMeshes[i]->mFaces[m].mIndices[2];
+			loadmodel->surfmesh.data_element3i[triangle_index * 3] = ais->mMeshes[i]->mFaces[m].mIndices[0] + surface->num_firstvertex;
+			loadmodel->surfmesh.data_element3i[triangle_index * 3 + 2] = ais->mMeshes[i]->mFaces[m].mIndices[1] + surface->num_firstvertex;
+			loadmodel->surfmesh.data_element3i[triangle_index * 3 + 1] = ais->mMeshes[i]->mFaces[m].mIndices[2] + surface->num_firstvertex;
 			triangle_index++;
 		}
 		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + i, skinfiles, ais->mMeshes[i]->mName.data, ais->mMeshes[i]->mName.data);
