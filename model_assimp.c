@@ -39,8 +39,6 @@ qboolean Assimp_Init(void)
 
 void Assimp_Shutdown(void)
 {
-	if (!assimp_dll)
-		Sys_UnloadLibrary(assimp_dll);
-
-	assimp_dll = NULL;
+	if (assimp_dll)
+		Sys_UnloadLibrary(&assimp_dll);
 }
