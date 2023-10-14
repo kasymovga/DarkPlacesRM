@@ -4241,7 +4241,7 @@ parentfound:
 		for (i = 0; i < ais->mNumAnimations; i++) {
 			strlcpy(loadmodel->animscenes[i].name, ais->mAnimations[i]->mName.data, 32);
 			loadmodel->animscenes[i].firstframe = animation_offset;
-			loadmodel->animscenes[i].framecount = ais->mAnimations[i]->mDuration;
+			loadmodel->animscenes[i].framecount = ais->mAnimations[i]->mDuration + 1;
 			loadmodel->animscenes[i].framerate = ais->mAnimations[i]->mTicksPerSecond;
 			loadmodel->animscenes[i].loop = true; //fixme
 			for (j = 0; j < ais->mAnimations[i]->mNumChannels; j++) {
