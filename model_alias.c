@@ -4227,23 +4227,23 @@ parentfound:
 			influences[3] = loadmodel->surfmesh.data_skeletalweight4ub[i * 4 + 3] / 255.0f;
 			loadmodel->surfmesh.blends[i] = Mod_Skeletal_CompressBlend(loadmodel, indexes, influences);
 		}
-		loadmodel->numframes = ais->mNumAnimations + 1;
-		loadmodel->animscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * (loadmodel->numframes + 1));
-		strlcpy(loadmodel->animscenes[0].name, "noanimation", 32);
-		loadmodel->animscenes[0].firstframe = 0;
-		loadmodel->animscenes[0].framecount = 1;
-		loadmodel->animscenes[0].framerate = 1;
-		loadmodel->animscenes[0].loop = true;
+		loadmodel->numframes = ais->mNumAnimations/* + 1*/;
+		loadmodel->animscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * (loadmodel->numframes));
+		//strlcpy(loadmodel->animscenes[loadmodel->numframes - 1].name, "noanimation", 32);
+		//loadmodel->animscenes[loadmodel->numframes - 1].firstframe = 0;
+		//loadmodel->animscenes[loadmodel->numframes - 1].framecount = 1;
+		//loadmodel->animscenes[loadmodel->numframes - 1].framerate = 1;
+		//loadmodel->animscenes[loadmodel->numframes - 1].loop = true;
 		animation_offset = 1;
 		for (i = 1; i < loadmodel->num_poses; i++) {
 			memcpy(loadmodel->data_poses7s + i * loadmodel->num_bones * 7, loadmodel->data_poses7s, loadmodel->num_bones * 7 * sizeof(short));
 		}
 		for (i = 0; i < ais->mNumAnimations; i++) {
-			strlcpy(loadmodel->animscenes[i + 1].name, ais->mAnimations[i]->mName.data, 32);
-			loadmodel->animscenes[i + 1].firstframe = animation_offset;
-			loadmodel->animscenes[i + 1].framecount = ais->mAnimations[i]->mDuration;
-			loadmodel->animscenes[i + 1].framerate = ais->mAnimations[i]->mTicksPerSecond;
-			loadmodel->animscenes[i + 1].loop = true; //fixme
+			strlcpy(loadmodel->animscenes[i].name, ais->mAnimations[i]->mName.data, 32);
+			loadmodel->animscenes[i].firstframe = animation_offset;
+			loadmodel->animscenes[i].framecount = ais->mAnimations[i]->mDuration;
+			loadmodel->animscenes[i].framerate = ais->mAnimations[i]->mTicksPerSecond;
+			loadmodel->animscenes[i].loop = true; //fixme
 			for (j = 0; j < ais->mAnimations[i]->mNumChannels; j++) {
 				bone_index = 0;
 				for (k = 0; k < ais->mNumMeshes; k++) {
