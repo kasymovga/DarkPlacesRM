@@ -541,7 +541,6 @@ void S_Startup (void)
 	qboolean fixed_speed, fixed_width, fixed_channels;
 	snd_format_t chosen_fmt;
 	static snd_format_t prev_render_format = {0, 0, 0};
-	char* env;
 	int i;
 
 	if (!snd_initialized.integer)

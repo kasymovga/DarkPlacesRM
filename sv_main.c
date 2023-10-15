@@ -1506,7 +1506,6 @@ qboolean SV_CanSeeBox(int numtraces, vec_t enlarge, vec3_t eye, vec3_t entboxmin
 	float pitchsign;
 	float alpha;
 	float starttransformed[3], endtransformed[3];
-	int blocked = 0;
 	int traceindex;
 	int originalnumtouchedicts;
 	int numtouchedicts = 0;
@@ -1600,7 +1599,6 @@ qboolean SV_CanSeeBox(int numtraces, vec_t enlarge, vec3_t eye, vec3_t entboxmin
 				Matrix4x4_Transform(&imatrix, endpoints[traceindex], endtransformed);
 				if (!model->brush.TraceLineOfSight(model, starttransformed, endtransformed, slow))
 				{
-					blocked++;
 					break;
 				}
 			}

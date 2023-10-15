@@ -672,16 +672,19 @@ Reloads all models if they have changed
 */
 void Mod_Reload(void)
 {
-	int i, count;
+	int i;
+	#ifndef CONFIG_SV
+	int count;
+	#endif
 	int nummodels = (int)Mem_ExpandableArray_IndexRange(&models);
 	dp_model_t *mod;
 	#ifndef CONFIG_SV
 	SCR_PushLoadingScreen(false, "Reloading models", 1.0);
-	#endif
 	count = 0;
 	for (i = 0;i < nummodels;i++)
 		if ((mod = (dp_model_t *) Mem_ExpandableArray_RecordAtIndex(&models, i)) && mod->name[0] && mod->name[0] != '*' && mod->used)
 			++count;
+	#endif
 	for (i = 0;i < nummodels;i++)
 		if ((mod = (dp_model_t *) Mem_ExpandableArray_RecordAtIndex(&models, i)) && mod->name[0] && mod->name[0] != '*' && mod->used)
 		{

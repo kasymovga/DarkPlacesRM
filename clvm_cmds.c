@@ -590,7 +590,6 @@ static void VM_CL_lightstyle (prvm_prog_t *prog)
 // #40 float(entity e) checkbottom
 static void VM_CL_checkbottom (prvm_prog_t *prog)
 {
-	static int		cs_yes, cs_no;
 	prvm_edict_t	*ent;
 	vec3_t			mins, maxs, start, stop;
 	trace_t			trace;
@@ -617,12 +616,10 @@ static void VM_CL_checkbottom (prvm_prog_t *prog)
 				goto realcheck;
 		}
 
-	cs_yes++;
 	PRVM_G_FLOAT(OFS_RETURN) = true;
 	return;		// we got out easy
 
 realcheck:
-	cs_no++;
 //
 // check it for real...
 //
@@ -654,7 +651,6 @@ realcheck:
 				return;
 		}
 
-	cs_yes++;
 	PRVM_G_FLOAT(OFS_RETURN) = true;
 }
 

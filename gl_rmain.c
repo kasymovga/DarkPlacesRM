@@ -11220,12 +11220,10 @@ void R_DrawModelSurfaces(entity_render_t *ent, qboolean skysurfaces, qboolean wr
 	// update lightmaps if needed
 	if (update)
 	{
-		int updated = 0;
 		for (j = model->firstmodelsurface, endj = model->firstmodelsurface + model->nummodelsurfaces;j < endj;j++)
 		{
 			if (update[j])
 			{
-				updated++;
 				R_BuildLightMap(ent, surfaces + j);
 			}
 		}

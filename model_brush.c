@@ -2530,10 +2530,10 @@ extern cvar_t gl_max_lightmapsize;
 static void Mod_Q1BSP_LoadFaces(dp_model_t *loadmodel, sizebuf_t *sb)
 {
 	msurface_t *surface;
-	int i, j, count, surfacenum, planenum, ssize, tsize, firstedge, numedges, totalverts, totaltris, totallightmapsamples, lightmapoffset, texinfoindex;
+	int i, j, count, surfacenum, planenum, ssize, tsize, firstedge, numedges, totalverts, totaltris, lightmapoffset, texinfoindex;
 	float texmins[2], texmaxs[2], val;
 	#ifndef CONFIG_SV
-	int lightmapsize, lightmapnumber, tmax, smax;
+	int lightmapsize, lightmapnumber, tmax, smax, totallightmapsamples;
 	rtexture_t *lightmaptexture, *deluxemaptexture;
 	char vabuf[1024];
 	#endif
@@ -2568,8 +2568,8 @@ static void Mod_Q1BSP_LoadFaces(dp_model_t *loadmodel, sizebuf_t *sb)
 	lightmapnumber = 0;
 	deluxemaptexture = r_texture_blanknormalmap;
 	lightmapsize = bound(256, gl_max_lightmapsize.integer, (int)vid.maxtexturesize_2d);
-	#endif
 	totallightmapsamples = 0;
+	#endif
 
 	totalverts = 0;
 	totaltris = 0;
@@ -2702,8 +2702,8 @@ static void Mod_Q1BSP_LoadFaces(dp_model_t *loadmodel, sizebuf_t *sb)
 				lightmapsize = ssize;
 			if (lightmapsize < tsize)
 				lightmapsize = tsize;
-			#endif
 			totallightmapsamples += ssize*tsize;
+			#endif
 
 			// force lightmap upload on first time seeing the surface
 			//
@@ -7775,7 +7775,6 @@ void Mod_OBJ_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	int numtriangles = 0;
 	int maxtriangles = 0;
 	objvertex_t *vertices = NULL;
-	int linenumber = 0;
 	int maxtextures = 0, numtextures = 0, textureindex = 0;
 	int maxv = 0, numv = 1;
 	int maxvt = 0, numvt = 1;
@@ -7870,7 +7869,6 @@ void Mod_OBJ_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		static char emptyarg[1] = "";
 		if (!*text)
 			break;
-		linenumber++;
 		for (linelen = 0;text[linelen] && text[linelen] != '\r' && text[linelen] != '\n';linelen++)
 			line[linelen] = text[linelen];
 		line[linelen] = 0;

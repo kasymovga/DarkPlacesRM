@@ -1038,7 +1038,9 @@ static void Mod_Alias_Prepare(dp_model_t *loadmodel)
 
 static void Mod_Alias_Finalize(dp_model_t *loadmodel)
 {
+	#ifndef CONFIG_SV
 	int i;
+	#endif
 	Mod_ForceAnimate(loadmodel);
 	if (!loadmodel->surfmesh.isanimated)
 	{
@@ -4077,7 +4079,7 @@ void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 
 	// make skinscenes for the skins (no groups)
 	loadmodel->skinscenes = (animscene_t *)Mem_Alloc(loadmodel->mempool, sizeof(animscene_t) * loadmodel->numskins);
-	for (i = 0;i < loadmodel->numskins;i++)
+	for (i = 0;i < (unsigned int)loadmodel->numskins;i++)
 	{
 		loadmodel->skinscenes[i].firstframe = i;
 		loadmodel->skinscenes[i].framecount = 1;
@@ -4213,7 +4215,7 @@ parentfound:
 			vertices_offset += ais->mMeshes[i]->mNumVertices;
 		}
 		Mod_BuildBaseBonePoses(loadmodel);
-		for (i = 0; i < loadmodel->surfmesh.num_vertices; i++) {
+		for (i = 0; i < (unsigned int)loadmodel->surfmesh.num_vertices; i++) {
 			int indexes[4];
 			float influences[4];
 			if (!loadmodel->surfmesh.data_skeletalweight4ub[i * 4]) continue;
@@ -4235,7 +4237,7 @@ parentfound:
 		//loadmodel->animscenes[loadmodel->numframes - 1].framerate = 1;
 		//loadmodel->animscenes[loadmodel->numframes - 1].loop = true;
 		animation_offset = 1;
-		for (i = 1; i < loadmodel->num_poses; i++) {
+		for (i = 1; i < (unsigned int)loadmodel->num_poses; i++) {
 			memcpy(loadmodel->data_poses7s + i * loadmodel->num_bones * 7, loadmodel->data_poses7s, loadmodel->num_bones * 7 * sizeof(short));
 		}
 		for (i = 0; i < ais->mNumAnimations; i++) {

@@ -2243,7 +2243,7 @@ static void CL_Locs_Save_f(void)
 
 void CL_Locs_Reload_f(void)
 {
-	int i, linenumber, limit, len;
+	int i, limit, len;
 	const char *s;
 	char *filedata, *text, *textend, *linestart, *linetext, *lineend;
 	fs_offset_t filesize;
@@ -2272,7 +2272,7 @@ void CL_Locs_Reload_f(void)
 	}
 	text = filedata;
 	textend = filedata + filesize;
-	for (linenumber = 1;text < textend;linenumber++)
+	for (;text < textend;)
 	{
 		linestart = text;
 		for (;text < textend && *text != '\r' && *text != '\n';text++)
