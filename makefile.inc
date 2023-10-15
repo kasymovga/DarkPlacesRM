@@ -80,7 +80,6 @@ OBJ_CL= \
 	dpvsimpledecode.o \
 	view.o \
 	net_file_client.o \
-	model_assimp.c \
 	#
 
 # Common objects
@@ -139,7 +138,9 @@ OBJ_COMMON= \
 	zone.o \
 	slre.o \
 	model_compile.o \
-	net_file_server.o
+	net_file_server.o\
+	model_assimp.c \
+	#
 
 OBJ_MENU= \
 	menu.o \
