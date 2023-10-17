@@ -7,11 +7,16 @@ const C_STRUCT aiScene *(*qaiImportFileFromMemory)(
 		const char *pHint) = NULL;
 void (*qaiReleaseImport)(
 		const C_STRUCT aiScene *pScene) = NULL;
+const C_STRUCT aiScene *(*qaiImportFileEx)(
+		const char *pFile,
+		unsigned int pFlags,
+		C_STRUCT aiFileIO *pFS) = NULL;
 static dllhandle_t assimp_dll = NULL;
 static dllfunction_t assimpfuncs[] =
 {
 	{"aiImportFileFromMemory", (void **) &qaiImportFileFromMemory},
 	{"aiReleaseImport", (void **) &qaiReleaseImport},
+	{"aiImportFileEx", (void **) &qaiImportFileEx},
 	{NULL, NULL}
 };
 

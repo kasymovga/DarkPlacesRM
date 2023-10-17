@@ -4047,6 +4047,76 @@ void Mod_SMD_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	strlcpy(loadmodel->name, temp2, sizeof(loadmodel->name));
 }
 
+
+static size_t Mod_ASSIMP_Load_Write(struct aiFile* file, const char* buffer, size_t size, size_t nmemb)
+{
+	//not required for reading
+	return 0;
+}
+
+static size_t Mod_ASSIMP_Load_Read(struct aiFile* file, char* buffer, size_t size, size_t nmemb)
+{
+	return FS_Read((qfile_t *)file->UserData, buffer, size * nmemb);
+}
+
+static size_t Mod_ASSIMP_Load_Tell(struct aiFile *file)
+{
+	return FS_Tell((qfile_t *)file->UserData);
+}
+
+static size_t Mod_ASSIMP_Load_FileSize(struct aiFile *file)
+{
+	return FS_FileSize((qfile_t *)file->UserData);
+}
+
+static enum aiReturn Mod_ASSIMP_Load_Seek(struct aiFile *file, size_t pos, enum aiOrigin origin)
+{
+	if (origin == aiOrigin_SET)
+	{
+		if (FS_Seek((qfile_t *)file->UserData, pos, SEEK_SET) < 0) return aiReturn_FAILURE;
+	}
+	else if (origin == aiOrigin_CUR)
+	{
+		if (FS_Seek((qfile_t *)file->UserData, pos, SEEK_CUR) < 0) return aiReturn_FAILURE;
+	}
+	else if (origin == aiOrigin_END)
+	{
+		if (FS_Seek((qfile_t *)file->UserData, pos, SEEK_END) < 0) return aiReturn_FAILURE;
+	}
+	return aiReturn_FAILURE;
+}
+
+static void Mod_ASSIMP_Load_Flush(struct aiFile *file)
+{
+	//not required for reading
+}
+
+static struct aiFile *Mod_ASSIMP_Load_Open(struct aiFileIO *io, const char *path, const char *mode)
+{
+	qfile_t *qfile = NULL;
+	struct aiFile *file = NULL;
+	if (!(qfile = FS_OpenVirtualFile(path, false))) {
+		Con_Printf("Cannot open file for reading: %s\n", ((dp_model_t *)io->UserData)->name);
+		return NULL;
+	}
+	Con_Printf("Opening file: %s\n", ((dp_model_t *)io->UserData)->name);
+	file = Z_Malloc(sizeof(struct aiFile));
+	file->ReadProc = Mod_ASSIMP_Load_Read;
+	file->WriteProc = Mod_ASSIMP_Load_Write;
+	file->SeekProc = Mod_ASSIMP_Load_Seek;
+	file->FlushProc = Mod_ASSIMP_Load_Flush;
+	file->TellProc = Mod_ASSIMP_Load_Tell;
+	file->FileSizeProc = Mod_ASSIMP_Load_FileSize;
+	file->UserData = (char *)qfile;
+	return file;
+}
+
+static void Mod_ASSIMP_Load_Close(struct aiFileIO *io, struct aiFile *file)
+{
+	FS_Close((qfile_t *)file->UserData);
+	Z_Free(file);
+}
+
 void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 {
 	const struct aiScene *ais;
@@ -4057,11 +4127,24 @@ void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	int triangle_index;
 	skinfile_t *skinfiles;
 	msurface_t *surface;
+	const char *ext = FS_FileExtension(loadmodel->name);
 	if (!Assimp_Init()) {
 		Con_Printf("assimp library failed to initialize\n");
 		return;
 	}
-	ais = qaiImportFileFromMemory(buffer, bufferend - buffer, aiProcess_Triangulate | aiProcess_PopulateArmatureData, FS_FileExtension(loadmodel->name));
+	if (!strcasecmp(ext, "fbx") ||
+			!strcasecmp(ext, "blend") ||
+			!strcasecmp(ext, "x3d") ||
+			!strcasecmp(ext, "stl"))
+		ais = qaiImportFileFromMemory(buffer, bufferend - buffer, aiProcess_Triangulate | aiProcess_PopulateArmatureData | aiProcess_GenNormals, ext);
+	else
+	{
+		struct aiFileIO aiio;
+		aiio.OpenProc = Mod_ASSIMP_Load_Open;
+		aiio.CloseProc = Mod_ASSIMP_Load_Close;
+		aiio.UserData = (char *)loadmodel;
+		ais = qaiImportFileEx(loadmodel->name, aiProcess_Triangulate | aiProcess_PopulateArmatureData | aiProcess_GenNormals, &aiio);
+	}
 	if (!ais) {
 		Con_Printf("Failed to load model %s\n", loadmodel->name);
 		goto fail;
