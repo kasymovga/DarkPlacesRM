@@ -543,7 +543,7 @@ static int parseskeleton(int *bones_map)
 			}
 			c = atof( com_token );
 
-			if (num < 0 || num >= ctx->numbones)
+			if (num < 0 || num >= MAX_BONES)
 			{
 				Con_Printf("error: invalid bone number: %i\n", num);
 				return 0;
@@ -664,7 +664,7 @@ static int initframes(void)
 	return 1;
 }
 
-static int parsetriangles(void)
+static int parsetriangles(int *bones_map)
 {
 	char line[1024], cleanline[MAX_NAME];
 	int i, j, corner, found = 0;
@@ -838,7 +838,7 @@ static int parsetriangles(void)
 						return 0;
 					}
 					temp_numbone[c] = atoi(com_token);
-					if(temp_numbone[c] < 0 || temp_numbone[c] >= ctx->numbones )
+					if(temp_numbone[c] < 0 || bones_map[temp_numbone[c]] >= ctx->numbones )
 					{
 						Con_Printf("invalid vertex influence (invalid bone number) \"%s\"\n", line);
 						return 0;
@@ -873,7 +873,7 @@ static int parsetriangles(void)
 					Con_Printf("invalid bone number %i in triangle data\n", temp_numbone[i]);
 					return 0;
 				}
-				if (!ctx->bones[temp_numbone[i]].defined)
+				if (!ctx->bones[bones_map[temp_numbone[i]]].defined)
 				{
 					Con_Printf("bone %i in triangle data is not defined\n", temp_numbone[i]);
 					return 0;
@@ -990,7 +990,7 @@ static int parsemodelfile(void)
 		{
 			// skip any trailing parameters (might be a later version of smd)
 			while (COM_ParseToken_VM_Tokenize(&tokenpos, true, com_token, sizeof(com_token)) && com_token[0] != '\n');
-			if (!parsetriangles())
+			if (!parsetriangles(bones_map))
 				return 0;
 		}
 		else
