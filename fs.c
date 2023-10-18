@@ -817,6 +817,15 @@ static void FS_Path_f (void)
 	}
 }
 
+static void FS_UserDir_f (void)
+{
+	Con_Printf("%s\n", fs_userdir);
+}
+
+static void FS_BaseDir_f (void)
+{
+	Con_Printf("%s\n", fs_basedir);
+}
 
 /*
 =================
@@ -2091,6 +2100,8 @@ void FS_Init_Commands(void)
 	Cmd_AddCommand ("gamedir", FS_GameDir_f, "changes active gamedir list (can take multiple arguments), not including base directory (example usage: gamedir ctf)");
 	Cmd_AddCommand ("fs_rescan", FS_Rescan_f, "rescans filesystem for new pack archives and any other changes");
 	Cmd_AddCommand ("path", FS_Path_f, "print searchpath (game directories and archives)");
+	Cmd_AddCommand ("userdir", FS_UserDir_f, "print user directory");
+	Cmd_AddCommand ("basedir", FS_BaseDir_f, "print base directory");
 	Cmd_AddCommand ("dir", FS_Dir_f, "list files in searchpath matching an * filename pattern, one per line");
 	Cmd_AddCommand ("ls", FS_Ls_f, "list files in searchpath matching an * filename pattern, multiple per line");
 	Cmd_AddCommand ("which", FS_Which_f, "accepts a file name as argument and reports where the file is taken from");
