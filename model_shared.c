@@ -3625,6 +3625,11 @@ static void Mod_Decompile_f(void)
 		{
 			animnum++;
 			strlcpy(animname, mod->animscenes[i].name, sizeof(animname));
+			for (l = 0, k = (int)strlen(animname); animname[l]; l++)
+			{
+				if (animname[l] == '|' || animname[l] == '/' || animname[l] == '\t' || animname[l] == ' ' || animname[l] == '\\' || animname[l] == '\n' || animname[l] == '\r')
+					animname[l] = '_';
+			}
 			first = mod->animscenes[i].firstframe;
 			if (mod->animscenes[i].framecount > 1)
 			{
@@ -3660,7 +3665,14 @@ static void Mod_Decompile_f(void)
 				}
 				// if it's only one frame, use the original frame name
 				if (j == i + 1)
+				{
 					strlcpy(animname, mod->animscenes[i].name, sizeof(animname));
+					for (l = 0, k = (int)strlen(animname); animname[l]; l++)
+					{
+						if (animname[l] == '|' || animname[l] == '/' || animname[l] == '\t' || animname[l] == ' ' || animname[l] == '\\' || animname[l] == '\n' || animname[l] == '\r')
+							animname[l] = '_';
+					}
+				}
 			}
 			dpsnprintf(outname, sizeof(outname), "%s_decompiled/%s.smd", basename, animname);
 			Mod_Decompile_SMD(mod, outname, first, count, false);
