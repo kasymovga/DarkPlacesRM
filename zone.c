@@ -921,7 +921,9 @@ void Memory_Shutdown (void)
 
 void Memory_Init_Commands (void)
 {
+#ifndef WIN32
 	char com_token[MAX_INPUTLINE];
+#endif
 	Cmd_AddCommand ("memstats", MemStats_f, "prints memory system statistics");
 	Cmd_AddCommand ("memlist", MemList_f, "prints memory pool information (or if used as memlist 5 lists individual allocations of 5K or larger, 0 lists all allocations)");
 	Cvar_RegisterVariable (&developer_memory);
