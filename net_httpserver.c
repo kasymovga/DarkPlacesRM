@@ -58,15 +58,24 @@ static int win_socketpair(SOCKET socks[2])
 	if (connect(socks[0], (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR)
 		goto finish;
 
-	addrlen = sizeof(accept_addr);
-	for (;;) {
-		socks[1] = accept(listener, (struct sockaddr *)&accept_addr, &addrlen);
-		if (addr.sin_addr.s_addr == accept_addr.sin_addr.s_addr && addr.sin_port == addr.sin_port)
-			break;
-	}
-	if (socks[1] == INVALID_SOCKET)
+	addrlen = sizeof(addr);
+	if  (getsockname(socks[0], (struct sockaddr *)&addr, &addrlen) == SOCKET_ERROR)
 		goto finish;
 
+	for (;;) {
+		socks[1] = accept(listener, NULL, 0);
+		if (socks[1] == INVALID_SOCKET)
+			goto finish;
+
+		addrlen = sizeof(accept_addr);
+		if (getpeername(socks[1], (struct sockaddr*)&accept_addr, &addrlen) == SOCKET_ERROR)
+			goto finish;
+
+		if (addr.sin_addr.s_addr == accept_addr.sin_addr.s_addr && addr.sin_port == accept_addr.sin_port)
+			break;
+
+		closesocket(socks[1]);
+	}
 	ret = 0;
 finish:
 	if (ret == -1) {
@@ -74,7 +83,7 @@ finish:
 		if (socks[0] != INVALID_SOCKET)
 			closesocket(socks[0]);
 
-		if (socks[0] != INVALID_SOCKET)
+		if (socks[1] != INVALID_SOCKET)
 			closesocket(socks[1]);
 	}
 	closesocket(listener);
