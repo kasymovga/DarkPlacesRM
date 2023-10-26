@@ -333,8 +333,8 @@ CFLAGS_VPX=`pkg-config --cflags vpx` -DLINK_TO_VPX
 LIB_VPX=`pkg-config --libs vpx`
 endif
 ifeq ($(DP_LINK_VPX),static)
-CFLAGS_VPX=`pkg-config --cflags vpx`
-LIB_VPX=`pkg-config --static --libs vpx` -DLINK_TO_VPX
+CFLAGS_VPX=`pkg-config --cflags vpx` -DLINK_TO_VPX
+LIB_VPX=`pkg-config --static --libs vpx`
 endif
 else
 CFLAGS_VPX=
