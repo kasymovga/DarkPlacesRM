@@ -2391,14 +2391,13 @@ skinframe_t *R_SkinFrame_Find(const char *name, int textureflags, int comparewid
 
 #define R_SKINFRAME_LOAD_AVERAGE_COLORS(cnt, getpixel) \
 	{ \
-		unsigned long long avgcolor[5], wsum; \
+		unsigned long long avgcolor[5]; \
 		int pix, comp, w; \
 		avgcolor[0] = 0; \
 		avgcolor[1] = 0; \
 		avgcolor[2] = 0; \
 		avgcolor[3] = 0; \
 		avgcolor[4] = 0; \
-		wsum = 0; \
 		for(pix = 0; pix < cnt; ++pix) \
 		{ \
 			w = 0; \
@@ -2406,7 +2405,6 @@ skinframe_t *R_SkinFrame_Find(const char *name, int textureflags, int comparewid
 				w += getpixel; \
 			if(w) /* ignore perfectly black pixels because that is better for model skins */ \
 			{ \
-				++wsum; \
 				/* comp = 3; -- not needed, comp is always 3 when we get here */ \
 				w = getpixel; \
 				for(comp = 0; comp < 3; ++comp) \
