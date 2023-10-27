@@ -106,9 +106,6 @@ typedef struct rtexture_s
 	qboolean dirty; // indicates that R_RealGetTexture should be called
 	qboolean glisdepthstencil; // indicates that FBO attachment has to be GL_DEPTH_STENCIL_ATTACHMENT
 	int gltexturetypeenum; // used by R_Mesh_TexBind
-	// d3d stuff the backend needs
-	void *d3dtexture;
-	void *d3dsurface;
 }
 rtexture_t;
 
