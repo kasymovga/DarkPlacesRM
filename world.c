@@ -2782,7 +2782,7 @@ treatasbox:
 	body = (dBodyID)ed->priv.server->ode_body;
 	if (modified && ed->priv.server->ode_geom)
 	{
-		dVector3 r[3];
+		dMatrix3 r;
 		matrix4x4_t entitymatrix;
 		matrix4x4_t bodymatrix;
 
@@ -2809,22 +2809,25 @@ treatasbox:
 		Matrix4x4_FromVectors(&entitymatrix, forward, left, up, origin);
 		Matrix4x4_Concat(&bodymatrix, &entitymatrix, &ed->priv.server->ode_offsetmatrix);
 		Matrix4x4_ToVectors(&bodymatrix, forward, left, up, origin);
-		r[0][0] = forward[0];
-		r[1][0] = forward[1];
-		r[2][0] = forward[2];
-		r[0][1] = left[0];
-		r[1][1] = left[1];
-		r[2][1] = left[2];
-		r[0][2] = up[0];
-		r[1][2] = up[1];
-		r[2][2] = up[2];
+		r[0] = forward[0];
+		r[1] = forward[1];
+		r[2] = forward[2];
+		r[3] = left[0];
+		r[4] = left[1];
+		r[5] = left[2];
+		r[6] = up[0];
+		r[7] = up[1];
+		r[8] = up[2];
+		r[9] = 0;
+		r[10] = 0;
+		r[11] = 0;
 		if (body)
 		{
 			if (movetype == MOVETYPE_PHYSICS)
 			{
 				dGeomSetBody((dGeomID)ed->priv.server->ode_geom, body);
 				dBodySetPosition(body, origin[0], origin[1], origin[2]);
-				dBodySetRotation(body, r[0]);
+				dBodySetRotation(body, r);
 				dBodySetLinearVel(body, velocity[0], velocity[1], velocity[2]);
 				dBodySetAngularVel(body, spinvelocity[0], spinvelocity[1], spinvelocity[2]);
 				dBodySetGravityMode(body, gravity);
@@ -2833,7 +2836,7 @@ treatasbox:
 			{
 				dGeomSetBody((dGeomID)ed->priv.server->ode_geom, body);
 				dBodySetPosition(body, origin[0], origin[1], origin[2]);
-				dBodySetRotation(body, r[0]);
+				dBodySetRotation(body, r);
 				dBodySetLinearVel(body, velocity[0], velocity[1], velocity[2]);
 				dBodySetAngularVel(body, spinvelocity[0], spinvelocity[1], spinvelocity[2]);
 				dBodySetGravityMode(body, gravity);
@@ -2845,7 +2848,7 @@ treatasbox:
 			// no body... then let's adjust the parameters of the geom directly
 			dGeomSetBody((dGeomID)ed->priv.server->ode_geom, 0); // just in case we previously HAD a body (which should never happen)
 			dGeomSetPosition((dGeomID)ed->priv.server->ode_geom, origin[0], origin[1], origin[2]);
-			dGeomSetRotation((dGeomID)ed->priv.server->ode_geom, r[0]);
+			dGeomSetRotation((dGeomID)ed->priv.server->ode_geom, r);
 		}
 	}
 
