@@ -2783,6 +2783,7 @@ treatasbox:
 	if (modified && ed->priv.server->ode_geom)
 	{
 		dMatrix3 r;
+		dVector3 *rv = (dVector3 *)r;
 		matrix4x4_t entitymatrix;
 		matrix4x4_t bodymatrix;
 
@@ -2809,18 +2810,17 @@ treatasbox:
 		Matrix4x4_FromVectors(&entitymatrix, forward, left, up, origin);
 		Matrix4x4_Concat(&bodymatrix, &entitymatrix, &ed->priv.server->ode_offsetmatrix);
 		Matrix4x4_ToVectors(&bodymatrix, forward, left, up, origin);
-		r[0] = forward[0];
-		r[1] = forward[1];
-		r[2] = forward[2];
-		r[3] = left[0];
-		r[4] = left[1];
-		r[5] = left[2];
-		r[6] = up[0];
-		r[7] = up[1];
-		r[8] = up[2];
-		r[9] = 0;
-		r[10] = 0;
-		r[11] = 0;
+		memset(r, 0, sizeof(r));
+		//???
+		rv[0][0] = forward[0];
+		rv[1][0] = forward[1];
+		rv[2][0] = forward[2];
+		rv[0][1] = left[0];
+		rv[1][1] = left[1];
+		rv[2][1] = left[2];
+		rv[0][2] = up[0];
+		rv[1][2] = up[1];
+		rv[2][2] = up[2];
 		if (body)
 		{
 			if (movetype == MOVETYPE_PHYSICS)
