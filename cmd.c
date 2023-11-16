@@ -1878,8 +1878,7 @@ void Cmd_ExecuteString (const char *text, cmd_source_t src, qboolean lockmutex)
 	int found;
 	cmd_function_t *cmd;
 	cmdalias_t *a;
-	if (lockmutex)
-		SV_LockThreadMutex();
+	SV_LockThreadMutex();
 	oldpos = cmd_tokenizebufferpos;
 	cmd_source = src;
 	found = false;
@@ -1959,8 +1958,7 @@ command_found:
 
 done:
 	cmd_tokenizebufferpos = oldpos;
-	if (lockmutex)
-		SV_UnlockThreadMutex();
+	SV_UnlockThreadMutex();
 }
 
 
