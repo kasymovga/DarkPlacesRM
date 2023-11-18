@@ -2265,7 +2265,7 @@ static void World_Physics_Frame_BodyFromEntity(world_t *world, prvm_edict_t *ed)
 		World_Physics_RemoveFromEntity(world, ed);
 		ed->priv.server->ode_physics = true;
 		VectorMAM(0.5f, entmins, 0.5f, entmaxs, geomcenter);
-		if (PRVM_gameedictvector(ed, massofs))
+		if (PRVM_gameedictvector(ed, massofs)[0] || PRVM_gameedictvector(ed, massofs)[1] || PRVM_gameedictvector(ed, massofs)[2])
 			VectorCopy(geomcenter, PRVM_gameedictvector(ed, massofs));
 
 		// check geomsize
@@ -2323,7 +2323,7 @@ static void World_Physics_Frame_BodyFromEntity(world_t *world, prvm_edict_t *ed)
 				entmaxs[1] = max(entmaxs[1], ov[1]);
 				entmaxs[2] = max(entmaxs[2], ov[2]);
 			}
-			if (!PRVM_gameedictvector(ed, massofs))
+			if (!PRVM_gameedictvector(ed, massofs)[0] && !PRVM_gameedictvector(ed, massofs)[1] && !PRVM_gameedictvector(ed, massofs)[2])
 				VectorMAM(0.5f, entmins, 0.5f, entmaxs, geomcenter);
 			for (vertexindex = 0, ov = ed->priv.server->ode_vertex3f, iv = model->brush.collisionmesh->vertex3f;vertexindex < numvertices;vertexindex++, ov += 3, iv += 3)
 			{
