@@ -3323,8 +3323,7 @@ void SV_SpawnServer (const char *server)
 		dpsnprintf (modelname, sizeof(modelname), "maps/%s", server);
 		if (!FS_FileExists(modelname))
 		{
-			Con_Printf("SpawnServer: no map file named maps/%s.bsp\n", server);
-			return;
+			Host_Error(NULL, "SpawnServer: no map file named maps/%s.bsp or maps/%s", server, server);
 		}
 	}
 
@@ -3355,10 +3354,7 @@ void SV_SpawnServer (const char *server)
 	worldmodel = Mod_ForName(modelname, false, developer.integer > 0, NULL);
 	if (!worldmodel || worldmodel->failed || !worldmodel->TraceBox)
 	{
-		Con_Printf("Couldn't load map %s\n", modelname);
-//		SV_UnlockThreadMutex();
-
-		return;
+		Host_Error(NULL, "Couldn't load map %s", modelname);
 	}
 
 	Collision_Cache_Reset(true);
