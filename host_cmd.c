@@ -370,10 +370,17 @@ command from the console.  Active clients are kicked off.
 static void Host_Map_f (void)
 {
 	char level[MAX_QPATH];
+	const char *mapname;
 
 	if (Cmd_Argc() != 2)
 	{
 		Con_Print("map <levelname> : start a new game (kicks off all players)\n");
+		return;
+	}
+	mapname = Cmd_Argv(1);
+	if (!FS_FileExists(va(level, sizeof(level), "maps/%s.bsp", mapname)) && !FS_FileExists(va(level, sizeof(level), "maps/%s", mapname)))
+	{
+		Con_Printf("map: no map file named maps/%s.bsp or maps/%s\n", mapname, mapname);
 		return;
 	}
 	#ifndef CONFIG_SV
