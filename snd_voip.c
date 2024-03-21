@@ -506,20 +506,21 @@ void S_VOIP_Received(unsigned char *packet, int len, int client)
 	}
 	if (seq > opus_decoder_seq[client])
 	{
+		int len_decoded;
 		Con_DPrintf("Opus frame missed (got %i but expected %i) for stream id %i\n", seq, opus_decoder_seq[client], opus_decoder_id[client]);
 		if (seq - opus_decoder_seq[client] > 10)
 			opus_decoder_seq[client] = seq - 10;
 		while (seq > opus_decoder_seq[client])
 		{
-			len = opus_decode(opus_decoder[client], NULL, 0, (opus_int16*)packet_decoded, 960, 0);
-			if (len > 0)
+			len_decoded = opus_decode(opus_decoder[client], NULL, 0, (opus_int16*)packet_decoded, 960, 0);
+			if (len_decoded > 0)
 			{
-				len *= 2;
-				if (len > buffer_free)
-					len = buffer_free;
-				memcpy(buffer + *buffer_filled, packet_decoded, len);
-				*buffer_filled += len;
-				buffer_free -= len;
+				len_decoded *= 2; //16 bit
+				if (len_decoded > buffer_free)
+					len_decoded = buffer_free;
+				memcpy(buffer + *buffer_filled, packet_decoded, len_decoded);
+				*buffer_filled += len_decoded;
+				buffer_free -= len_decoded;
 			}
 			opus_decoder_seq[client]++;
 		}
