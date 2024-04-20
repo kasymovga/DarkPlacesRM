@@ -2021,7 +2021,7 @@ void CL_MoveLerpEntityStates(entity_t *ent)
 	float odelta[3], adelta[3];
 	VectorSubtract(ent->state_current.origin, ent->persistent.neworigin, odelta);
 	VectorSubtract(ent->state_current.angles, ent->persistent.newangles, adelta);
-	if (!ent->state_previous.active || ent->state_previous.modelindex != ent->state_current.modelindex)
+	if (!ent->state_previous.active)
 	{
 		// reset all persistent stuff if this is a new entity
 		ent->persistent.lerpdeltatime = 0;
