@@ -733,23 +733,23 @@ static void Cmd_Toggle_f(void)
 			if(nNumArgs == 2)
 			{ // Default Usage
 				if(cvCVar->integer)
-					Cvar_SetValueQuick(cvCVar, 0);
+					Cvar_SetQuick_Notify(cvCVar, "0");
 				else
-					Cvar_SetValueQuick(cvCVar, 1);
+					Cvar_SetQuick_Notify(cvCVar, "1");
 			}
 			else
 			if(nNumArgs == 3)
 			{ // 0 and Specified Usage
 				if(cvCVar->integer == atoi(Cmd_Argv(2) ) )
 					// CVar is Specified Value; // Reset to 0
-					Cvar_SetValueQuick(cvCVar, 0);
+					Cvar_SetQuick_Notify(cvCVar, "0");
 				else
 				if(cvCVar->integer == 0)
 					// CVar is 0; Specify Value
-					Cvar_SetQuick(cvCVar, Cmd_Argv(2) );
+					Cvar_SetQuick_Notify(cvCVar, Cmd_Argv(2) );
 				else
 					// CVar does not match; Reset to 0
-					Cvar_SetValueQuick(cvCVar, 0);
+					Cvar_SetQuick_Notify(cvCVar, "0");
 			}
 			else
 			{ // Variable Values Specified
@@ -762,10 +762,10 @@ static void Cmd_Toggle_f(void)
 					{ // Current Value Located; Increment to Next
 						if( (nCnt + 1) == nNumArgs)
 							// Max Value Reached; Reset
-							Cvar_SetQuick(cvCVar, Cmd_Argv(2) );
+							Cvar_SetQuick_Notify(cvCVar, Cmd_Argv(2) );
 						else
 							// Next Value
-							Cvar_SetQuick(cvCVar, Cmd_Argv(nCnt + 1) );
+							Cvar_SetQuick_Notify(cvCVar, Cmd_Argv(nCnt + 1) );
 
 						// End Loop
 						nCnt = nNumArgs;
@@ -775,7 +775,7 @@ static void Cmd_Toggle_f(void)
 				}
 				if(!bFound)
 					// Value not Found; Reset to Original
-					Cvar_SetQuick(cvCVar, Cmd_Argv(2) );
+					Cvar_SetQuick_Notify(cvCVar, Cmd_Argv(2) );
 			}
 
 		}
