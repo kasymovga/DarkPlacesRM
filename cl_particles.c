@@ -664,7 +664,7 @@ particle_t *CL_NewParticle(const vec3_t sortorigin, unsigned short ptypeindex, i
 	if (!cl_particles.integer)
 		return NULL;
 	for (;cl.free_particle < cl.max_particles && cl.particles[cl.free_particle].typeindex;cl.free_particle++);
-	if (cl.free_particle >= cl.max_particles)
+	if (cl.free_particle >= cl_particles_max.integer)
 		return NULL;
 	if (!lifetime)
 		lifetime = palpha / min(1, palphafade);
