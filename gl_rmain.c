@@ -5081,7 +5081,13 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			{
 				r_refdef.view.usecustompvs = true;
 				if (p->pvsvalid)
+				{
 					memcpy(r_refdef.viewcache.world_pvsbits, p->pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+					if(r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
+					{
+						r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, myview.origin, 2, r_refdef.viewcache.world_pvsbits, (r_refdef.viewcache.world_numclusters+7)>>3, true);
+					}
+				}
 				else
 					memset(r_refdef.viewcache.world_pvsbits, 0xFF, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
 			}
