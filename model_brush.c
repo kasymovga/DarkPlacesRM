@@ -3349,8 +3349,11 @@ static void Mod_Q1BSP_FatPVS_RecursiveBSPNode(dp_model_t *model, const vec3_t or
 	if (((mleaf_t *)node)->clusterindex >= 0)
 	{
 		int i;
+		int pvsbytesll = pvsbytes / sizeof(unsigned long long int);
 		unsigned char *pvs = model->brush.data_pvsclusters + ((mleaf_t *)node)->clusterindex * model->brush.num_pvsclusterbytes;
-		for (i = 0;i < pvsbytes;i++)
+		for (i = 0; i < pvsbytesll; i++)
+			((unsigned long long int *)pvsbuffer)[i] |= ((unsigned long long int *)pvs)[i];
+		for (i *= sizeof(unsigned long long int);i < pvsbytes;i++)
 			pvsbuffer[i] |= pvs[i];
 	}
 }
