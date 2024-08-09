@@ -1350,7 +1350,7 @@ void SCR_CaptureVideo_Ogg_BeginVideo(void)
 			FindFraction(cls.capturevideo.framerate / cls.capturevideo.framestep, &num, &denom, 1000);
 			cfg.g_timebase.num = num;
 			cfg.g_timebase.den = denom;
-			if (!(vpx_img_alloc(&format->vpx_image, VPX_IMG_FMT_YV12, cfg.g_w, cfg.g_h, 32)))
+			if (!(vpx_img_alloc(&format->vpx_image, VPX_IMG_FMT_YV12, cfg.g_w, cfg.g_h, 1)))
 			{
 				Sys_Error("Failed to allocate VPX image\n");
 			}

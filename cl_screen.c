@@ -1585,11 +1585,16 @@ static void SCR_CaptureVideo_BeginVideo(void)
 		height = vid.height;
 
 	// ensure it's all even; if not, scale down a little
-	if(width % 1)
+	if(width % 2)
 		--width;
-	if(height % 1)
+	if(height % 2)
 		--height;
 
+	if (width < 2 || height < 2)
+	{
+		Con_Printf("cl_capturevideo: video resolution is too low!\n");
+		return;
+	}
 	cls.capturevideo.width = width;
 	cls.capturevideo.height = height;
 	cls.capturevideo.active = true;
