@@ -226,6 +226,8 @@ cvar_t r_hdr_irisadaptation_fade_up = {CVAR_SAVE, "r_hdr_irisadaptation_fade_up"
 cvar_t r_hdr_irisadaptation_fade_down = {CVAR_SAVE, "r_hdr_irisadaptation_fade_down", "0.5", "fade rate at which value adjusts to brightness"};
 cvar_t r_hdr_irisadaptation_radius = {CVAR_SAVE, "r_hdr_irisadaptation_radius", "15", "lighting within this many units of the eye is averaged"};
 
+cvar_t r_fxaa = {CVAR_SAVE, "r_fxaa", "0", "fast approximate anti aliasing"};
+
 cvar_t r_smoothnormals_areaweighting = {0, "r_smoothnormals_areaweighting", "1", "uses significantly faster (and supposedly higher quality) area-weighted vertex normals and tangent vectors rather than summing normalized triangle normals and tangents"};
 
 cvar_t developer_texturelogging = {0, "developer_texturelogging", "0", "produces a textures.log file containing names of skins and map textures the engine tried to load"};
@@ -3452,6 +3454,7 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_hdr_irisadaptation_fade_up);
 	Cvar_RegisterVariable(&r_hdr_irisadaptation_fade_down);
 	Cvar_RegisterVariable(&r_hdr_irisadaptation_radius);
+	Cvar_RegisterVariable(&r_fxaa);
 	Cvar_RegisterVariable(&r_smoothnormals_areaweighting);
 	Cvar_RegisterVariable(&developer_texturelogging);
 	Cvar_RegisterVariable(&gl_lightmaps);
