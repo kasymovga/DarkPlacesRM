@@ -227,6 +227,7 @@ cvar_t r_hdr_irisadaptation_fade_down = {CVAR_SAVE, "r_hdr_irisadaptation_fade_d
 cvar_t r_hdr_irisadaptation_radius = {CVAR_SAVE, "r_hdr_irisadaptation_radius", "15", "lighting within this many units of the eye is averaged"};
 
 cvar_t r_fxaa = {CVAR_SAVE, "r_fxaa", "0", "fast approximate anti aliasing"};
+cvar_t r_trippy = {0, "r_trippy", "0", "easter egg"};
 
 cvar_t r_smoothnormals_areaweighting = {0, "r_smoothnormals_areaweighting", "1", "uses significantly faster (and supposedly higher quality) area-weighted vertex normals and tangent vectors rather than summing normalized triangle normals and tangents"};
 
@@ -3455,6 +3456,7 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_hdr_irisadaptation_fade_down);
 	Cvar_RegisterVariable(&r_hdr_irisadaptation_radius);
 	Cvar_RegisterVariable(&r_fxaa);
+	Cvar_RegisterVariable(&r_trippy);
 	Cvar_RegisterVariable(&r_smoothnormals_areaweighting);
 	Cvar_RegisterVariable(&developer_texturelogging);
 	Cvar_RegisterVariable(&gl_lightmaps);
@@ -3541,8 +3543,6 @@ int R_CullBox(const vec3_t mins, const vec3_t maxs)
 {
 	int i;
 	mplane_t *p;
-	if (r_trippy.integer)
-		return false;
 	for (i = 0;i < r_refdef.view.numfrustumplanes;i++)
 	{
 		p = r_refdef.view.frustum + i;
@@ -3590,8 +3590,6 @@ int R_CullBoxCustomPlanes(const vec3_t mins, const vec3_t maxs, int numplanes, c
 {
 	int i;
 	const mplane_t *p;
-	if (r_trippy.integer)
-		return false;
 	for (i = 0;i < numplanes;i++)
 	{
 		p = planes + i;
@@ -4266,7 +4264,7 @@ static void R_View_UpdateEntityVisible (void)
 				r_refdef.viewcache.entityvisible[i] = true;
 		}
 	}
-	if(r_cullentities_trace.integer && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.TraceLineOfSight && !r_refdef.view.useclipplane && !r_trippy.integer)
+	if(r_cullentities_trace.integer && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.TraceLineOfSight && !r_refdef.view.useclipplane)
 		// sorry, this check doesn't work for portal/reflection/refraction renders as the view origin is not useful for culling
 	{
 		for (i = 0;i < r_refdef.scene.numentities;i++)
@@ -6965,7 +6963,7 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 
 	t->currentmaterialflags = t->basematerialflags;
 	t->currentalpha = rsurface.colormod[3] * t->basealpha;
-	if (t->basematerialflags & MATERIALFLAG_WATERALPHA && (model->brush.supportwateralpha || r_novis.integer || r_trippy.integer))
+	if (t->basematerialflags & MATERIALFLAG_WATERALPHA && (model->brush.supportwateralpha || r_novis.integer))
 		t->currentalpha *= r_wateralpha.value;
 	if(t->basematerialflags & MATERIALFLAG_WATERSHADER && r_fb.water.enabled && !r_refdef.view.isoverlay)
 		t->currentmaterialflags |= MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_NOSHADOW; // we apply wateralpha later
@@ -9209,7 +9207,7 @@ static void R_DrawTextureSurfaceList_Sky(int texturenumsurfaces, const msurface_
 	// in Quake3 maps as it causes problems with q3map2 sky tricks,
 	// and skymasking also looks very bad when noclipping outside the
 	// level, so don't use it then either.
-	if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.skymasking && r_q1bsp_skymasking.integer && !r_refdef.viewcache.world_novis && !r_trippy.integer)
+	if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.skymasking && r_q1bsp_skymasking.integer && !r_refdef.viewcache.world_novis)
 	{
 		R_Mesh_ResetTextureState();
 		if (skyrendermasked)

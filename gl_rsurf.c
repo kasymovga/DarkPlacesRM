@@ -340,8 +340,6 @@ static void R_View_WorldVisibility_CullSurfaces(void)
 	dp_model_t *model = r_refdef.scene.worldmodel;
 	if (!model)
 		return;
-	if (r_trippy.integer)
-		return;
 	if (r_usesurfaceculling.integer < 1)
 		return;
 	surfaceindexstart = model->firstmodelsurface;
@@ -403,7 +401,7 @@ void R_View_WorldVisibility(qboolean forcenovis)
 
 		// if floating around in the void (no pvs data available, and no
 		// portals available), simply use all on-screen leafs.
-		if (!viewleaf || viewleaf->clusterindex < 0 || forcenovis || r_trippy.integer)
+		if (!viewleaf || viewleaf->clusterindex < 0 || forcenovis)
 		{
 			// no visibility method: (used when floating around in the void)
 			// simply cull each leaf to the frustum (view pyramid)

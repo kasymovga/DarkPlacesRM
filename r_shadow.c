@@ -3605,7 +3605,7 @@ int bboxedges[12][2] =
 
 qboolean R_Shadow_ScissorForBBox(const float *mins, const float *maxs)
 {
-	if (!r_shadow_scissor.integer || r_shadow_usingdeferredprepass || r_trippy.integer)
+	if (!r_shadow_scissor.integer || r_shadow_usingdeferredprepass)
 	{
 		r_shadow_lightscissor[0] = r_refdef.view.viewport.x;
 		r_shadow_lightscissor[1] = r_refdef.view.viewport.y;
@@ -4216,9 +4216,6 @@ static void R_Shadow_ComputeShadowCasterCullingPlanes(rtlight_t *rtlight)
 	// see rtlight->cached_frustumplanes definition for how much this array
 	// can hold
 	rtlight->cached_numfrustumplanes = 0;
-
-	if (r_trippy.integer)
-		return;
 
 	// haven't implemented a culling path for ortho rendering
 	if (!r_refdef.view.useperspective)

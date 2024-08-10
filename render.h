@@ -54,9 +54,6 @@ extern cvar_t gl_flashblend;
 // vis stuff
 extern cvar_t r_novis;
 
-extern cvar_t r_trippy;
-extern cvar_t r_fxaa;
-
 extern cvar_t r_lerpsprites;
 extern cvar_t r_lerpmodels;
 extern cvar_t r_lerplightstyles;

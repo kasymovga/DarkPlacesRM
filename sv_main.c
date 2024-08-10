@@ -1680,7 +1680,7 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 			// if not touching a visible leaf
 			if (sv_cullentities_pvs.integer
 					#ifndef CONFIG_SV
-					&& !r_novis.integer && !r_trippy.integer
+					&& !r_novis.integer
 					#endif
 					&& sv.writeentitiestoclient_pvsbytes)
 			{
@@ -1709,11 +1709,7 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 			}
 
 			// or not seen by random tracelines
-			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel && sv.worldmodel->brush.TraceLineOfSight
-					#ifndef CONFIG_SV
-					&& !r_trippy.integer
-					#endif
-					)
+			if (sv_cullentities_trace.integer && !isbmodel && sv.worldmodel && sv.worldmodel->brush.TraceLineOfSight)
 			{
 				int culltracemode = PRVM_serveredictfloat(ed, culltracemode);
 				int samples;
