@@ -235,7 +235,7 @@ typedef struct dpackheader_s
 
 struct packfile_s
 {
-	char name [MAX_QPATH];
+	char *name;
 	int flags;
 	fs_offset_t offset;
 	fs_offset_t packsize;	///< size in the package
@@ -517,7 +517,7 @@ static int PK3_BuildFileList (pack_t *pack, const pk3_endOfCentralDir_t *eocd)
 		if ((ptr[8] & 0x21) == 0 && (ptr[38] & 0x18) == 0)
 		{
 			// Still enough bytes for the name?
-			if (namesize < 0 || remaining < namesize || namesize >= (int)sizeof (*pack->files))
+			if (namesize < 0 || remaining < namesize)
 			{
 				Mem_Free (central_dir);
 				return -1;
@@ -526,7 +526,7 @@ static int PK3_BuildFileList (pack_t *pack, const pk3_endOfCentralDir_t *eocd)
 			// WinZip doesn't use the "directory" attribute, so we need to check the name directly
 			if (ptr[ZIP_CDIR_CHUNK_BASE_SIZE + namesize - 1] != '/')
 			{
-				char filename [sizeof (pack->files[0].name)];
+				char filename [MAX_QPATH];
 				fs_offset_t offset, packsize, realsize;
 				int flags;
 
@@ -702,7 +702,7 @@ packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
 									 fs_offset_t realsize, int flags)
 {
 	int (*strcmp_funct) (const char* str1, const char* str2);
-	int left, right, middle;
+	int left, right, middle, len;
 	packfile_t *pfile;
 
 	strcmp_funct = pack->ignorecase ? strcasecmp : strcmp;
@@ -733,7 +733,9 @@ packfile_t* FS_AddFileToPack (const char* name, pack_t* pack,
 	memmove (pfile + 1, pfile, (pack->numfiles - left) * sizeof (*pfile));
 	pack->numfiles++;
 
-	strlcpy (pfile->name, name, sizeof (pfile->name));
+	len = strlen(name) + 1;
+	pfile->name = (char *)Mem_Alloc(fs_mempool, len);
+	strlcpy (pfile->name, name, len);
 	pfile->offset = offset;
 	pfile->packsize = packsize;
 	pfile->realsize = realsize;
@@ -1255,6 +1257,7 @@ static void FS_ClearSearchPath (void)
 	// unload all packs and directory information, close all pack files
 	// (if a qfile is still reading a pack it won't be harmed because it used
 	//  dup() to get its own handle already)
+	int i;
 	fs_basesearchpath = NULL;
 	while (fs_searchpaths)
 	{
@@ -1268,7 +1271,12 @@ static void FS_ClearSearchPath (void)
 				FILEDESC_CLOSE(search->pack->handle);
 				// free any memory associated with it
 				if (search->pack->files)
+				{
+					for (i = 0; i < search->pack->numfiles; i++)
+						if (search->pack->files[i].name)
+							Mem_Free(search->pack->files[i].name);
 					Mem_Free(search->pack->files);
+				}
 			}
 			Mem_Free(search->pack);
 		}
