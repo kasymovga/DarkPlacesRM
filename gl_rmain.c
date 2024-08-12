@@ -4942,6 +4942,7 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 			// clear materialflags and pvs
 			p->materialflags = 0;
 			p->pvsvalid = false;
+			p->pvsbits = Mem_Alloc(tempmempool, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
 			p->camera_entity = t->camera_entity;
 			VectorCopy(mins, p->mins);
 			VectorCopy(maxs, p->maxs);
@@ -4971,7 +4972,7 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION) && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS
 		 && r_refdef.scene.worldmodel->brush.PointInLeaf && r_refdef.scene.worldmodel->brush.PointInLeaf(r_refdef.scene.worldmodel, center)->clusterindex >= 0)
 		{
-			r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, center, 2, p->pvsbits, sizeof(p->pvsbits), p->pvsvalid);
+			r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, center, VectorDistance(p->mins, p->maxs) / 2, p->pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes, p->pvsvalid);
 			p->pvsvalid = true;
 		}
 	}
@@ -5082,13 +5083,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			{
 				r_refdef.view.usecustompvs = true;
 				if (p->pvsvalid)
-				{
 					memcpy(r_refdef.viewcache.world_pvsbits, p->pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
-					if(r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
-					{
-						r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, myview.origin, 2, r_refdef.viewcache.world_pvsbits, (r_refdef.viewcache.world_numclusters+7)>>3, true);
-					}
-				}
 				else
 					memset(r_refdef.viewcache.world_pvsbits, 0xFF, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
 			}
@@ -5096,7 +5091,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			r_fb.water.hideplayer = ((r_water_hideplayer.integer >= 2) && !chase_active.integer);
 			R_ResetViewRendering3D(p->fbo_reflection, r_fb.water.depthtexture, p->texture_reflection);
 			R_ClearScreen(r_refdef.fogenabled);
-			if(r_water_scissormode.integer & 2)
+			if(r_water_scissormode.integer & 2 && r_fb.water.numwaterplanes == 1) //why it's not working correctly with more than 1 water plane?
 				R_View_UpdateWithScissor(myscissor);
 			else
 				R_View_Update();
@@ -5138,7 +5133,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 				if(r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
 				{
 					r_refdef.view.usecustompvs = true;
-					r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, (r_refdef.viewcache.world_numclusters+7)>>3, false);
+					r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes, false);
 				}
 			}
 
@@ -5146,7 +5141,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 
 			R_ResetViewRendering3D(p->fbo_refraction, r_fb.water.depthtexture, p->texture_refraction);
 			R_ClearScreen(r_refdef.fogenabled);
-			if(r_water_scissormode.integer & 2)
+			if(r_water_scissormode.integer & 2 && r_fb.water.numwaterplanes == 1) //why it's not working correctly with more than 1 water plane?
 				R_View_UpdateWithScissor(myscissor);
 			else
 				R_View_Update();
@@ -5193,7 +5188,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			if(p->camera_entity && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
 			{
 				r_refdef.view.usecustompvs = true;
-				r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, (r_refdef.viewcache.world_numclusters+7)>>3, false);
+				r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes, false);
 			}
 
 			// camera needs no clipplane

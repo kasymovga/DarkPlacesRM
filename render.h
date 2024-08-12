@@ -504,7 +504,7 @@ typedef struct r_waterstate_waterplane_s
 	int fbo_camera;
 	mplane_t plane;
 	int materialflags; // combined flags of all water surfaces on this plane
-	unsigned char pvsbits[(MAX_MAP_LEAFS+7)>>3]; // FIXME: buffer overflow on huge maps
+	unsigned char *pvsbits;
 	qboolean pvsvalid;
 	int camera_entity;
 	vec3_t mins, maxs;
