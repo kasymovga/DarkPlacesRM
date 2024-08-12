@@ -803,7 +803,7 @@ static void VM_SV_tracetoss(prvm_prog_t *prog)
 //============================================================================
 
 static int checkpvsbytes;
-static unsigned char checkpvs[MAX_MAP_LEAFS/8];
+static unsigned char *checkpvs;
 
 static int VM_SV_newcheckclient(prvm_prog_t *prog, int check)
 {
@@ -837,9 +837,22 @@ static int VM_SV_newcheckclient(prvm_prog_t *prog, int check)
 
 // get the PVS for the entity
 	VectorAdd(PRVM_serveredictvector(ent, origin), PRVM_serveredictvector(ent, view_ofs), org);
-	checkpvsbytes = 0;
-	if (sv.worldmodel && sv.worldmodel->brush.FatPVS)
-		checkpvsbytes = sv.worldmodel->brush.FatPVS(sv.worldmodel, org, 0, checkpvs, sizeof(checkpvs), false);
+	if (sv.worldmodel && sv.worldmodel->brush.FatPVS && sv.worldmodel->brush.num_pvsclusterbytes)
+	{
+		if (checkpvsbytes != sv.worldmodel->brush.num_pvsclusterbytes)
+		{
+			checkpvsbytes = sv.worldmodel->brush.num_pvsclusterbytes;
+			if (checkpvs) Mem_Free(checkpvs);
+			checkpvs = Mem_Alloc(sv_mempool, checkpvsbytes);
+		}
+		sv.worldmodel->brush.FatPVS(sv.worldmodel, org, 0, checkpvs, checkpvsbytes, false);
+	}
+	else
+	{
+		checkpvsbytes = 0;
+		if (checkpvs) Mem_Free(checkpvs);
+		checkpvs = NULL;
+	}
 
 	return i;
 }
@@ -885,7 +898,7 @@ static void VM_SV_checkclient(prvm_prog_t *prog)
 	// if current entity can't possibly see the check entity, return 0
 	self = PRVM_PROG_TO_EDICT(PRVM_serverglobaledict(self));
 	VectorAdd(PRVM_serveredictvector(self, origin), PRVM_serveredictvector(self, view_ofs), view);
-	if (sv.worldmodel && checkpvsbytes && !sv.worldmodel->brush.BoxTouchingPVS(sv.worldmodel, checkpvs, view, view))
+	if (sv.worldmodel && checkpvsbytes && checkpvsbytes == sv.worldmodel->brush.num_pvsclusterbytes && !sv.worldmodel->brush.BoxTouchingPVS(sv.worldmodel, checkpvs, view, view))
 	{
 		c_notvis++;
 		VM_RETURN_EDICT(prog->edicts);

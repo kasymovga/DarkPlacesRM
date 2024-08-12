@@ -1860,11 +1860,23 @@ static void SV_WriteEntitiesToClient(client_t *client, prvm_edict_t *clent, size
 	sv.writeentitiestoclient_cliententitynumber = PRVM_EDICT_TO_PROG(clent); // LordHavoc: for comparison purposes
 	camera = PRVM_EDICT_NUM( client->clientcamera );
 	VectorAdd(PRVM_serveredictvector(camera, origin), PRVM_serveredictvector(clent, view_ofs), eye);
-	sv.writeentitiestoclient_pvsbytes = 0;
 	// get the PVS values for the eye location, later FatPVS calls will merge
-	if (sv.worldmodel && sv.worldmodel->brush.FatPVS)
-		sv.writeentitiestoclient_pvsbytes = sv.worldmodel->brush.FatPVS(sv.worldmodel, eye, 8, sv.writeentitiestoclient_pvs, sizeof(sv.writeentitiestoclient_pvs), sv.writeentitiestoclient_pvsbytes != 0);
-
+	if (sv.worldmodel && sv.worldmodel->brush.FatPVS && sv.worldmodel->brush.num_pvsclusterbytes)
+	{
+		if (sv.writeentitiestoclient_pvsbytes != sv.worldmodel->brush.num_pvsclusterbytes) {
+			Mem_Free(sv.writeentitiestoclient_pvs);
+			sv.writeentitiestoclient_pvs = Mem_Alloc(sv_mempool, sv.worldmodel->brush.num_pvsclusterbytes);
+			sv.writeentitiestoclient_pvsbytes = sv.worldmodel->brush.num_pvsclusterbytes;
+		}
+		sv.worldmodel->brush.FatPVS(sv.worldmodel, eye, 8, sv.writeentitiestoclient_pvs, sv.worldmodel->brush.num_pvsclusterbytes, false);
+	}
+	else
+	{
+		if (sv.writeentitiestoclient_pvs)
+			Mem_Free(sv.writeentitiestoclient_pvs);
+		sv.writeentitiestoclient_pvs = NULL;
+		sv.writeentitiestoclient_pvsbytes = 0;
+	}
 	// add the eye to a list for SV_CanSeeBox tests
 	VectorCopy(eye, sv.writeentitiestoclient_eyes[sv.writeentitiestoclient_numeyes]);
 	sv.writeentitiestoclient_numeyes++;
@@ -1887,9 +1899,9 @@ static void SV_WriteEntitiesToClient(client_t *client, prvm_edict_t *clent, size
 	SV_AddCameraEyes();
 
 	// build PVS from the new eyes
-	if (sv.worldmodel && sv.worldmodel->brush.FatPVS)
+	if (sv.worldmodel && sv.worldmodel->brush.FatPVS && sv.writeentitiestoclient_pvsbytes)
 		for(i = 1; i < sv.writeentitiestoclient_numeyes; ++i)
-			sv.writeentitiestoclient_pvsbytes = sv.worldmodel->brush.FatPVS(sv.worldmodel, sv.writeentitiestoclient_eyes[i], 8, sv.writeentitiestoclient_pvs, sizeof(sv.writeentitiestoclient_pvs), sv.writeentitiestoclient_pvsbytes != 0);
+			sv.worldmodel->brush.FatPVS(sv.worldmodel, sv.writeentitiestoclient_eyes[i], 8, sv.writeentitiestoclient_pvs, sv.writeentitiestoclient_pvsbytes, true);
 
 	sv.sententitiesmark++;
 

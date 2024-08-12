@@ -3894,12 +3894,7 @@ static void VM_CL_checkpvs (prvm_prog_t *prog)
 	vec3_t viewpos;
 	prvm_edict_t *viewee;
 	vec3_t mi, ma;
-#if 1
 	unsigned char *pvs;
-#else
-	int fatpvsbytes;
-	unsigned char fatpvs[MAX_MAP_LEAFS/8];
-#endif
 
 	VM_SAFEPARMCOUNT(2, VM_SV_checkpvs);
 	VectorCopy(PRVM_G_VECTOR(OFS_PARM0), viewpos);
@@ -3915,7 +3910,6 @@ static void VM_CL_checkpvs (prvm_prog_t *prog)
 	VectorAdd(PRVM_serveredictvector(viewee, origin), PRVM_serveredictvector(viewee, mins), mi);
 	VectorAdd(PRVM_serveredictvector(viewee, origin), PRVM_serveredictvector(viewee, maxs), ma);
 
-#if 1
 	if(!cl.worldmodel || !cl.worldmodel->brush.GetPVS || !cl.worldmodel->brush.BoxTouchingPVS)
 	{
 		// no PVS support on this worldmodel... darn
@@ -3930,23 +3924,6 @@ static void VM_CL_checkpvs (prvm_prog_t *prog)
 		return;
 	}
 	PRVM_G_FLOAT(OFS_RETURN) = cl.worldmodel->brush.BoxTouchingPVS(cl.worldmodel, pvs, mi, ma);
-#else
-	// using fat PVS like FTEQW does (slow)
-	if(!cl.worldmodel || !cl.worldmodel->brush.FatPVS || !cl.worldmodel->brush.BoxTouchingPVS)
-	{
-		// no PVS support on this worldmodel... darn
-		PRVM_G_FLOAT(OFS_RETURN) = 3;
-		return;
-	}
-	fatpvsbytes = cl.worldmodel->brush.FatPVS(cl.worldmodel, viewpos, 8, fatpvs, sizeof(fatpvs), false);
-	if(!fatpvsbytes)
-	{
-		// viewpos isn't in any PVS... darn
-		PRVM_G_FLOAT(OFS_RETURN) = 2;
-		return;
-	}
-	PRVM_G_FLOAT(OFS_RETURN) = cl.worldmodel->brush.BoxTouchingPVS(cl.worldmodel, fatpvs, mi, ma);
-#endif
 }
 
 // #263 float(float modlindex) skel_create = #263; // (FTE_CSQC_SKELETONOBJECTS) create a skeleton (be sure to assign this value into .skeletonindex for use), returns skeleton index (1 or higher) on success, returns 0 on failure  (for example if the modelindex is not skeletal), it is recommended that you create a new skeleton if you change modelindex.
