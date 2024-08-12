@@ -7373,6 +7373,13 @@ bih_t *Mod_MakeCollisionBIH(dp_model_t *loadmodel, qboolean userendersurfaces, q
 	// we're done with the temporary data
 	Mem_Free(temp_leafsort);
 
+	if (out->error)
+	{
+		Mem_Free(bihnodes);
+		Mem_Free(bihleafs);
+		Con_Printf("Mod_MakeCollisionBIH: build error for model %s\n", loadmodel->name);
+		return NULL;
+	}
 	// resize the BIH nodes array if it over-allocated
 	if (out->maxnodes > out->numnodes)
 	{
