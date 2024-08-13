@@ -4645,15 +4645,10 @@ void R_SetupView(qboolean allowwaterclippingplane, int fbo, rtexture_t *depthtex
 	int /*rtwidth,*/ rtheight, scaledwidth, scaledheight;
 	if (r_refdef.view.useclipplane && allowwaterclippingplane)
 	{
-		// LordHavoc: couldn't figure out how to make this approach the
-		vec_t dist = r_refdef.view.clipplane.dist - r_water_clippingplanebias.value;
-		vec_t viewdist = DotProduct(r_refdef.view.origin, r_refdef.view.clipplane.normal);
-		if (viewdist < r_refdef.view.clipplane.dist + r_water_clippingplanebias.value)
-			dist = r_refdef.view.clipplane.dist;
 		plane[0] = r_refdef.view.clipplane.normal[0];
 		plane[1] = r_refdef.view.clipplane.normal[1];
 		plane[2] = r_refdef.view.clipplane.normal[2];
-		plane[3] = -dist;
+		plane[3] = -r_refdef.view.clipplane.dist;
 		customclipplane = plane;
 	}
 
@@ -4978,6 +4973,17 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 	}
 }
 
+static void R_Water_ClippingBias(void)
+{
+	vec_t viewdist = DotProduct(r_refdef.view.origin, r_refdef.view.clipplane.normal);
+	if (viewdist > r_refdef.view.clipplane.dist + r_water_clippingplanebias.value)
+		r_refdef.view.clipplane.dist += r_water_clippingplanebias.value;
+	else if (viewdist < r_refdef.view.clipplane.dist - r_water_clippingplanebias.value)
+		r_refdef.view.clipplane.dist -= r_water_clippingplanebias.value;
+	else
+		r_refdef.view.clipplane.dist = 0.5 * (r_refdef.view.clipplane.dist + viewdist);
+}
+
 static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 {
 	int myscissor[4];
@@ -5076,6 +5082,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			// update the r_refdef.view.origin because otherwise the sky renders at the wrong location (amongst other problems)
 			Matrix4x4_OriginFromMatrix(&r_refdef.view.matrix, r_refdef.view.origin);
 			r_refdef.view.clipplane = p->plane;
+			R_Water_ClippingBias();
 			// reverse the cullface settings for this render
 			r_refdef.view.cullface_front = GL_FRONT;
 			r_refdef.view.cullface_back = GL_BACK;
@@ -5122,6 +5129,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			r_refdef.view.clipplane = p->plane;
 			VectorNegate(r_refdef.view.clipplane.normal, r_refdef.view.clipplane.normal);
 			r_refdef.view.clipplane.dist = -r_refdef.view.clipplane.dist;
+			R_Water_ClippingBias();
 
 			if((p->materialflags & MATERIALFLAG_CAMERA) && p->camera_entity)
 			{
