@@ -1,21 +1,9 @@
 #include "net_httpserver.h"
 #ifdef USE_LIBMICROHTTPD
-#ifdef WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <windows.h>
-#include <io.h>
-#define SOCKET_CLOSE closesocket
-#else //WIN32
-#define SOCKET_CLOSE close
-#define SOCKET int
-#endif //WIN32
 #include "quakedef.h"
 #include "netconn.h"
 #include "fs.h"
-#include <string.h>
 #include <microhttpd.h>
-#include <errno.h>
 static cvar_t net_http_server_host = {0, "net_http_server_host","", "External server address"};
 static cvar_t net_http_server = {0, "net_http_server","1", "Internal http server"};
 
