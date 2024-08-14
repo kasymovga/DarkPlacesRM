@@ -2736,7 +2736,7 @@ int FS_Close (qfile_t* file)
 	}
 
 	if (FILEDESC_CLOSE (file->handle))
-		return EOF;
+		Con_Printf("FS_Close: File descriptor %i cannot be close properly\n", (int)file->handle);
 
 	if (file->filename)
 	{
