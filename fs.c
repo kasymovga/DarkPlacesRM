@@ -1304,26 +1304,12 @@ FS_Rescan
 */
 void FS_Rescan (void)
 {
-	int i, j;
+	int i;
 	qboolean fs_modified = false;
 	qboolean reset = false;
 	char gamedirbuf[MAX_INPUTLINE];
 	char vabuf[1024];
-	prvm_prog_t *prog;
-	for (i = 0;i < PRVM_PROG_MAX;i++)
-	{
-		prog = &prvm_prog_list[i];
-		if (prog->loaded)
-		{
-			for (j = 0; j < PRVM_MAX_OPENFILES; j++)
-				if (prog->openfiles[j]) //we must close all openfiles, because them allocated at memory pool which going to be destroyed
-				{
-					Con_Printf("Warning: closing file descriptor %i (probably was leaked) in %s\n", j, prog->name);
-					FS_Close(prog->openfiles[j]);
-					prog->openfiles[j] = NULL;
-				}
-		}
-	}
+
 	if (fs_searchpaths)
 		reset = true;
 	FS_ClearSearchPath();
