@@ -1479,9 +1479,7 @@ static void Host_Init (void)
 	}
 
 	Host_AddConfigText();
-	SV_LockThreadMutex();
 	Cbuf_Execute();
-	SV_UnlockThreadMutex();
 
 	// if stuffcmds wasn't run, then quake.rc is probably missing, use default
 	if (!host_stuffcmdsrun)
