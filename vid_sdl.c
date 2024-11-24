@@ -742,7 +742,7 @@ void IN_Move( void )
 	oldkeydest = keydest;
 	oldshowkeyboard = !!vid_touchscreen_showkeyboard.integer;
 
-	if (!vid_touchscreen.integer || !IN_Move_TouchScreen_Quake())
+	if (!vid_touchscreen.integer || !IN_Move_TouchScreen_Quake() || !vid_touchscreen_mouse.integer)
 	{
 		if (vid_usingmouse && vid_activewindow)
 		{
@@ -910,7 +910,7 @@ void Sys_SendKeyEvents( void )
 				else
 					Con_DPrintf("SDL_Event: SDL_MOUSEBUTTONUP\n");
 #endif
-				if ((!vid_touchscreen.integer || !vid_touchscreen_active.integer) && event.button.button > 0 && event.button.button <= ARRAY_SIZE(buttonremap))
+				if ((!vid_touchscreen_mouse.integer || !vid_touchscreen_active.integer || !vid_touchscreen.integer) && event.button.button > 0 && event.button.button <= ARRAY_SIZE(buttonremap))
 					Key_Event( buttonremap[event.button.button - 1], 0, event.button.state == SDL_PRESSED, false );
 				break;
 			case SDL_MOUSEWHEEL:
@@ -1720,6 +1720,7 @@ void VID_Init (void)
 		Sys_Error ("Failed to init SDL video subsystem: %s", SDL_GetError());
 	if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) < 0)
 		Con_Printf("Failed to init SDL joystick subsystem: %s\n", SDL_GetError());
+	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
 	vid_isfullscreen = false;
 }
 

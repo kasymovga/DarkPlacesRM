@@ -1865,7 +1865,7 @@ static int VID_Mode(int fullscreen, int width, int height, int bpp, float refres
 			Cvar_SetValueQuick(&vid_refreshrate, vid.mode.refreshrate);
 		Cvar_SetValueQuick(&vid_stereobuffer, vid.stereobuffer ? 1 : 0);
 
-		if (vid_touchscreen.integer && vid_touchscreen_active.integer)
+		if (vid_touchscreen.integer && vid_touchscreen_active.integer && vid_touchscreen_mouse.integer)
 		{
 			in_windowmouse_x = vid_width.value / 2.f;
 			in_windowmouse_y = vid_height.value / 2.f;

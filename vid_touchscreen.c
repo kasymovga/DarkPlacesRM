@@ -7,6 +7,7 @@ cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "
 cvar_t vid_touchscreen_active = {0, "vid_touchscreen_active", "1", "activate/deactivate touchscreen controls" };
 cvar_t vid_touchscreen_scale = {CVAR_SAVE, "vid_touchscreen_scale", "1", "scale of touchscreen items" };
 cvar_t vid_touchscreen_mirror = {CVAR_SAVE, "vid_touchscreen_mirror", "0", "mirroring position of touchscreen in-game items" };
+cvar_t vid_touchscreen_mouse = {CVAR_SAVE, "vid_touchscreen_mouse", "0", "use mouse input as touchscreen events" };
 static cvar_t vid_touchscreen_outlinealpha = {0, "vid_touchscreen_outlinealpha", "0", "opacity of touchscreen area outlines"};
 static cvar_t vid_touchscreen_overlayalpha = {0, "vid_touchscreen_overlayalpha", "0.25", "opacity of touchscreen area icons"};
 struct finger multitouch[MAXFINGERS];
@@ -159,6 +160,10 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 					multitouch[finger].start_y = multitouch[finger].y;
 				}
 			} else if (!strcmp(command_part, "*click")) {
+				if (button) {
+					in_windowmouse_x = multitouch[finger].x * vid.width;
+					in_windowmouse_y = multitouch[finger].y * vid.height;
+				}
 				if (*resultbutton != button) {
 					Key_Event(K_MOUSE1, 0, button, false);
 				}
@@ -247,24 +252,26 @@ qboolean VID_TouchscreenInMove(int x, int y, int st)
 		scale = 1;
 
 	memcpy(oldbuttons, buttons, sizeof(oldbuttons));
-	// simple quake controls
-	multitouch[MAXFINGERS-1].x = ((float)x) / vid.width;
-	multitouch[MAXFINGERS-1].y = ((float)y) / vid.height;
-	if (!multitouch[MAXFINGERS-1].state) {
-		multitouch[MAXFINGERS-1].area_id = -1;
-		multitouch[MAXFINGERS-1].start_x = multitouch[MAXFINGERS-1].x;
-		multitouch[MAXFINGERS-1].start_y = multitouch[MAXFINGERS-1].y;
-	}
-	multitouch[MAXFINGERS-1].state = st;
+	if (vid_touchscreen_mouse.integer) {
+		multitouch[MAXFINGERS-1].x = ((float)x) / vid.width;
+		multitouch[MAXFINGERS-1].y = ((float)y) / vid.height;
+		if (!multitouch[MAXFINGERS-1].state) {
+			multitouch[MAXFINGERS-1].area_id = -1;
+			multitouch[MAXFINGERS-1].start_x = multitouch[MAXFINGERS-1].x;
+			multitouch[MAXFINGERS-1].start_y = multitouch[MAXFINGERS-1].y;
+		}
+		multitouch[MAXFINGERS-1].state = st;
+		in_windowmouse_x = x;
+		in_windowmouse_y = y;
+	} else
+		multitouch[MAXFINGERS-1].state = 0;
 
-	// top of screen is toggleconsole and K_ESCAPE
-	in_windowmouse_x = x;
-	in_windowmouse_y = y;
 	scr_numtouchscreenareas = 0;
 	for (n = 0; n < touchscreen_areas_count; n++) {
 		p += VID_TouchscreenArea(touchscreen_areas[n].dest, touchscreen_areas[n].corner, touchscreen_areas[n].x, touchscreen_areas[n].y,
 				touchscreen_areas[n].width, touchscreen_areas[n].height, touchscreen_areas[n].image, touchscreen_areas[n].cmd, &buttons[n], n);
 	}
+	// top of screen is toggleconsole and K_ESCAPE
 	if (!p) {
 		n++;
 		p += VID_TouchscreenArea(7, 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n], n);
@@ -289,4 +296,5 @@ void VID_TouchscreenInit(void) {
 	Cvar_RegisterVariable(&vid_touchscreen_overlayalpha);
 	Cvar_RegisterVariable(&vid_touchscreen_scale);
 	Cvar_RegisterVariable(&vid_touchscreen_mirror);
+	Cvar_RegisterVariable(&vid_touchscreen_mouse);
 }
