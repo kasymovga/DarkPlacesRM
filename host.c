@@ -110,11 +110,11 @@ This shuts down both the client and server
 */
 void Host_Error (prvm_prog_t *prog, const char *error, ...)
 {
-	static char hosterrorstring1[MAX_INPUTLINE]; // THREAD UNSAFE
+	char hosterrorstring[MAX_INPUTLINE];
 	va_list argptr;
 	#ifndef CONFIG_SV
-	static char hosterrorstring2[MAX_INPUTLINE]; // THREAD UNSAFE
-	static qboolean hosterror = false;
+	static volatile qboolean hosterror_sv = false;
+	static volatile qboolean hosterror = false;
 	qboolean is_sv_thread = (svs.threaded && Thread_IsCurrent(svs.thread));
 	// turn off rcon redirect if it was active when the crash occurred
 	// to prevent loops when it is a networking problem
@@ -122,27 +122,29 @@ void Host_Error (prvm_prog_t *prog, const char *error, ...)
 	#endif
 
 	va_start (argptr,error);
-	dpvsnprintf (hosterrorstring1,sizeof(hosterrorstring1),error,argptr);
+	dpvsnprintf (hosterrorstring,sizeof(hosterrorstring),error,argptr);
 	va_end (argptr);
 	#ifndef CONFIG_SV
 	if (prog) Con_Printf("Host_Error called by %s in %s thread\n", prog->name, (is_sv_thread ? "server" : "main"));
 	if (cls.state == ca_dedicated)
 	#endif
-		Sys_Error ("Host_Error: %s",hosterrorstring1);	// dedicated servers exit
+		Sys_Error ("Host_Error: %s",hosterrorstring);	// dedicated servers exit
 
 	#ifndef CONFIG_SV
-	Con_Printf("Host_Error: %s\n", hosterrorstring1);
+	Con_Printf("Host_Error: %s\n", hosterrorstring);
 
 	// LordHavoc: if crashing very early, or currently shutting down, do
 	// Sys_Error instead
 	if (host_framecount < 3 || host_shuttingdown)
-		Sys_Error ("Host_Error: %s", hosterrorstring1);
+		Sys_Error ("Host_Error: %s", hosterrorstring);
 
-	if (hosterror)
-		Sys_Error ("Host_Error: recursively entered (original error was: %s    new error is: %s)", hosterrorstring2, hosterrorstring1);
-	hosterror = true;
+	if ((is_sv_thread ? hosterror_sv : hosterror))
+		Sys_Error ("Host_Error: recursively entered");
+	if (is_sv_thread)
+		hosterror_sv = true;
+	else
+		hosterror = true;
 
-	strlcpy(hosterrorstring2, hosterrorstring1, sizeof(hosterrorstring2));
 	// print out where the crash happened, if it was caused by QC (and do a cleanup)
 	#ifdef CONFIG_MENU
 	if (prog == MVM_prog) {
@@ -174,7 +176,11 @@ void Host_Error (prvm_prog_t *prog, const char *error, ...)
 	#ifdef CONFIG_MENU
 	}
 	#endif
-	hosterror = false;
+	if (is_sv_thread)
+		hosterror_sv = false;
+	else
+		hosterror = false;
+
 	if (SV_ThreadIsLocked()) //Server thread supposed to be locked when server vm executed
 	{
 		Con_Printf("Host_Error: resetting server thread mutex lock\n");
