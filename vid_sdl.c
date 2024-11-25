@@ -910,8 +910,9 @@ void Sys_SendKeyEvents( void )
 				else
 					Con_DPrintf("SDL_Event: SDL_MOUSEBUTTONUP\n");
 #endif
-				if ((!vid_touchscreen_mouse.integer || !vid_touchscreen_active.integer || !vid_touchscreen.integer) && event.button.button > 0 && event.button.button <= ARRAY_SIZE(buttonremap))
+				if (!(vid_touchscreen_mouse.integer && vid_touchscreen.integer && vid_touchscreen_active.integer) && event.button.button > 0 && event.button.button <= ARRAY_SIZE(buttonremap))
 					Key_Event( buttonremap[event.button.button - 1], 0, event.button.state == SDL_PRESSED, false );
+				vid_touchscreen_visible = vid_touchscreen_mouse.integer;
 				break;
 			case SDL_MOUSEWHEEL:
 				// TODO support wheel x direction.
@@ -1050,6 +1051,7 @@ void Sys_SendKeyEvents( void )
 				}
 				if (i == MAXFINGERS-1)
 					Con_DPrintf("Too many fingers at once!\n");
+				vid_touchscreen_visible = 1;
 				break;
 			case SDL_FINGERUP:
 #ifdef DEBUGSDLEVENTS

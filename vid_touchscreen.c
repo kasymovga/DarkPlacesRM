@@ -11,6 +11,7 @@ cvar_t vid_touchscreen_mouse = {CVAR_SAVE, "vid_touchscreen_mouse", "0", "use mo
 static cvar_t vid_touchscreen_outlinealpha = {0, "vid_touchscreen_outlinealpha", "0", "opacity of touchscreen area outlines"};
 static cvar_t vid_touchscreen_overlayalpha = {0, "vid_touchscreen_overlayalpha", "0.25", "opacity of touchscreen area icons"};
 struct finger multitouch[MAXFINGERS];
+qboolean vid_touchscreen_visible;
 
 #define TOUCHSCREEN_AREAS_MAXCOUNT 128
 
@@ -28,21 +29,44 @@ void VID_TouchscreenDraw(void)
 	int i;
 	scr_touchscreenarea_t *a;
 	cachepic_t *pic;
+	float outlinealpha;
+	float overlayalpha;
+	static float vid_touchscreen_alpha;
 	if (!vid_touchscreen.integer) return;
+	if (vid_touchscreen_visible)
+	{
+		if (vid_touchscreen_alpha != 1)
+		{
+			vid_touchscreen_alpha += cl.realframetime;
+			if (vid_touchscreen_alpha > 1) vid_touchscreen_alpha = 1;
+		}
+	}
+	else
+	{
+		if (vid_touchscreen_alpha != 0)
+		{
+			vid_touchscreen_alpha -= cl.realframetime;
+			if (vid_touchscreen_alpha < 0) vid_touchscreen_alpha = 0;
+		}
+		else
+			return;
+	}
+	outlinealpha = vid_touchscreen_outlinealpha.value * vid_touchscreen_alpha;
+	overlayalpha = vid_touchscreen_overlayalpha.value * vid_touchscreen_alpha;
 	for (i = 0, a = scr_touchscreenareas;i < scr_numtouchscreenareas;i++, a++)
 	{
-		if (vid_touchscreen_outlinealpha.value > 0 && a->rect[0] >= 0 && a->rect[1] >= 0 && a->rect[2] >= 4 && a->rect[3] >= 4)
+		if (outlinealpha > 0 && a->rect[0] >= 0 && a->rect[1] >= 0 && a->rect[2] >= 4 && a->rect[3] >= 4)
 		{
-			DrawQ_Fill(a->rect[0] +              2, a->rect[1]                 , a->rect[2] - 4,          1    , 1, 1, 1, vid_touchscreen_outlinealpha.value * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0] +              1, a->rect[1] +              1, a->rect[2] - 2,          1    , 1, 1, 1, vid_touchscreen_outlinealpha.value * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0]                 , a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, vid_touchscreen_outlinealpha.value * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0] + a->rect[2] - 2, a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, vid_touchscreen_outlinealpha.value * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0] +              1, a->rect[1] + a->rect[3] - 2, a->rect[2] - 2,          1    , 1, 1, 1, vid_touchscreen_outlinealpha.value * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0] +              2, a->rect[1] + a->rect[3] - 1, a->rect[2] - 4,          1    , 1, 1, 1, vid_touchscreen_outlinealpha.value * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] +              2, a->rect[1]                 , a->rect[2] - 4,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] +              1, a->rect[1] +              1, a->rect[2] - 2,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0]                 , a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] + a->rect[2] - 2, a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] +              1, a->rect[1] + a->rect[3] - 2, a->rect[2] - 2,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] +              2, a->rect[1] + a->rect[3] - 1, a->rect[2] - 4,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
 		}
 		pic = a->pic ? Draw_CachePic(a->pic) : NULL;
 		if (pic && pic->tex != r_texture_notexture)
-			DrawQ_Pic(a->rect[0], a->rect[1], Draw_CachePic(a->pic), a->rect[2], a->rect[3], 1, 1, 1, vid_touchscreen_overlayalpha.value * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Pic(a->rect[0], a->rect[1], Draw_CachePic(a->pic), a->rect[2], a->rect[3], 1, 1, 1, overlayalpha * (0.5f + 0.5f * a->active), 0);
 	}
 }
 

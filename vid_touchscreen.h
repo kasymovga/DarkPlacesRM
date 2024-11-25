@@ -17,4 +17,5 @@ extern cvar_t vid_touchscreen;
 extern cvar_t vid_touchscreen_showkeyboard;
 extern cvar_t vid_touchscreen_active;
 extern cvar_t vid_touchscreen_mouse;
+extern qboolean vid_touchscreen_visible;
 #endif
