@@ -11,7 +11,7 @@ cvar_t vid_touchscreen_mouse = {CVAR_SAVE, "vid_touchscreen_mouse", "0", "use mo
 static cvar_t vid_touchscreen_outlinealpha = {0, "vid_touchscreen_outlinealpha", "0", "opacity of touchscreen area outlines"};
 static cvar_t vid_touchscreen_overlayalpha = {0, "vid_touchscreen_overlayalpha", "0.25", "opacity of touchscreen area icons"};
 struct finger multitouch[MAXFINGERS];
-qboolean vid_touchscreen_visible;
+qboolean vid_touchscreen_visible = 1;
 
 #define TOUCHSCREEN_AREAS_MAXCOUNT 128
 
