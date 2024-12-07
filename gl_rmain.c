@@ -5065,6 +5065,8 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	r_fb.water.renderingscene = true;
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
+		float camera_angle_x = 0;
+		float camera_angle_y = 0;
 		if (r_water_cameraentitiesonly.value != 0 && !p->camera_entity)
 			continue;
 		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION))
@@ -5135,7 +5137,20 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			{
 				// we need to perform a matrix transform to render the view... so let's get the transformation matrix
 				r_fb.water.hideplayer = false; // we don't want to hide the player model from these ones
-				CL_VM_TransformView(p->camera_entity - MAX_EDICTS, &r_refdef.view.matrix, &r_refdef.view.clipplane, visorigin);
+				CL_VM_TransformView(p->camera_entity - MAX_EDICTS, &r_refdef.view.matrix, &r_refdef.view.clipplane, visorigin, &camera_angle_x, &camera_angle_y);
+				if (camera_angle_x > 0 || camera_angle_y > 0)
+				{
+					if (camera_angle_x <= 0) {
+						camera_angle_x = atan((r_refdef.view.frustum_x / r_refdef.view.frustum_y) * tan(camera_angle_y * 0.5 * M_PI / 180)) * 2 * 180 / M_PI;
+					}
+					if (camera_angle_y <= 0) {
+						camera_angle_y = atan((r_refdef.view.frustum_y / r_refdef.view.frustum_x) * tan(camera_angle_x * 0.5 * M_PI / 180)) * 2 * 180 / M_PI;
+					}
+					r_refdef.view.frustum_x = tan(camera_angle_x * 0.5 * M_PI / 180); // tan(45 * M_PI / 180.0);
+					r_refdef.view.frustum_y = tan(camera_angle_y * 0.5 * M_PI / 180); // tan(45 * M_PI / 180.0);
+					r_refdef.view.ortho_x = camera_angle_x; // abused as angle by VM_CL_R_SetView
+					r_refdef.view.ortho_y = camera_angle_y; // abused as angle by VM_CL_R_SetView
+				}
 				r_refdef.view.camera = true;
 				R_RenderView_UpdateViewVectors();
 				if(r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
@@ -5172,16 +5187,26 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 
 			r_refdef.view.width = r_fb.water.camerawidth;
 			r_refdef.view.height = r_fb.water.cameraheight;
-			r_refdef.view.frustum_x = 1; // tan(45 * M_PI / 180.0);
-			r_refdef.view.frustum_y = 1; // tan(45 * M_PI / 180.0);
-			r_refdef.view.ortho_x = 90; // abused as angle by VM_CL_R_SetView
-			r_refdef.view.ortho_y = 90; // abused as angle by VM_CL_R_SetView
-
 			if(p->camera_entity)
 			{
 				// we need to perform a matrix transform to render the view... so let's get the transformation matrix
-				CL_VM_TransformView(p->camera_entity - MAX_EDICTS, &r_refdef.view.matrix, &r_refdef.view.clipplane, visorigin);
+				CL_VM_TransformView(p->camera_entity - MAX_EDICTS, &r_refdef.view.matrix, &r_refdef.view.clipplane, visorigin, &camera_angle_x, &camera_angle_y);
 				r_refdef.view.camera = true;
+			}
+			if (camera_angle_x > 0 && camera_angle_y > 0)
+			{
+				r_refdef.view.frustum_x = tan(camera_angle_x * 0.5 * M_PI / 180); // tan(45 * M_PI / 180.0);
+				r_refdef.view.frustum_y = tan(camera_angle_y * 0.5 * M_PI / 180); // tan(45 * M_PI / 180.0);
+				r_refdef.view.ortho_x = camera_angle_x; // abused as angle by VM_CL_R_SetView
+				r_refdef.view.ortho_y = camera_angle_y; // abused as angle by VM_CL_R_SetView
+			}
+			else
+			{
+				//Default is 90 degree
+				r_refdef.view.frustum_x = 1; // tan(45 * M_PI / 180.0);
+				r_refdef.view.frustum_y = 1; // tan(45 * M_PI / 180.0);
+				r_refdef.view.ortho_x = 90; // abused as angle by VM_CL_R_SetView
+				r_refdef.view.ortho_y = 90; // abused as angle by VM_CL_R_SetView
 			}
 
 			// note: all of the view is used for displaying... so

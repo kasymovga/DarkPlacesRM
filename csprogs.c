@@ -1197,7 +1197,7 @@ qboolean CL_VM_GetEntitySoundOrigin(int entnum, vec3_t out)
 	return r;
 }
 
-qboolean CL_VM_TransformView(int entnum, matrix4x4_t *viewmatrix, mplane_t *clipplane, vec3_t visorigin)
+qboolean CL_VM_TransformView(int entnum, matrix4x4_t *viewmatrix, mplane_t *clipplane, vec3_t visorigin, float *camera_angle_x, float *camera_angle_y)
 {
 	prvm_prog_t *prog = CLVM_prog;
 	qboolean ret = false;
@@ -1209,6 +1209,8 @@ qboolean CL_VM_TransformView(int entnum, matrix4x4_t *viewmatrix, mplane_t *clip
 		ed = PRVM_EDICT_NUM(entnum);
 		// camera:
 		//   camera_transform
+		PRVM_clientglobalvector(camera_transform_fov)[0] = 0;
+		PRVM_clientglobalvector(camera_transform_fov)[1] = 0;
 		if(PRVM_clientedictfunction(ed, camera_transform))
 		{
 			ret = true;
@@ -1236,6 +1238,8 @@ qboolean CL_VM_TransformView(int entnum, matrix4x4_t *viewmatrix, mplane_t *clip
 				Matrix4x4_TransformPositivePlane(&matq, clipplane->normal[0], clipplane->normal[1], clipplane->normal[2], clipplane->dist, clipplane->normal_and_dist);
 			}
 		}
+		*camera_angle_x = PRVM_clientglobalvector(camera_transform_fov)[0];
+		*camera_angle_y = PRVM_clientglobalvector(camera_transform_fov)[1];
 	CSQC_END
 
 	return ret;
