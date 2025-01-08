@@ -30,7 +30,6 @@ void VM_Warning(prvm_prog_t *prog, const char *fmt, ...)
 {
 	va_list argptr;
 	char msg[MAX_INPUTLINE];
-	static double recursive = -1;
 
 	va_start(argptr,fmt);
 	dpvsnprintf(msg,sizeof(msg),fmt,argptr);
@@ -39,12 +38,8 @@ void VM_Warning(prvm_prog_t *prog, const char *fmt, ...)
 	Con_Print(msg);
 
 	// TODO: either add a cvar/cmd to control the state dumping or replace some of the calls with Con_Printf [9/13/2006 Black]
-	if(prvm_backtraceforwarnings.integer && recursive != realtime) // NOTE: this compares to the time, just in case if PRVM_PrintState causes a Host_Error and keeps recursive set
-	{
-		recursive = realtime;
+	if(prvm_backtraceforwarnings.integer)
 		PRVM_PrintState(prog, 0);
-		recursive = -1;
-	}
 }
 
 
