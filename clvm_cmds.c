@@ -3359,7 +3359,7 @@ static void VM_DrawPolygonCallback (const entity_render_t *ent, const rtlight_t 
 		rtexture_t *tex = polys->data_triangles[surfacelist[surfacelistindex]].texture;
 		int drawflag = polys->data_triangles[surfacelist[surfacelistindex]].drawflag;
 		DrawQ_ProcessDrawFlag(drawflag, polys->data_triangles[surfacelist[surfacelistindex]].hasalpha);
-		R_SetupShader_Generic(tex, NULL, GL_MODULATE, 1, false, false, false);
+		R_SetupShader_Generic(tex, GL_MODULATE, 1, false, false, false);
 		numtriangles = 0;
 		for (;surfacelistindex < numsurfaces;surfacelistindex++)
 		{

@@ -1131,7 +1131,7 @@ void DrawQ_Pic(float x, float y, cachepic_t *pic, float width, float height, flo
 			width = pic->width;
 		if (height == 0)
 			height = pic->height;
-		R_SetupShader_Generic(Draw_GetPicTexture(pic), NULL, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
+		R_SetupShader_Generic(Draw_GetPicTexture(pic), GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
 
 #if 0
       // AK07: lets be texel correct on the corners
@@ -1180,7 +1180,7 @@ void DrawQ_RotPic(float x, float y, cachepic_t *pic, float width, float height, 
 			width = pic->width;
 		if (height == 0)
 			height = pic->height;
-		R_SetupShader_Generic(Draw_GetPicTexture(pic), NULL, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
+		R_SetupShader_Generic(Draw_GetPicTexture(pic), GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
 	}
 	else
 		R_SetupShader_Generic_NoTexture((flags & DRAWFLAGS_BLEND) ? false : true, true);
@@ -1559,7 +1559,7 @@ float DrawQ_String_Scale(float startx, float starty, const char *text, size_t ma
 //	R_Mesh_ResetTextureState();
 	if (!fontmap)
 		R_Mesh_TexBind(0, fnt->tex);
-	R_SetupShader_Generic(fnt->tex, NULL, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
+	R_SetupShader_Generic(fnt->tex, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
 
 	ac = color4f;
 	at = texcoord2f;
@@ -1698,7 +1698,7 @@ float DrawQ_String_Scale(float startx, float starty, const char *text, size_t ma
 				av[ 3] = x+dw*thisw	; av[ 4] = y	; av[ 5] = 10;
 				av[ 6] = x+dw*thisw	; av[ 7] = y+dh	; av[ 8] = 10;
 				av[ 9] = x			; av[10] = y+dh	; av[11] = 10;
-				R_SetupShader_Generic(fnt->extra_symbols_tex[i], NULL, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
+				R_SetupShader_Generic(fnt->extra_symbols_tex[i], GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
 				R_Mesh_PrepareVertices_Generic_Arrays(4, vertex3f, color4f, texcoord2f);
 				R_Mesh_Draw(0, 4, 0, 2, quadelement3i, NULL, 0, quadelement3s, NULL, 0);
 				x += thisw * dw;
@@ -1725,7 +1725,7 @@ float DrawQ_String_Scale(float startx, float starty, const char *text, size_t ma
 							at = texcoord2f;
 							av = vertex3f;
 						}
-						R_SetupShader_Generic(fnt->tex, NULL, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
+						R_SetupShader_Generic(fnt->tex, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
 						map = ft2_oldstyle_map;
 					}
 				}
@@ -1804,7 +1804,7 @@ float DrawQ_String_Scale(float startx, float starty, const char *text, size_t ma
 							break;
 						}
 					}
-					R_SetupShader_Generic(map->pic->tex, NULL, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
+					R_SetupShader_Generic(map->pic->tex, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
 				}
 
 				mapch = ch - map->start;
@@ -1947,7 +1947,7 @@ void DrawQ_SuperPic(float x, float y, cachepic_t *pic, float width, float height
 			width = pic->width;
 		if (height == 0)
 			height = pic->height;
-		R_SetupShader_Generic(Draw_GetPicTexture(pic), NULL, GL_MODULATE, 1, (flags & (DRAWFLAGS_BLEND | DRAWFLAG_NOGAMMA)) ? false : true, true, false);
+		R_SetupShader_Generic(Draw_GetPicTexture(pic), GL_MODULATE, 1, (flags & (DRAWFLAGS_BLEND | DRAWFLAG_NOGAMMA)) ? false : true, true, false);
 	}
 	else
 		R_SetupShader_Generic_NoTexture((flags & (DRAWFLAGS_BLEND | DRAWFLAG_NOGAMMA)) ? false : true, true);
@@ -1978,7 +1978,7 @@ void DrawQ_Mesh (drawqueuemesh_t *mesh, int flags, qboolean hasalpha)
 	DrawQ_ProcessDrawFlag(flags, hasalpha);
 
 //	R_Mesh_ResetTextureState();
-	R_SetupShader_Generic(mesh->texture, NULL, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
+	R_SetupShader_Generic(mesh->texture, GL_MODULATE, 1, (flags & DRAWFLAGS_BLEND) ? false : true, true, false);
 
 	R_Mesh_PrepareVertices_Generic_Arrays(mesh->num_vertices, mesh->data_vertex3f, mesh->data_color4f, mesh->data_texcoord2f);
 	R_Mesh_Draw(0, mesh->num_vertices, 0, mesh->num_triangles, mesh->data_element3i, NULL, 0, mesh->data_element3s, NULL, 0);
