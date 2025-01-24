@@ -2019,8 +2019,6 @@ void CL_ValidateState(entity_state_t *s)
 void CL_MoveLerpEntityStates(entity_t *ent)
 {
 	float odelta[3], adelta[3];
-	VectorSubtract(ent->state_current.origin, ent->persistent.neworigin, odelta);
-	VectorSubtract(ent->state_current.angles, ent->persistent.newangles, adelta);
 	if (!ent->state_previous.active)
 	{
 		// reset all persistent stuff if this is a new entity
@@ -2070,14 +2068,10 @@ void CL_MoveLerpEntityStates(entity_t *ent)
 		ent->render.framegroupblend[0].start = cl.time;
 		ent->render.framegroupblend[0].lerp = 0;
 	}
-	else if (DotProduct(odelta, odelta) > 1000*1000
-		|| (cl.fixangle[0] && !cl.fixangle[1])
-		|| (ent->state_previous.tagindex != ent->state_current.tagindex)
+	else if ((ent->state_previous.tagindex != ent->state_current.tagindex)
 		|| (ent->state_previous.tagentity != ent->state_current.tagentity))
 	{
 		// don't interpolate the move
-		// (the fixangle[] check detects teleports, but not constant fixangles
-		//  such as when spectating)
 		ent->persistent.lerpdeltatime = 0;
 		ent->persistent.lerpstarttime = cl.mtime[1];
 		VectorCopy(ent->state_current.origin, ent->persistent.oldorigin);
@@ -2089,6 +2083,8 @@ void CL_MoveLerpEntityStates(entity_t *ent)
 	else if (ent->state_current.flags & RENDER_STEP)
 	{
 		// monster interpolation
+		VectorSubtract(ent->state_current.origin, ent->persistent.neworigin, odelta);
+		VectorSubtract(ent->state_current.angles, ent->persistent.newangles, adelta);
 		if (DotProduct(odelta, odelta) + DotProduct(adelta, adelta) > 0.01)
 		{
 			ent->persistent.lerpdeltatime = bound(0, cl.mtime[1] - ent->persistent.lerpstarttime, 0.1);
@@ -3421,6 +3417,46 @@ static void CL_NetworkTimeReceived(double newtime)
 
 #define SHOWNET(x) if(cl_shownet.integer==2)Con_Printf("%3i:%s(%i)\n", cl_message.readcount-1, x, cmd);
 
+static void CL_ParseServerMessageSetAngle(void)
+{
+	int i;
+	for (i=0 ; i<3 ; i++)
+		cl.viewangles[i] = MSG_ReadAngle(&cl_message, cls.protocol);
+	if (!cls.demoplayback)
+	{
+		VectorCopy(cl.viewangles, cl.mviewangles[0]);
+		// disable interpolation if this is new or duplicated in one frame
+		if (cl.fixangle[0] || !cl.fixangle[1])
+		{
+			extern cvar_t cl_movement;
+			VectorCopy(cl.viewangles, cl.mviewangles[1]);
+			if (cl_movement.integer)
+			{
+				for (i = 0;i < CL_MAX_USERCMDS;i++)
+					if (cl.movecmd[i].sequence < cls.servermovesequence)
+					{
+						break;
+					}
+					else
+					{
+						cl.movecmd[i].viewangles[0] = cl.viewangles[0];
+						cl.movecmd[i].viewangles[1] = cl.viewangles[1];
+						cl.movecmd[i].viewangles[2] = cl.viewangles[2];
+					}
+			}
+		}
+	}
+	else
+	{
+		if (cl.fixangle[0] || !cl.fixangle[1])
+		{
+			VectorCopy(cl.viewangles, cl.mviewangles[0]);
+			VectorCopy(cl.viewangles, cl.mviewangles[1]);
+		}
+	}
+	cl.fixangle[0] = true;
+}
+
 /*
 =====================
 CL_ParseServerMessage
@@ -3574,16 +3610,7 @@ void CL_ParseServerMessage(void)
 				break;
 
 			case qw_svc_setangle:
-				for (i=0 ; i<3 ; i++)
-					cl.viewangles[i] = MSG_ReadAngle(&cl_message, cls.protocol);
-				if (!cls.demoplayback)
-				{
-					cl.fixangle[0] = true;
-					VectorCopy(cl.viewangles, cl.mviewangles[0]);
-					// disable interpolation if this is new
-					if (!cl.fixangle[1])
-						VectorCopy(cl.viewangles, cl.mviewangles[1]);
-				}
+				CL_ParseServerMessageSetAngle();
 				break;
 
 			case qw_svc_lightstyle:
@@ -3983,16 +4010,7 @@ void CL_ParseServerMessage(void)
 				break;
 
 			case svc_setangle:
-				for (i=0 ; i<3 ; i++)
-					cl.viewangles[i] = MSG_ReadAngle(&cl_message, cls.protocol);
-				if (!cls.demoplayback)
-				{
-					cl.fixangle[0] = true;
-					VectorCopy(cl.viewangles, cl.mviewangles[0]);
-					// disable interpolation if this is new
-					if (!cl.fixangle[1])
-						VectorCopy(cl.viewangles, cl.mviewangles[1]);
-				}
+				CL_ParseServerMessageSetAngle();
 				break;
 
 			case svc_setview:

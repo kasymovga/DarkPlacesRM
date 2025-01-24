@@ -171,17 +171,37 @@ void CL_WriteDemoMessage (sizebuf_t *message)
 	int		len;
 	int		i;
 	float	f;
+	int angle_cmd = -1;
+	extern cvar_t cl_movement;
 
 	if (cls.demopaused) // LordHavoc: pausedemo
 		return;
 
 	len = LittleLong (message->cursize);
 	Demo_FS_Write (&len, 4);
-	for (i=0 ; i<3 ; i++)
+	if (cl_movement.integer)
 	{
-		f = LittleFloat (cl.viewangles[i]);
-		Demo_FS_Write (&f, 4);
+		for (i = 0;i < CL_MAX_USERCMDS;i++)
+			if (cl.movecmd[i].sequence <= cls.servermovesequence)
+			{
+				angle_cmd = i - 1;
+				break;
+			}
 	}
+	if (angle_cmd >= 0)
+	{
+		for (i=0 ; i<3 ; i++)
+		{
+			f = LittleFloat (cl.movecmd[angle_cmd].viewangles[i]);
+			Demo_FS_Write (&f, 4);
+		}
+	}
+	else
+		for (i=0 ; i<3 ; i++)
+		{
+			f = LittleFloat (cl.viewangles[i]);
+			Demo_FS_Write (&f, 4);
+		}
 	Demo_FS_Write (message->data, message->cursize);
 }
 
