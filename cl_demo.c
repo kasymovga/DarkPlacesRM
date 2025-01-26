@@ -179,7 +179,7 @@ void CL_WriteDemoMessage (sizebuf_t *message)
 
 	len = LittleLong (message->cursize);
 	Demo_FS_Write (&len, 4);
-	if (cl_movement.integer)
+	if (cl_movement.integer && !cl.fixangle[1])
 	{
 		for (i = 0;i < CL_MAX_USERCMDS;i++)
 			if (cl.movecmd[i].sequence <= cls.servermovesequence)
