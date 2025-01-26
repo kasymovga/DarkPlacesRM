@@ -1443,7 +1443,7 @@ static void R_GLSL_DumpShader_f(void)
 	}
 }
 
-void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemode, int rgbscale, qboolean usegamma, qboolean notrippy, qboolean suppresstexalpha)
+void R_SetupShader_Generic(rtexture_t *first, int texturemode, int rgbscale, qboolean usegamma, qboolean notrippy, qboolean suppresstexalpha)
 {
 	unsigned int permutation = 0;
 	if (r_trippy.integer && !notrippy)
@@ -1451,8 +1451,6 @@ void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemod
 	permutation |= SHADERPERMUTATION_VIEWTINT;
 	if (first)
 		permutation |= SHADERPERMUTATION_DIFFUSE;
-	if (second)
-		permutation |= SHADERPERMUTATION_SPECULAR;
 	if (texturemode == GL_MODULATE)
 		permutation |= SHADERPERMUTATION_COLORMAPPING;
 	else if (texturemode == GL_ADD)
@@ -1463,8 +1461,8 @@ void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemod
 		permutation |= SHADERPERMUTATION_GAMMARAMPS;
 	if (suppresstexalpha)
 		permutation |= SHADERPERMUTATION_REFLECTCUBE;
-	if (!second)
-		texturemode = GL_MODULATE;
+
+	texturemode = GL_MODULATE;
 	if (vid.allowalphatocoverage)
 		GL_AlphaToCoverage(false);
 	switch (vid.renderpath)
@@ -1475,7 +1473,7 @@ void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemod
 		if (r_glsl_permutation->tex_Texture_First >= 0)
 			R_Mesh_TexBind(r_glsl_permutation->tex_Texture_First , first );
 		if (r_glsl_permutation->tex_Texture_Second >= 0)
-			R_Mesh_TexBind(r_glsl_permutation->tex_Texture_Second, second);
+			R_Mesh_TexBind(r_glsl_permutation->tex_Texture_Second, NULL);
 		if (r_glsl_permutation->tex_Texture_GammaRamps >= 0)
 			R_Mesh_TexBind(r_glsl_permutation->tex_Texture_GammaRamps, r_texture_gammaramps);
 		break;
@@ -1483,12 +1481,7 @@ void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemod
 		R_Mesh_TexBind(0, first );
 		R_Mesh_TexCombine(0, GL_MODULATE, GL_MODULATE, 1, 1);
 		R_Mesh_TexMatrix(0, NULL);
-		R_Mesh_TexBind(1, second);
-		if (second)
-		{
-			R_Mesh_TexCombine(1, texturemode, texturemode, rgbscale, 1);
-			R_Mesh_TexMatrix(1, NULL);
-		}
+		R_Mesh_TexBind(1, NULL);
 		break;
 	case RENDERPATH_GL11:
 		R_Mesh_TexBind(0, first );
@@ -1500,7 +1493,7 @@ void R_SetupShader_Generic(rtexture_t *first, rtexture_t *second, int texturemod
 
 void R_SetupShader_Generic_NoTexture(qboolean usegamma, qboolean notrippy)
 {
-	R_SetupShader_Generic(NULL, NULL, GL_MODULATE, 1, usegamma, notrippy, false);
+	R_SetupShader_Generic(NULL, GL_MODULATE, 1, usegamma, notrippy, false);
 }
 
 void R_SetupShader_DepthOrShadow(qboolean notrippy, qboolean depthrgb, qboolean skeletal)
@@ -5487,7 +5480,7 @@ static void R_Bloom_MakeTexture(void)
 	GL_Color(colorscale, colorscale, colorscale, 1);
 	R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f, NULL, r_fb.screentexcoord2f);
 	// TODO: do boxfilter scale-down in shader?
-	R_SetupShader_Generic(r_fb.colortexture, NULL, GL_MODULATE, 1, false, true, true);
+	R_SetupShader_Generic(r_fb.colortexture, GL_MODULATE, 1, false, true, true);
 	R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
 	r_refdef.stats[r_stat_bloom_drawpixels] += r_fb.bloomwidth * r_fb.bloomheight;
 
@@ -5520,7 +5513,7 @@ static void R_Bloom_MakeTexture(void)
 			GL_Color(1,1,1,1); // no fix factor supported here
 		}
 		R_Mesh_PrepareVertices_Generic_Arrays(4, r_screenvertex3f, NULL, r_fb.bloomtexcoord2f);
-		R_SetupShader_Generic(intex, NULL, GL_MODULATE, 1, false, true, false);
+		R_SetupShader_Generic(intex, GL_MODULATE, 1, false, true, false);
 		R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
 		r_refdef.stats[r_stat_bloom_drawpixels] += r_fb.bloomwidth * r_fb.bloomheight;
 
@@ -5547,7 +5540,7 @@ static void R_Bloom_MakeTexture(void)
 		// TODO: do offset blends using GLSL
 		// TODO instead of changing the texcoords, change the target positions to prevent artifacts at edges
 		GL_BlendFunc(GL_ONE, GL_ZERO);
-		R_SetupShader_Generic(intex, NULL, GL_MODULATE, 1, false, true, false);
+		R_SetupShader_Generic(intex, GL_MODULATE, 1, false, true, false);
 		for (x = -range;x <= range;x++)
 		{
 			if (!dir){xoffset = 0;yoffset = x;}
@@ -5681,7 +5674,7 @@ static void R_BlendView(int fbo, rtexture_t *depthtexture, rtexture_t *colortext
 					}
 					GL_BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 					GL_Color(1, 1, 1, cl.motionbluralpha);
-					R_SetupShader_Generic(r_fb.ghosttexture, NULL, GL_MODULATE, 1, false, true, true);
+					R_SetupShader_Generic(r_fb.ghosttexture, GL_MODULATE, 1, false, true, true);
 					R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
 					r_refdef.stats[r_stat_bloom_drawpixels] += r_refdef.view.viewport.width * r_refdef.view.viewport.height;
 				}
@@ -10785,7 +10778,7 @@ static void R_DrawModelDecals_Entity(entity_render_t *ent)
 		GL_DepthTest(true);
 		GL_CullFace(GL_NONE);
 		GL_BlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
-		R_SetupShader_Generic(decalskinframe->base, NULL, GL_MODULATE, 1, false, false, false);
+		R_SetupShader_Generic(decalskinframe->base, GL_MODULATE, 1, false, false, false);
 		R_Mesh_Draw(0, numtris * 3, 0, numtris, decalsystem->element3i, NULL, 0, decalsystem->element3s, NULL, 0);
 	}
 }
