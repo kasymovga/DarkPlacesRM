@@ -7787,6 +7787,7 @@ extern cvar_t gl_vbo;
 void RSurf_PrepareVerticesForBatch(int batchneed, int texturenumsurfaces, const msurface_t **texturesurfacelist)
 {
 	int deformindex;
+	int maxdeforms;
 	int firsttriangle;
 	int numtriangles;
 	int firstvertex;
@@ -7869,7 +7870,11 @@ void RSurf_PrepareVerticesForBatch(int batchneed, int texturenumsurfaces, const 
 		}
 		dynamicvertex = true;
 	}
-	for (deformindex = 0, deform = rsurface.texture->deforms;deformindex < Q3MAXDEFORMS && deform->deform && r_deformvertexes.integer;deformindex++, deform++)
+	if (r_deformvertexes.integer && (!r_water.integer || !(rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))))
+		maxdeforms = Q3MAXDEFORMS;
+	else
+		maxdeforms = 0;
+	for (deformindex = 0, deform = rsurface.texture->deforms;deformindex < maxdeforms && deform->deform;deformindex++, deform++)
 	{
 		switch (deform->deform)
 		{
@@ -8460,7 +8465,7 @@ void RSurf_PrepareVerticesForBatch(int batchneed, int texturenumsurfaces, const 
 	// if vertices are deformed (sprite flares and things in maps, possibly
 	// water waves, bulges and other deformations), modify the copied vertices
 	// in place
-	for (deformindex = 0, deform = rsurface.texture->deforms;deformindex < Q3MAXDEFORMS && deform->deform && r_deformvertexes.integer;deformindex++, deform++)
+	for (deformindex = 0, deform = rsurface.texture->deforms;deformindex < maxdeforms && deform->deform;deformindex++, deform++)
 	{
 		float scale;
 		switch (deform->deform)
