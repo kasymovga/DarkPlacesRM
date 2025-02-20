@@ -761,13 +761,12 @@ int Mod_BuildVertexRemapTableFromElements(int numelements, const int *elements, 
 	return count;
 }
 
-#if 1
 // fast way, using an edge hash
-#define TRIANGLEEDGEHASH 8192
 void Mod_BuildTriangleNeighbors(int *neighbors, const int *elements, int numtriangles)
 {
 	int i, j, p, e1, e2, *n, hashindex, count, match;
 	const int *e;
+	int triangleedgehashsize;
 	typedef struct edgehashentry_s
 	{
 		struct edgehashentry_s *next;
@@ -775,11 +774,12 @@ void Mod_BuildTriangleNeighbors(int *neighbors, const int *elements, int numtria
 		int element[2];
 	}
 	edgehashentry_t;
-	static edgehashentry_t **edgehash;
+	edgehashentry_t **edgehash;
 	edgehashentry_t *edgehashentries, *hash;
 	if (!numtriangles)
 		return;
-	edgehash = (edgehashentry_t **)Mem_Alloc(tempmempool, TRIANGLEEDGEHASH * sizeof(*edgehash));
+	triangleedgehashsize = numtriangles / 16 + 1;
+	edgehash = (edgehashentry_t **)Mem_Alloc(tempmempool, triangleedgehashsize * sizeof(*edgehash));
 	// if there are too many triangles for the stack array, allocate larger buffer
 	edgehashentries = (edgehashentry_t *)Mem_Alloc(tempmempool, numtriangles * 3 * sizeof(edgehashentry_t));
 	// find neighboring triangles
@@ -790,7 +790,7 @@ void Mod_BuildTriangleNeighbors(int *neighbors, const int *elements, int numtria
 			e1 = e[p];
 			e2 = e[j];
 			// this hash index works for both forward and backward edges
-			hashindex = (unsigned int)(e1 + e2) % TRIANGLEEDGEHASH;
+			hashindex = (unsigned int)(e1 + e2) % triangleedgehashsize;
 			hash = edgehashentries + i * 3 + j;
 			hash->next = edgehash[hashindex];
 			edgehash[hashindex] = hash;
@@ -806,7 +806,7 @@ void Mod_BuildTriangleNeighbors(int *neighbors, const int *elements, int numtria
 			e1 = e[p];
 			e2 = e[j];
 			// this hash index works for both forward and backward edges
-			hashindex = (unsigned int)(e1 + e2) % TRIANGLEEDGEHASH;
+			hashindex = (unsigned int)(e1 + e2) % triangleedgehashsize;
 			count = 0;
 			match = -1;
 			for (hash = edgehash[hashindex];hash;hash = hash->next)
@@ -835,46 +835,6 @@ void Mod_BuildTriangleNeighbors(int *neighbors, const int *elements, int numtria
 	Mem_Free(edgehashentries);
 	Mem_Free(edgehash);
 }
-#else
-// very slow but simple way
-static int Mod_FindTriangleWithEdge(const int *elements, int numtriangles, int start, int end, int ignore)
-{
-	int i, match, count;
-	count = 0;
-	match = -1;
-	for (i = 0;i < numtriangles;i++, elements += 3)
-	{
-		     if ((elements[0] == start && elements[1] == end)
-		      || (elements[1] == start && elements[2] == end)
-		      || (elements[2] == start && elements[0] == end))
-		{
-			if (i != ignore)
-				match = i;
-			count++;
-		}
-		else if ((elements[1] == start && elements[0] == end)
-		      || (elements[2] == start && elements[1] == end)
-		      || (elements[0] == start && elements[2] == end))
-			count++;
-	}
-	// detect edges shared by three triangles and make them seams
-	if (count > 2)
-		match = -1;
-	return match;
-}
-
-void Mod_BuildTriangleNeighbors(int *neighbors, const int *elements, int numtriangles)
-{
-	int i, *n;
-	const int *e;
-	for (i = 0, e = elements, n = neighbors;i < numtriangles;i++, e += 3, n += 3)
-	{
-		n[0] = Mod_FindTriangleWithEdge(elements, numtriangles, e[1], e[0], i);
-		n[1] = Mod_FindTriangleWithEdge(elements, numtriangles, e[2], e[1], i);
-		n[2] = Mod_FindTriangleWithEdge(elements, numtriangles, e[0], e[2], i);
-	}
-}
-#endif
 
 void Mod_ValidateElements(int *elements, int numtriangles, int firstvertex, int numverts, const char *filename, int fileline)
 {
@@ -1095,6 +1055,7 @@ shadowmesh_t *Mod_ShadowMesh_Alloc(mempool_t *mempool, int maxverts, int maxtria
 	shadowmesh_t *newmesh;
 	unsigned char *data;
 	int size;
+	int vertexhashtablesize = 0;
 	size = sizeof(shadowmesh_t);
 	size += maxverts * sizeof(float[3]);
 	if (light)
@@ -1105,7 +1066,10 @@ shadowmesh_t *Mod_ShadowMesh_Alloc(mempool_t *mempool, int maxverts, int maxtria
 	if (neighbors)
 		size += maxtriangles * sizeof(int[3]);
 	if (expandable)
-		size += SHADOWMESHVERTEXHASH * sizeof(shadowmeshvertexhash_t *) + maxverts * sizeof(shadowmeshvertexhash_t);
+	{
+		size += vertexhashtablesize * sizeof(shadowmeshvertexhash_t *) + maxverts * sizeof(shadowmeshvertexhash_t);
+		vertexhashtablesize = maxverts / 16 + 2;
+	}
 	data = (unsigned char *)Mem_Alloc(mempool, size);
 	newmesh = (shadowmesh_t *)data;data += sizeof(*newmesh);
 	newmesh->map_diffuse = map_diffuse;
@@ -1131,9 +1095,10 @@ shadowmesh_t *Mod_ShadowMesh_Alloc(mempool_t *mempool, int maxverts, int maxtria
 	{
 		newmesh->neighbor3i = (int *)data;data += maxtriangles * sizeof(int[3]);
 	}
+	newmesh->vertexhashtablesize = vertexhashtablesize;
 	if (expandable)
 	{
-		newmesh->vertexhashtable = (shadowmeshvertexhash_t **)data;data += SHADOWMESHVERTEXHASH * sizeof(shadowmeshvertexhash_t *);
+		newmesh->vertexhashtable = (shadowmeshvertexhash_t **)data;data += vertexhashtablesize * sizeof(shadowmeshvertexhash_t *);
 		newmesh->vertexhashentries = (shadowmeshvertexhash_t *)data;data += maxverts * sizeof(shadowmeshvertexhash_t);
 	}
 	if (maxverts <= 65536)
@@ -1169,7 +1134,7 @@ int Mod_ShadowMesh_AddVertex(shadowmesh_t *mesh, float *vertex14f)
 	int hashindex, vnum;
 	shadowmeshvertexhash_t *hash;
 	// this uses prime numbers intentionally
-	hashindex = (unsigned int) (vertex14f[0] * 2003 + vertex14f[1] * 4001 + vertex14f[2] * 7919) % SHADOWMESHVERTEXHASH;
+	hashindex = (unsigned int) (vertex14f[0] * 2003 + vertex14f[1] * 4001 + vertex14f[2] * 7919) % mesh->vertexhashtablesize;
 	for (hash = mesh->vertexhashtable[hashindex];hash;hash = hash->next)
 	{
 		vnum = (hash - mesh->vertexhashentries);

@@ -181,7 +181,6 @@ typedef struct surfmesh_s
 }
 surfmesh_t;
 
-#define SHADOWMESHVERTEXHASH 1024
 typedef struct shadowmeshvertexhash_s
 {
 	struct shadowmeshvertexhash_s *next;
@@ -221,6 +220,7 @@ typedef struct shadowmesh_s
 	int *neighbor3i;
 	// these are NULL after Mod_ShadowMesh_Finish is performed, only used
 	// while building meshes
+	int vertexhashtablesize;
 	shadowmeshvertexhash_t **vertexhashtable, *vertexhashentries;
 	r_meshbuffer_t *vbo_vertexbuffer;
 	int vbooffset_vertex3f;
