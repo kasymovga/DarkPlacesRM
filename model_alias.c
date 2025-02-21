@@ -4050,8 +4050,7 @@ void Mod_SMD_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 
 static size_t Mod_ASSIMP_Load_Write(struct aiFile* file, const char* buffer, size_t size, size_t nmemb)
 {
-	//not required for reading
-	return 0;
+	return FS_Write((qfile_t *)file->UserData, buffer, size * nmemb);
 }
 
 static size_t Mod_ASSIMP_Load_Read(struct aiFile* file, char* buffer, size_t size, size_t nmemb)
@@ -4088,18 +4087,26 @@ static enum aiReturn Mod_ASSIMP_Load_Seek(struct aiFile *file, size_t pos, enum 
 
 static void Mod_ASSIMP_Load_Flush(struct aiFile *file)
 {
-	//not required for reading
 }
 
 static struct aiFile *Mod_ASSIMP_Load_Open(struct aiFileIO *io, const char *path, const char *mode)
 {
 	qfile_t *qfile = NULL;
 	struct aiFile *file = NULL;
-	if (!(qfile = FS_OpenVirtualFile(path, false))) {
-		Con_Printf("Cannot open file for reading: %s\n", ((dp_model_t *)io->UserData)->name);
-		return NULL;
+	if (mode[0] == 'w')
+	{
+		if (!(qfile = FS_OpenRealFile(path, mode, false))) {
+			Con_Printf("Cannot open file for writing: %s\n", path);
+			return NULL;
+		}
 	}
-	Con_Printf("Opening file: %s\n", ((dp_model_t *)io->UserData)->name);
+	else
+	{
+		if (!(qfile = FS_OpenVirtualFile(path, false))) {
+			Con_Printf("Cannot open file for reading: %s\n", path);
+			return NULL;
+		}
+	}
 	file = Z_Malloc(sizeof(struct aiFile));
 	file->ReadProc = Mod_ASSIMP_Load_Read;
 	file->WriteProc = Mod_ASSIMP_Load_Write;
@@ -4128,6 +4135,7 @@ void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 	skinfile_t *skinfiles;
 	msurface_t *surface;
 	const char *ext = FS_FileExtension(loadmodel->name);
+	char shadername[1024];
 	if (!Assimp_Init()) {
 		Con_Printf("assimp library failed to initialize\n");
 		return;
@@ -4142,7 +4150,7 @@ void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 		struct aiFileIO aiio;
 		aiio.OpenProc = Mod_ASSIMP_Load_Open;
 		aiio.CloseProc = Mod_ASSIMP_Load_Close;
-		aiio.UserData = (char *)loadmodel;
+		aiio.UserData = (char *)(loadmodel->name);
 		ais = qaiImportFileEx(loadmodel->name, aiProcess_Triangulate | aiProcess_PopulateArmatureData | aiProcess_GenNormals, &aiio);
 	}
 	if (!ais) {
@@ -4246,7 +4254,7 @@ void Mod_ASSIMP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 				posematrix.m[3][1] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.d2;
 				posematrix.m[3][2] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.d3;
 				posematrix.m[3][3] = ais->mMeshes[i]->mBones[j]->mOffsetMatrix.d4;
-				if (ais->mMeshes[i]->mBones[j]->mNode->mParent) {
+				if (ais->mMeshes[i]->mBones[j]->mNode && ais->mMeshes[i]->mBones[j]->mNode->mParent) {
 					int bone_index2 = 0;
 					for (n = 0; n < ais->mNumMeshes; n++) {
 						for (k = 0; k < ais->mMeshes[n]->mNumBones; k++) {
@@ -4333,9 +4341,15 @@ parentfound:
 				bone_index = 0;
 				for (k = 0; k < ais->mNumMeshes; k++) {
 					for (n = 0; n < ais->mMeshes[k]->mNumBones; n++) {
-						if (!strcmp(ais->mMeshes[k]->mBones[n]->mNode->mName.data, ais->mAnimations[i]->mChannels[j]->mNodeName.data)) {
+						if ((ais->mMeshes[k]->mBones[n]->mNode && !strcmp(ais->mMeshes[k]->mBones[n]->mNode->mName.data, ais->mAnimations[i]->mChannels[j]->mNodeName.data))
+								|| (!strcmp(ais->mMeshes[k]->mBones[n]->mName.data, ais->mAnimations[i]->mChannels[j]->mNodeName.data) && ais->mAnimations[i]->mChannels)) {
 							for (m = 0; m < ais->mAnimations[i]->mChannels[j]->mNumRotationKeys; m++) {
 								int animation_offset2 = animation_offset + ais->mAnimations[i]->mChannels[j]->mRotationKeys[m].mTime;
+								if (animation_offset2 < 0 || animation_offset2 >= loadmodel->num_poses)
+								{
+									Con_Printf("Incorrect animation offset: %i\n", animation_offset2);
+									break;
+								}
 								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 6] =
 										ais->mAnimations[i]->mChannels[j]->mRotationKeys[m].mValue.w * 32767.0f;
 								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 3] =
@@ -4347,6 +4361,11 @@ parentfound:
 							}
 							for (m = 0; m < ais->mAnimations[i]->mChannels[j]->mNumPositionKeys; m++) {
 								int animation_offset2 = animation_offset + ais->mAnimations[i]->mChannels[j]->mPositionKeys[m].mTime;
+								if (animation_offset2 < 0 || animation_offset2 >= loadmodel->num_poses)
+								{
+									Con_Printf("Incorrect animation offset: %i\n", animation_offset2);
+									break;
+								}
 								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 0] =
 										ais->mAnimations[i]->mChannels[j]->mPositionKeys[m].mValue.x * loadmodel->num_poseinvscale;
 								loadmodel->data_poses7s[(animation_offset2 * loadmodel->num_bones + bone_index) * 7 + 1] =
@@ -4398,7 +4417,10 @@ parentfound:
 			loadmodel->surfmesh.data_element3i[triangle_index * 3 + 1] = ais->mMeshes[i]->mFaces[m].mIndices[2] + surface->num_firstvertex;
 			triangle_index++;
 		}
-		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + i, skinfiles, ais->mMeshes[i]->mName.data, ais->mMeshes[i]->mName.data);
+		strlcpy(shadername, ais->mMeshes[i]->mName.data, sizeof(shadername));
+		if (!shadername[0])
+			dpsnprintf(shadername, sizeof(shadername), "shader%i", i);
+		Mod_BuildAliasSkinsFromSkinFiles(loadmodel, loadmodel->data_textures + i, skinfiles, shadername, shadername);
 		surface->texture = loadmodel->data_textures + i;
 		surface->num_triangles = triangle_index - surface->num_firsttriangle;
 		surface->num_vertices = vertex_index - surface->num_firstvertex;

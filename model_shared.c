@@ -3512,10 +3512,13 @@ static void Mod_Decompile_f(void)
 	char animname2[MAX_QPATH];
 	char zymtextbuffer[16384];
 	char dpmtextbuffer[16384];
+	char animinfotxt[16384];
+	char animinfotxtline[1024];
 	int zymtextsize = 0;
 	int dpmtextsize = 0;
 	char vabuf[1024];
 
+	animinfotxt[0] = 0;
 	if (Cmd_Argc() != 2)
 	{
 		Con_Print("usage: modeldecompile <filename>\n");
@@ -3656,9 +3659,14 @@ static void Mod_Decompile_f(void)
 				l = dpsnprintf(dpmtextbuffer + dpmtextsize, sizeof(dpmtextbuffer) - dpmtextsize, "scene %s.smd fps %g %s\n", animname, mod->animscenes[i].framerate, mod->animscenes[i].loop ? "" : " noloop");
 				if (l > 0) dpmtextsize += l;
 			}
+			dpsnprintf(animinfotxtline, sizeof(animinfotxtline), "%s %s_decompiled_anim%i.smd\n", animname, FS_FileWithoutPath(basename), animnum);
+			strlcat(animinfotxt, animinfotxtline, sizeof(animinfotxt));
 		}
 		if (zymtextsize)
 			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled/out_zym.txt", basename), zymtextbuffer, (fs_offset_t)zymtextsize);
+		if (animinfotxt[0]) {
+			FS_WriteFile(va(vabuf, sizeof(vabuf), "%s_decompiled_animation.txt", basename), animinfotxt, strlen(animinfotxt));
+		}
 		if (dpmtextsize)
 		{
 			char dpm_script_path[MAX_QPATH];
