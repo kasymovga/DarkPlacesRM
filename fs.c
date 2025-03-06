@@ -2184,6 +2184,8 @@ static filedesc_t FS_SysOpenFiledesc(const char *filepath, const char *mode, qbo
 			case 'l':
 				dolock = true;
 				break;
+			case 't': //text mode, ignoring
+				break;
 			default:
 				Con_Printf ("FS_SysOpen(%s, %s): unknown character in mode (%c)\n",
 							filepath, mode, mode[ind]);
