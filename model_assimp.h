@@ -148,9 +148,17 @@ struct aiQuaternion {
 	ai_real w, x, y, z;
 };
 
+enum aiAnimInterpolation {
+	aiAnimInterpolation_Step,
+	aiAnimInterpolation_Linear,
+	aiAnimInterpolation_Spherical_Linear,
+	aiAnimInterpolation_Cubic_Spline,
+};
+
 struct aiQuatKey {
 	double mTime;
 	C_STRUCT aiQuaternion mValue;
+	C_ENUM aiAnimInterpolation mInterpolation;
 };
 
 struct aiAABB {
@@ -194,6 +202,13 @@ extern const C_STRUCT aiScene *(*qaiImportFileEx)(
 		const char *pFile,
 		unsigned int pFlags,
 		C_STRUCT aiFileIO *pFS);
+
+extern aiReturn *(*qaiExportSceneEx)(const C_STRUCT aiScene *pScene,
+		const char *pFormatId,
+		const char *pFileName,
+		C_STRUCT aiFileIO *pIO,
+		unsigned int pPreprocessing);
+
 
 enum aiPostProcessSteps
 {

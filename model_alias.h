@@ -247,6 +247,7 @@ struct frameblend_s;
 
 void *Mod_Skeletal_AnimateVertices_AllocBuffers(size_t nbytes);
 void Mod_Skeletal_BuildTransforms(const struct model_s * RESTRICT model, const struct frameblend_s * RESTRICT frameblend, const skeleton_t *skeleton, float * RESTRICT bonepose, float * RESTRICT boneposerelative);
+void Mod_ASSIMP_Convert(const char *path);
 
 #endif
 
