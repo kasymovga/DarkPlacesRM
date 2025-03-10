@@ -1758,20 +1758,16 @@ static void SV_MarkWriteEntityStateToClient(entity_state_t *s)
 }
 
 #if MAX_LEVELNETWORKEYES > 0
-#define MAX_EYE_RECURSION 1 // increase if recursion gets supported by portals
 static void SV_AddCameraEyes(void)
 {
 	prvm_prog_t *prog = SVVM_prog;
-	int e, i, j, k;
+	int e, i, j;
 	prvm_edict_t *ed;
-	static int cameras[MAX_LEVELNETWORKEYES];
-	static vec3_t camera_origins[MAX_LEVELNETWORKEYES];
-	static int eye_levels[MAX_CLIENTNETWORKEYES];
+	int cameras[MAX_LEVELNETWORKEYES];
+	vec3_t camera_origins[MAX_LEVELNETWORKEYES];
 	int n_cameras = 0;
 	vec3_t mi, ma;
-
-	for(i = 0; i < sv.writeentitiestoclient_numeyes; ++i)
-		eye_levels[i] = 0;
+	qboolean usepvs = sv.writeentitiestoclient_pvs && sv.worldmodel->brush.num_pvsclusters > 1;
 
 	// check line of sight to portal entities and add them to PVS
 	for (e = 1, ed = PRVM_NEXT_EDICT(prog->edicts);e < prog->num_edicts;e++, ed = PRVM_NEXT_EDICT(ed))
@@ -1802,29 +1798,35 @@ static void SV_AddCameraEyes(void)
 	if(!n_cameras)
 		return;
 
-	// i is loop counter, is reset to 0 when an eye got added
-	// j is camera index to check
-	for(i = 0, j = 0; sv.writeentitiestoclient_numeyes < MAX_CLIENTNETWORKEYES && i < n_cameras; ++i, ++j, j %= n_cameras)
+	for(i = 0; sv.writeentitiestoclient_numeyes < MAX_CLIENTNETWORKEYES && i < n_cameras; ++i)
 	{
-		if(!cameras[j])
-			continue;
-		ed = PRVM_EDICT_NUM(cameras[j]);
-		VectorAdd(PRVM_serveredictvector(ed, origin), PRVM_serveredictvector(ed, mins), mi);
-		VectorAdd(PRVM_serveredictvector(ed, origin), PRVM_serveredictvector(ed, maxs), ma);
-		for(k = 0; k < sv.writeentitiestoclient_numeyes; ++k)
-		if(eye_levels[k] <= MAX_EYE_RECURSION)
+		ed = PRVM_EDICT_NUM(cameras[i]);
+		if (usepvs)
 		{
-			if(SV_CanSeeBox(sv_cullentities_trace_samples.integer, sv_cullentities_trace_enlarge.value, sv.writeentitiestoclient_eyes[k], mi, ma, false))
+			if (ed->priv.server->pvs_numclusters < 0)
 			{
-				eye_levels[sv.writeentitiestoclient_numeyes] = eye_levels[k] + 1;
-				VectorCopy(camera_origins[j], sv.writeentitiestoclient_eyes[sv.writeentitiestoclient_numeyes]);
-				// Con_Printf("added eye %d: %f %f %f because we can see %f %f %f .. %f %f %f from eye %d\n", j, sv.writeentitiestoclient_eyes[sv.writeentitiestoclient_numeyes][0], sv.writeentitiestoclient_eyes[sv.writeentitiestoclient_numeyes][1], sv.writeentitiestoclient_eyes[sv.writeentitiestoclient_numeyes][2], mi[0], mi[1], mi[2], ma[0], ma[1], ma[2], k);
-				sv.writeentitiestoclient_numeyes++;
-				cameras[j] = 0;
-				i = 0;
-				break;
+				// entity too big for clusters list
+				if (sv.worldmodel->brush.BoxTouchingPVS && !sv.worldmodel->brush.BoxTouchingPVS(sv.worldmodel, sv.writeentitiestoclient_pvs, ed->priv.server->cullmins, ed->priv.server->cullmaxs))
+					continue;
+			}
+			else if (ed->priv.server->pvs_numclusters > 0)
+			{
+				// check cached clusters list
+				for (j = 0;j < ed->priv.server->pvs_numclusters;j++)
+					if (CHECKPVSBIT(sv.writeentitiestoclient_pvs, ed->priv.server->pvs_clusterlist[j]))
+						break;
+				if (j == ed->priv.server->pvs_numclusters) continue;
 			}
 		}
+		else
+		{
+			VectorAdd(PRVM_serveredictvector(ed, origin), PRVM_serveredictvector(ed, mins), mi);
+			VectorAdd(PRVM_serveredictvector(ed, origin), PRVM_serveredictvector(ed, maxs), ma);
+			if (!SV_CanSeeBox(sv_cullentities_trace_samples_players.integer, sv_cullentities_trace_enlarge.value, sv.writeentitiestoclient_eyes[0], mi, ma, false))
+				continue;
+		}
+		VectorCopy(camera_origins[i], sv.writeentitiestoclient_eyes[sv.writeentitiestoclient_numeyes]);
+		sv.writeentitiestoclient_numeyes++;
 	}
 }
 #else
