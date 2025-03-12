@@ -3166,8 +3166,8 @@ static void VM_CL_SpawnParticleDelayed (prvm_prog_t *prog)
 static void VM_CL_GetEntity (prvm_prog_t *prog)
 {
 	int entnum, fieldnum;
-	vec3_t forward, left, up, org;
-	VM_SAFEPARMCOUNTRANGE(2, 3, VM_CL_R_PolygonBegin);
+	vec3_t forward, left, up, org, angles;
+	VM_SAFEPARMCOUNTRANGE(2, 3, VM_CL_R_GetEntity);
 
 	entnum = PRVM_G_FLOAT(OFS_PARM0);
 	if (entnum < 0 || entnum >= cl.num_entities)
@@ -3245,6 +3245,17 @@ static void VM_CL_GetEntity (prvm_prog_t *prog)
 		case 16: // light
 			VectorMA(cl.entities[entnum].render.modellight_ambient, 0.5, cl.entities[entnum].render.modellight_diffuse, PRVM_G_VECTOR(OFS_RETURN));
 			break;	
+		case 17: // angles
+			if (prog->argc == 2) {
+				Matrix4x4_ToVectors(&cl.entities[entnum].render.matrix, forward, left, up, org);
+				AnglesFromVectors(angles, forward, up, true);
+				VectorCopy(angles, PRVM_G_VECTOR(OFS_RETURN));
+			} else {
+				VectorCopy(PRVM_G_VECTOR(OFS_PARM2), angles);
+				VectorCopy(angles, cl.entities[entnum].persistent.oldangles);
+				VectorCopy(angles, cl.entities[entnum].persistent.newangles);
+			}
+			break;
 		default:
 			PRVM_G_FLOAT(OFS_RETURN) = 0;
 			break;
