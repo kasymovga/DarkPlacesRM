@@ -742,7 +742,7 @@ void IN_Move( void )
 	oldkeydest = keydest;
 	oldshowkeyboard = !!vid_touchscreen_showkeyboard.integer;
 
-	if (!vid_touchscreen.integer || !IN_Move_TouchScreen_Quake() || !vid_touchscreen_mouse.integer)
+	if (!vid_touchscreen.integer || !IN_Move_TouchScreen_Quake())
 	{
 		if (vid_usingmouse && vid_activewindow)
 		{
@@ -774,9 +774,11 @@ void IN_Move( void )
 			}
 		}
 
-		SDL_GetMouseState(&x, &y);
-		in_windowmouse_x = x;
-		in_windowmouse_y = y;
+		if (!vid_touchscreen.integer) {
+			SDL_GetMouseState(&x, &y);
+			in_windowmouse_x = x;
+			in_windowmouse_y = y;
+		}
 	}
 
 	VID_BuildJoyState(&joystate);

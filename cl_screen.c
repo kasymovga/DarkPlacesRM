@@ -2957,14 +2957,16 @@ void CL_UpdateScreen(void)
 		VID_SetMouse(vid.fullscreen, false, false);
 	else
 	{
-		qboolean usetouch = (vid_touchscreen.integer && vid_touchscreen_mouse.integer);
+		qboolean hidecursor = !(vid_touchscreen.integer && vid_touchscreen_mouse.integer);
 		if (key_dest == key_menu_grabbed)
-			VID_SetMouse(true, vid_mouse.integer && !in_client_mouse && !usetouch, !usetouch);
+			VID_SetMouse(true, vid_mouse.integer && !in_client_mouse && hidecursor, hidecursor);
 		else if (key_dest == key_menu)
-			VID_SetMouse(vid.fullscreen, vid_mouse.integer && !in_client_mouse && !usetouch, !usetouch);
+			VID_SetMouse(vid.fullscreen, vid_mouse.integer && !in_client_mouse && hidecursor, hidecursor);
 		else {
-			qboolean usetouchactive = (usetouch && vid_touchscreen_active.integer);
-			VID_SetMouse(vid.fullscreen, vid_mouse.integer && !cl.csqc_wantsmousemove && cl_prydoncursor.integer <= 0 && (!cls.demoplayback || cl_demo_mousegrab.integer) && !usetouchactive, !usetouchactive);
+			VID_SetMouse(vid.fullscreen,
+					vid_mouse.integer && !cl.csqc_wantsmousemove && cl_prydoncursor.integer <= 0
+					&& (!cls.demoplayback || cl_demo_mousegrab.integer) && hidecursor,
+					hidecursor);
 		}
 	}
 
