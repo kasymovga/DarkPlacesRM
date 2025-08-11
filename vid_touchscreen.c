@@ -193,6 +193,11 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 				}
 			} else if (!strcmp(command_part, "*menu")) {
 				if (*resultbutton != button) {
+					if (VID_ShowingKeyboard() && !key_consoleactive && key_dest != key_console) {
+						if (button) {
+							VID_ShowKeyboard(false);
+						}
+					}
 					Key_Event(K_ESCAPE, 0, button, false);
 				}
 			} else if (!strcmp(command_part, "*touchtoggle")) {
