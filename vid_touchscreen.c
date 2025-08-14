@@ -1,6 +1,9 @@
 #include "quakedef.h"
 #include "vid_touchscreen.h"
 
+#define DPTOUCH_CFG_PATH "dptouchscreen.cfg"
+#define DPTOUCH_CUSTOM_CFG_PATH "dptouchscreen_custom.cfg"
+
 cvar_t vid_touchscreen_sensitivity = {CVAR_SAVE, "vid_touchscreen_sensitivity", "0.25", "sensitivity of virtual touchpad"};
 cvar_t vid_touchscreen = {0, "vid_touchscreen", "0", "Use touchscreen-style input (no mouse grab, track mouse motion only while button is down, screen areas for mimicing joystick axes and buttons"};
 cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "shows the platform's screen keyboard for text entry, can be set by csqc or menu qc if it wants to receive text input, does nothing if the platform has no screen keyboard"};
@@ -8,6 +11,7 @@ cvar_t vid_touchscreen_active = {0, "vid_touchscreen_active", "1", "activate/dea
 cvar_t vid_touchscreen_scale = {CVAR_SAVE, "vid_touchscreen_scale", "1", "scale of touchscreen items" };
 cvar_t vid_touchscreen_mirror = {CVAR_SAVE, "vid_touchscreen_mirror", "0", "mirroring position of touchscreen in-game items" };
 cvar_t vid_touchscreen_mouse = {CVAR_SAVE, "vid_touchscreen_mouse", "0", "use mouse input as touchscreen events" };
+cvar_t vid_touchscreen_editor = {0, "vid_touchscreen_editor", "0", "enable touchscreen element editing" };
 static cvar_t vid_touchscreen_outlinealpha = {0, "vid_touchscreen_outlinealpha", "0", "opacity of touchscreen area outlines"};
 static cvar_t vid_touchscreen_overlayalpha = {0, "vid_touchscreen_overlayalpha", "0.25", "opacity of touchscreen area icons"};
 struct finger multitouch[MAXFINGERS];
@@ -20,9 +24,15 @@ struct touchscreen_area {
 	char image[64], cmd[32];
 };
 static struct touchscreen_area touchscreen_areas[TOUCHSCREEN_AREAS_MAXCOUNT - 2];
+static struct touchscreen_area touchscreen_areas_backup[TOUCHSCREEN_AREAS_MAXCOUNT - 2];
 static int touchscreen_areas_count;
+static int touchscreen_editor_selected;
+static int touchscreen_editor_selected_screen;
 static int scr_numtouchscreenareas;
 static scr_touchscreenarea_t scr_touchscreenareas[TOUCHSCREEN_AREAS_MAXCOUNT];
+
+static void VID_TouchscreenLoad(qboolean custom);
+static void VID_TouchscreenSaveCustom(void);
 
 void VID_TouchscreenDraw(void)
 {
@@ -53,7 +63,19 @@ void VID_TouchscreenDraw(void)
 	}
 	outlinealpha = vid_touchscreen_outlinealpha.value * vid_touchscreen_alpha;
 	overlayalpha = vid_touchscreen_overlayalpha.value * vid_touchscreen_alpha;
-	for (i = 0, a = scr_touchscreenareas;i < scr_numtouchscreenareas;i++, a++)
+	if (vid_touchscreen_editor.integer)
+	{
+		overlayalpha = 1;
+		DrawQ_Fill(0, 0, vid_conwidth.value, vid_conheight.value * 0.2, 0, 0, 0, 1, 0);
+		DrawQ_Fill(0, vid_conheight.value * 0.2, vid_conwidth.value * 0.1, vid_conheight.value, 0, 0, 0, 1, 0);
+		DrawQ_Fill(vid_conwidth.value * 0.9, vid_conheight.value * 0.2, vid_conwidth.value * 0.1, vid_conheight.value, 0, 0, 0, 1, 0);
+		if (touchscreen_editor_selected >= 0 && touchscreen_editor_selected < touchscreen_areas_count)
+		{
+			int n = strlen(touchscreen_areas[touchscreen_editor_selected].cmd);
+			DrawQ_String_Scale(vid_conwidth.value / 2 - (n / 2) * 16, 16, touchscreen_areas[touchscreen_editor_selected].cmd, 40, 16, 16, 1, 1, 1, 1, 1, 1, 0, NULL, true, FONT_DEFAULT);
+		}
+	}
+	for (i = scr_numtouchscreenareas - 1, a = &scr_touchscreenareas[i]; i >= 0; i--, a--)
 	{
 		if (outlinealpha > 0 && a->rect[0] >= 0 && a->rect[1] >= 0 && a->rect[2] >= 4 && a->rect[3] >= 4)
 		{
@@ -63,6 +85,15 @@ void VID_TouchscreenDraw(void)
 			DrawQ_Fill(a->rect[0] + a->rect[2] - 2, a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
 			DrawQ_Fill(a->rect[0] +              1, a->rect[1] + a->rect[3] - 2, a->rect[2] - 2,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
 			DrawQ_Fill(a->rect[0] +              2, a->rect[1] + a->rect[3] - 1, a->rect[2] - 4,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+		}
+		if (i == touchscreen_editor_selected_screen)
+		{
+			DrawQ_Fill(a->rect[0] +              2, a->rect[1]                 , a->rect[2] - 4,          1    , 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0] +              1, a->rect[1] +              1, a->rect[2] - 2,          1    , 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0]                 , a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0] + a->rect[2] - 2, a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0] +              1, a->rect[1] + a->rect[3] - 2, a->rect[2] - 2,          1    , 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0] +              2, a->rect[1] + a->rect[3] - 1, a->rect[2] - 4,          1    , 1, 1, 1, 0.5f, 0);
 		}
 		pic = a->pic ? Draw_CachePic(a->pic) : NULL;
 		if (pic && pic->tex != r_texture_notexture)
@@ -78,14 +109,14 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 	qboolean button = false;
 	qboolean check_dest = false;
 	char command_part[32];
-	if (vid_touchscreen_scale.value > 0)
+	if (vid_touchscreen_scale.value > 0 && vid_touchscreen_scale.value != 1 && strncmp(command, "*editor_", 8))
 	{
 		px *= vid_touchscreen_scale.value;
 		py *= vid_touchscreen_scale.value;
 		pwidth *= vid_touchscreen_scale.value;
 		pheight *= vid_touchscreen_scale.value;
 	}
-	if (vid_touchscreen_mirror.integer)
+	if (vid_touchscreen_mirror.integer && strncmp(command, "*editor_", 8))
 	{
 		if (dest == 2) //only for in-game controls
 		{
@@ -113,7 +144,9 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 		}
 	}
 	VectorClear(rel);
-	if (key_consoleactive) {
+	if (vid_touchscreen_editor.integer) {
+		check_dest = (dest & 2) && !(dest & 5) && strcmp(command, "*toucheditortoggle");
+	} else if (key_consoleactive) {
 		check_dest = dest & 1;
 	} else {
 		if (key_dest == key_console)
@@ -130,6 +163,14 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 		if (corner & 4) px += vid_conwidth.value * 0.5f;
 		if (corner & 8) py += vid_conheight.value * 0.5f;
 		if (corner & 16) {px *= vid_conwidth.value * (1.0f / 640.0f);py *= vid_conheight.value * (1.0f / 480.0f);pwidth *= vid_conwidth.value * (1.0f / 640.0f);pheight *= vid_conheight.value * (1.0f / 480.0f);}
+		if (vid_touchscreen_editor.integer) {
+			px *= 0.8;
+			py *= 0.8;
+			pwidth *= 0.8;
+			pheight *= 0.8;
+			px += vid_conwidth.value * 0.1;
+			py += vid_conheight.value * 0.2;
+		}
 		fx = px / vid_conwidth.value;
 		fy = py / vid_conheight.value;
 		fwidth = pwidth / vid_conwidth.value;
@@ -143,6 +184,11 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 				rel[1] = (multitouch[finger].y - multitouch[finger].start_y) * 32;
 				rel[2] = 0;
 				button = true;
+				if (vid_touchscreen_editor.integer && id < touchscreen_areas_count && !*resultbutton)
+				{
+					touchscreen_editor_selected = id;
+					touchscreen_editor_selected_screen = scr_numtouchscreenareas;
+				}
 				break;
 			}
 		}
@@ -170,7 +216,100 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 			strlcpy(command_part, command, sizeof(command_part));
 			command = NULL;
 		}
-		if (command_part[0] == '*') {
+		if (vid_touchscreen_editor.integer) {
+			if (!strcmp(command_part, "*editor_accept")) {
+				if (button && !*resultbutton) {
+					if (touchscreen_editor_selected >= 0) {
+						touchscreen_editor_selected = -1;
+						touchscreen_editor_selected_screen = -1;
+					} else {
+						memcpy(touchscreen_areas_backup, touchscreen_areas, sizeof(touchscreen_areas));
+						VID_TouchscreenSaveCustom();
+						Cvar_SetValueQuick(&vid_touchscreen_editor, 0);
+					}
+				}
+			} else if (!strcmp(command_part, "*editor_reject")) {
+				if (button && !*resultbutton) {
+					touchscreen_editor_selected = -1;
+					touchscreen_editor_selected_screen = -1;
+					memcpy(touchscreen_areas, touchscreen_areas_backup, sizeof(touchscreen_areas));
+					Cvar_SetValueQuick(&vid_touchscreen_editor, 0);
+				}
+			} else if (!strcmp(command_part, "*editor_reset")) {
+				if (button && !*resultbutton) {
+					touchscreen_editor_selected = -1;
+					touchscreen_editor_selected_screen = -1;
+					VID_TouchscreenLoad(false);
+				}
+			} else if (!strcmp(command_part, "*editor_mirror")) {
+				if (button && !*resultbutton) {
+					Cvar_SetValueQuick(&vid_touchscreen_mirror, !vid_touchscreen_mirror.integer);
+				}
+			} else if (!strcmp(command_part, "*editor_scaleplus")) {
+				if (button && !*resultbutton) {
+					if (touchscreen_editor_selected >= 0) {
+						if (touchscreen_areas[touchscreen_editor_selected].width > 8 && touchscreen_areas[touchscreen_editor_selected].height > 8)
+						{
+							touchscreen_areas[touchscreen_editor_selected].width += 4;
+							touchscreen_areas[touchscreen_editor_selected].height += 4;
+						}
+					} else {
+						Cvar_SetValueQuick(&vid_touchscreen_scale, bound(0.1, vid_touchscreen_scale.value + 0.1, 10));
+					}
+				}
+			} else if (!strcmp(command_part, "*editor_scaleminus")) {
+				if (button && !*resultbutton) {
+					if (touchscreen_editor_selected >= 0) {
+						if (touchscreen_areas[touchscreen_editor_selected].width < vid_conwidth.integer / 2 && touchscreen_areas[touchscreen_editor_selected].height < vid_conheight.integer / 2)
+						{
+							touchscreen_areas[touchscreen_editor_selected].width -= 4;
+							touchscreen_areas[touchscreen_editor_selected].height -= 4;
+						}
+					} else {
+						Cvar_SetValueQuick(&vid_touchscreen_scale, bound(0.1, vid_touchscreen_scale.value - 0.1, 10));
+					}
+				}
+			} else {
+				if (button) { //dragging
+					struct finger *touch = &multitouch[finger];
+					if (touch->area_id < touchscreen_areas_count) {
+						if (touch->x != touch->start_x || touch->y != touch->start_y) {
+							int aid = touch->area_id;
+							float invscale = ((vid_touchscreen_scale.value > 0) ? (1 / vid_touchscreen_scale.value) : 1);
+							touchscreen_areas[aid].x =
+									(touch->x - 0.1) * 1.25 * vid_conwidth.value -
+									touchscreen_areas[aid].width * 0.5 / invscale;
+							touchscreen_areas[aid].y =
+									(touch->y - 0.2) * 1.25 * vid_conheight.value -
+									touchscreen_areas[aid].height * 0.5 / invscale;
+							touch->start_x = touch->x;
+							touch->start_y = touch->y;
+							if (touchscreen_areas[aid].corner & 4) {
+								touchscreen_areas[aid].x -= vid_conwidth.integer / 2;
+							}
+							if (touchscreen_areas[aid].corner & 8) {
+								touchscreen_areas[aid].y -= vid_conheight.integer / 2;
+							}
+							if (touchscreen_areas[aid].corner & 1) {
+								touchscreen_areas[aid].x -= vid_conwidth.integer;
+							}
+							if (touchscreen_areas[aid].corner & 2) {
+								touchscreen_areas[aid].y -= vid_conheight.integer;
+							}
+							if (vid_touchscreen_mirror.integer) {
+								if (touchscreen_areas[aid].corner & 1)
+									touchscreen_areas[aid].x = -vid_conwidth.integer - touchscreen_areas[aid].x - touchscreen_areas[aid].width;
+								else {
+									touchscreen_areas[aid].x = vid_conwidth.integer - touchscreen_areas[aid].x - touchscreen_areas[aid].width;
+								}
+							}
+							touchscreen_areas[aid].x = (int)(touchscreen_areas[aid].x * invscale) / 2 * 2;
+							touchscreen_areas[aid].y = (int)(touchscreen_areas[aid].y * invscale) / 2 * 2;
+						}
+					}
+				}
+			}
+		} else if (command_part[0] == '*' && (button || *resultbutton)) {
 			if (!strcmp(command_part, "*move")) {
 				if (button) {
 					cl.cmd.forwardmove -= rel[1] * cl_forwardspeed.value;
@@ -207,6 +346,9 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 			} else if (!strcmp(command_part, "*keyboard")) {
 				if (button && *resultbutton != button)
 					VID_ShowKeyboard(!VID_ShowingKeyboard());
+			} else if (!strcmp(command_part, "*toucheditortoggle")) {
+				if (button && *resultbutton != button)
+					Cvar_SetValueQuick(&vid_touchscreen_editor, !vid_touchscreen_editor.integer);
 			}
 		} else {
 			if (*resultbutton != button)
@@ -229,9 +371,9 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 	return button;
 }
 
-static void VID_TouchscreenLoad(void)
+static void VID_TouchscreenLoad(qboolean custom)
 {
-	const char *cfg_path = "dptouchscreen.cfg";
+	const char *cfg_path = (custom ? DPTOUCH_CUSTOM_CFG_PATH : DPTOUCH_CFG_PATH);
 	char *cfg = (char*)FS_LoadFile(cfg_path, tempmempool, false, NULL);
 	char *line;
 	char *nl;
@@ -270,6 +412,25 @@ static void VID_TouchscreenLoad(void)
 	}
 }
 
+static void VID_TouchscreenSaveCustom(void)
+{
+	int i;
+	qfile_t *file = FS_OpenRealFile(DPTOUCH_CUSTOM_CFG_PATH, "w", false);
+	if (!file) {
+		//error message?
+		return;
+	}
+	FS_Printf(file, "// <mode> <corner> <x> <y> <width> <height> <icon> <command>\n");
+	FS_Printf(file, "// mode is a bit field: 1 menu/console mode, 2 game mode, 4 text mode, 32 touchscreen disable mode\n");
+	FS_Printf(file, "// corner is a bit field: 1 from right, 2 from down, 4 from horizontal center, 8 from vertical center\n");
+	for (i = 0; i < touchscreen_areas_count; i++) {
+		struct touchscreen_area *ta = &touchscreen_areas[i];
+		FS_Printf(file, "%i %i %i %i %i %i %s %s\n",
+				ta->dest, ta->corner, ta->x, ta->y, ta->width, ta->height, ta->image, ta->cmd);
+	}
+	FS_Close(file);
+}
+
 qboolean VID_TouchscreenInMove(int x, int y, int st)
 {
 	int n = 0, p = 0;
@@ -306,7 +467,41 @@ qboolean VID_TouchscreenInMove(int x, int y, int st)
 		p += VID_TouchscreenArea(7, 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n], n);
 		n++;
 		p += VID_TouchscreenArea(6, 0,   0,   0, vid_conwidth.value / scale, vid_conheight.value / scale, NULL, "*click", &buttons[n], n);
+	} else {
+		n += 2;
 	}
+	if (vid_touchscreen_editor.integer) {
+		//touch screen menu
+		float eh = vid_conheight.value * 0.15;
+		float ew = vid_conwidth.value * 0.15;
+		if (ew > eh) ew = eh;
+		if (eh > ew) eh = ew;
+		if (touchscreen_editor_selected >= 0 && touchscreen_editor_selected < touchscreen_areas_count) {
+			n++;
+			p += VID_TouchscreenArea(2, 4, -ew * 1.5, -eh, ew, eh, "gfx/dptouch_scaleplus.tga", "*editor_scaleplus", &buttons[n], n);
+			n++;
+			p += VID_TouchscreenArea(2, 4, -ew * 0.5, -eh, ew, eh, "gfx/dptouch_scaleminus.tga", "*editor_scaleminus", &buttons[n], n);
+			n++;
+			p += VID_TouchscreenArea(2, 4, ew * 0.5, -eh, ew, eh, "gfx/dptouch_accept.tga", "*editor_accept", &buttons[n], n);
+			n += 6;
+		} else {
+			n += 3;
+			n++;
+			p += VID_TouchscreenArea(2, 1, -ew * 3, -eh, ew, eh, "gfx/dptouch_accept.tga", "*editor_accept", &buttons[n], n);
+			n++;
+			p += VID_TouchscreenArea(2, 1, -ew * 2 , -eh, ew, eh, "gfx/dptouch_reset.tga", "*editor_reset", &buttons[n], n);
+			n++;
+			p += VID_TouchscreenArea(2, 1, -ew, -eh, ew, eh, "gfx/dptouch_reject.tga", "*editor_reject", &buttons[n], n);
+			n++;
+			p += VID_TouchscreenArea(2, 0, 0, -eh, ew, eh, "gfx/dptouch_mirror.tga", "*editor_mirror", &buttons[n], n);
+			n++;
+			p += VID_TouchscreenArea(2, 0, ew , -eh, ew, eh, "gfx/dptouch_scaleplus.tga", "*editor_scaleplus", &buttons[n], n);
+			n++;
+			p += VID_TouchscreenArea(2, 0, ew * 2, -eh, ew, eh, "gfx/dptouch_scaleminus.tga", "*editor_scaleminus", &buttons[n], n);
+		}
+	} else
+		n += 9;
+
 	if (keydest == key_console && !VID_ShowingKeyboard())
 	{
 		// user entered a command, close the console now
@@ -316,7 +511,9 @@ qboolean VID_TouchscreenInMove(int x, int y, int st)
 }
 
 void VID_TouchscreenInit(void) {
-	VID_TouchscreenLoad();
+	VID_TouchscreenLoad(true); //attempt load custom first
+	if (!touchscreen_areas_count) VID_TouchscreenLoad(false);
+	memcpy(touchscreen_areas_backup, touchscreen_areas, sizeof(touchscreen_areas));
 	Cvar_RegisterVariable(&vid_touchscreen);
 	Cvar_RegisterVariable(&vid_touchscreen_showkeyboard);
 	Cvar_RegisterVariable(&vid_touchscreen_active);
@@ -326,4 +523,7 @@ void VID_TouchscreenInit(void) {
 	Cvar_RegisterVariable(&vid_touchscreen_scale);
 	Cvar_RegisterVariable(&vid_touchscreen_mirror);
 	Cvar_RegisterVariable(&vid_touchscreen_mouse);
+	Cvar_RegisterVariable(&vid_touchscreen_editor);
+	touchscreen_editor_selected = -1;
+	touchscreen_editor_selected_screen = -1;
 }
