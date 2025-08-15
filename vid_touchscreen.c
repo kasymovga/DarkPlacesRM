@@ -79,21 +79,17 @@ void VID_TouchscreenDraw(void)
 	{
 		if (outlinealpha > 0 && a->rect[0] >= 0 && a->rect[1] >= 0 && a->rect[2] >= 4 && a->rect[3] >= 4)
 		{
-			DrawQ_Fill(a->rect[0] +              2, a->rect[1]                 , a->rect[2] - 4,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0] +              1, a->rect[1] +              1, a->rect[2] - 2,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0]                 , a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0] + a->rect[2] - 2, a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0] +              1, a->rect[1] + a->rect[3] - 2, a->rect[2] - 2,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
-			DrawQ_Fill(a->rect[0] +              2, a->rect[1] + a->rect[3] - 1, a->rect[2] - 4,          1    , 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] - 2, a->rect[1], 2, a->rect[3], 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] - 2, a->rect[1] - 2, a->rect[2] + 4, 2, 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] + a->rect[2], a->rect[1], 2, a->rect[3], 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
+			DrawQ_Fill(a->rect[0] - 2, a->rect[1] + a->rect[3], a->rect[2] + 4, 2, 1, 1, 1, outlinealpha * (0.5f + 0.5f * a->active), 0);
 		}
 		if (i == touchscreen_editor_selected_screen)
 		{
-			DrawQ_Fill(a->rect[0] +              2, a->rect[1]                 , a->rect[2] - 4,          1    , 1, 1, 1, 0.5f, 0);
-			DrawQ_Fill(a->rect[0] +              1, a->rect[1] +              1, a->rect[2] - 2,          1    , 1, 1, 1, 0.5f, 0);
-			DrawQ_Fill(a->rect[0]                 , a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, 0.5f, 0);
-			DrawQ_Fill(a->rect[0] + a->rect[2] - 2, a->rect[1] +              2,          2    , a->rect[3] - 2, 1, 1, 1, 0.5f, 0);
-			DrawQ_Fill(a->rect[0] +              1, a->rect[1] + a->rect[3] - 2, a->rect[2] - 2,          1    , 1, 1, 1, 0.5f, 0);
-			DrawQ_Fill(a->rect[0] +              2, a->rect[1] + a->rect[3] - 1, a->rect[2] - 4,          1    , 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0] - 2, a->rect[1], 2, a->rect[3], 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0], a->rect[1] - 2, a->rect[2], 2, 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0] + a->rect[2], a->rect[1], 2, a->rect[3], 1, 1, 1, 0.5f, 0);
+			DrawQ_Fill(a->rect[0], a->rect[1] + a->rect[3], a->rect[2], 2, 1, 1, 1, 0.5f, 0);
 		}
 		pic = a->pic ? Draw_CachePic(a->pic) : NULL;
 		if (pic && pic->tex != r_texture_notexture)
