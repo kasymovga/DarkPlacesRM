@@ -1564,7 +1564,7 @@ FS_CheckGameDir
 const char *FS_CheckGameDir(const char *gamedir)
 {
 	const char *ret;
-	static char buf[8192];
+	char buf[8192];
 	char vabuf[1024];
 
 	if (FS_CheckNastyPath(gamedir, true))
