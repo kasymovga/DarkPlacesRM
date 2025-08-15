@@ -1639,6 +1639,7 @@ static void FS_ListGameDirs(void)
 		strlcpy(fs_all_gamedirs[fs_all_gamedirs_count].description, info, sizeof(fs_all_gamedirs[fs_all_gamedirs_count].description));
 		++fs_all_gamedirs_count;
 	}
+	stringlistfreecontents(&list2);
 }
 
 /*
