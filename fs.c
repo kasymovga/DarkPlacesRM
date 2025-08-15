@@ -3537,7 +3537,6 @@ fssearch_t *FS_Search(const char *pattern, int caseinsensitive, int quiet)
 	pack_t *pak;
 	int i, basepathlength, numfiles, numchars, resultlistindex, dirlistindex;
 	stringlist_t resultlist;
-	stringlist_t dirlist;
 	const char *slash, *backslash, *colon, *separator;
 	char *basepath;
 
@@ -3551,7 +3550,6 @@ fssearch_t *FS_Search(const char *pattern, int caseinsensitive, int quiet)
 	}
 
 	stringlistinit(&resultlist);
-	stringlistinit(&dirlist);
 	search = NULL;
 	slash = strrchr(pattern, '/');
 	backslash = strrchr(pattern, '\\');
