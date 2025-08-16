@@ -65,6 +65,27 @@ void VID_TouchscreenDraw(void)
 	overlayalpha = vid_touchscreen_overlayalpha.value * vid_touchscreen_alpha;
 	if (vid_touchscreen_editor.integer)
 	{
+		float floats[36];
+		rtexture_t *texture;
+		floats[12] = 0.0f; floats[13] = 0.0f;
+		floats[14] = 1.0f; floats[15] = 0.0f;
+		floats[16] = 1.0f; floats[17] = 1.0f;
+		floats[18] = 0.0f; floats[19] = 1.0f;
+		floats[20] = floats[24] = floats[28] = floats[32] = 1;
+		floats[21] = floats[25] = floats[29] = floats[33] = 1;
+		floats[22] = floats[26] = floats[30] = floats[34] = 1;
+		floats[23] = floats[27] = floats[31] = floats[35] = 1;
+		texture = R_LoadTexture2D(drawtexturepool, "touchscreeneditorview", vid.width, vid.height, NULL, TEXTYPE_COLORBUFFER, TEXF_RENDERTARGET | TEXF_FORCENEAREST | TEXF_CLAMP, -1, NULL);
+		R_Mesh_CopyToTexture(texture, 0, 0, 0, 0, vid.width, vid.height);
+		R_SetupShader_Generic(texture, GL_MODULATE, 1, true, true, false);
+		floats[2] = floats[5] = floats[8] = floats[11] = 0;
+		floats[0] = floats[9] = vid_conwidth.value * 0.1;
+		floats[1] = floats[4] = vid_conheight.value;
+		floats[3] = floats[6] = vid_conwidth.value * 0.9;
+		floats[7] = floats[10] = vid_conheight.value * 0.2;
+		R_Mesh_PrepareVertices_Generic_Arrays(4, floats, floats + 20, floats + 12);
+		R_Mesh_Draw(0, 4, 0, 2, polygonelement3i, NULL, 0, polygonelement3s, NULL, 0);
+		R_FreeTexture(texture);
 		overlayalpha = 1;
 		DrawQ_Fill(0, 0, vid_conwidth.value, vid_conheight.value * 0.2, 0, 0, 0, 1, 0);
 		DrawQ_Fill(0, vid_conheight.value * 0.2, vid_conwidth.value * 0.1, vid_conheight.value, 0, 0, 0, 1, 0);
