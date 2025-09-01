@@ -1866,7 +1866,7 @@ static void SV_WriteEntitiesToClient(client_t *client, prvm_edict_t *clent, size
 	if (sv.worldmodel && sv.worldmodel->brush.FatPVS && sv.worldmodel->brush.num_pvsclusterbytes)
 	{
 		if (sv.writeentitiestoclient_pvsbytes != sv.worldmodel->brush.num_pvsclusterbytes) {
-			Mem_Free(sv.writeentitiestoclient_pvs);
+			if (sv.writeentitiestoclient_pvs) Mem_Free(sv.writeentitiestoclient_pvs);
 			sv.writeentitiestoclient_pvs = Mem_Alloc(sv_mempool, sv.worldmodel->brush.num_pvsclusterbytes);
 			sv.writeentitiestoclient_pvsbytes = sv.worldmodel->brush.num_pvsclusterbytes;
 		}
