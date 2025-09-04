@@ -2656,7 +2656,10 @@ qfile_t* FS_OpenRealFile (const char* filepath, const char* mode, qboolean quiet
 		return NULL;
 	}
 
-	dpsnprintf (real_path, sizeof (real_path), "%s/%s", fs_gamedir, filepath); // this is never a vpack
+	if (fs_gamedir[strlen(fs_gamedir) - 1] == '/')
+		dpsnprintf (real_path, sizeof (real_path), "%s%s", fs_gamedir, filepath); // this is never a vpack
+	else
+		dpsnprintf (real_path, sizeof (real_path), "%s/%s", fs_gamedir, filepath); // this is never a vpack
 
 	// If the file is opened in "write", "append", or "read/write" mode,
 	// create directories up to the file.
