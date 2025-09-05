@@ -1193,6 +1193,7 @@ void Con_MaskPrint(int additionalmask, const char *msg)
 	static int mask = 0;
 	static int index = 0;
 	static char line[MAX_INPUTLINE];
+	char timestr[128];
 
 	if (con_mutex)
 		Thread_LockMutex(con_mutex);
@@ -1207,7 +1208,7 @@ void Con_MaskPrint(int additionalmask, const char *msg)
 			if (timestamps.integer)
 			{
 				Cvar_LockThreadMutex();
-				timestamp = Sys_TimeString(timeformat.string);
+				timestamp = Sys_TimeString(timeformat.string, timestr, sizeof(timestr));
 				Cvar_UnlockThreadMutex();
 			}
 			// reset the color

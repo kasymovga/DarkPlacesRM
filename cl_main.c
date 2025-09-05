@@ -2173,6 +2173,7 @@ static void CL_Locs_Save_f(void)
 	cl_locnode_t *loc;
 	qfile_t *outfile;
 	char locfilename[MAX_QPATH];
+	char timestr[128];
 	if (!cl.locnodes)
 	{
 		Con_Printf("No loc points/boxes exist!\n");
@@ -2195,7 +2196,7 @@ static void CL_Locs_Save_f(void)
 			break;
 	if (loc)
 	{
-		FS_Printf(outfile, "// %s %s saved by %s\n// x,y,z,x,y,z,\"name\"\n\n", locfilename, Sys_TimeString("%Y-%m-%d"), engineversion);
+		FS_Printf(outfile, "// %s %s saved by %s\n// x,y,z,x,y,z,\"name\"\n\n", locfilename, Sys_TimeString("%Y-%m-%d", timestr, sizeof(timestr)), engineversion);
 		for (loc = cl.locnodes;loc;loc = loc->next)
 			if (VectorCompare(loc->mins, loc->maxs))
 				break;

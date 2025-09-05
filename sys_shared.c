@@ -22,18 +22,17 @@
 # endif
 #endif
 
-static char sys_timestring[128];
-char *Sys_TimeString(const char *timeformat)
+char *Sys_TimeString(const char *timeformat, char *buf, int bufsize)
 {
 	time_t mytime = time(NULL);
 #if _MSC_VER >= 1400
 	struct tm mytm;
 	localtime_s(&mytm, &mytime);
-	strftime(sys_timestring, sizeof(sys_timestring), timeformat, &mytm);
+	strftime(buf, bufsize, timeformat, &mytm);
 #else
-	strftime(sys_timestring, sizeof(sys_timestring), timeformat, localtime(&mytime));
+	strftime(buf, bufsize, timeformat, localtime(&mytime));
 #endif
-	return sys_timestring;
+	return buf;
 }
 
 

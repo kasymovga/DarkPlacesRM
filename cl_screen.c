@@ -1488,9 +1488,9 @@ void SCR_ScreenShot_f (void)
 		// TODO maybe make capturevideo and screenshot use similar name patterns?
 		Cvar_LockThreadMutex();
 		if (scr_screenshot_name_in_mapdir.integer && cl.worldbasename[0])
-			dpsnprintf(prefix_name, sizeof(prefix_name), "%s/%s%s", cl.worldbasename, scr_screenshot_name.string, Sys_TimeString("%Y%m%d%H%M%S"));
+			dpsnprintf(prefix_name, sizeof(prefix_name), "%s/%s%s", cl.worldbasename, scr_screenshot_name.string, Sys_TimeString("%Y%m%d%H%M%S", vabuf, sizeof(vabuf)));
 		else
-			dpsnprintf(prefix_name, sizeof(prefix_name), "%s%s", scr_screenshot_name.string, Sys_TimeString("%Y%m%d%H%M%S"));
+			dpsnprintf(prefix_name, sizeof(prefix_name), "%s%s", scr_screenshot_name.string, Sys_TimeString("%Y%m%d%H%M%S", vabuf, sizeof(vabuf)));
 		Cvar_UnlockThreadMutex();
 		// find a file name to save it to
 		for (shotnumber100 = 0;shotnumber100 < 100;shotnumber100++)
@@ -1511,9 +1511,9 @@ void SCR_ScreenShot_f (void)
 		// TODO maybe make capturevideo and screenshot use similar name patterns?
 		Cvar_LockThreadMutex();
 		if (scr_screenshot_name_in_mapdir.integer && cl.worldbasename[0])
-			dpsnprintf(prefix_name, sizeof(prefix_name), "%s/%s", cl.worldbasename, Sys_TimeString(scr_screenshot_name.string));
+			dpsnprintf(prefix_name, sizeof(prefix_name), "%s/%s", cl.worldbasename, Sys_TimeString(scr_screenshot_name.string, vabuf, sizeof(vabuf)));
 		else
-			dpsnprintf(prefix_name, sizeof(prefix_name), "%s", Sys_TimeString(scr_screenshot_name.string));
+			dpsnprintf(prefix_name, sizeof(prefix_name), "%s", Sys_TimeString(scr_screenshot_name.string, vabuf, sizeof(vabuf)));
 		Cvar_UnlockThreadMutex();
 		// if prefix changed, gamedir or map changed, reset the shotnumber so
 		// we scan again
@@ -1569,6 +1569,7 @@ static void SCR_CaptureVideo_BeginVideo(void)
 	double r, g, b;
 	unsigned int i;
 	int width = cl_capturevideo_width.integer, height = cl_capturevideo_height.integer;
+	char timestr[128];
 	if (cls.capturevideo.active)
 		return;
 	memset(&cls.capturevideo, 0, sizeof(cls.capturevideo));
@@ -1610,7 +1611,7 @@ static void SCR_CaptureVideo_BeginVideo(void)
 	cls.capturevideo.screenbuffer = (unsigned char *)Mem_Alloc(tempmempool, vid.width * vid.height * 4);
 	cls.capturevideo.outbuffer = (unsigned char *)Mem_Alloc(tempmempool, width * height * (4+4) + 18);
 	Cvar_LockThreadMutex();
-	dpsnprintf(cls.capturevideo.basename, sizeof(cls.capturevideo.basename), "video/%s%03i", Sys_TimeString(cl_capturevideo_nameformat.string), cl_capturevideo_number.integer);
+	dpsnprintf(cls.capturevideo.basename, sizeof(cls.capturevideo.basename), "video/%s%03i", Sys_TimeString(cl_capturevideo_nameformat.string, timestr, sizeof(timestr)), cl_capturevideo_number.integer);
 	Cvar_UnlockThreadMutex();
 	Cvar_SetValueQuick(&cl_capturevideo_number, cl_capturevideo_number.integer + 1);
 

@@ -1950,6 +1950,7 @@ static void CL_ParseServerInfo (void)
 		if (cl_autodemo.integer && cls.netcon && cls.protocol != PROTOCOL_QUAKEWORLD)
 		{
 			char demofile[MAX_OSPATH];
+			char timestr[128];
 
 			if (cls.demorecording)
 			{
@@ -1959,7 +1960,7 @@ static void CL_ParseServerInfo (void)
 
 			// start a new demo file
 			Cvar_LockThreadMutex();
-			dpsnprintf (demofile, sizeof(demofile), "%s_%s.dem", Sys_TimeString (cl_autodemo_nameformat.string), cl.worldbasename);
+			dpsnprintf (demofile, sizeof(demofile), "%s_%s.dem", Sys_TimeString (cl_autodemo_nameformat.string, timestr, sizeof(timestr)), cl.worldbasename);
 			Cvar_UnlockThreadMutex();
 
 			Con_Printf ("Auto-recording to %s.\n", demofile);
