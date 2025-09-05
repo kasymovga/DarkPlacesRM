@@ -67,16 +67,28 @@ void VID_TouchscreenDraw(void)
 	if (vid_touchscreen_editor.integer)
 	{
 		float floats[36];
+		float tw;
+		float th;
 		rtexture_t *texture;
+		if (vid.support.arb_texture_non_power_of_two)
+		{
+			tw = vid.width;
+			th = vid.height;
+		}
+		else
+		{
+			tw = pow(2, ceil(log2(vid.width)));
+			th = pow(2, ceil(log2(vid.height)));
+		}
 		floats[12] = 0.0f; floats[13] = 0.0f;
-		floats[14] = 1.0f; floats[15] = 0.0f;
-		floats[16] = 1.0f; floats[17] = 1.0f;
-		floats[18] = 0.0f; floats[19] = 1.0f;
+		floats[14] = (vid.width / tw); floats[15] = 0.0f;
+		floats[16] = (vid.width / tw); floats[17] = (vid.height / th);
+		floats[18] = 0.0f; floats[19] = (vid.height / th);
 		floats[20] = floats[24] = floats[28] = floats[32] = 1;
 		floats[21] = floats[25] = floats[29] = floats[33] = 1;
 		floats[22] = floats[26] = floats[30] = floats[34] = 1;
 		floats[23] = floats[27] = floats[31] = floats[35] = 1;
-		texture = R_LoadTexture2D(drawtexturepool, "touchscreeneditorview", vid.width, vid.height, NULL, TEXTYPE_COLORBUFFER, TEXF_RENDERTARGET | TEXF_FORCENEAREST | TEXF_CLAMP, -1, NULL);
+		texture = R_LoadTexture2D(drawtexturepool, "touchscreeneditorview", tw, th, NULL, TEXTYPE_COLORBUFFER, TEXF_RENDERTARGET | TEXF_FORCENEAREST | TEXF_CLAMP, -1, NULL);
 		R_Mesh_CopyToTexture(texture, 0, 0, 0, 0, vid.width, vid.height);
 		R_SetupShader_Generic(texture, GL_MODULATE, 1, true, true, false);
 		floats[2] = floats[5] = floats[8] = floats[11] = 0;
