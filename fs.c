@@ -1698,9 +1698,11 @@ void FS_Init_SelfPack (void)
 	if (!COM_CheckParm("-noopt"))
 	{
 		char *buf = (char *) FS_SysLoadFile("darkplaces.opt", tempmempool, true, NULL);
-		if(buf)
+		if (buf)
+		{
 			COM_InsertFlags(buf);
-		Mem_Free(buf);
+			Mem_Free(buf);
+		}
 	}
 
 #ifndef USE_RWOPS
