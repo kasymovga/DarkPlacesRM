@@ -1201,7 +1201,7 @@ static void FS_AddGameHierarchy (const char *dir)
 	char extradirarg[12];
 	char fs_extradir[MAX_OSPATH];
 	// Add the common game directory
-	FS_AddBaseDirectory (va(vabuf, sizeof(vabuf), "%s/", fs_basedir));
+	FS_AddBaseDirectory (va(vabuf, sizeof(vabuf), "%s", fs_basedir));
 	FS_AddGameDirectory (va(vabuf, sizeof(vabuf), "%s%s/", fs_basedir, dir));
 	if (!fs_basesearchpath)
 		fs_basesearchpath = fs_searchpaths;
@@ -1621,8 +1621,8 @@ static void FS_ListGameDirs(void)
 		Mem_Free(fs_all_gamedirs);
 
 	stringlistinit(&list);
-	listdirectory(&list, va(vabuf, sizeof(vabuf), "%s/", fs_basedir), "");
-	listdirectory(&list, va(vabuf, sizeof(vabuf), "%s/", fs_userdir), "");
+	listdirectory(&list, va(vabuf, sizeof(vabuf), "%s", fs_basedir), "");
+	listdirectory(&list, va(vabuf, sizeof(vabuf), "%s", fs_userdir), "");
 	stringlistsort(&list, false);
 
 	stringlistinit(&list2);
