@@ -986,13 +986,14 @@ static qboolean FS_AddPack_Fullpath(const char *pakfile, const char *shortname, 
 
 	if(pak)
 	{
+		searchpath_t *insertion_point = NULL;
+		qboolean isoverrides = !strncmp(FS_FileWithoutPath(pak->filename), "_overrides", 10);
 		strlcpy(pak->shortname, shortname, sizeof(pak->shortname));
 
 		//Con_DPrintf("  Registered pack with short name %s\n", shortname);
 		if(keep_plain_dirs)
 		{
 			// find the first item whose next one is a pack or NULL
-			searchpath_t *insertion_point = 0;
 			if(fs_searchpaths && !fs_searchpaths->pack)
 			{
 				insertion_point = fs_searchpaths;
@@ -1000,7 +1001,9 @@ static qboolean FS_AddPack_Fullpath(const char *pakfile, const char *shortname, 
 				{
 					if(!insertion_point->next)
 						break;
-					if(insertion_point->next->pack)
+					if(insertion_point->next->pack &&
+							(strncmp(FS_FileWithoutPath(insertion_point->next->pack->filename), "_overrides", 10)
+							|| isoverrides))
 						break;
 					insertion_point = insertion_point->next;
 				}
@@ -1025,8 +1028,23 @@ static qboolean FS_AddPack_Fullpath(const char *pakfile, const char *shortname, 
 		else
 		{
 			search = (searchpath_t *)Mem_Alloc(fs_mempool, sizeof(searchpath_t));
-			search->next = fs_searchpaths;
-			fs_searchpaths = search;
+			if (fs_searchpaths && fs_searchpaths->pack
+					&& !strncmp(FS_FileWithoutPath(fs_searchpaths->pack->filename), "_overrides", 10)
+					&& !isoverrides)
+			{
+				insertion_point = fs_searchpaths;
+				while (insertion_point->next && insertion_point->next->pack && !strncmp(insertion_point->next->pack->filename, "_overrides", 10))
+				{
+					insertion_point = insertion_point->next;
+				}
+				search->next = insertion_point->next;
+				insertion_point->next = search;
+			}
+			else
+			{
+				search->next = fs_searchpaths;
+				fs_searchpaths = search;
+			}
 		}
 		search->pack = pak;
 		if(pak->vpack)
