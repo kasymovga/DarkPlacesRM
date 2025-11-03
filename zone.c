@@ -468,10 +468,10 @@ static void _Mem_FreeBlock(memheader_t *mem, const char *filename, int fileline)
 	if (developer_memory.integer)
 		Con_DPrintf("Mem_Free: pool %s, alloc %s:%i, free %s:%i, size %i bytes\n", pool->name, mem->filename, mem->fileline, filename, fileline, (int)(mem->size));
 	// unlink memheader from doubly linked list
-	if ((mem->prev ? mem->prev->next != mem : pool->chain != mem) || (mem->next && mem->next->prev != mem))
-		Sys_Error("Mem_Free: not allocated or double freed (free at %s:%i)", filename, fileline);
 	if (mem_mutex)
 		Thread_LockMutex(mem_mutex);
+	if ((mem->prev ? mem->prev->next != mem : pool->chain != mem) || (mem->next && mem->next->prev != mem))
+		Sys_Error("Mem_Free: not allocated or double freed (free at %s:%i)", filename, fileline);
 	if (mem->prev)
 		mem->prev->next = mem->next;
 	else
