@@ -2450,6 +2450,7 @@ void CL_Init (void)
 	Cmd_AddCommand ("record", CL_Record_f, "record a demo");
 	Cmd_AddCommand ("stop", CL_Stop_f, "stop recording or playing a demo");
 	Cmd_AddCommand ("playdemo", CL_PlayDemo_f, "watch a demo file");
+	Cmd_AddCommand ("rewind", CL_RewindDemo_f, "rewind a demo");
 	Cmd_AddCommand ("timedemo", CL_TimeDemo_f, "play back a demo as fast as possible and save statistics to benchmark.log");
 
 	// Support Client-side Model Index List

@@ -56,7 +56,8 @@ static void Demo_FS_Close (void)
 		FS_Write(cls.demofile, demo_buffer, demo_buffer_length);
 		demo_buffer_length = 0;
 	}
-	FS_Close (cls.demofile);
+	if (cls.demofile)
+		FS_Close (cls.demofile);
 }
 
 static void Demo_Finalize (void)
@@ -320,7 +321,8 @@ void CL_ReadDemoMessage(void)
 			else if (cl.time <= cl.mtime[0] && cl.movevars_timescale > 0)
 			{
 				// don't need another message yet
-				return;
+				if (cls.td_starttime < cl.time) // abuse timedemo variable
+					return;
 			}
 		}
 
@@ -501,7 +503,7 @@ void CL_Record_f (void)
 ====================
 CL_PlayDemo_f
 
-play [demoname]
+play <demoname> [starttime]
 ====================
 */
 void CL_PlayDemo_f (void)
@@ -510,12 +512,17 @@ void CL_PlayDemo_f (void)
 	int c;
 	qboolean neg = false;
 	qfile_t *f;
+	int argc = Cmd_Argc();
 
-	if (Cmd_Argc() != 2)
+	if (argc < 2 || argc > 3)
 	{
-		Con_Print("play <demoname> : plays a demo\n");
+		Con_Print("play <demoname> [starttime|rewindtime] : plays a demo\n");
 		return;
 	}
+	if (argc == 3)
+		cls.td_starttime = atof(Cmd_Argv(2)); // abuse timedemo variable
+	else
+		cls.td_starttime = 0; // abuse timedemo variable
 
 	// open the demo file
 	strlcpy (name, Cmd_Argv(1), sizeof (name));
@@ -547,7 +554,7 @@ void CL_PlayDemo_f (void)
 	cls.state = ca_connected;
 	cls.forcetrack = 0;
 
-	while ((c = FS_Getc (cls.demofile)) != '\n')
+	while ((c = FS_Getc (cls.demofile)) != '\n' && c != EOF)
 		if (c == '-')
 			neg = true;
 		else
@@ -555,6 +562,60 @@ void CL_PlayDemo_f (void)
 
 	if (neg)
 		cls.forcetrack = -cls.forcetrack;
+
+	cls.demostarting = false;
+
+	Cvar_Get("_demo", name, 0, NULL);
+}
+
+/*
+====================
+CL_RewindDemo_f
+
+rewind <rewindtime>
+====================
+*/
+void CL_RewindDemo_f (void)
+{
+	int c;
+	qfile_t *f;
+	float arg;
+
+	if (Cmd_Argc() != 2)
+	{
+		Con_Print("rewind <rewindtime> : rewind a demo\n");
+		return;
+	}
+	if (!cls.demoplayback)
+	{
+		Con_Printf("No demo playing\n");
+		return;
+	}
+	arg = atof(Cmd_Argv(1));
+	cls.td_starttime = cl.time + arg; // abuse timedemo variable
+	if (arg > 0) // rewind forward (simple)
+		return;
+
+	f = cls.demofile;
+	FS_Seek(f, 0, SEEK_SET);
+	cls.demofile = NULL;
+
+	cls.demostarting = true;
+
+	// disconnect from server
+	CL_Disconnect ();
+
+	// update networking ports (this is mainly just needed at startup)
+	NetConn_UpdateSockets();
+
+	cls.protocol = PROTOCOL_QUAKE;
+
+	cls.demofile = f;
+
+	cls.demoplayback = true;
+	cls.state = ca_connected;
+
+	while ((c = FS_Getc (cls.demofile)) != '\n' && c != EOF);
 
 	cls.demostarting = false;
 }
