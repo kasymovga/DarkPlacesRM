@@ -96,7 +96,7 @@ int FS_CheckNastyPath (const char *path, qboolean isgamedir);
 packfile_t* FS_AddFileToPack (const char* name, pack_t* pack, fs_offset_t offset, fs_offset_t packsize, fs_offset_t realsize, int flags);
 
 extern const char *const fs_checkgamedir_missing; // "(missing)"
-const char *FS_CheckGameDir(const char *gamedir); // returns NULL if nasty, fs_checkgamedir_missing (exact pointer) if missing
+const char *FS_CheckGameDir(const char *gamedir, char *buf, int buflen); // returns NULL if nasty, fs_checkgamedir_missing (exact pointer) if missing
 
 typedef struct
 {

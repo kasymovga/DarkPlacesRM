@@ -3517,6 +3517,7 @@ static void ModList_RebuildList(void)
 {
 	int i,j;
 	stringlist_t list;
+	char infobuf[1024];
 
 	stringlistinit(&list);
 	listdirectory(&list, fs_basedir, "");
@@ -3531,7 +3532,7 @@ static void ModList_RebuildList(void)
 		if (gamedirname1 && !strcasecmp(gamedirname1, list.strings[i])) continue;
 		//if (gamedirname2 && !strcasecmp(gamedirname2, list.strings[i])) continue;
 		if (FS_CheckNastyPath (list.strings[i], true)) continue;
-		if (!FS_CheckGameDir(list.strings[i])) continue;
+		if (!FS_CheckGameDir(list.strings[i], infobuf, sizeof(infobuf))) continue;
 
 		strlcpy (modlist[modlist_count].dir, list.strings[i], sizeof(modlist[modlist_count].dir));
 		//check currently loaded mods

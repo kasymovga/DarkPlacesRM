@@ -1437,6 +1437,7 @@ qboolean FS_ChangeGameDirs(int numgamedirs, char gamedirs[][MAX_QPATH], qboolean
 {
 	int i;
 	const char *p;
+	char infobuf[1024];
 
 	if (fs_numgamedirs == numgamedirs)
 	{
@@ -1457,7 +1458,7 @@ qboolean FS_ChangeGameDirs(int numgamedirs, char gamedirs[][MAX_QPATH], qboolean
 	for (i = 0;i < numgamedirs;i++)
 	{
 		// if string is nasty, reject it
-		p = FS_CheckGameDir(gamedirs[i]);
+		p = FS_CheckGameDir(gamedirs[i], infobuf, sizeof(infobuf));
 		if(!p)
 		{
 			if (complain)
@@ -1547,7 +1548,7 @@ static const char *FS_SysCheckGameDir(const char *gamedir, char *buf, size_t buf
 	qfile_t *f;
 	stringlist_t list;
 	fs_offset_t n;
-	char vabuf[1024];
+	char vabuf[MAX_OSPATH];
 
 	stringlistinit(&list);
 	listdirectory(&list, gamedir, "");
@@ -1579,22 +1580,20 @@ static const char *FS_SysCheckGameDir(const char *gamedir, char *buf, size_t buf
 FS_CheckGameDir
 ================
 */
-const char *FS_CheckGameDir(const char *gamedir)
+const char *FS_CheckGameDir(const char *gamedir, char *buf, int buflen)
 {
 	const char *ret;
-	char buf[8192];
-	char vabuf[1024];
+	char vabuf[MAX_OSPATH];
 
 	if (FS_CheckNastyPath(gamedir, true))
 		return NULL;
-
-	ret = FS_SysCheckGameDir(va(vabuf, sizeof(vabuf), "%s%s/", fs_userdir, gamedir), buf, sizeof(buf));
+	ret = FS_SysCheckGameDir(va(vabuf, sizeof(vabuf), "%s%s/", fs_userdir, gamedir), buf, buflen);
 	if(ret)
 	{
 		if(!*ret)
 		{
 			// get description from basedir
-			ret = FS_SysCheckGameDir(va(vabuf, sizeof(vabuf), "%s%s/", fs_basedir, gamedir), buf, sizeof(buf));
+			ret = FS_SysCheckGameDir(va(vabuf, sizeof(vabuf), "%s%s/", fs_basedir, gamedir), buf, buflen);
 			if(ret)
 				return ret;
 			return "";
@@ -1602,7 +1601,7 @@ const char *FS_CheckGameDir(const char *gamedir)
 		return ret;
 	}
 
-	ret = FS_SysCheckGameDir(va(vabuf, sizeof(vabuf), "%s%s/", fs_basedir, gamedir), buf, sizeof(buf));
+	ret = FS_SysCheckGameDir(va(vabuf, sizeof(vabuf), "%s%s/", fs_basedir, gamedir), buf, buflen);
 	if(ret)
 		return ret;
 	
@@ -1614,6 +1613,7 @@ static void FS_ListGameDirs(void)
 	stringlist_t list, list2;
 	int i;
 	const char *info;
+	char infobuf[1024];
 
 	fs_all_gamedirs_count = 0;
 	if(fs_all_gamedirs)
@@ -1630,7 +1630,7 @@ static void FS_ListGameDirs(void)
 		if(i)
 			if(!strcmp(list.strings[i-1], list.strings[i]))
 				continue;
-		info = FS_CheckGameDir(list.strings[i]);
+		info = FS_CheckGameDir(list.strings[i], infobuf, sizeof(infobuf));
 		if(!info)
 			continue;
 		if(info == fs_checkgamedir_missing)
@@ -1644,7 +1644,7 @@ static void FS_ListGameDirs(void)
 	fs_all_gamedirs = (gamedir_t *)Mem_Alloc(fs_mempool, list2.numstrings * sizeof(*fs_all_gamedirs));
 	for(i = 0; i < list2.numstrings; ++i)
 	{
-		info = FS_CheckGameDir(list2.strings[i]);
+		info = FS_CheckGameDir(list2.strings[i], infobuf, sizeof(infobuf));
 		// all this cannot happen any more, but better be safe than sorry
 		if(!info)
 			continue;
@@ -1908,6 +1908,7 @@ FS_Init
 void FS_Init (void)
 {
 	const char *p;
+	char infobuf[1024];
 	int i;
 #ifdef WIN32
 	unsigned int r;
@@ -2079,13 +2080,13 @@ void FS_Init (void)
     
 	FS_ListGameDirs();
 
-	p = FS_CheckGameDir(gamedirname1);
+	p = FS_CheckGameDir(gamedirname1, infobuf, sizeof(infobuf));
 	if(!p || p == fs_checkgamedir_missing)
 		Con_Printf("WARNING: base gamedir %s%s/ not found!\n", fs_basedir, gamedirname1);
 
 	if(gamedirname2)
 	{
-		p = FS_CheckGameDir(gamedirname2);
+		p = FS_CheckGameDir(gamedirname2, infobuf, sizeof(infobuf));
 		if(!p || p == fs_checkgamedir_missing)
 			Con_Printf("WARNING: base gamedir %s%s/ not found!\n", fs_basedir, gamedirname2);
 	}
@@ -2100,7 +2101,7 @@ void FS_Init (void)
 		if (!strcmp (com_argv[i], "-game") && i < com_argc-1)
 		{
 			i++;
-			p = FS_CheckGameDir(com_argv[i]);
+			p = FS_CheckGameDir(com_argv[i], infobuf, sizeof(infobuf));
 			if(!p)
 				Sys_Error("Nasty -game name rejected: %s", com_argv[i]);
 			if(p == fs_checkgamedir_missing)
