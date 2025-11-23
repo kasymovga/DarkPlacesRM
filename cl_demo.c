@@ -503,7 +503,7 @@ void CL_Record_f (void)
 ====================
 CL_PlayDemo_f
 
-play <demoname> [starttime]
+playdemo <demoname> [starttime]
 ====================
 */
 void CL_PlayDemo_f (void)
@@ -516,7 +516,7 @@ void CL_PlayDemo_f (void)
 
 	if (argc < 2 || argc > 3)
 	{
-		Con_Print("play <demoname> [starttime|rewindtime] : plays a demo\n");
+		Con_Print("playdemo <demoname> [starttime] : plays a demo\n");
 		return;
 	}
 	if (argc == 3)
