@@ -66,6 +66,7 @@ cvar_t scr_screenshot_timestamp = {CVAR_SAVE, "scr_screenshot_timestamp", "1", "
 // scr_screenshot_name is defined in fs.c
 #ifdef CONFIG_VIDEO_CAPTURE
 cvar_t cl_capturevideo = {0, "cl_capturevideo", "0", "enables saving of video to a .avi file using uncompressed I420 colorspace and PCM audio, note that scr_screenshot_gammaboost affects the brightness of the output)"};
+cvar_t cl_capturevideo_game_only = {0, "cl_capturevideo_game_only", "0", "capture only game screen (without menu, console, etc)"};
 cvar_t cl_capturevideo_demo_stop = {CVAR_SAVE, "cl_capturevideo_demo_stop", "1", "automatically stops video recording when demo ends"};
 cvar_t cl_capturevideo_printfps = {CVAR_SAVE, "cl_capturevideo_printfps", "1", "prints the frames per second captured in capturevideo (is only written to the log file, not to the console, as that would be visible on the video)"};
 cvar_t cl_capturevideo_width = {CVAR_SAVE, "cl_capturevideo_width", "0", "scales all frames to this resolution before saving the video"};
@@ -1379,6 +1380,7 @@ void CL_Screen_Init(void)
 	Cvar_RegisterVariable (&scr_screenshot_timestamp);
 #ifdef CONFIG_VIDEO_CAPTURE
 	Cvar_RegisterVariable (&cl_capturevideo);
+	Cvar_RegisterVariable (&cl_capturevideo_game_only);
 	Cvar_RegisterVariable (&cl_capturevideo_demo_stop);
 	Cvar_RegisterVariable (&cl_capturevideo_printfps);
 	Cvar_RegisterVariable (&cl_capturevideo_width);
@@ -2253,6 +2255,10 @@ static void SCR_DrawScreen (void)
 		SCR_CheckDrawCenterString();
 	}
 	SCR_DrawNetGraph ();
+#ifdef CONFIG_VIDEO_CAPTURE
+	if (cl_capturevideo_game_only.integer && !R_Stereo_Active())
+		SCR_CaptureVideo();
+#endif
 #ifdef CONFIG_MENU
 	MR_Draw();
 #endif
@@ -2946,7 +2952,8 @@ void CL_UpdateScreen(void)
 	}
 
 #ifdef CONFIG_VIDEO_CAPTURE
-	SCR_CaptureVideo();
+	if (!cl_capturevideo_game_only.integer || R_Stereo_Active())
+		SCR_CaptureVideo();
 #endif
 
 	if (qglFlush)
