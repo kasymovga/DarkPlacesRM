@@ -113,6 +113,7 @@ cvar_t r_speeds_graph_width = {CVAR_SAVE, "r_speeds_graph_width", "256", "size o
 cvar_t r_speeds_graph_height = {CVAR_SAVE, "r_speeds_graph_height", "128", "size of graph"};
 cvar_t r_speeds_graph_maxtimedelta = {CVAR_SAVE, "r_speeds_graph_maxtimedelta", "16667", "maximum timedelta to display in the graph (this value will be the top line)"};
 cvar_t r_speeds_graph_maxdefault = {CVAR_SAVE, "r_speeds_graph_maxdefault", "100", "if the minimum and maximum observed values are closer than this, use this value as the graph range (keeps small numbers from being big graphs)"};
+cvar_t menu_no_hide_chat = {0, "menu_no_hide_chat", "0", "show notify and chat messages when menu is active"};
 
 
 
@@ -1417,6 +1418,7 @@ void CL_Screen_Init(void)
 	Cvar_RegisterVariable(&r_speeds_graph_height);
 	Cvar_RegisterVariable(&r_speeds_graph_maxtimedelta);
 	Cvar_RegisterVariable(&r_speeds_graph_maxdefault);
+	Cvar_RegisterVariable(&menu_no_hide_chat);
 
 	// if we want no console, turn it off here too
 	if (COM_CheckParm ("-noconsole"))
@@ -2241,7 +2243,7 @@ static void SCR_DrawScreen (void)
 
 	// draw 2D stuff
 	if(!scr_con_current && !(key_consoleactive & KEY_CONSOLEACTIVE_FORCED))
-		if ((key_dest == key_game || key_dest == key_message) && !r_letterbox.value)
+		if ((key_dest == key_game || key_dest == key_message || (key_dest == key_menu && menu_no_hide_chat.integer)) && !r_letterbox.value)
 			Con_DrawNotify ();	// only draw notify in game
 
 	if (cls.signon == SIGNONS)
