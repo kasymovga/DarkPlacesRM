@@ -1638,7 +1638,7 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 				blendfuncflags = R_BlendFuncFlags(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			}
 		}
-		else if (rsurface.texture->currentmaterialflags & MATERIALFLAG_REFRACTION)
+		else if (rsurface.texture->currentmaterialflags & (MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
 		{
 			mode = SHADERMODE_REFRACTION;
 			if (rsurface.texture->currentmaterialflags & MATERIALFLAG_ALPHAGEN_VERTEX)
@@ -4954,10 +4954,14 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 	}
 	// merge this surface's materialflags into the waterplane
 	p->materialflags |= t->currentmaterialflags;
+	p->fogcolor[0] = t->fogcolor[0];
+	p->fogcolor[1] = t->fogcolor[1];
+	p->fogcolor[2] = t->fogcolor[2];
+	p->fogdensity = t->fogdensity;
 	if(!(p->materialflags & MATERIALFLAG_CAMERA))
 	{
 		// merge this surface's PVS into the waterplane
-		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION) && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS
+		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION) && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS
 		 && r_refdef.scene.worldmodel->brush.PointInLeaf && r_refdef.scene.worldmodel->brush.PointInLeaf(r_refdef.scene.worldmodel, center)->clusterindex >= 0)
 		{
 			r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, center, VectorDistance(p->mins, p->maxs) / 2, p->pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes, p->pvsvalid);
@@ -4975,6 +4979,45 @@ static void R_Water_ClippingBias(void)
 		r_refdef.view.clipplane.dist -= r_water_clippingplanebias.value;
 	else
 		r_refdef.view.clipplane.dist = 0.5 * (r_refdef.view.clipplane.dist + viewdist);
+}
+
+static void R_Water_FogSetup(float color[3], float density, float height)
+{
+	r_refdef.fog_density = 1;
+	r_refdef.fog_alpha = 0.75;
+	r_refdef.fog_start = 0;
+	r_refdef.fog_end = max(density, 1);
+	r_refdef.fog_red = color[0];
+	r_refdef.fog_green = color[1];
+	r_refdef.fog_blue = color[2];
+	r_refdef.fog_height = height;
+	r_refdef.fog_fadedepth = 16;
+}
+
+static void R_Water_FogSave(float fogstate[9])
+{
+	fogstate[0] = r_refdef.fog_density;
+	fogstate[1] = r_refdef.fog_alpha;
+	fogstate[2] = r_refdef.fog_start;
+	fogstate[3] = r_refdef.fog_end;
+	fogstate[4] = r_refdef.fog_red;
+	fogstate[5] = r_refdef.fog_green;
+	fogstate[6] = r_refdef.fog_blue;
+	fogstate[7] = r_refdef.fog_height;
+	fogstate[8] = r_refdef.fog_fadedepth;
+}
+
+static void R_Water_FogLoad(float fogstate[9])
+{
+	r_refdef.fog_density = fogstate[0];
+	r_refdef.fog_alpha = fogstate[1];
+	r_refdef.fog_start = fogstate[2];
+	r_refdef.fog_end = fogstate[3];
+	r_refdef.fog_red = fogstate[4];
+	r_refdef.fog_green = fogstate[5];
+	r_refdef.fog_blue = fogstate[6];
+	r_refdef.fog_height = fogstate[7];
+	r_refdef.fog_fadedepth = fogstate[8];
 }
 
 static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
@@ -4995,7 +5038,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	{
 		if (r_water_cameraentitiesonly.value != 0 && !p->camera_entity)
 			continue;
-		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION))
+		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
 		{
 			if (!p->texture_refraction)
 				p->texture_refraction = R_LoadTexture2D(r_main_texturepool, va(vabuf, sizeof(vabuf), "waterplane%i_refraction", planeindex), r_fb.water.texturewidth, r_fb.water.textureheight, NULL, r_fb.textype, TEXF_RENDERTARGET | TEXF_FORCELINEAR | TEXF_CLAMP, -1, NULL);
@@ -5109,8 +5152,9 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 
 		// render the normal view scene and copy into texture
 		// (except that a clipping plane should be used to hide everything on one side of the water, and the viewer's weapon model should be omitted)
-		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION))
+		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
 		{
+			float fogstate[9];
 			r_refdef.view = myview;
 			if(r_water_scissormode.integer)
 			{
@@ -5156,6 +5200,13 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			PlaneClassify(&r_refdef.view.clipplane);
 
 			R_ResetViewRendering3D(p->fbo_refraction, r_fb.water.depthtexture, p->texture_refraction);
+			if (p->materialflags & MATERIALFLAG_FOG)
+			{
+				//fog
+				R_Water_FogSave(fogstate);
+				R_Water_FogSetup(p->fogcolor, p->fogdensity, p->maxs[2]);
+				R_UpdateFog();
+			}
 			R_ClearScreen(r_refdef.fogenabled);
 			if(r_water_scissormode.integer & 2 && r_fb.water.numwaterplanes == 1) //why it's not working correctly with more than 1 water plane?
 				R_View_UpdateWithScissor(myscissor);
@@ -5169,6 +5220,12 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			if (!p->fbo_refraction)
 				R_Mesh_CopyToTexture(p->texture_refraction, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
 			r_fb.water.hideplayer = false;
+			if (p->materialflags & MATERIALFLAG_FOG)
+			{
+				//fog
+				R_Water_FogLoad(fogstate);
+				R_UpdateFog();
+			}
 		}
 		else if (p->materialflags & MATERIALFLAG_CAMERA)
 		{
@@ -6159,12 +6216,35 @@ void R_RenderScene(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 {
 	qboolean shadowmapping = false;
 	qboolean lowquality = (r_refdef.view.camera && r_water_lowquality.integer >= 2);
+	qboolean inside_fog = false;
+	float fogstate[9];
 
 	if (r_timereport_active)
 		R_TimeReport("beginscene");
 
+	if (r_water.integer && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brushq3.num_fogs > 0 && !r_fb.water.renderingscene)
+	{
+		q3mfog_t *fog;
+		int i;
+		float near = r_nearclip.value * 2;
+		for (i = 0; i < r_refdef.scene.worldmodel->brushq3.num_fogs; i++)
+		{
+			fog = &r_refdef.scene.worldmodel->brushq3.data_fogs[i];
+			if (r_refdef.view.origin[0] >= fog->mins[0] - near &&
+					r_refdef.view.origin[0] <= fog->maxs[0] + near &&
+					r_refdef.view.origin[1] >= fog->mins[1] - near &&
+					r_refdef.view.origin[1] <= fog->maxs[1] + near &&
+					r_refdef.view.origin[2] >= fog->mins[2] - near &&
+					r_refdef.view.origin[2] <= fog->maxs[2] + near)
+			{
+				R_Water_FogSave(fogstate);
+				R_Water_FogSetup(fog->color, fog->density, fog->maxs[2]);
+				inside_fog = true;
+				break;
+			}
+		}
+	}
 	r_refdef.stats[r_stat_renders]++;
-
 	R_UpdateFog();
 
 	// don't let sound skip if going slow
@@ -6393,6 +6473,12 @@ void R_RenderScene(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 	// don't let sound skip if going slow
 	if (r_refdef.scene.extraupdate)
 		S_ExtraUpdate ();
+
+	if (inside_fog)
+	{
+		//fog
+		R_Water_FogLoad(fogstate);
+	}
 }
 
 static const unsigned short bboxelements[36] =
@@ -6989,7 +7075,16 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 	if(t->basematerialflags & MATERIALFLAG_WATERSHADER && r_fb.water.enabled && !r_refdef.view.isoverlay)
 		t->currentmaterialflags |= MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_NOSHADOW; // we apply wateralpha later
 	if(!r_fb.water.enabled || r_refdef.view.isoverlay)
-		t->currentmaterialflags &= ~(MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA);
+	{
+		if (t->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
+		{
+			if (!t->basetexture || t->basetexture == r_texture_notexture)
+			{
+				t->currentmaterialflags |= MATERIALFLAG_NODRAW;
+			}
+			t->currentmaterialflags &= ~(MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG);
+		}
+	}
 	if (!(rsurface.ent_flags & RENDER_LIGHT))
 		t->currentmaterialflags |= MATERIALFLAG_FULLBRIGHT;
 	else if (FAKELIGHT_ENABLED)
@@ -7019,11 +7114,11 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 		t->currentmaterialflags |= MATERIALFLAG_VERTEXTEXTUREBLEND;
 	if (t->currentmaterialflags & MATERIALFLAG_BLENDED)
 	{
-		if (t->currentmaterialflags & (MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA))
+		if (t->currentmaterialflags & (MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
 			t->currentmaterialflags &= ~MATERIALFLAG_BLENDED;
 	}
 	else
-		t->currentmaterialflags &= ~(MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA);
+		t->currentmaterialflags &= ~(MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG);
 	if (vid.allowalphatocoverage && r_transparent_alphatocoverage.integer >= 2 && ((t->currentmaterialflags & (MATERIALFLAG_BLENDED | MATERIALFLAG_ALPHA | MATERIALFLAG_ADD | MATERIALFLAG_CUSTOMBLEND)) == (MATERIALFLAG_BLENDED | MATERIALFLAG_ALPHA)))
 	{
 		// promote alphablend to alphatocoverage (a type of alphatest) if antialiasing is on
@@ -7870,7 +7965,7 @@ void RSurf_PrepareVerticesForBatch(int batchneed, int texturenumsurfaces, const 
 		}
 		dynamicvertex = true;
 	}
-	if (r_deformvertexes.integer && (!r_water.integer || !(rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))))
+	if (r_deformvertexes.integer && (!r_water.integer || !(rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))))
 		maxdeforms = Q3MAXDEFORMS;
 	else
 		maxdeforms = 0;
@@ -9268,7 +9363,7 @@ extern rtexture_t *r_shadow_prepasslightingdiffusetexture;
 extern rtexture_t *r_shadow_prepasslightingspeculartexture;
 static void R_DrawTextureSurfaceList_GL20(int texturenumsurfaces, const msurface_t **texturesurfacelist, qboolean writedepth, qboolean prepass)
 {
-	if (r_fb.water.renderingscene && (rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA)))
+	if (r_fb.water.renderingscene && (rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG)))
 		return;
 	if (prepass)
 	{
@@ -9282,7 +9377,7 @@ static void R_DrawTextureSurfaceList_GL20(int texturenumsurfaces, const msurface
 	// bind lightmap texture
 
 	// water/refraction/reflection/camera surfaces have to be handled specially
-	if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA | MATERIALFLAG_REFLECTION)))
+	if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA | MATERIALFLAG_REFLECTION | MATERIALFLAG_FOG)))
 	{
 		int start, end, startplaneindex;
 		for (start = 0;start < texturenumsurfaces;start = end)
@@ -9298,7 +9393,7 @@ static void R_DrawTextureSurfaceList_GL20(int texturenumsurfaces, const msurface
 			for (end = start + 1;end < texturenumsurfaces && startplaneindex == RSurf_FindWaterPlaneForSurface(texturesurfacelist[end]);end++)
 				;
 			// now that we have a batch using the same planeindex, render it
-			if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA)))
+			if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG)))
 			{
 				// render water or distortion background
 				GL_DepthMask(true);
@@ -9306,8 +9401,11 @@ static void R_DrawTextureSurfaceList_GL20(int texturenumsurfaces, const msurface
 				RSurf_DrawBatch();
 				// blend surface on top
 				GL_DepthMask(false);
-				R_SetupShader_Surface(vec3_origin, (rsurface.texture->currentmaterialflags & MATERIALFLAG_MODELLIGHT) != 0, 1, 1, rsurface.texture->specularscale, RSURFPASS_BASE, end-start, texturesurfacelist + start, NULL, false);
-				RSurf_DrawBatch();
+				if (rsurface.texture->basetexture != r_texture_notexture) // fog often don't have surface to draw
+				{
+					R_SetupShader_Surface(vec3_origin, (rsurface.texture->currentmaterialflags & MATERIALFLAG_MODELLIGHT) != 0, 1, 1, rsurface.texture->specularscale, RSURFPASS_BASE, end-start, texturesurfacelist + start, NULL, false);
+					RSurf_DrawBatch();
+				}
 			}
 			else if ((rsurface.texture->currentmaterialflags & MATERIALFLAG_REFLECTION))
 			{
@@ -10485,7 +10583,7 @@ static void R_DecalSystem_SplatEntity(entity_render_t *ent, const vec3_t worldor
 			surfaceindex = bih_surfaces[triangleindex];
 			surface = surfaces + surfaceindex;
 			texture = surface->texture;
-			if (texture->currentmaterialflags & (MATERIALFLAG_BLENDED | MATERIALFLAG_NODEPTHTEST | MATERIALFLAG_SKY | MATERIALFLAG_SHORTDEPTHRANGE | MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION))
+			if (texture->currentmaterialflags & (MATERIALFLAG_BLENDED | MATERIALFLAG_NODEPTHTEST | MATERIALFLAG_SKY | MATERIALFLAG_SHORTDEPTHRANGE | MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
 				continue;
 			if (texture->surfaceflags & Q3SURFACEFLAG_NOMARKS)
 				continue;
@@ -10503,7 +10601,7 @@ static void R_DecalSystem_SplatEntity(entity_render_t *ent, const vec3_t worldor
 				continue;
 			// skip transparent surfaces
 			texture = surface->texture;
-			if (texture->currentmaterialflags & (MATERIALFLAG_BLENDED | MATERIALFLAG_NODEPTHTEST | MATERIALFLAG_SKY | MATERIALFLAG_SHORTDEPTHRANGE | MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION))
+			if (texture->currentmaterialflags & (MATERIALFLAG_BLENDED | MATERIALFLAG_NODEPTHTEST | MATERIALFLAG_SKY | MATERIALFLAG_SHORTDEPTHRANGE | MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
 				continue;
 			if (texture->surfaceflags & Q3SURFACEFLAG_NOMARKS)
 				continue;

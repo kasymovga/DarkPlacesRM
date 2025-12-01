@@ -474,7 +474,7 @@ void R_Q1BSP_DrawAddWaterPlanes(entity_render_t *ent)
 		RSurf_ActiveModelEntity(ent, true, false, false);
 
 	surfaces = model->data_surfaces;
-	flagsmask = MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA;
+	flagsmask = MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG;
 
 	// add visible surfaces to draw list
 	if (ent == r_refdef.scene.worldentity)
@@ -1345,7 +1345,7 @@ void R_Q1BSP_DrawLight(entity_render_t *ent, int numsurfaces, const int *surface
 			// VorteX: added MATERIALFLAG_NORTLIGHT
 			if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WALL | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NORTLIGHT)) != MATERIALFLAG_WALL)
 				continue;
-			if (r_fb.water.renderingscene && (rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA)))
+			if (r_fb.water.renderingscene && (rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG)))
 				continue;
 			if (rsurface.texture->currentmaterialflags & MATERIALFLAGMASK_DEPTHSORTED)
 			{

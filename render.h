@@ -508,6 +508,8 @@ typedef struct r_waterstate_waterplane_s
 	qboolean pvsvalid;
 	int camera_entity;
 	vec3_t mins, maxs;
+	float fogcolor[3];
+	float fogdensity;
 }
 r_waterstate_waterplane_t;
 

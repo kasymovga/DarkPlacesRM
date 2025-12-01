@@ -480,6 +480,9 @@ typedef struct q3shaderinfo_s
 	float specularscalemod;
 	float specularpowermod;
 
+	float fogcolor[3];
+	float fogdensity;
+
 	// rtlighting ambient addition
 	float rtlightambient;
 #define Q3SHADERINFO_COMPARE_END rtlightambient
@@ -643,6 +646,9 @@ typedef struct texture_s
 	float specularscalemod;
 	float specularpowermod;
 
+	float fogcolor[3];
+	float fogdensity;
+
 	// diffuse and ambient
 	float rtlightambient;
 }
@@ -678,7 +684,6 @@ typedef struct msurface_lightmapinfo_s
 }
 msurface_lightmapinfo_t;
 
-struct q3deffect_s;
 typedef struct msurface_s
 {
 	// bounding box for onscreen checks
@@ -693,7 +698,7 @@ typedef struct msurface_s
 	// lightmaptexture rebuild information not used in q3bsp
 	msurface_lightmapinfo_t *lightmapinfo; // q1bsp
 	// fog volume info in q3bsp
-	struct q3deffect_s *effect; // q3bsp
+	struct q3mfog_s *effect; // q3bsp
 	// mesh information for collisions (only used by q3bsp curves)
 	int num_firstcollisiontriangle;
 	int *deprecatedq3data_collisionelement3i; // q3bsp
@@ -909,8 +914,8 @@ typedef struct model_brushq3_s
 	int num_triangles;
 	int *data_element3i;
 
-	int num_effects;
-	q3deffect_t *data_effects;
+	int num_fogs;
+	q3mfog_t *data_fogs;
 
 	// lightmap textures
 	int num_originallightmaps;

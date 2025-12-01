@@ -3726,7 +3726,7 @@ void Mod_Q1BSP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 				mod->DrawSky = R_Q1BSP_DrawSky;
 
 			for (j = 0, surface = &mod->data_surfaces[mod->firstmodelsurface];j < mod->nummodelsurfaces;j++, surface++)
-				if (surface->texture->basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
+				if (surface->texture->basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
 					break;
 			if (j < mod->nummodelsurfaces)
 				mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
@@ -4719,7 +4719,7 @@ static void Mod_Q2BSP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 				mod->DrawSky = R_Q1BSP_DrawSky;
 
 			for (j = 0, surface = &mod->data_surfaces[mod->firstmodelsurface];j < mod->nummodelsurfaces;j++, surface++)
-				if (surface->texture->basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
+				if (surface->texture->basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
 					break;
 			if (j < mod->nummodelsurfaces)
 				mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
@@ -5030,30 +5030,58 @@ static void Mod_Q3BSP_LoadBrushes(dp_model_t *loadmodel, lump_t *l)
 
 static void Mod_Q3BSP_LoadEffects(dp_model_t *loadmodel, lump_t *l)
 {
-	q3deffect_t *in;
-	q3deffect_t *out;
-	int i, n, count;
+	q3dfog_t *in;
+	q3mfog_t *out;
+	int i, n, count, j;
+	q3mbrush_t *brush;
+	mplane_t *plane;
+	q3shaderinfo_t *shader;
 
-	in = (q3deffect_t *)(mod_base + l->fileofs);
+	in = (q3dfog_t *)(mod_base + l->fileofs);
 	if (l->filelen % sizeof(*in))
 		MODEL_LOAD_ERROR("funny lump size");
 	count = l->filelen / sizeof(*in);
-	out = (q3deffect_t *)Mem_Alloc(loadmodel->mempool, count * sizeof(*out));
+	out = (q3mfog_t *)Mem_Alloc(loadmodel->mempool, count * sizeof(*out));
 
-	loadmodel->brushq3.data_effects = out;
-	loadmodel->brushq3.num_effects = count;
+	loadmodel->brushq3.data_fogs = out;
+	loadmodel->brushq3.num_fogs = count;
 
 	for (i = 0;i < count;i++, in++, out++)
 	{
-		strlcpy (out->shadername, in->shadername, sizeof (out->shadername));
 		n = LittleLong(in->brushindex);
 		if (n >= loadmodel->brush.num_brushes)
 		{
 			Con_Printf("Mod_Q3BSP_LoadEffects: invalid brushindex %i (%i brushes), setting to -1\n", n, loadmodel->brush.num_brushes);
 			n = -1;
 		}
-		out->brushindex = n;
-		out->unknown = LittleLong(in->unknown);
+		//out->brushindex = n;
+		//out->unknown = LittleLong(in->unknown);
+		if (n < 0) continue;
+		shader = Mod_LookupQ3Shader(in->shadername);
+		if (!shader) continue;
+		brush = &loadmodel->brush.data_brushes[n];
+		for (j = 0; j < brush->numbrushsides; j++)
+		{
+			plane = brush->firstbrushside[j].plane;
+			if (plane->normal[0] == 1.f)
+				out->maxs[0] = plane->dist;
+			else if (plane->normal[0] == -1.f)
+				out->mins[0] = -plane->dist;
+			else if (plane->normal[1] == 1.f)
+				out->maxs[1] = plane->dist;
+			else if (plane->normal[1] == -1.f)
+				out->mins[1] = -plane->dist;
+			else if (plane->normal[2] == 1.f)
+				out->maxs[2] = plane->dist;
+			else if (plane->normal[2] == -1.f)
+				out->mins[2] = -plane->dist;
+		}
+		out->color[0] = shader->fogcolor[0];
+		out->color[1] = shader->fogcolor[1];
+		out->color[2] = shader->fogcolor[2];
+		out->density = shader->fogdensity;
+		//Con_Printf("Fog area: (%f, %f, %f) (%f, %f, %f) %s\n", out->mins[0],
+		//		out->mins[1], out->mins[2], out->maxs[0], out->maxs[1], out->maxs[2], in->shadername);
 	}
 }
 
@@ -5570,16 +5598,16 @@ static void Mod_Q3BSP_LoadFaces(dp_model_t *loadmodel, lump_t *l)
 		}
 		out->texture = loadmodel->data_textures + n;
 		n = LittleLong(in->effectindex);
-		if (n < -1 || n >= loadmodel->brushq3.num_effects)
+		if (n < -1 || n >= loadmodel->brushq3.num_fogs)
 		{
 			if (developer_extra.integer)
-				Con_DPrintf("Mod_Q3BSP_LoadFaces: face #%i (texture \"%s\"): invalid effectindex %i (%i effects)\n", i, out->texture->name, n, loadmodel->brushq3.num_effects);
+				Con_DPrintf("Mod_Q3BSP_LoadFaces: face #%i (texture \"%s\"): invalid effectindex %i (%i effects)\n", i, out->texture->name, n, loadmodel->brushq3.num_fogs);
 			n = -1;
 		}
 		if (n == -1)
 			out->effect = NULL;
 		else
-			out->effect = loadmodel->brushq3.data_effects + n;
+			out->effect = loadmodel->brushq3.data_fogs + n;
 		#ifndef CONFIG_SV
 		if (cls.state != ca_dedicated)
 		{
@@ -7694,7 +7722,7 @@ static void Mod_Q3BSP_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 			mod->DrawSky = R_Q1BSP_DrawSky;
 
 		for (j = 0;j < mod->nummodelsurfaces;j++)
-			if (mod->data_surfaces[j + mod->firstmodelsurface].texture->basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
+			if (mod->data_surfaces[j + mod->firstmodelsurface].texture->basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
 				break;
 		if (j < mod->nummodelsurfaces)
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
@@ -8354,7 +8382,7 @@ void Mod_OBJ_Load(dp_model_t *loadmodel, void *buffer, void *bufferend)
 			mod->DrawSky = R_Q1BSP_DrawSky;
 
 		for (j = 0;j < mod->nummodelsurfaces;j++)
-			if (mod->data_surfaces[j + mod->firstmodelsurface].texture->basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
+			if (mod->data_surfaces[j + mod->firstmodelsurface].texture->basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
 				break;
 		if (j < mod->nummodelsurfaces)
 			mod->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;

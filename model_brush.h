@@ -113,6 +113,8 @@ mplane_t;
 #define MATERIALFLAG_REFRACTION 524288
 // render reflection
 #define MATERIALFLAG_REFLECTION 1048576
+// render fog
+#define MATERIALFLAG_FOG 2097152
 // use model lighting on this material (q1bsp lightmap sampling or q3bsp lightgrid, implies FULLBRIGHT is false)
 #define MATERIALFLAG_MODELLIGHT 4194304
 // add directional model lighting to this material (q3bsp lightgrid only)
@@ -132,7 +134,7 @@ mplane_t;
 // combined mask of all attributes that require depth sorted rendering
 #define MATERIALFLAGMASK_DEPTHSORTED (MATERIALFLAG_BLENDED | MATERIALFLAG_NODEPTHTEST)
 // combined mask of all attributes that cause some sort of transparency
-#define MATERIALFLAGMASK_TRANSLUCENT (MATERIALFLAG_WATERALPHA | MATERIALFLAG_SKY | MATERIALFLAG_NODRAW | MATERIALFLAG_ALPHATEST | MATERIALFLAG_BLENDED | MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION)
+#define MATERIALFLAGMASK_TRANSLUCENT (MATERIALFLAG_WATERALPHA | MATERIALFLAG_SKY | MATERIALFLAG_NODRAW | MATERIALFLAG_ALPHATEST | MATERIALFLAG_BLENDED | MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG)
 
 typedef struct medge_s
 {
@@ -526,13 +528,22 @@ typedef struct q3dmeshvertex_s
 }
 q3dmeshvertex_t;
 
-typedef struct q3deffect_s
+typedef struct q3dfog_s
 {
 	char shadername[Q3PATHLENGTH];
 	int brushindex;
 	int unknown; // I read this is always 5 except in q3dm8 which has one effect with -1
 }
-q3deffect_t;
+q3dfog_t;
+
+typedef struct q3mfog_s
+{
+	float mins[3];
+	float maxs[3];
+	float color[3];
+	float density;
+}
+q3mfog_t;
 
 #define Q3FACETYPE_FLAT 1 // common
 #define Q3FACETYPE_PATCH 2 // common

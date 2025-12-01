@@ -1057,7 +1057,7 @@ static void Mod_Alias_Finalize(dp_model_t *loadmodel)
 	{
 		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_SKY))
 			loadmodel->DrawSky = R_Q1BSP_DrawSky;
-		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA))
+		if (loadmodel->data_textures[i].basematerialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
 			loadmodel->DrawAddWaterPlanes = R_Q1BSP_DrawAddWaterPlanes;
 	}
 	#endif
