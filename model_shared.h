@@ -632,7 +632,6 @@ typedef struct texture_s
 	vec4_t reflectcolor4f; // color tint of reflection (including alpha factor)
 	float r_water_wateralpha; // additional wateralpha to apply when r_water is active
 	float r_water_waterscroll[2]; // scale and speed
-	int camera_entity; // entity number for use by cameras
 
 	// offsetmapping
 	dpoffsetmapping_technique_t offsetmapping;

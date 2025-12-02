@@ -351,7 +351,7 @@ static void R_View_WorldVisibility_CullSurfaces(void)
 			surfacevisible[surfaceindex] = 0;
 }
 
-void R_View_WorldVisibility(qboolean forcenovis)
+void R_View_WorldVisibility(void)
 {
 	int i, j, *mark;
 	mleaf_t *leaf;
@@ -401,7 +401,7 @@ void R_View_WorldVisibility(qboolean forcenovis)
 
 		// if floating around in the void (no pvs data available, and no
 		// portals available), simply use all on-screen leafs.
-		if (!viewleaf || viewleaf->clusterindex < 0 || forcenovis)
+		if (!viewleaf || viewleaf->clusterindex < 0)
 		{
 			// no visibility method: (used when floating around in the void)
 			// simply cull each leaf to the frustum (view pyramid)

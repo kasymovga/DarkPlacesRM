@@ -148,7 +148,7 @@ skinframe_t *R_SkinFrame_LoadMissing(void);
 
 rtexture_t *R_GetCubemap(const char *basename);
 
-void R_View_WorldVisibility(qboolean forcenovis);
+void R_View_WorldVisibility(void);
 void R_DrawDecals(void);
 void R_DrawParticles(void);
 void R_DrawExplosions(void);
@@ -503,13 +503,11 @@ typedef struct r_waterstate_waterplane_s
 	int fbo_reflection;
 	int fbo_camera;
 	mplane_t plane;
-	int materialflags; // combined flags of all water surfaces on this plane
 	unsigned char *pvsbits;
 	qboolean pvsvalid;
 	int camera_entity;
 	vec3_t mins, maxs;
-	float fogcolor[3];
-	float fogdensity;
+	texture_t *texture;
 }
 r_waterstate_waterplane_t;
 

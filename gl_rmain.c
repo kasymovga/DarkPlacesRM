@@ -4606,7 +4606,7 @@ static void R_View_UpdateWithScissor(const int *myscissor)
 {
 	R_Main_ResizeViewCache();
 	R_View_SetFrustum(myscissor);
-	R_View_WorldVisibility(r_refdef.view.useclipplane);
+	R_View_WorldVisibility();
 	R_View_UpdateEntityVisible();
 	R_View_UpdateEntityLighting();
 }
@@ -4615,7 +4615,7 @@ static void R_View_Update(void)
 {
 	R_Main_ResizeViewCache();
 	R_View_SetFrustum(NULL);
-	R_View_WorldVisibility(r_refdef.view.useclipplane);
+	R_View_WorldVisibility();
 	R_View_UpdateEntityVisible();
 	R_View_UpdateEntityLighting();
 }
@@ -4906,7 +4906,7 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 	bestplanescore = 1048576.0f;
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
-		if(p->camera_entity == t->camera_entity)
+		if(p->camera_entity == entno && p->texture == t)
 		{
 			planescore = 1.0f - DotProduct(plane.normal, p->plane.normal) + fabs(plane.dist - p->plane.dist) * 0.001f;
 			if (bestplaneindex < 0 || bestplanescore > planescore)
@@ -4927,11 +4927,10 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 			planeindex = r_fb.water.numwaterplanes++;
 			p = r_fb.water.waterplanes + planeindex;
 			p->plane = plane;
-			// clear materialflags and pvs
-			p->materialflags = 0;
+			p->texture = t;
 			p->pvsvalid = false;
 			p->pvsbits = Mem_Alloc(tempmempool, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
-			p->camera_entity = t->camera_entity;
+			p->camera_entity = entno;
 			VectorCopy(mins, p->mins);
 			VectorCopy(maxs, p->maxs);
 		}
@@ -4952,16 +4951,10 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 		p->maxs[1] = max(p->maxs[1], maxs[1]);
 		p->maxs[2] = max(p->maxs[2], maxs[2]);
 	}
-	// merge this surface's materialflags into the waterplane
-	p->materialflags |= t->currentmaterialflags;
-	p->fogcolor[0] = t->fogcolor[0];
-	p->fogcolor[1] = t->fogcolor[1];
-	p->fogcolor[2] = t->fogcolor[2];
-	p->fogdensity = t->fogdensity;
-	if(!(p->materialflags & MATERIALFLAG_CAMERA))
+	if(!(t->currentmaterialflags & MATERIALFLAG_CAMERA))
 	{
 		// merge this surface's PVS into the waterplane
-		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION) && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS
+		if (t->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION) && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS
 		 && r_refdef.scene.worldmodel->brush.PointInLeaf && r_refdef.scene.worldmodel->brush.PointInLeaf(r_refdef.scene.worldmodel, center)->clusterindex >= 0)
 		{
 			r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, center, VectorDistance(p->mins, p->maxs) / 2, p->pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes, p->pvsvalid);
@@ -5020,6 +5013,38 @@ static void R_Water_FogLoad(float fogstate[9])
 	r_refdef.fog_fadedepth = fogstate[8];
 }
 
+static char* R_Water_PVSChange(char *origpvsbits, r_waterstate_waterplane_t *p, vec3_t visorigin, qboolean *pvschanged)
+{
+	if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.num_pvsclusterbytes)
+	{
+		*pvschanged = true;
+		if (!origpvsbits)
+		{
+			origpvsbits = Mem_Alloc(tempmempool, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+			memcpy(origpvsbits, r_refdef.viewcache.world_pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+		}
+		if (p)
+		{
+			if (p->pvsvalid)
+				memcpy(r_refdef.viewcache.world_pvsbits, p->pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+			else
+				memset(r_refdef.viewcache.world_pvsbits, 0xFF, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+		}
+		else
+			r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes, false);
+	}
+	return origpvsbits;
+}
+
+static void R_Water_PVSRestore(char *origpvsbits, qboolean *pvschanged)
+{
+	if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.num_pvsclusterbytes && *pvschanged)
+	{
+		memcpy(r_refdef.viewcache.world_pvsbits, origpvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+		*pvschanged = false;
+	}
+}
+
 static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 {
 	int myscissor[4];
@@ -5030,21 +5055,22 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	vec3_t visorigin;
 	qboolean usewaterfbo = (r_viewfbo.integer >= 1 || r_water_fbo.integer >= 1) && vid.support.ext_framebuffer_object && (vid.samples < 2 || r_viewscale.value != 1 || r_water_resolutionmultiplier.value != 1 || r_fxaa.integer);
 	char vabuf[1024];
-	char *origpvsbits;
-
-	originalview = r_refdef.view;
+	char *origpvsbits = NULL;
+	int materialflags;
+	qboolean pvschanged = false;
 
 	// make sure enough textures are allocated
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
+		materialflags = p->texture->currentmaterialflags;
 		if (r_water_cameraentitiesonly.value != 0 && !p->camera_entity)
 			continue;
-		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
+		if (materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
 		{
 			if (!p->texture_refraction)
 				p->texture_refraction = R_LoadTexture2D(r_main_texturepool, va(vabuf, sizeof(vabuf), "waterplane%i_refraction", planeindex), r_fb.water.texturewidth, r_fb.water.textureheight, NULL, r_fb.textype, TEXF_RENDERTARGET | TEXF_FORCELINEAR | TEXF_CLAMP, -1, NULL);
 			if (!p->texture_refraction)
-				goto error;
+				break;
 			if (usewaterfbo)
 			{
 				if (r_fb.water.depthtexture == NULL)
@@ -5053,12 +5079,12 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 					p->fbo_refraction = R_Mesh_CreateFramebufferObject(r_fb.water.depthtexture, p->texture_refraction, NULL, NULL, NULL);
 			}
 		}
-		else if (p->materialflags & MATERIALFLAG_CAMERA)
+		else if (materialflags & MATERIALFLAG_CAMERA)
 		{
 			if (!p->texture_camera)
 				p->texture_camera = R_LoadTexture2D(r_main_texturepool, va(vabuf, sizeof(vabuf), "waterplane%i_camera", planeindex), r_fb.water.camerawidth, r_fb.water.cameraheight, NULL, r_fb.textype, TEXF_RENDERTARGET | TEXF_FORCELINEAR, -1, NULL);
 			if (!p->texture_camera)
-				goto error;
+				break;
 			if (usewaterfbo)
 			{
 				if (r_fb.water.depthtexture == NULL)
@@ -5068,12 +5094,12 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			}
 		}
 
-		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION))
+		if (materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION))
 		{
 			if (!p->texture_reflection)
 				p->texture_reflection = R_LoadTexture2D(r_main_texturepool, va(vabuf, sizeof(vabuf), "waterplane%i_reflection", planeindex), r_fb.water.texturewidth, r_fb.water.textureheight, NULL, r_fb.textype, TEXF_RENDERTARGET | TEXF_FORCELINEAR | TEXF_CLAMP, -1, NULL);
 			if (!p->texture_reflection)
-				goto error;
+				break;
 			if (usewaterfbo)
 			{
 				if (r_fb.water.depthtexture == NULL)
@@ -5083,6 +5109,16 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			}
 		}
 	}
+	if (planeindex < r_fb.water.numwaterplanes)
+	{
+		r_fb.water.renderingscene = false;
+		Cvar_SetValueQuick(&r_water, 0);
+		Con_Printf("R_Water_ProcessPlanes: Error: texture creation failed!  Turned off r_water.\n");
+		return;
+	}
+
+	r_refdef.view.usecustompvs = true; //this is used only in R_Water_ProcessPlanes
+	originalview = r_refdef.view;
 
 	// render views
 	r_refdef.view.showdebug = false;
@@ -5099,27 +5135,22 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	r_refdef.view.useclipplane = true;
 	myview = r_refdef.view;
 	r_fb.water.renderingscene = true;
-	if(r_fb.water.numwaterplanes && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
-	{
-		origpvsbits = Mem_Alloc(tempmempool, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
-		memcpy(origpvsbits, r_refdef.viewcache.world_pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
-	}
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
 		float camera_angle_x = 0;
 		float camera_angle_y = 0;
+		materialflags = p->texture->currentmaterialflags;
 		if (r_water_cameraentitiesonly.value != 0 && !p->camera_entity)
 			continue;
-		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION))
+		if (materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION))
 		{
 			r_refdef.view = myview;
 			if(r_water_scissormode.integer)
 			{
-				R_SetupView(true, p->fbo_reflection, r_fb.water.depthtexture, p->texture_reflection);
+				R_SetupView(true, p->fbo_refraction, r_fb.water.depthtexture, p->texture_refraction);
 				if(R_ScissorForBBox(p->mins, p->maxs, myscissor))
 					continue; // FIXME the plane then still may get rendered but with broken texture, but it sure won't be visible
 			}
-
 			// render reflected scene and copy into texture
 			Matrix4x4_Reflect(&r_refdef.view.matrix, p->plane.normal[0], p->plane.normal[1], p->plane.normal[2], p->plane.dist, -2);
 			// update the r_refdef.view.origin because otherwise the sky renders at the wrong location (amongst other problems)
@@ -5129,19 +5160,11 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			// reverse the cullface settings for this render
 			r_refdef.view.cullface_front = GL_FRONT;
 			r_refdef.view.cullface_back = GL_BACK;
-			if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.num_pvsclusterbytes)
-			{
-				r_refdef.view.usecustompvs = true;
-				if (p->pvsvalid)
-					memcpy(r_refdef.viewcache.world_pvsbits, p->pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
-				else
-					memset(r_refdef.viewcache.world_pvsbits, 0xFF, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
-			}
-
+			origpvsbits = R_Water_PVSChange(origpvsbits, p, NULL, &pvschanged);
 			r_fb.water.hideplayer = ((r_water_hideplayer.integer >= 2) && !chase_active.integer);
 			R_ResetViewRendering3D(p->fbo_reflection, r_fb.water.depthtexture, p->texture_reflection);
 			R_ClearScreen(r_refdef.fogenabled);
-			if(r_water_scissormode.integer & 2 && r_fb.water.numwaterplanes == 1) //why it's not working correctly with more than 1 water plane?
+			if(r_water_scissormode.integer & 2/* && r_fb.water.numwaterplanes == 1*/) //why it's not working correctly with more than 1 water plane?
 				R_View_UpdateWithScissor(myscissor);
 			else
 				R_View_Update();
@@ -5157,22 +5180,16 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 
 		// render the normal view scene and copy into texture
 		// (except that a clipping plane should be used to hide everything on one side of the water, and the viewer's weapon model should be omitted)
-		if (p->materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
+		if (materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
 		{
 			float fogstate[9];
 			r_refdef.view = myview;
-			if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.num_pvsclusterbytes)
-			{
-				r_refdef.view.usecustompvs = true;
-				memcpy(r_refdef.viewcache.world_pvsbits, origpvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
-			}
 			if(r_water_scissormode.integer)
 			{
 				R_SetupView(true, p->fbo_refraction, r_fb.water.depthtexture, p->texture_refraction);
 				if(R_ScissorForBBox(p->mins, p->maxs, myscissor))
 					continue; // FIXME the plane then still may get rendered but with broken texture, but it sure won't be visible
 			}
-
 			r_fb.water.hideplayer = ((r_water_hideplayer.integer >= 1) && !chase_active.integer);
 
 			r_refdef.view.clipplane = p->plane;
@@ -5180,7 +5197,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			r_refdef.view.clipplane.dist = -r_refdef.view.clipplane.dist;
 			R_Water_ClippingBias();
 
-			if((p->materialflags & MATERIALFLAG_CAMERA) && p->camera_entity)
+			if((materialflags & MATERIALFLAG_CAMERA) && p->camera_entity)
 			{
 				// we need to perform a matrix transform to render the view... so let's get the transformation matrix
 				r_fb.water.hideplayer = false; // we don't want to hide the player model from these ones
@@ -5200,25 +5217,23 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 				}
 				r_refdef.view.camera = true;
 				R_RenderView_UpdateViewVectors();
-				if(r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
-				{
-					r_refdef.view.usecustompvs = true;
-					r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes, false);
-				}
+				origpvsbits = R_Water_PVSChange(origpvsbits, NULL, visorigin, &pvschanged);
 			}
+			else
+				R_Water_PVSRestore(origpvsbits, &pvschanged);
 
 			PlaneClassify(&r_refdef.view.clipplane);
 
 			R_ResetViewRendering3D(p->fbo_refraction, r_fb.water.depthtexture, p->texture_refraction);
-			if (p->materialflags & MATERIALFLAG_FOG)
+			if (materialflags & MATERIALFLAG_FOG)
 			{
 				//fog
 				R_Water_FogSave(fogstate);
-				R_Water_FogSetup(p->fogcolor, p->fogdensity, p->maxs[2]);
+				R_Water_FogSetup(p->texture->fogcolor, p->texture->fogdensity, p->maxs[2]);
 				R_UpdateFog();
 			}
 			R_ClearScreen(r_refdef.fogenabled);
-			if(r_water_scissormode.integer & 2 && r_fb.water.numwaterplanes == 1) //why it's not working correctly with more than 1 water plane?
+			if(r_water_scissormode.integer & 2/* && r_fb.water.numwaterplanes == 1*/) //why it's not working correctly with more than 1 water plane?
 				R_View_UpdateWithScissor(myscissor);
 			else
 				R_View_Update();
@@ -5230,17 +5245,22 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			if (!p->fbo_refraction)
 				R_Mesh_CopyToTexture(p->texture_refraction, 0, 0, r_refdef.view.viewport.x, r_refdef.view.viewport.y, r_refdef.view.viewport.width, r_refdef.view.viewport.height);
 			r_fb.water.hideplayer = false;
-			if (p->materialflags & MATERIALFLAG_FOG)
+			if (materialflags & MATERIALFLAG_FOG)
 			{
 				//fog
 				R_Water_FogLoad(fogstate);
 				R_UpdateFog();
 			}
 		}
-		else if (p->materialflags & MATERIALFLAG_CAMERA)
+		else if (materialflags & MATERIALFLAG_CAMERA)
 		{
 			r_refdef.view = myview;
-
+			if(r_water_scissormode.integer)
+			{
+				R_SetupView(true, p->fbo_refraction, r_fb.water.depthtexture, p->texture_refraction);
+				if(R_ScissorForBBox(p->mins, p->maxs, myscissor))
+					continue; // FIXME the plane then still may get rendered but with broken texture, but it sure won't be visible
+			}
 			r_refdef.view.clipplane = p->plane;
 			VectorNegate(r_refdef.view.clipplane.normal, r_refdef.view.clipplane.normal);
 			r_refdef.view.clipplane.dist = -r_refdef.view.clipplane.dist;
@@ -5278,12 +5298,10 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			// also reverse the view matrix
 			Matrix4x4_ConcatScale3(&r_refdef.view.matrix, 1, 1, -1); // this serves to invert texcoords in the result, as the copied texture is mapped the wrong way round
 			R_RenderView_UpdateViewVectors();
-			if(p->camera_entity && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
-			{
-				r_refdef.view.usecustompvs = true;
-				r_refdef.scene.worldmodel->brush.FatPVS(r_refdef.scene.worldmodel, visorigin, 2, r_refdef.viewcache.world_pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes, false);
-			}
-
+			if (p->camera_entity)
+				origpvsbits = R_Water_PVSChange(origpvsbits, NULL, visorigin, &pvschanged);
+			else
+				R_Water_PVSRestore(origpvsbits, &pvschanged);
 			// camera needs no clipplane
 			r_refdef.view.useclipplane = false;
 
@@ -5308,14 +5326,11 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	R_ResetViewRendering3D(fbo, depthtexture, colortexture);
 	if (!r_fb.water.depthtexture)
 		R_ClearScreen(r_refdef.fogenabled);
+	R_Water_PVSRestore(origpvsbits, &pvschanged);
 	R_View_Update();
+	r_refdef.view.usecustompvs = false;
 	R_AnimCache_CacheVisibleEntities();
 	return;
-error:
-	r_refdef.view = originalview;
-	r_fb.water.renderingscene = false;
-	Cvar_SetValueQuick(&r_water, 0);
-	Con_Printf("R_Water_ProcessPlanes: Error: texture creation failed!  Turned off r_water.\n");
 }
 
 static void R_Bloom_StartFrame(void)
@@ -7021,11 +7036,6 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 		return t->currentframe;
 	t->update_lastrenderframe = r_textureframe;
 	t->update_lastrenderentity = (void *)ent;
-
-	if(ent->entitynumber >= MAX_EDICTS && ent->entitynumber < 2 * MAX_EDICTS)
-		t->camera_entity = ent->entitynumber;
-	else
-		t->camera_entity = 0;
 
 	// switch to an alternate material if this is a q1bsp animated material
 	{
@@ -8995,7 +9005,7 @@ static int RSurf_FindWaterPlaneForSurface(const msurface_t *surface)
 	bestd = 0;
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
-		if(p->camera_entity != rsurface.texture->camera_entity)
+		if(p->camera_entity != rsurface.entity->entitynumber || p->texture != rsurface.texture)
 			continue;
 		d = 0;
 		if(!prepared)
