@@ -5030,6 +5030,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	vec3_t visorigin;
 	qboolean usewaterfbo = (r_viewfbo.integer >= 1 || r_water_fbo.integer >= 1) && vid.support.ext_framebuffer_object && (vid.samples < 2 || r_viewscale.value != 1 || r_water_resolutionmultiplier.value != 1 || r_fxaa.integer);
 	char vabuf[1024];
+	char *origpvsbits;
 
 	originalview = r_refdef.view;
 
@@ -5084,7 +5085,6 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	}
 
 	// render views
-	r_refdef.view = originalview;
 	r_refdef.view.showdebug = false;
 	r_refdef.view.x = 0;
 	r_refdef.view.width = r_fb.water.waterwidth;
@@ -5099,6 +5099,11 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	r_refdef.view.useclipplane = true;
 	myview = r_refdef.view;
 	r_fb.water.renderingscene = true;
+	if(r_fb.water.numwaterplanes && r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.FatPVS)
+	{
+		origpvsbits = Mem_Alloc(tempmempool, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+		memcpy(origpvsbits, r_refdef.viewcache.world_pvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+	}
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
 		float camera_angle_x = 0;
@@ -5156,6 +5161,11 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 		{
 			float fogstate[9];
 			r_refdef.view = myview;
+			if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.num_pvsclusterbytes)
+			{
+				r_refdef.view.usecustompvs = true;
+				memcpy(r_refdef.viewcache.world_pvsbits, origpvsbits, r_refdef.scene.worldmodel->brush.num_pvsclusterbytes);
+			}
 			if(r_water_scissormode.integer)
 			{
 				R_SetupView(true, p->fbo_refraction, r_fb.water.depthtexture, p->texture_refraction);
