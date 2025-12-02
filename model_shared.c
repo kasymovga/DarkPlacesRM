@@ -2546,9 +2546,18 @@ nothing                GL_ZERO GL_ONE
 			else if (lightmaplayer >= 1)
 			{
 				// ordinary texture - we don't properly apply lighting to the prelayers, but oh well...
-				endofprelayers = lightmaplayer - 1;
-				materiallayer = lightmaplayer - 1;
-				firstpostlayer = lightmaplayer + 1;
+				if (shader->layers[lightmaplayer - 1].texturename && strcasecmp(shader->layers[lightmaplayer - 1].texturename[0], "$lightmap"))
+				{
+					endofprelayers = lightmaplayer - 1;
+					materiallayer = lightmaplayer - 1;
+					firstpostlayer = lightmaplayer + 1;
+				}
+				else
+				{
+					endofprelayers = lightmaplayer;
+					materiallayer = lightmaplayer + 1;
+					firstpostlayer = lightmaplayer + 2;
+				}
 			}
 			else if (rgbgenvertexlayer >= 0)
 			{
