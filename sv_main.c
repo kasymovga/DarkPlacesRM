@@ -45,6 +45,7 @@ cvar_t sv_worldmessage = {CVAR_READONLY, "sv_worldmessage", "", "title of curren
 cvar_t sv_worldname = {CVAR_READONLY, "sv_worldname", "", "name of current worldmodel"};
 cvar_t sv_worldnamenoextension = {CVAR_READONLY, "sv_worldnamenoextension", "", "name of current worldmodel without extension"};
 cvar_t sv_worldbasename = {CVAR_READONLY, "sv_worldbasename", "", "name of current worldmodel without maps/ prefix or extension"};
+cvar_t sv_worldfogs = {CVAR_READONLY, "sv_worldfogs", "0", "amount of fog areas on worldmodel"};
 cvar_t sv_use_default_spawnflags = {0, "sv_use_default_spawnflags", "1", "Use default Quake spawnflags (256, 512, 1024, 2048)"};
 
 cvar_t sv_disablenotify = {0, "sv_disablenotify", "1", "suppress broadcast prints when certain cvars are changed (CVAR_NOTIFY flag in engine code)"};
@@ -448,6 +449,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable(&sv_worldname);
 	Cvar_RegisterVariable(&sv_worldnamenoextension);
 	Cvar_RegisterVariable(&sv_worldbasename);
+	Cvar_RegisterVariable(&sv_worldfogs);
 	Cvar_RegisterVariable(&sv_use_default_spawnflags);
 
 	Cvar_RegisterVariable (&csqc_progname);
@@ -3449,6 +3451,10 @@ void SV_SpawnServer (const char *server)
 	Cvar_SetQuick(&sv_worldname, sv.worldname);
 	Cvar_SetQuick(&sv_worldnamenoextension, sv.worldnamenoextension);
 	Cvar_SetQuick(&sv_worldbasename, sv.worldbasename);
+	if (worldmodel->brush.isq3bsp)
+		Cvar_SetValueQuick(&sv_worldfogs, worldmodel->brushq3.num_fogs);
+	else
+		Cvar_SetValueQuick(&sv_worldfogs, 0);
 	Cvar_LockThreadMutex();
 	sv.protocol = Protocol_EnumForName(sv_protocolname.string);
 	if (sv.protocol == PROTOCOL_UNKNOWN)
