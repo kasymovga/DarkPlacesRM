@@ -5060,6 +5060,12 @@ static void Mod_Q3BSP_LoadEffects(dp_model_t *loadmodel, lump_t *l)
 		shader = Mod_LookupQ3Shader(in->shadername);
 		if (!shader) continue;
 		brush = &loadmodel->brush.data_brushes[n];
+		out->mins[0] = 1048576.f;
+		out->mins[1] = 1048576.f;
+		out->mins[2] = 1048576.f;
+		out->maxs[0] = -1048576.f;
+		out->maxs[1] = -1048576.f;
+		out->maxs[2] = -1048576.f;
 		for (j = 0; j < brush->numbrushsides; j++)
 		{
 			plane = brush->firstbrushside[j].plane;
