@@ -305,7 +305,7 @@ static const unsigned short skyboxelement3s[6*2*3] =
 #define skygridy1 (skygridy + 1)
 #define skygridyrecip (1.0f / (skygridy))
 #define skysphere_numverts (skygridx1 * skygridy1)
-#define skysphere_numtriangles (skygridx * skygridy * 2)
+#define skysphere_numtriangles (skygridx * (skygridy - 1) * 2)
 static float skysphere_vertex3f[skysphere_numverts * 3];
 static float skysphere_texcoord2f[skysphere_numverts * 2];
 static float skysphere_texcoord2f_q3[skysphere_numverts * 2];
@@ -351,13 +351,18 @@ static void skyspherecalc(void)
 	{
 		for (i = 0;i < skygridx;i++)
 		{
-			*e++ =  j      * skygridx1 + i;
-			*e++ =  j      * skygridx1 + i + 1;
-			*e++ = (j + 1) * skygridx1 + i;
-
-			*e++ =  j      * skygridx1 + i + 1;
-			*e++ = (j + 1) * skygridx1 + i + 1;
-			*e++ = (j + 1) * skygridx1 + i;
+			if (i > 0)
+			{
+				*e++ =  j      * skygridx1 + i;
+				*e++ =  j      * skygridx1 + i + 1;
+				*e++ = (j + 1) * skygridx1 + i;
+			}
+			if (i < skygridy - 1)
+			{
+				*e++ =  j      * skygridx1 + i + 1;
+				*e++ = (j + 1) * skygridx1 + i + 1;
+				*e++ = (j + 1) * skygridx1 + i;
+			}
 		}
 	}
 	for (i = 0;i < skysphere_numtriangles*3;i++)
