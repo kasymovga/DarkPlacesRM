@@ -339,8 +339,8 @@ static void skyspherecalc(void)
 			length = 3.0f / sqrt(v[0]*v[0]+v[1]*v[1]+(v[2]*v[2]*9));
 			*texcoord2f++ = v[0] * length;
 			*texcoord2f++ = v[1] * length;
-			*texcoord2f_q3++ = 0.5 + 0.5 * cos(a * M_PI * 2) * cos(b / 2 * M_PI);
-			*texcoord2f_q3++ = 0.5 - 0.5 * sin(a * M_PI * 2) * cos(b / 2 * M_PI);
+			*texcoord2f_q3++ = 1 + cos(a * M_PI * 2) * cos(b / 2 * M_PI);
+			*texcoord2f_q3++ = 1 - sin(a * M_PI * 2) * cos(b / 2 * M_PI);
 			*vertex3f++ = v[0];
 			*vertex3f++ = v[1];
 			*vertex3f++ = v[2];
