@@ -4,10 +4,9 @@
 
 // FIXME: fix skybox after vid_restart
 cvar_t r_sky = {CVAR_SAVE, "r_sky", "1", "enables sky rendering (black otherwise)"};
+cvar_t r_skybox_clouds = {CVAR_SAVE, "r_skybox_clouds", "1", "enables rendering of clouds layers in q3 skyboxes"};
 cvar_t r_skyscroll1 = {CVAR_SAVE, "r_skyscroll1", "1", "speed at which upper clouds layer scrolls in quake sky"};
 cvar_t r_skyscroll2 = {CVAR_SAVE, "r_skyscroll2", "2", "speed at which lower clouds layer scrolls in quake sky"};
-int skyrenderlater;
-int skyrendermasked;
 
 static int skyrendersphere;
 static int skyrenderbox;
@@ -54,19 +53,20 @@ static skinframe_t *skyboxskinframe[6];
 
 void R_SkyStartFrame(void)
 {
+	r_refdef.skyrendering = false;
 	skyrendersphere = false;
 	skyrenderbox = false;
-	skyrendermasked = false;
 	// for depth-masked sky, we need to know whether any sky was rendered
-	skyrenderlater = false;
 	if (r_sky.integer)
 	{
 		if (skyboxskinframe[0] || skyboxskinframe[1] || skyboxskinframe[2] || skyboxskinframe[3] || skyboxskinframe[4] || skyboxskinframe[5])
 			skyrenderbox = true;
 		else if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.solidskyskinframe)
 			skyrendersphere = true;
-		skyrendermasked = true;
+		r_refdef.skypossible = true;
 	}
+	else
+		r_refdef.skypossible = false;
 }
 
 /*
@@ -298,25 +298,17 @@ static const unsigned short skyboxelement3s[6*2*3] =
 	20, 22, 23
 };
 
-static void R_SkyBox(void)
-{
-	int i;
-	RSurf_ActiveCustomEntity(&skymatrix, &skyinversematrix, 0, 0, 1, 1, 1, 1, 6*4, skyboxvertex3f, skyboxtexcoord2f, NULL, NULL, NULL, NULL, 6*2, skyboxelement3i, skyboxelement3s, false, false);
-	for (i = 0;i < 6;i++)
-		if(skyboxskinframe[i])
-			R_DrawCustomSurface(skyboxskinframe[i], &identitymatrix, MATERIALFLAG_SKY | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NOCULLFACE | MATERIALFLAG_NODEPTHTEST, i*4, 4, i*2, 2, false, false);
-}
-
-#define skygridx 32
+#define skygridx 16
 #define skygridx1 (skygridx + 1)
 #define skygridxrecip (1.0f / (skygridx))
-#define skygridy 32
+#define skygridy 16
 #define skygridy1 (skygridy + 1)
 #define skygridyrecip (1.0f / (skygridy))
 #define skysphere_numverts (skygridx1 * skygridy1)
 #define skysphere_numtriangles (skygridx * skygridy * 2)
 static float skysphere_vertex3f[skysphere_numverts * 3];
 static float skysphere_texcoord2f[skysphere_numverts * 2];
+static float skysphere_texcoord2f_q3[skysphere_numverts * 2];
 static int skysphere_element3i[skysphere_numtriangles * 3];
 static unsigned short skysphere_element3s[skysphere_numtriangles * 3];
 
@@ -324,13 +316,14 @@ static void skyspherecalc(void)
 {
 	int i, j;
 	unsigned short *e;
-	float a, b, x, ax, ay, v[3], length, *vertex3f, *texcoord2f;
+	float a, b, x, ax, ay, v[3], length, *vertex3f, *texcoord2f, *texcoord2f_q3;
 	float dx, dy, dz;
 	dx = 16.0f;
 	dy = 16.0f;
 	dz = 16.0f / 3.0f;
 	vertex3f = skysphere_vertex3f;
 	texcoord2f = skysphere_texcoord2f;
+	texcoord2f_q3 = skysphere_texcoord2f_q3;
 	for (j = 0;j <= skygridy;j++)
 	{
 		a = j * skygridyrecip;
@@ -346,6 +339,8 @@ static void skyspherecalc(void)
 			length = 3.0f / sqrt(v[0]*v[0]+v[1]*v[1]+(v[2]*v[2]*9));
 			*texcoord2f++ = v[0] * length;
 			*texcoord2f++ = v[1] * length;
+			*texcoord2f_q3++ = 0.5 + 0.5 * cos(a * M_PI * 2) * cos(b / 2 * M_PI);
+			*texcoord2f_q3++ = 0.5 - 0.5 * sin(a * M_PI * 2) * cos(b / 2 * M_PI);
 			*vertex3f++ = v[0];
 			*vertex3f++ = v[1];
 			*vertex3f++ = v[2];
@@ -372,14 +367,7 @@ static void skyspherecalc(void)
 static void R_SkySphere(void)
 {
 	double speedscale;
-	static qboolean skysphereinitialized = false;
 	matrix4x4_t scroll1matrix, scroll2matrix;
-	if (!skysphereinitialized)
-	{
-		skysphereinitialized = true;
-		skyspherecalc();
-	}
-
 	// wrap the scroll values just to be extra kind to float accuracy
 
 	// scroll speed for upper layer
@@ -394,6 +382,23 @@ static void R_SkySphere(void)
 	RSurf_ActiveCustomEntity(&skymatrix, &skyinversematrix, 0, 0, 1, 1, 1, 1, skysphere_numverts, skysphere_vertex3f, skysphere_texcoord2f, NULL, NULL, NULL, NULL, skysphere_numtriangles, skysphere_element3i, skysphere_element3s, false, false);
 	R_DrawCustomSurface(r_refdef.scene.worldmodel->brush.solidskyskinframe, &scroll1matrix, MATERIALFLAG_SKY | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NOCULLFACE | MATERIALFLAG_NODEPTHTEST                                            , 0, skysphere_numverts, 0, skysphere_numtriangles, false, false);
 	R_DrawCustomSurface(r_refdef.scene.worldmodel->brush.alphaskyskinframe, &scroll2matrix, MATERIALFLAG_SKY | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NOCULLFACE | MATERIALFLAG_NODEPTHTEST | MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED, 0, skysphere_numverts, 0, skysphere_numtriangles, false, false);
+}
+
+static void R_SkyBox(void)
+{
+	int i;
+	RSurf_ActiveCustomEntity(&skymatrix, &skyinversematrix, 0, 0, 1, 1, 1, 1, 6*4, skyboxvertex3f, skyboxtexcoord2f, NULL, NULL, NULL, NULL, 6*2, skyboxelement3i, skyboxelement3s, false, false);
+	for (i = 0;i < 6;i++)
+		if(skyboxskinframe[i])
+			R_DrawCustomSurface(skyboxskinframe[i], &identitymatrix, MATERIALFLAG_SKY | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NOCULLFACE | MATERIALFLAG_NODEPTHTEST, i*4, 4, i*2, 2, false, false);
+	if (r_skybox_clouds.integer && r_refdef.skytexture && r_refdef.skytexture->basetexture != r_texture_notexture)
+	{
+		int mf = r_refdef.skytexture->basematerialflags;
+		RSurf_ActiveCustomEntity(&skymatrix, &skyinversematrix, 0, 0, 1, 1, 1, 1, skysphere_numverts, skysphere_vertex3f, skysphere_texcoord2f_q3, NULL, NULL, NULL, NULL, skysphere_numtriangles, skysphere_element3i, skysphere_element3s, false, false);
+		r_refdef.skytexture->basematerialflags |= MATERIALFLAG_SKY | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NOCULLFACE | MATERIALFLAG_NODEPTHTEST | MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_WALL;
+		R_DrawCustomSurface_Texture(r_refdef.skytexture, &identitymatrix, 0, 0, skysphere_numverts, 0, skysphere_numtriangles, false, false);
+		r_refdef.skytexture->basematerialflags = mf;
+	}
 }
 
 void R_Sky(void)
@@ -433,6 +438,7 @@ void R_ResetSkyBox(void)
 
 static void r_sky_start(void)
 {
+	skyspherecalc();
 	skytexturepool = R_AllocTexturePool();
 	R_LoadSkyBox();
 }
@@ -452,6 +458,7 @@ void R_Sky_Init(void)
 {
 	Cmd_AddCommand ("loadsky", &LoadSky_f, "load a skybox by basename (for example loadsky mtnsun_ loads mtnsun_ft.tga and so on)");
 	Cvar_RegisterVariable (&r_sky);
+	Cvar_RegisterVariable (&r_skybox_clouds);
 	Cvar_RegisterVariable (&r_skyscroll1);
 	Cvar_RegisterVariable (&r_skyscroll2);
 	memset(&skyboxskinframe, 0, sizeof(skyboxskinframe));

@@ -6301,7 +6301,7 @@ void R_RenderScene(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 		if (R_DrawBrushModelsSky() && r_timereport_active)
 			R_TimeReport("bmodelsky");
 
-		if (skyrendermasked && skyrenderlater)
+		if (r_refdef.skyrendering)
 		{
 			// we have to force off the water clipping plane while rendering sky
 			R_SetupView(false, fbo, depthtexture, colortexture);
@@ -9335,11 +9335,9 @@ void RSurf_SetupDepthAndCulling(void)
 
 static void R_DrawTextureSurfaceList_Sky(int texturenumsurfaces, const msurface_t **texturesurfacelist)
 {
-	// transparent sky would be ridiculous
-	if (rsurface.texture->currentmaterialflags & MATERIALFLAGMASK_DEPTHSORTED)
-		return;
 	R_SetupShader_Generic_NoTexture(false, false);
-	skyrenderlater = true;
+	r_refdef.skyrendering = r_refdef.skypossible;
+	r_refdef.skytexture = rsurface.texture;
 	RSurf_SetupDepthAndCulling();
 	GL_DepthMask(true);
 	// LordHavoc: HalfLife maps have freaky skypolys so don't use
@@ -9351,7 +9349,7 @@ static void R_DrawTextureSurfaceList_Sky(int texturenumsurfaces, const msurface_
 	if (r_refdef.scene.worldmodel && r_refdef.scene.worldmodel->brush.skymasking && r_q1bsp_skymasking.integer && !r_refdef.viewcache.world_novis)
 	{
 		R_Mesh_ResetTextureState();
-		if (skyrendermasked)
+		if (r_refdef.skypossible)
 		{
 			R_SetupShader_DepthOrShadow(false, false, false);
 			// depth-only (masking)
@@ -9372,7 +9370,7 @@ static void R_DrawTextureSurfaceList_Sky(int texturenumsurfaces, const msurface_
 			R_Mesh_PrepareVertices_Generic_Arrays(rsurface.batchnumvertices, rsurface.batchvertex3f, NULL, NULL);
 		}
 		RSurf_DrawBatch();
-		if (skyrendermasked)
+		if (r_refdef.skypossible)
 			GL_ColorMask(r_refdef.view.colormask[0], r_refdef.view.colormask[1], r_refdef.view.colormask[2], 1);
 	}
 	R_Mesh_ResetTextureState();

@@ -1975,6 +1975,9 @@ typedef struct r_refdef_s
 	// rendering stats for r_speeds display
 	// (these are incremented in many places)
 	int stats[r_stat_count];
+	qboolean skypossible;
+	qboolean skyrendering;
+	texture_t *skytexture;
 }
 r_refdef_t;
 

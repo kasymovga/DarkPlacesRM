@@ -33,7 +33,6 @@ void FOG_clear(void);
 extern cvar_t r_sky;
 extern cvar_t r_skyscroll1;
 extern cvar_t r_skyscroll2;
-extern int skyrenderlater, skyrendermasked;
 int R_SetSkyBox(const char *sky);
 void R_SkyStartFrame(void);
 void R_Sky(void);
