@@ -189,8 +189,12 @@ cvar_t r_glsl_postprocess_uservec2_enable = {CVAR_SAVE, "r_glsl_postprocess_user
 cvar_t r_glsl_postprocess_uservec3_enable = {CVAR_SAVE, "r_glsl_postprocess_uservec3_enable", "1", "enables postprocessing uservec3 usage, creates USERVEC1 define (only useful if default.glsl has been customized)"};
 cvar_t r_glsl_postprocess_uservec4_enable = {CVAR_SAVE, "r_glsl_postprocess_uservec4_enable", "1", "enables postprocessing uservec4 usage, creates USERVEC1 define (only useful if default.glsl has been customized)"};
 
-cvar_t r_water = {CVAR_SAVE, "r_water", "0", "whether to use reflections and refraction on water surfaces (note: r_wateralpha must be set below 1)"};
-cvar_t r_water_cameraentitiesonly = {CVAR_SAVE, "r_water_cameraentitiesonly", "0", "whether to only show QC-defined reflections/refractions (typically used for camera- or portal-like effects)"};
+cvar_t r_water = {CVAR_SAVE, "r_water", "0", "whether to use reflections and refraction on surfaces"};
+cvar_t r_water_camera = {CVAR_SAVE, "r_water_camera", "1", "whether to only show QC-defined reflections/refractions (typically used for camera- or portal-like effects)"};
+cvar_t r_water_fog = {CVAR_SAVE, "r_water_fog", "1", "draw fog volumes"};
+cvar_t r_water_refraction = {CVAR_SAVE, "r_water_refraction", "1", "draw refraction effect"};
+cvar_t r_water_reflection = {CVAR_SAVE, "r_water_reflection", "1", "draw reflection effect"};
+cvar_t r_water_water = {CVAR_SAVE, "r_water_water", "1", "draw water effect"};
 cvar_t r_water_clippingplanebias = {CVAR_SAVE, "r_water_clippingplanebias", "1", "a rather technical setting which avoids black pixels around water edges"};
 cvar_t r_water_resolutionmultiplier = {CVAR_SAVE, "r_water_resolutionmultiplier", "0.5", "multiplier for screen resolution when rendering refracted/reflected scenes, 1 is full quality, lower values are faster"};
 cvar_t r_water_refractdistort = {CVAR_SAVE, "r_water_refractdistort", "0.01", "how much water refractions shimmer"};
@@ -2088,7 +2092,7 @@ void R_SetupShader_Surface(const vec3_t lightcolorbase, qboolean modellighting, 
 		}
 
 		if (r_glsl_permutation->loc_Color_Glow >= 0) qglUniform3f(r_glsl_permutation->loc_Color_Glow, rsurface.glowmod[0], rsurface.glowmod[1], rsurface.glowmod[2]);
-		if (r_glsl_permutation->loc_Alpha >= 0) qglUniform1f(r_glsl_permutation->loc_Alpha, rsurface.texture->lightmapcolor[3] * ((rsurface.texture->basematerialflags & MATERIALFLAG_WATERSHADER && r_fb.water.enabled && !r_refdef.view.isoverlay) ? rsurface.texture->r_water_wateralpha : 1));
+		if (r_glsl_permutation->loc_Alpha >= 0) qglUniform1f(r_glsl_permutation->loc_Alpha, rsurface.texture->lightmapcolor[3] * ((rsurface.texture->basematerialflags & MATERIALFLAG_WATERSHADER && r_fb.water.enabled) ? rsurface.texture->r_water_wateralpha : 1));
 		if (r_glsl_permutation->loc_EyePosition >= 0) qglUniform3f(r_glsl_permutation->loc_EyePosition, rsurface.localvieworigin[0], rsurface.localvieworigin[1], rsurface.localvieworigin[2]);
 		if (r_glsl_permutation->loc_Color_Pants >= 0)
 		{
@@ -3416,7 +3420,11 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_celoutlines);
 
 	Cvar_RegisterVariable(&r_water);
-	Cvar_RegisterVariable(&r_water_cameraentitiesonly);
+	Cvar_RegisterVariable(&r_water_camera);
+	Cvar_RegisterVariable(&r_water_fog);
+	Cvar_RegisterVariable(&r_water_refraction);
+	Cvar_RegisterVariable(&r_water_reflection);
+	Cvar_RegisterVariable(&r_water_water);
 	Cvar_RegisterVariable(&r_water_resolutionmultiplier);
 	Cvar_RegisterVariable(&r_water_clippingplanebias);
 	Cvar_RegisterVariable(&r_water_refractdistort);
@@ -5063,8 +5071,6 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
 		materialflags = p->texture->currentmaterialflags;
-		if (r_water_cameraentitiesonly.value != 0 && !p->camera_entity)
-			continue;
 		if (materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_FOG))
 		{
 			if (!p->texture_refraction)
@@ -5140,8 +5146,6 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 		float camera_angle_x = 0;
 		float camera_angle_y = 0;
 		materialflags = p->texture->currentmaterialflags;
-		if (r_water_cameraentitiesonly.value != 0 && !p->camera_entity)
-			continue;
 		if (materialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFLECTION))
 		{
 			r_refdef.view = myview;
@@ -7092,19 +7096,6 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 	t->currentalpha = rsurface.colormod[3] * t->basealpha;
 	if (t->basematerialflags & MATERIALFLAG_WATERALPHA && (model->brush.supportwateralpha || r_novis.integer))
 		t->currentalpha *= r_wateralpha.value;
-	if(t->basematerialflags & MATERIALFLAG_WATERSHADER && r_fb.water.enabled && !r_refdef.view.isoverlay)
-		t->currentmaterialflags |= MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_NOSHADOW; // we apply wateralpha later
-	if(!r_fb.water.enabled || r_refdef.view.isoverlay)
-	{
-		if (t->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
-		{
-			if (!t->basetexture || t->basetexture == r_texture_notexture)
-			{
-				t->currentmaterialflags |= MATERIALFLAG_NODRAW;
-			}
-			t->currentmaterialflags &= ~(MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG);
-		}
-	}
 	if (!(rsurface.ent_flags & RENDER_LIGHT))
 		t->currentmaterialflags |= MATERIALFLAG_FULLBRIGHT;
 	else if (FAKELIGHT_ENABLED)
@@ -7132,13 +7123,53 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 		t->currentmaterialflags |= MATERIALFLAG_SHORTDEPTHRANGE;
 	if (t->backgroundshaderpass)
 		t->currentmaterialflags |= MATERIALFLAG_VERTEXTEXTUREBLEND;
-	if (t->currentmaterialflags & MATERIALFLAG_BLENDED)
+	if (t->currentmaterialflags & (MATERIALFLAG_REFLECTION | MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
 	{
-		if (t->currentmaterialflags & (MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG))
-			t->currentmaterialflags &= ~MATERIALFLAG_BLENDED;
+		if (r_fb.water.enabled)
+		{
+			prvm_prog_t *prog = CLVM_prog;
+			if(t->basematerialflags & MATERIALFLAG_WATERSHADER)
+				t->currentmaterialflags |= MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_NOSHADOW; // we apply wateralpha later
+			if (ent->entitynumber != 0 && PRVM_clientedictfunction(PRVM_EDICT_NUM(ent->entitynumber - MAX_EDICTS), camera_transform))
+			{
+				if (!r_water_camera.integer)
+					t->currentmaterialflags &= ~(MATERIALFLAG_CAMERA | MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION);
+			}
+			else
+			{
+				if (!r_water_reflection.integer)
+					t->currentmaterialflags &= ~MATERIALFLAG_REFLECTION;
+				if (!r_water_refraction.integer)
+					t->currentmaterialflags &= ~MATERIALFLAG_REFRACTION;
+				if (!r_water_water.integer)
+					t->currentmaterialflags &= ~MATERIALFLAG_WATERSHADER;
+				else if (r_refdef.inliquid)
+				{
+					if (t->currentmaterialflags & MATERIALFLAG_WATERSHADER)
+					{
+						t->currentmaterialflags &= ~MATERIALFLAG_WATERSHADER;
+						t->currentmaterialflags |= MATERIALFLAG_REFRACTION;
+					}
+				}
+			}
+			if (!r_water_fog.integer)
+				t->currentmaterialflags &= ~MATERIALFLAG_FOG;
+		}
+		if(!r_fb.water.enabled || !(t->currentmaterialflags & (MATERIALFLAG_REFLECTION | MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG)))
+		{
+			if (!t->basetexture || t->basetexture == r_texture_notexture)
+			{
+				t->currentmaterialflags |= MATERIALFLAG_NODRAW;
+			}
+			t->currentmaterialflags &= ~(MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_REFLECTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG);
+		}
+		if (t->currentmaterialflags & (MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG)) {
+			if (t->currentmaterialflags & MATERIALFLAG_BLENDED)
+				t->currentmaterialflags &= ~MATERIALFLAG_BLENDED;
+			else
+				t->currentmaterialflags &= ~(MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG);
+		}
 	}
-	else
-		t->currentmaterialflags &= ~(MATERIALFLAG_REFRACTION | MATERIALFLAG_WATERSHADER | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG);
 	if (vid.allowalphatocoverage && r_transparent_alphatocoverage.integer >= 2 && ((t->currentmaterialflags & (MATERIALFLAG_BLENDED | MATERIALFLAG_ALPHA | MATERIALFLAG_ADD | MATERIALFLAG_CUSTOMBLEND)) == (MATERIALFLAG_BLENDED | MATERIALFLAG_ALPHA)))
 	{
 		// promote alphablend to alphatocoverage (a type of alphatest) if antialiasing is on

@@ -929,6 +929,7 @@ void V_CalcViewBlend(void)
 		supercontents = CL_PointSuperContents(vieworigin);
 		if (supercontents & SUPERCONTENTS_LIQUIDSMASK)
 		{
+			r_refdef.inliquid = true;
 			r_refdef.frustumscale_x *= 1 - (((sin(cl.time * 4.7) + 1) * 0.015) * r_waterwarp.value);
 			r_refdef.frustumscale_y *= 1 - (((sin(cl.time * 3.0) + 1) * 0.015) * r_waterwarp.value);
 			if (supercontents & SUPERCONTENTS_LAVA)
@@ -953,6 +954,7 @@ void V_CalcViewBlend(void)
 		}
 		else
 		{
+			r_refdef.inliquid = false;
 			cl.cshifts[CSHIFT_CONTENTS].destcolor[0] = 0;
 			cl.cshifts[CSHIFT_CONTENTS].destcolor[1] = 0;
 			cl.cshifts[CSHIFT_CONTENTS].destcolor[2] = 0;

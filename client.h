@@ -1926,6 +1926,7 @@ typedef struct r_refdef_s
 	float fogplane[4];
 	float fogplaneviewdist;
 	qboolean fogplaneviewabove;
+	qboolean inliquid;
 	float fogheightfade;
 	float fogcolor[3];
 	float fogrange;
