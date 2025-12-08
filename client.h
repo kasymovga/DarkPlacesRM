@@ -1808,8 +1808,6 @@ typedef struct r_refdef_view_s
 
 	// whether to call R_ClearScreen before rendering stuff
 	qboolean clear;
-	// if true, don't clear or do any post process effects (bloom, etc)
-	qboolean isoverlay;
 	// if true, this is the MAIN view (which is, after CSQC, copied into the scene for use e.g. by r_speeds 1, showtex, prydon cursor)
 	qboolean ismain;
 

@@ -893,7 +893,7 @@ static void VM_CL_R_SetView (prvm_prog_t *prog)
 			PRVM_G_FLOAT(OFS_RETURN) = r_refdef.view.useperspective;
 			break;
 		case VF_CLEARSCREEN:
-			PRVM_G_FLOAT(OFS_RETURN) = r_refdef.view.isoverlay;
+			PRVM_G_FLOAT(OFS_RETURN) = 0;
 			break;
 		case VF_MAINVIEW:
 			PRVM_G_FLOAT(OFS_RETURN) = r_refdef.view.ismain;
@@ -1046,7 +1046,7 @@ static void VM_CL_R_SetView (prvm_prog_t *prog)
 		r_refdef.view.useperspective = k != 0;
 		break;
 	case VF_CLEARSCREEN:
-		r_refdef.view.isoverlay = !k;
+		// Do nothing
 		break;
 	case VF_MAINVIEW:
 		PRVM_G_FLOAT(OFS_RETURN) = r_refdef.view.ismain;

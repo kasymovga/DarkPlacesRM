@@ -1921,7 +1921,6 @@ static void R_Envmap_f (void)
 	r_refdef.view.height = size;
 	r_refdef.view.depth = 1;
 	r_refdef.view.useperspective = true;
-	r_refdef.view.isoverlay = false;
 
 	r_refdef.view.frustum_x = 1; // tan(45 * M_PI / 180.0);
 	r_refdef.view.frustum_y = 1; // tan(45 * M_PI / 180.0);
@@ -2879,7 +2878,6 @@ void CL_UpdateScreen(void)
 
 	R_ClearScreen(false);
 	r_refdef.view.clear = false;
-	r_refdef.view.isoverlay = false;
 
 	// calculate r_refdef.view.quality
 	r_refdef.view.quality = cl_updatescreen_quality;

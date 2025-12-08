@@ -6112,26 +6112,6 @@ void R_RenderView(void)
 		Matrix4x4_Concat(&r_refdef.view.matrix, &originalmatrix, &offsetmatrix);
 	}
 
-	if (r_refdef.view.isoverlay)
-	{
-		// TODO: FIXME: move this into its own backend function maybe? [2/5/2008 Andreas]
-		R_Mesh_SetRenderTargets(0, NULL, NULL, NULL, NULL, NULL);
-		GL_Clear(GL_DEPTH_BUFFER_BIT, NULL, 1.0f, 0);
-		R_TimeReport("depthclear");
-
-		r_refdef.view.showdebug = false;
-
-		r_fb.water.enabled = false;
-		r_fb.water.numwaterplanes = 0;
-
-		R_RenderScene(0, NULL, NULL);
-
-		r_refdef.view.matrix = originalmatrix;
-
-		CHECKGLERROR
-		return;
-	}
-
 	if (!r_refdef.scene.entities || r_refdef.view.width * r_refdef.view.height == 0 || !r_renderview.integer || cl_videoplaying/* || !r_refdef.scene.worldmodel*/)
 	{
 		r_refdef.view.matrix = originalmatrix;
