@@ -5168,8 +5168,12 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			r_fb.water.hideplayer = ((r_water_hideplayer.integer >= 2) && !chase_active.integer);
 			R_ResetViewRendering3D(p->fbo_reflection, r_fb.water.depthtexture, p->texture_reflection);
 			R_ClearScreen(r_refdef.fogenabled);
-			if(r_water_scissormode.integer & 2/* && r_fb.water.numwaterplanes == 1*/) //why it's not working correctly with more than 1 water plane?
+			if(r_water_scissormode.integer & 2)
+			{
+				//recreating scissor for reflected view
+				R_ScissorForBBox(p->mins, p->maxs, myscissor);
 				R_View_UpdateWithScissor(myscissor);
+			}
 			else
 				R_View_Update();
 			R_AnimCache_CacheVisibleEntities();
