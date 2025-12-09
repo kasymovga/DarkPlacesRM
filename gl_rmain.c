@@ -6239,16 +6239,16 @@ void R_RenderScene(int fbo, rtexture_t *depthtexture, rtexture_t *colortexture)
 	{
 		q3mfog_t *fog;
 		int i;
-		float near = r_nearclip.value * 2;
+		float nearclip = r_nearclip.value * 2;
 		for (i = 0; i < r_refdef.scene.worldmodel->brushq3.num_fogs; i++)
 		{
 			fog = &r_refdef.scene.worldmodel->brushq3.data_fogs[i];
-			if (r_refdef.view.origin[0] >= fog->mins[0] - near &&
-					r_refdef.view.origin[0] <= fog->maxs[0] + near &&
-					r_refdef.view.origin[1] >= fog->mins[1] - near &&
-					r_refdef.view.origin[1] <= fog->maxs[1] + near &&
-					r_refdef.view.origin[2] >= fog->mins[2] - near &&
-					r_refdef.view.origin[2] <= fog->maxs[2] + near)
+			if (r_refdef.view.origin[0] >= fog->mins[0] - nearclip &&
+					r_refdef.view.origin[0] <= fog->maxs[0] + nearclip &&
+					r_refdef.view.origin[1] >= fog->mins[1] - nearclip &&
+					r_refdef.view.origin[1] <= fog->maxs[1] + nearclip &&
+					r_refdef.view.origin[2] >= fog->mins[2] - nearclip &&
+					r_refdef.view.origin[2] <= fog->maxs[2] + nearclip)
 			{
 				R_Water_FogSave(fogstate);
 				R_Water_FogSetup(fog->color, fog->density, fog->maxs[2]);
