@@ -398,11 +398,11 @@ static void R_SkyBox(void)
 			R_DrawCustomSurface(skyboxskinframe[i], &identitymatrix, MATERIALFLAG_SKY | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NOCULLFACE | MATERIALFLAG_NODEPTHTEST, i*4, 4, i*2, 2, false, false);
 	if (r_skybox_clouds.integer && r_refdef.skytexture && r_refdef.skytexture->basetexture != r_texture_notexture)
 	{
-		int mf = r_refdef.skytexture->basematerialflags;
+		texture_t texture_copy;
+		memcpy(&texture_copy, r_refdef.skytexture, sizeof(texture_copy));
 		RSurf_ActiveCustomEntity(&skymatrix, &skyinversematrix, 0, 0, 1, 1, 1, 1, skysphere_numverts, skysphere_vertex3f, skysphere_texcoord2f_q3, NULL, NULL, NULL, NULL, skysphere_numtriangles, skysphere_element3i, skysphere_element3s, false, false);
-		r_refdef.skytexture->basematerialflags |= MATERIALFLAG_SKY | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NOCULLFACE | MATERIALFLAG_NODEPTHTEST | MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_WALL;
-		R_DrawCustomSurface_Texture(r_refdef.skytexture, &identitymatrix, 0, 0, skysphere_numverts, 0, skysphere_numtriangles, false, false);
-		r_refdef.skytexture->basematerialflags = mf;
+		texture_copy.basematerialflags |= MATERIALFLAG_SKY | MATERIALFLAG_FULLBRIGHT | MATERIALFLAG_NOCULLFACE | MATERIALFLAG_NODEPTHTEST | MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_WALL;
+		R_DrawCustomSurface_Texture(&texture_copy, &identitymatrix, 0, 0, skysphere_numverts, 0, skysphere_numtriangles, false, false);
 	}
 }
 
