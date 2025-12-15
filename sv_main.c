@@ -1864,6 +1864,8 @@ static void SV_WriteEntitiesToClient(client_t *client, prvm_edict_t *clent, size
 	// get eye location
 	sv.writeentitiestoclient_cliententitynumber = PRVM_EDICT_TO_PROG(clent); // LordHavoc: for comparison purposes
 	camera = PRVM_EDICT_NUM( client->clientcamera );
+	if(PRVM_serveredictedict(client->edict, clientdataent))
+		clent = PRVM_EDICT_NUM(PRVM_serveredictedict(client->edict, clientdataent));
 	VectorAdd(PRVM_serveredictvector(camera, origin), PRVM_serveredictvector(clent, view_ofs), eye);
 	// get the PVS values for the eye location, later FatPVS calls will merge
 	if (sv.worldmodel && sv.worldmodel->brush.FatPVS && sv.worldmodel->brush.num_pvsclusterbytes)
