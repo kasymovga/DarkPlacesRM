@@ -1933,7 +1933,7 @@ void Mod_LoadQ3Shaders(void)
 					#endif
 					if (!(shader.surfaceparms & Q3SURFACEPARM_NOMIPMAPS))
 						layer->texflags |= TEXF_MIPMAP;
-					if (!(shader.textureflags & Q3TEXTUREFLAG_NOPICMIP))
+					if (!(shader.textureflags & Q3TEXTUREFLAG_NOPICMIP) && !(shader.surfaceparms & Q3SURFACEPARM_SKY))
 						layer->texflags |= TEXF_PICMIP | TEXF_COMPRESS;
 					if (layer->clampmap)
 						layer->texflags |= TEXF_CLAMP;
