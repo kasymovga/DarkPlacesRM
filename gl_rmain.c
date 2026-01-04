@@ -202,6 +202,7 @@ cvar_t r_water_reflectdistort = {CVAR_SAVE, "r_water_reflectdistort", "0.01", "h
 cvar_t r_water_scissormode = {0, "r_water_scissormode", "3", "scissor (1) or cull (2) or both (3) water renders"};
 cvar_t r_water_lowquality = {0, "r_water_lowquality", "0", "special option to accelerate water rendering, 1 disables shadows and particles, 2 disables all dynamic lights"};
 cvar_t r_water_hideplayer = {CVAR_SAVE, "r_water_hideplayer", "0", "if set to 1 then player will be hidden in refraction views, if set to 2 then player will also be hidden in reflection views, player is always visible in camera views"};
+cvar_t r_water_hideplayer_distance = {CVAR_SAVE, "r_water_hideplayer_distance", "14", "if distance to reflection surface is lesser than this value then player will be hidden in reflection view"};
 cvar_t r_water_fbo = {CVAR_SAVE, "r_water_fbo", "1", "enables use of render to texture for water effects, otherwise copy to texture is used (slower)"};
 
 cvar_t r_lerpsprites = {CVAR_SAVE, "r_lerpsprites", "0", "enables animation smoothing on sprites"};
@@ -3432,6 +3433,7 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_water_scissormode);
 	Cvar_RegisterVariable(&r_water_lowquality);
 	Cvar_RegisterVariable(&r_water_hideplayer);
+	Cvar_RegisterVariable(&r_water_hideplayer_distance);
 	Cvar_RegisterVariable(&r_water_fbo);
 
 	Cvar_RegisterVariable(&r_lerpsprites);
@@ -5165,7 +5167,12 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 			r_refdef.view.cullface_front = GL_FRONT;
 			r_refdef.view.cullface_back = GL_BACK;
 			origpvsbits = R_Water_PVSChange(origpvsbits, p, NULL, &pvschanged);
-			r_fb.water.hideplayer = ((r_water_hideplayer.integer >= 2) && !chase_active.integer);
+			if (chase_active.integer)
+				r_fb.water.hideplayer = false;
+			else if (r_water_hideplayer.integer >= 2)
+				r_fb.water.hideplayer = true;
+			else
+				r_fb.water.hideplayer = (fabs(DotProduct(r_refdef.view.origin, r_refdef.view.clipplane.normal) - r_refdef.view.clipplane.dist) <= r_water_hideplayer_distance.value);
 			R_ResetViewRendering3D(p->fbo_reflection, r_fb.water.depthtexture, p->texture_reflection);
 			R_ClearScreen(r_refdef.fogenabled);
 			if(r_water_scissormode.integer & 2)
