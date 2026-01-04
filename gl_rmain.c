@@ -327,6 +327,8 @@ const float r_screenvertex3f[12] =
 	0, 1, 0
 };
 
+static int RSurf_FindWaterPlaneForSurface(const msurface_t *surface, mplane_t *plane, vec_t *mins, vec_t *maxs);
+
 void R_ModulateColors(float *in, float *out, int verts, float r, float g, float b)
 {
 	int i;
@@ -4863,73 +4865,16 @@ static void R_Water_StartFrame(void)
 
 void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 {
-	int planeindex, bestplaneindex, vertexindex;
-	vec3_t mins, maxs, normal, center, v, n;
-	vec_t planescore, bestplanescore;
+	texture_t *t = R_GetCurrentTexture(surface->texture);
+	vec3_t mins, maxs, center;
 	mplane_t plane;
 	r_waterstate_waterplane_t *p;
-	texture_t *t = R_GetCurrentTexture(surface->texture);
-
+	int planeindex;
 	rsurface.texture = t;
-	RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_ARRAY_NORMAL | BATCHNEED_NOGAPS, 1, ((const msurface_t **)&surface));
-	// if the model has no normals, it's probably off-screen and they were not generated, so don't add it anyway
-	if (!rsurface.batchnormal3f || rsurface.batchnumvertices < 1)
-		return;
-	// average the vertex normals, find the surface bounds (after deformvertexes)
-	Matrix4x4_Transform(&rsurface.matrix, rsurface.batchvertex3f, v);
-	Matrix4x4_Transform3x3(&rsurface.matrix, rsurface.batchnormal3f, n);
-	VectorCopy(n, normal);
-	VectorCopy(v, mins);
-	VectorCopy(v, maxs);
-	for (vertexindex = 1;vertexindex < rsurface.batchnumvertices;vertexindex++)
-	{
-		Matrix4x4_Transform(&rsurface.matrix, rsurface.batchvertex3f + vertexindex*3, v);
-		Matrix4x4_Transform3x3(&rsurface.matrix, rsurface.batchnormal3f + vertexindex*3, n);
-		VectorAdd(normal, n, normal);
-		mins[0] = min(mins[0], v[0]);
-		mins[1] = min(mins[1], v[1]);
-		mins[2] = min(mins[2], v[2]);
-		maxs[0] = max(maxs[0], v[0]);
-		maxs[1] = max(maxs[1], v[1]);
-		maxs[2] = max(maxs[2], v[2]);
-	}
-	VectorNormalize(normal);
-	VectorMAM(0.5f, mins, 0.5f, maxs, center);
-
-	VectorCopy(normal, plane.normal);
-	VectorNormalize(plane.normal);
-	plane.dist = DotProduct(center, plane.normal);
-	PlaneClassify(&plane);
-	if (PlaneDiff(r_refdef.view.origin, &plane) < 0)
-	{
-		// skip backfaces (except if nocullface is set)
-//		if (!(t->currentmaterialflags & MATERIALFLAG_NOCULLFACE))
-//			return;
-		VectorNegate(plane.normal, plane.normal);
-		plane.dist *= -1;
-		PlaneClassify(&plane);
-	}
-
-
-	// find a matching plane if there is one
-	bestplaneindex = -1;
-	bestplanescore = 1048576.0f;
-	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
-	{
-		if(p->camera_entity == entno && p->texture == t)
-		{
-			planescore = 1.0f - DotProduct(plane.normal, p->plane.normal) + fabs(plane.dist - p->plane.dist) * 0.001f;
-			if (bestplaneindex < 0 || bestplanescore > planescore)
-			{
-				bestplaneindex = planeindex;
-				bestplanescore = planescore;
-			}
-		}
-	}
-	planeindex = bestplaneindex;
+	planeindex = RSurf_FindWaterPlaneForSurface(surface, &plane, mins, maxs);
 
 	// if this surface does not fit any known plane rendered this frame, add one
-	if (planeindex < 0 || bestplanescore > 0.001f)
+	if (planeindex < 0)
 	{
 		if (r_fb.water.numwaterplanes < r_fb.water.maxwaterplanes)
 		{
@@ -4961,6 +4906,7 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 		p->maxs[1] = max(p->maxs[1], maxs[1]);
 		p->maxs[2] = max(p->maxs[2], maxs[2]);
 	}
+	VectorMAM(0.5f, p->mins, 0.5f, p->maxs, center);
 	if(!(t->currentmaterialflags & MATERIALFLAG_CAMERA))
 	{
 		// merge this surface's PVS into the waterplane
@@ -5175,12 +5121,10 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 				r_fb.water.hideplayer = (fabs(DotProduct(r_refdef.view.origin, r_refdef.view.clipplane.normal) - r_refdef.view.clipplane.dist) <= r_water_hideplayer_distance.value);
 			R_ResetViewRendering3D(p->fbo_reflection, r_fb.water.depthtexture, p->texture_reflection);
 			R_ClearScreen(r_refdef.fogenabled);
-			if(r_water_scissormode.integer & 2)
-			{
-				//recreating scissor for reflected view
+			if(r_water_scissormode.integer & 3) //recreating scissor for reflected view
 				R_ScissorForBBox(p->mins, p->maxs, myscissor);
+			if(r_water_scissormode.integer & 2)
 				R_View_UpdateWithScissor(myscissor);
-			}
 			else
 				R_View_Update();
 			R_AnimCache_CacheVisibleEntities();
@@ -5248,7 +5192,7 @@ static void R_Water_ProcessPlanes(int fbo, rtexture_t *depthtexture, rtexture_t 
 				R_UpdateFog();
 			}
 			R_ClearScreen(r_refdef.fogenabled);
-			if(r_water_scissormode.integer & 2/* && r_fb.water.numwaterplanes == 1*/) //why it's not working correctly with more than 1 water plane?
+			if(r_water_scissormode.integer & 2)
 				R_View_UpdateWithScissor(myscissor);
 			else
 				R_View_Update();
@@ -7134,7 +7078,7 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 					t->currentmaterialflags &= ~MATERIALFLAG_REFRACTION;
 				if (!r_water_water.integer)
 					t->currentmaterialflags &= ~MATERIALFLAG_WATERSHADER;
-				else if (r_refdef.inliquid)
+				else if (r_refdef.inliquid || !r_water_reflection.integer)
 				{
 					if (t->currentmaterialflags & MATERIALFLAG_WATERSHADER)
 					{
@@ -9015,44 +8959,63 @@ void RSurf_DrawBatch(void)
 	}
 }
 
-static int RSurf_FindWaterPlaneForSurface(const msurface_t *surface)
+static int RSurf_FindWaterPlaneForSurface(const msurface_t *surface, mplane_t *plane, vec_t *mins, vec_t *maxs)
 {
-	// pick the closest matching water plane
-	int planeindex, vertexindex, bestplaneindex = -1;
-	float d, bestd;
-	vec3_t vert;
-	const float *v;
+	int planeindex, bestplaneindex, vertexindex;
+	vec3_t normal, center, v, n;
+	vec_t planescore, bestplanescore;
 	r_waterstate_waterplane_t *p;
-	qboolean prepared = false;
-	bestd = 0;
+	RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX | BATCHNEED_ARRAY_NORMAL | BATCHNEED_NOGAPS, 1, ((const msurface_t **)&surface));
+	// if the model has no normals, it's probably off-screen and they were not generated, so don't add it anyway
+	if (!rsurface.batchnormal3f || rsurface.batchnumvertices < 1)
+		return -1;
+	// average the vertex normals, find the surface bounds (after deformvertexes)
+	Matrix4x4_Transform(&rsurface.matrix, rsurface.batchvertex3f, v);
+	Matrix4x4_Transform3x3(&rsurface.matrix, rsurface.batchnormal3f, n);
+	VectorCopy(n, normal);
+	VectorCopy(v, mins);
+	VectorCopy(v, maxs);
+	for (vertexindex = 1;vertexindex < rsurface.batchnumvertices;vertexindex++)
+	{
+		Matrix4x4_Transform(&rsurface.matrix, rsurface.batchvertex3f + vertexindex*3, v);
+		Matrix4x4_Transform3x3(&rsurface.matrix, rsurface.batchnormal3f + vertexindex*3, n);
+		VectorAdd(normal, n, normal);
+		mins[0] = min(mins[0], v[0]);
+		mins[1] = min(mins[1], v[1]);
+		mins[2] = min(mins[2], v[2]);
+		maxs[0] = max(maxs[0], v[0]);
+		maxs[1] = max(maxs[1], v[1]);
+		maxs[2] = max(maxs[2], v[2]);
+	}
+	VectorNormalize(normal);
+	VectorMAM(0.5f, mins, 0.5f, maxs, center);
+
+	VectorCopy(normal, plane->normal);
+	plane->dist = DotProduct(center, plane->normal);
+	PlaneClassify(plane);
+	if (PlaneDiff(r_refdef.view.origin, plane) < 0)
+	{
+		VectorNegate(plane->normal, plane->normal);
+		plane->dist *= -1;
+		PlaneClassify(plane);
+	}
+	// find a matching plane if there is one
+	bestplaneindex = -1;
+	bestplanescore = 1048576.0f;
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
-		if(p->camera_entity != rsurface.entity->entitynumber || p->texture != rsurface.texture)
-			continue;
-		d = 0;
-		if(!prepared)
+		if(p->camera_entity == rsurface.entity->entitynumber && p->texture == rsurface.texture)
 		{
-			RSurf_PrepareVerticesForBatch(BATCHNEED_ARRAY_VERTEX, 1, &surface);
-			prepared = true;
-			if(rsurface.batchnumvertices == 0)
-				break;
-		}
-		for (vertexindex = 0, v = rsurface.batchvertex3f + rsurface.batchfirstvertex * 3;vertexindex < rsurface.batchnumvertices;vertexindex++, v += 3)
-		{
-			Matrix4x4_Transform(&rsurface.matrix, v, vert);
-			d += fabs(PlaneDiff(vert, &p->plane));
-		}
-		if (bestd > d || bestplaneindex < 0)
-		{
-			bestd = d;
-			bestplaneindex = planeindex;
+			planescore = 1.0f - DotProduct(plane->normal, p->plane.normal) + fabs(plane->dist - p->plane.dist) * 0.001f;
+			if (bestplaneindex < 0 || bestplanescore > planescore)
+			{
+				bestplaneindex = planeindex;
+				bestplanescore = planescore;
+			}
 		}
 	}
+	if (bestplanescore > 0.001f) return -1;
 	return bestplaneindex;
-	// NOTE: this MAY return a totally unrelated water plane; we can ignore
-	// this situation though, as it might be better to render single larger
-	// batches with useless stuff (backface culled for example) than to
-	// render multiple smaller batches
 }
 
 static void RSurf_DrawBatch_GL11_MakeFullbrightLightmapColorArray(void)
@@ -9420,9 +9383,11 @@ static void R_DrawTextureSurfaceList_GL20(int texturenumsurfaces, const msurface
 	if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA | MATERIALFLAG_REFLECTION | MATERIALFLAG_FOG)))
 	{
 		int start, end, startplaneindex;
+		mplane_t plane;
+		vec3_t mins, maxs;
 		for (start = 0;start < texturenumsurfaces;start = end)
 		{
-			startplaneindex = RSurf_FindWaterPlaneForSurface(texturesurfacelist[start]);
+			startplaneindex = RSurf_FindWaterPlaneForSurface(texturesurfacelist[start], &plane, mins, maxs);
 			if(startplaneindex < 0)
 			{
 				// this happens if the plane e.g. got backface culled and thus didn't get a water plane. We can just ignore this.
@@ -9430,7 +9395,7 @@ static void R_DrawTextureSurfaceList_GL20(int texturenumsurfaces, const msurface
 				end = start + 1;
 				continue;
 			}
-			for (end = start + 1;end < texturenumsurfaces && startplaneindex == RSurf_FindWaterPlaneForSurface(texturesurfacelist[end]);end++)
+			for (end = start + 1;end < texturenumsurfaces && startplaneindex == RSurf_FindWaterPlaneForSurface(texturesurfacelist[end], &plane, mins, maxs);end++)
 				;
 			// now that we have a batch using the same planeindex, render it
 			if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG)))
