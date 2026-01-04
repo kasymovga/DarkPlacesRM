@@ -10,6 +10,7 @@ cvar_t vid_touchscreen_showkeyboard = {0, "vid_touchscreen_showkeyboard", "0", "
 cvar_t vid_touchscreen_active = {0, "vid_touchscreen_active", "1", "activate/deactivate touchscreen controls" };
 cvar_t vid_touchscreen_scale = {CVAR_SAVE, "vid_touchscreen_scale", "1", "scale of touchscreen items" };
 cvar_t vid_touchscreen_mirror = {CVAR_SAVE, "vid_touchscreen_mirror", "0", "mirroring position of touchscreen in-game items" };
+cvar_t vid_touchscreen_menu_mirror = {CVAR_SAVE, "vid_touchscreen_menu_mirror", "0", "mirroring position of touchscreen in-menu items" };
 cvar_t vid_touchscreen_mouse = {CVAR_SAVE, "vid_touchscreen_mouse", "0", "use mouse input as touchscreen events" };
 cvar_t vid_touchscreen_editor = {0, "vid_touchscreen_editor", "0", "enable touchscreen element editing" };
 static cvar_t vid_touchscreen_outlinealpha = {0, "vid_touchscreen_outlinealpha", "0", "opacity of touchscreen area outlines"};
@@ -18,13 +19,14 @@ struct finger multitouch[MAXFINGERS];
 qboolean vid_touchscreen_visible = 1;
 
 #define TOUCHSCREEN_AREAS_MAXCOUNT 128
+#define TOUCHSCREEN_AREAS_CFG_MAXCOUNT (TOUCHSCREEN_AREAS_MAXCOUNT-11)
 
 struct touchscreen_area {
 	int dest, corner, x, y, width, height;
 	char image[64], cmd[32];
 };
-static struct touchscreen_area touchscreen_areas[TOUCHSCREEN_AREAS_MAXCOUNT - 11];
-static struct touchscreen_area touchscreen_areas_backup[TOUCHSCREEN_AREAS_MAXCOUNT - 11];
+static struct touchscreen_area touchscreen_areas[TOUCHSCREEN_AREAS_CFG_MAXCOUNT];
+static struct touchscreen_area touchscreen_areas_backup[TOUCHSCREEN_AREAS_CFG_MAXCOUNT];
 static int touchscreen_areas_count;
 static int touchscreen_areas_backup_count;
 static int touchscreen_editor_selected;
@@ -32,7 +34,7 @@ static int touchscreen_editor_selected_screen;
 static int scr_numtouchscreenareas;
 static scr_touchscreenarea_t scr_touchscreenareas[TOUCHSCREEN_AREAS_MAXCOUNT];
 
-static void VID_TouchscreenLoad(qboolean custom);
+static void VID_TouchscreenLoad(qboolean custom, qboolean merge);
 static void VID_TouchscreenSaveCustom(void);
 
 void VID_TouchscreenDraw(void)
@@ -139,16 +141,36 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 	qboolean button = false;
 	qboolean check_dest = false;
 	char command_part[32];
-	if (vid_touchscreen_scale.value > 0 && vid_touchscreen_scale.value != 1 && strncmp(command, "*editor_", 8))
+	if (vid_touchscreen_scale.value > 0 && vid_touchscreen_scale.value != 1
+			&& strncmp(command, "*editor_", 8)
+			&& strcmp(command, "*toucheditortoggle")
+			&& dest == 2) //only for in-game controls
 	{
-		px *= vid_touchscreen_scale.value;
-		py *= vid_touchscreen_scale.value;
-		pwidth *= vid_touchscreen_scale.value;
-		pheight *= vid_touchscreen_scale.value;
+		float scale = bound(0.1, vid_touchscreen_scale.value, 10);
+		px *= scale;
+		py *= scale;
+		pwidth *= scale;
+		pheight *= scale;
 	}
 	if (vid_touchscreen_mirror.integer && strncmp(command, "*editor_", 8))
 	{
 		if (dest == 2) //only for in-game controls
+		{
+			if (corner & 1)
+			{
+				px = -px - pwidth;
+				corner &= ~1;
+			}
+			else if (!(corner & 4))
+			{
+				px = -px - pwidth;
+				corner |= 1;
+			}
+		}
+	}
+	if (vid_touchscreen_menu_mirror.integer)
+	{
+		if (dest & 4) //only for in-menu controls
 		{
 			if (corner & 1)
 			{
@@ -271,7 +293,7 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 				if (button && !*resultbutton) {
 					touchscreen_editor_selected = -1;
 					touchscreen_editor_selected_screen = -1;
-					VID_TouchscreenLoad(false);
+					VID_TouchscreenLoad(false, false);
 				}
 			} else if (!strcmp(command_part, "*editor_mirror")) {
 				if (button && !*resultbutton) {
@@ -381,6 +403,9 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 			} else if (!strcmp(command_part, "*toucheditortoggle")) {
 				if (button && *resultbutton != button)
 					Cvar_SetValueQuick(&vid_touchscreen_editor, !vid_touchscreen_editor.integer);
+			} else if (!strcmp(command_part, "*menumirrortoggle")) {
+				if (button && *resultbutton != button)
+					Cvar_SetValueQuick(&vid_touchscreen_menu_mirror, !vid_touchscreen_menu_mirror.integer);
 			}
 		} else {
 			if (*resultbutton != button)
@@ -403,16 +428,17 @@ static qboolean VID_TouchscreenArea(int dest, int corner, float px, float py, fl
 	return button;
 }
 
-static void VID_TouchscreenLoad(qboolean custom)
+static void VID_TouchscreenLoad(qboolean custom, qboolean merge)
 {
 	const char *cfg_path = (custom ? DPTOUCH_CUSTOM_CFG_PATH : DPTOUCH_CFG_PATH);
 	char *cfg = (char*)FS_LoadFile(cfg_path, tempmempool, false, NULL);
 	char *line;
 	char *nl;
 	const char *tok;
-	int line_num = 0;
-	touchscreen_areas_count = 0;
-	while (cfg && touchscreen_areas_count < TOUCHSCREEN_AREAS_MAXCOUNT - 2) {
+	struct touchscreen_area area;
+	int line_num = 0, i;
+	if (!merge) touchscreen_areas_count = 0;
+	while (cfg) {
 		line_num++;
 		nl = strchr(cfg, '\n');
 		if (nl) {
@@ -425,22 +451,38 @@ static void VID_TouchscreenLoad(qboolean custom)
 		}
 		if (!(tok = strtok_r(line, " \t", &line))) { continue; }
 		if (tok[0] == '/') continue; //Commentary
-		touchscreen_areas[touchscreen_areas_count].dest = atoi(tok);
+		area.dest = atoi(tok);
 		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
-		touchscreen_areas[touchscreen_areas_count].corner = atoi(tok);
+		area.corner = atoi(tok);
 		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
-		touchscreen_areas[touchscreen_areas_count].x = atoi(tok);
+		area.x = atoi(tok);
 		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
-		touchscreen_areas[touchscreen_areas_count].y = atoi(tok);
+		area.y = atoi(tok);
 		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
-		touchscreen_areas[touchscreen_areas_count].width = atoi(tok);
+		area.width = atoi(tok);
 		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
-		touchscreen_areas[touchscreen_areas_count].height = atoi(tok);
+		area.height = atoi(tok);
 		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
-		strlcpy(touchscreen_areas[touchscreen_areas_count].image, tok, sizeof(touchscreen_areas[touchscreen_areas_count].image));
+		strlcpy(area.image, tok, sizeof(area.image));
 		if (!(tok = strtok_r(line, " \t", &line))) { Con_Printf("Touch screen info parse error: %s:%i: not enough parameters!\n", cfg_path, line_num); continue; }
-		strlcpy(touchscreen_areas[touchscreen_areas_count].cmd, tok, sizeof(touchscreen_areas[touchscreen_areas_count].cmd));
-		touchscreen_areas_count++;
+		strlcpy(area.cmd, tok, sizeof(area.cmd));
+		if (merge) {
+			for (i = 0; i < touchscreen_areas_count; i++) {
+				if (area.dest == touchscreen_areas[i].dest
+						&& !strcmp(area.cmd, touchscreen_areas[i].cmd)) {
+					touchscreen_areas[i] = area;
+					break;
+				}
+			}
+			if (i == touchscreen_areas_count)
+				Con_Printf("VID_TouchscreenLoad: cannot merge line %i from %s\n", line_num, cfg_path);
+		} else {
+			if (touchscreen_areas_count < TOUCHSCREEN_AREAS_CFG_MAXCOUNT) {
+				touchscreen_areas[touchscreen_areas_count] = area;
+				touchscreen_areas_count++;
+			} else
+				Con_Printf("VID_TouchscreenLoad: too much elements in %s\n", cfg_path);
+		}
 	}
 }
 
@@ -468,11 +510,7 @@ qboolean VID_TouchscreenInMove(int x, int y, int st)
 	int n = 0, p = 0;
 	static qboolean oldbuttons[TOUCHSCREEN_AREAS_MAXCOUNT];
 	static qboolean buttons[TOUCHSCREEN_AREAS_MAXCOUNT];
-	float scale = vid_touchscreen_scale.value;
 	keydest_t keydest = (key_consoleactive & KEY_CONSOLEACTIVE_USER) ? key_console : key_dest;
-	if (scale <= 0)
-		scale = 1;
-
 	memcpy(oldbuttons, buttons, sizeof(oldbuttons));
 	if (vid_touchscreen_mouse.integer) {
 		multitouch[MAXFINGERS-1].x = ((float)x) / vid.width;
@@ -498,7 +536,7 @@ qboolean VID_TouchscreenInMove(int x, int y, int st)
 		n++;
 		p += VID_TouchscreenArea(7, 0,   0,   0,  64,  64, NULL                         , "toggleconsole", &buttons[n], n);
 		n++;
-		p += VID_TouchscreenArea(6, 0,   0,   0, vid_conwidth.value / scale, vid_conheight.value / scale, NULL, "*click", &buttons[n], n);
+		p += VID_TouchscreenArea(6, 0,   0,   0, vid_conwidth.value, vid_conheight.value, NULL, "*click", &buttons[n], n);
 	} else {
 		n += 2;
 	}
@@ -543,8 +581,8 @@ qboolean VID_TouchscreenInMove(int x, int y, int st)
 }
 
 void VID_TouchscreenInit(void) {
-	VID_TouchscreenLoad(true); //attempt load custom first
-	if (!touchscreen_areas_count) VID_TouchscreenLoad(false);
+	VID_TouchscreenLoad(false, false); //attempt load custom first
+	VID_TouchscreenLoad(true, true);
 	memcpy(touchscreen_areas_backup, touchscreen_areas, sizeof(touchscreen_areas));
 	touchscreen_areas_backup_count = touchscreen_areas_count;
 	Cvar_RegisterVariable(&vid_touchscreen);
@@ -555,6 +593,7 @@ void VID_TouchscreenInit(void) {
 	Cvar_RegisterVariable(&vid_touchscreen_overlayalpha);
 	Cvar_RegisterVariable(&vid_touchscreen_scale);
 	Cvar_RegisterVariable(&vid_touchscreen_mirror);
+	Cvar_RegisterVariable(&vid_touchscreen_menu_mirror);
 	Cvar_RegisterVariable(&vid_touchscreen_mouse);
 	Cvar_RegisterVariable(&vid_touchscreen_editor);
 	touchscreen_editor_selected = -1;
