@@ -9380,23 +9380,23 @@ static void R_DrawTextureSurfaceList_GL20(int texturenumsurfaces, const msurface
 	// bind lightmap texture
 
 	// water/refraction/reflection/camera surfaces have to be handled specially
-	if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA | MATERIALFLAG_REFLECTION | MATERIALFLAG_FOG)))
+	if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA | MATERIALFLAG_REFLECTION | MATERIALFLAG_FOG)) && texturenumsurfaces)
 	{
-		int start, end, startplaneindex;
+		int start, end, startplaneindex, nextplaneindex;
 		mplane_t plane;
 		vec3_t mins, maxs;
+		nextplaneindex = RSurf_FindWaterPlaneForSurface(texturesurfacelist[0], &plane, mins, maxs);
 		for (start = 0;start < texturenumsurfaces;start = end)
 		{
-			startplaneindex = RSurf_FindWaterPlaneForSurface(texturesurfacelist[start], &plane, mins, maxs);
+			startplaneindex = nextplaneindex;
+			for (end = start + 1;end < texturenumsurfaces && startplaneindex == (nextplaneindex = RSurf_FindWaterPlaneForSurface(texturesurfacelist[end], &plane, mins, maxs));end++)
+				;
 			if(startplaneindex < 0)
 			{
 				// this happens if the plane e.g. got backface culled and thus didn't get a water plane. We can just ignore this.
 				// Con_Printf("No matching water plane for surface with material flags 0x%08x - PLEASE DEBUG THIS\n", rsurface.texture->currentmaterialflags);
-				end = start + 1;
 				continue;
 			}
-			for (end = start + 1;end < texturenumsurfaces && startplaneindex == RSurf_FindWaterPlaneForSurface(texturesurfacelist[end], &plane, mins, maxs);end++)
-				;
 			// now that we have a batch using the same planeindex, render it
 			if ((rsurface.texture->currentmaterialflags & (MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION | MATERIALFLAG_CAMERA | MATERIALFLAG_FOG)))
 			{
