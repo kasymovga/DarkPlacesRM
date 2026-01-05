@@ -4892,11 +4892,11 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 		else
 		{
 			// We're totally screwed.
-			r_fb.water.pause = realtime + 5;
 			if (r_fb.water.pause == 0.f)
 			{
 				Con_Printf("Warning: too much water planes\n");
 			}
+			r_fb.water.pause = realtime + 5;
 			r_fb.water.enabled = false;
 			r_fb.water.numwaterplanes = 0;
 			return;
