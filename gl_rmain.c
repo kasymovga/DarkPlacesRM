@@ -4782,6 +4782,7 @@ static void R_Water_StartFrame(void)
 	int waterwidth, waterheight, texturewidth, textureheight, camerawidth, cameraheight;
 	r_waterstate_waterplane_t *p;
 	qboolean usewaterfbo = (r_viewfbo.integer >= 1 || r_water_fbo.integer >= 1) && vid.support.ext_framebuffer_object;
+	r_fb.water.enabled = false;
 
 	if (vid.width > (int)vid.maxtexturesize_2d || vid.height > (int)vid.maxtexturesize_2d)
 		return;
@@ -4792,7 +4793,7 @@ static void R_Water_StartFrame(void)
 
 	// calculate desired texture sizes
 	// can't use water if the card does not support the texture size
-	if (!r_water.integer || r_showsurfaces.integer)
+	if (!r_water.integer || r_showsurfaces.integer || r_fb.water.pause > realtime)
 		texturewidth = textureheight = waterwidth = waterheight = camerawidth = cameraheight = 0;
 	else if (vid.support.arb_texture_non_power_of_two)
 	{
@@ -4834,7 +4835,6 @@ static void R_Water_StartFrame(void)
 				R_Mesh_DestroyFramebufferObject(p->fbo_camera);
 			p->fbo_camera = 0;
 		}
-		memset(&r_fb.water, 0, sizeof(r_fb.water));
 		r_fb.water.texturewidth = texturewidth;
 		r_fb.water.textureheight = textureheight;
 		r_fb.water.camerawidth = camerawidth;
@@ -4892,6 +4892,13 @@ void R_Water_AddWaterPlane(msurface_t *surface, int entno)
 		else
 		{
 			// We're totally screwed.
+			r_fb.water.pause = realtime + 5;
+			if (r_fb.water.pause == 0.f)
+			{
+				Con_Printf("Warning: too much water planes\n");
+			}
+			r_fb.water.enabled = false;
+			r_fb.water.numwaterplanes = 0;
 			return;
 		}
 	}

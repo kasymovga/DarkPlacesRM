@@ -528,6 +528,7 @@ typedef struct r_waterstate_s
 
 	qboolean renderingscene; // true while rendering a refraction or reflection texture, disables water surfaces
 	qboolean hideplayer;
+	double pause; //temporaly disable water surfaces
 }
 r_waterstate_t;
 
