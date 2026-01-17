@@ -3478,13 +3478,6 @@ void GL_Main_Init(void)
 	Cvar_RegisterVariable(&r_batch_dynamicbuffer);
 	Cvar_RegisterVariable(&r_lightmap_updates_per_frame);
 	Cvar_RegisterVariable(&r_extra_texture_effects);
-#ifdef DP_MOBILETOUCH
-	// GLES devices have terrible depth precision in general, so...
-	Cvar_SetValueQuick(&r_nearclip, 4);
-	Cvar_SetValueQuick(&r_farclip_base, 4096);
-	Cvar_SetValueQuick(&r_farclip_world, 0);
-	Cvar_SetValueQuick(&r_useinfinitefarclip, 0);
-#endif
 	R_RegisterModule("GL_Main", gl_main_start, gl_main_shutdown, gl_main_newmap, NULL, NULL);
 }
 
