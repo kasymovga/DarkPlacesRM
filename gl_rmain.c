@@ -7065,7 +7065,7 @@ texture_t *R_GetCurrentTexture(texture_t *t)
 			prvm_prog_t *prog = CLVM_prog;
 			if(t->basematerialflags & MATERIALFLAG_WATERSHADER)
 				t->currentmaterialflags |= MATERIALFLAG_ALPHA | MATERIALFLAG_BLENDED | MATERIALFLAG_NOSHADOW; // we apply wateralpha later
-			if (ent->entitynumber != 0 && PRVM_clientedictfunction(PRVM_EDICT_NUM(ent->entitynumber - MAX_EDICTS), camera_transform))
+			if (ent->entitynumber > 0 && ent->entitynumber < prog->max_edicts && PRVM_clientedictfunction(PRVM_EDICT_NUM(ent->entitynumber - MAX_EDICTS), camera_transform))
 			{
 				if (!r_water_camera.integer)
 					t->currentmaterialflags &= ~(MATERIALFLAG_CAMERA | MATERIALFLAG_WATERSHADER | MATERIALFLAG_REFRACTION);
