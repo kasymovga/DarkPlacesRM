@@ -1799,7 +1799,10 @@ unsigned int GL_Backend_CompileProgram(int vertexstrings_count, const char **ver
 	qglBindAttribLocation(programobject, GLSLATTRIB_TEXCOORD7, "Attrib_SkeletalWeight");
 #ifndef USE_GLES2
 	if(vid.support.gl20shaders130)
+	{
 		qglBindFragDataLocation(programobject, 0, "dp_FragColor");
+		qglBindFragDataLocation(programobject, 1, "dp_FragColor2");
+	}
 #endif
 
 	if (vertexstrings_count && !GL_Backend_CompileShader(programobject, GL_VERTEX_SHADER, "vertex", vertexstrings_count, vertexstrings_list))
