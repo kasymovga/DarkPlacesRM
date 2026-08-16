@@ -746,6 +746,7 @@ typedef struct capturevideostate_s
 	unsigned char *outbuffer;
 	char basename[MAX_QPATH];
 	int width, height;
+	int finishatframe;
 
 	// precomputed RGB to YUV tables
 	// converts the RGB values to YUV (see cap_avi.c for how to use them)
