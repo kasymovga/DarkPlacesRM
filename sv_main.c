@@ -954,7 +954,6 @@ void SV_SendServerinfo (client_t *client)
 	dpsnprintf (message, sizeof (message), "\nServer: DarkPlacesRM " DP_OS_NAME " build %s, running %s (progs %i crc)\n", buildstring, gamename, prog->filecrc);
 	MSG_WriteString (&client->netconnection->message,message);
 
-	SV_StopDemoRecording(client); // to split up demos into different files
 	if(sv_autodemo_perclient.integer)
 	{
 		char demofile[MAX_OSPATH];
@@ -3323,6 +3322,9 @@ void SV_SpawnServer (const char *server)
 	char modelname[sizeof(sv.worldname)];
 	char vabuf[1024];
 
+	for (i = 0, host_client = svs.clients;i < svs.maxclients;i++, host_client++)
+		if (svs.clients[i].active)
+			SV_StopDemoRecording(&svs.clients[i]);
 	#ifndef CONFIG_SV
 	if (!SV_ThreadIsLocked())
 		Sys_Error("SV_SpawnServer: server thread not locked!\n");
