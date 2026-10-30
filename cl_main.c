@@ -724,6 +724,7 @@ void CL_AllocLightFlash(entity_render_t *ent, matrix4x4_t *matrix, float radius,
 	dlight_t *dl;
 
 // then look for anything else
+	if (!r_shadow_realtime_dlight.integer) return;
 	dl = cl.dlights;
 	for (i = 0;i < cl.max_dlights;i++, dl++)
 		if (!dl->radius)
