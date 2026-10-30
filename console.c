@@ -435,10 +435,6 @@ unsigned int log_dest_buffer_appending;
 char crt_log_file [MAX_OSPATH] = "";
 qfile_t* logfile = NULL;
 
-unsigned char* logqueue = NULL;
-size_t logq_ind = 0;
-size_t logq_size = 0;
-
 void Log_ConPrint (const char *msg);
 //@}
 static void Log_DestBuffer_Init(void)
@@ -574,51 +570,6 @@ void Log_Close (void)
 
 
 /*
-====================
-Log_Start
-====================
-*/
-void Log_Start (void)
-{
-	size_t pos;
-	size_t n;
-	Log_Open ();
-
-	// Dump the contents of the log queue into the log file and free it
-	if (logqueue != NULL)
-	{
-		unsigned char *temp = logqueue;
-		logqueue = NULL;
-		if(logq_ind != 0)
-		{
-			if (logfile != NULL)
-				FS_Write (logfile, temp, logq_ind);
-
-			Cvar_LockThreadMutex();
-			if(*log_dest_udp.string)
-			{
-				for(pos = 0; pos < logq_ind; )
-				{
-					if(log_dest_buffer_pos == 0)
-						Log_DestBuffer_Init();
-					n = min(sizeof(log_dest_buffer) - log_dest_buffer_pos - 1, logq_ind - pos);
-					memcpy(log_dest_buffer + log_dest_buffer_pos, temp + pos, n);
-					log_dest_buffer_pos += n;
-					Log_DestBuffer_Flush_NoLock();
-					pos += n;
-				}
-			}
-			Cvar_UnlockThreadMutex();
-		}
-		Mem_Free (temp);
-		logq_ind = 0;
-		logq_size = 0;
-	}
-}
-
-
-
-/*
 ================
 Log_ConPrint
 ================
@@ -634,30 +585,6 @@ void Log_ConPrint (const char *msg)
 
 	// Until the host is completely initialized, we maintain a log queue
 	// to store the messages, since the log can't be started before
-	if (logqueue != NULL)
-	{
-		size_t remain = logq_size - logq_ind;
-		size_t len = strlen (msg);
-
-		// If we need to enlarge the log queue
-		if (len > remain)
-		{
-			size_t factor = ((logq_ind + len) / logq_size) + 1;
-			unsigned char* newqueue;
-
-			logq_size *= factor;
-			newqueue = (unsigned char *)Mem_Alloc (tempmempool, logq_size);
-			memcpy (newqueue, logqueue, logq_ind);
-			Mem_Free (logqueue);
-			logqueue = newqueue;
-		}
-		memcpy (&logqueue[logq_ind], msg, len);
-		logq_ind += len;
-
-		inprogress = false;
-		return;
-	}
-
 	// Check if log_file has changed
 	Cvar_LockThreadMutex();
 	if (strcmp (crt_log_file, log_file.string) != 0)
@@ -900,11 +827,6 @@ void Con_Init (void)
 	ConBuffer_Init(&con, CON_TEXTSIZE, CON_MAXLINES, zonemempool);
 	if (Thread_HasThreads())
 		con_mutex = Thread_CreateMutex();
-
-	// Allocate a log queue, this will be freed after configs are parsed
-	logq_size = MAX_INPUTLINE;
-	logqueue = (unsigned char *)Mem_Alloc (tempmempool, logq_size);
-	logq_ind = 0;
 
 	Cvar_RegisterVariable (&sys_colortranslation);
 	Cvar_RegisterVariable (&sys_specialcharactertranslation);

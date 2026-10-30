@@ -769,9 +769,6 @@ SCR_BeginLoadingPlaque
 */
 void SCR_BeginLoadingPlaque (qboolean startup)
 {
-	// save console log up to this point to log_file if it was set by configs
-	Log_Start();
-
 	Host_StartVideo();
 	SCR_UpdateLoadingScreen(false, startup);
 }
