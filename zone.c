@@ -41,59 +41,6 @@ unsigned int sentinel_seed;
 qboolean mem_bigendian = false;
 void *mem_mutex = NULL;
 
-// divVerent: enables file backed malloc using mmap to conserve swap space (instead of malloc)
-#ifndef FILE_BACKED_MALLOC
-# define FILE_BACKED_MALLOC 0
-#endif
-
-// LordHavoc: enables our own low-level allocator (instead of malloc)
-#ifndef MEMCLUMPING
-# define MEMCLUMPING 0
-#endif
-#ifndef MEMCLUMPING_FREECLUMPS
-# define MEMCLUMPING_FREECLUMPS 0
-#endif
-
-#if MEMCLUMPING
-// smallest unit we care about is this many bytes
-#define MEMUNIT 128
-// try to do 32MB clumps, but overhead eats into this
-#ifndef MEMWANTCLUMPSIZE
-# define MEMWANTCLUMPSIZE (1<<27)
-#endif
-// give malloc padding so we can't waste most of a page at the end
-#define MEMCLUMPSIZE (MEMWANTCLUMPSIZE - MEMWANTCLUMPSIZE/MEMUNIT/32 - 128)
-#define MEMBITS (MEMCLUMPSIZE / MEMUNIT)
-#define MEMBITINTS (MEMBITS / 32)
-
-typedef struct memclump_s
-{
-	// contents of the clump
-	unsigned char block[MEMCLUMPSIZE];
-	// should always be MEMCLUMP_SENTINEL
-	unsigned int sentinel1;
-	// if a bit is on, it means that the MEMUNIT bytes it represents are
-	// allocated, otherwise free
-	unsigned int bits[MEMBITINTS];
-	// should always be MEMCLUMP_SENTINEL
-	unsigned int sentinel2;
-	// if this drops to 0, the clump is freed
-	size_t blocksinuse;
-	// largest block of memory available (this is reset to an optimistic
-	// number when anything is freed, and updated when alloc fails the clump)
-	size_t largestavailable;
-	// next clump in the chain
-	struct memclump_s *chain;
-}
-memclump_t;
-
-#if MEMCLUMPING == 2
-static memclump_t masterclump;
-#endif
-static memclump_t *clumpchain = NULL;
-#endif
-
-
 cvar_t developer_memory = {0, "developer_memory", "0", "prints debugging information about memory allocations"};
 cvar_t developer_memorydebug = {0, "developer_memorydebug", "0", "enables memory corruption checks (very slow)"};
 cvar_t developer_memoryreportlargerthanmb = {0, "developer_memorylargerthanmb", "16", "prints debugging information about memory allocations over this size"};
@@ -105,49 +52,6 @@ static mempool_t *poolchain = NULL;
 void Mem_PrintStats(void);
 void Mem_PrintList(size_t minallocationsize);
 
-#if FILE_BACKED_MALLOC
-#include <stdlib.h>
-#include <sys/mman.h>
-typedef struct mmap_data_s
-{
-	size_t len;
-}
-mmap_data_t;
-static void *mmap_malloc(size_t size)
-{
-	char vabuf[MAX_OSPATH + 1];
-	char *tmpdir = getenv("TEMP");
-	mmap_data_t *data;
-	int fd;
-	size += sizeof(mmap_data_t); // waste block
-	dpsnprintf(vabuf, sizeof(vabuf), "%s/darkplaces.XXXXXX", tmpdir ? tmpdir : "/tmp");
-	fd = mkstemp(vabuf);
-	if(fd < 0)
-		return NULL;
-	ftruncate(fd, size);
-	data = (unsigned char *) mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NORESERVE, fd, 0);
-	close(fd);
-	unlink(vabuf);
-	if(!data)
-		return NULL;
-	data->len = size;
-	return (void *) (data + 1);
-}
-static void mmap_free(void *mem)
-{
-	mmap_data_t *data;
-	if(!mem)
-		return;
-	data = ((mmap_data_t *) mem) - 1;
-	munmap(data, data->len);
-}
-#define malloc mmap_malloc
-#define free mmap_free
-#endif
-
-#if MEMCLUMPING != 2
-// some platforms have a malloc that returns NULL but succeeds later
-// (Windows growing its swapfile for example)
 static void *attempt_malloc(size_t size)
 {
 	void *base;
@@ -162,208 +66,18 @@ static void *attempt_malloc(size_t size)
 	}
 	return NULL;
 }
-#endif
-
-#if MEMCLUMPING
-static memclump_t *Clump_NewClump(void)
-{
-	memclump_t **clumpchainpointer;
-	memclump_t *clump;
-#if MEMCLUMPING == 2
-	if (clumpchain)
-		return NULL;
-	clump = &masterclump;
-#else
-	clump = (memclump_t*)attempt_malloc(sizeof(memclump_t));
-	if (!clump)
-		return NULL;
-#endif
-
-	// initialize clump
-	if (developer_memorydebug.integer)
-		memset(clump, 0xEF, sizeof(*clump));
-	clump->sentinel1 = MEMHEADER_SENTINEL_FOR_ADDRESS(&clump->sentinel1);
-	memset(clump->bits, 0, sizeof(clump->bits));
-	clump->sentinel2 = MEMHEADER_SENTINEL_FOR_ADDRESS(&clump->sentinel2);
-	clump->blocksinuse = 0;
-	clump->largestavailable = 0;
-	clump->chain = NULL;
-
-	// link clump into chain
-	for (clumpchainpointer = &clumpchain;*clumpchainpointer;clumpchainpointer = &(*clumpchainpointer)->chain)
-		;
-	*clumpchainpointer = clump;
-
-	return clump;
-}
-#endif
 
 // low level clumping functions, all other memory functions use these
 static void *Clump_AllocBlock(size_t size)
 {
 	unsigned char *base;
-#if MEMCLUMPING
-	if (size <= MEMCLUMPSIZE)
-	{
-		int index;
-		unsigned int bit;
-		unsigned int needbits;
-		unsigned int startbit;
-		unsigned int endbit;
-		unsigned int needints;
-		int startindex;
-		int endindex;
-		unsigned int value;
-		unsigned int mask;
-		unsigned int *array;
-		memclump_t **clumpchainpointer;
-		memclump_t *clump;
-		needbits = (size + MEMUNIT - 1) / MEMUNIT;
-		needints = (needbits+31)>>5;
-		for (clumpchainpointer = &clumpchain;;clumpchainpointer = &(*clumpchainpointer)->chain)
-		{
-			clump = *clumpchainpointer;
-			if (!clump)
-			{
-				clump = Clump_NewClump();
-				if (!clump)
-					return NULL;
-			}
-			if (clump->sentinel1 != MEMHEADER_SENTINEL_FOR_ADDRESS(&clump->sentinel1))
-				Sys_Error("Clump_AllocBlock: trashed sentinel1\n");
-			if (clump->sentinel2 != MEMHEADER_SENTINEL_FOR_ADDRESS(&clump->sentinel2))
-				Sys_Error("Clump_AllocBlock: trashed sentinel2\n");
-			startbit = 0;
-			endbit = startbit + needbits;
-			array = clump->bits;
-			// do as fast a search as possible, even if it means crude alignment
-			if (needbits >= 32)
-			{
-				// large allocations are aligned to large boundaries
-				// furthermore, they are allocated downward from the top...
-				endindex = MEMBITINTS;
-				startindex = endindex - needints;
-				index = endindex;
-				while (--index >= startindex)
-				{
-					if (array[index])
-					{
-						endindex = index;
-						startindex = endindex - needints;
-						if (startindex < 0)
-							goto nofreeblock;
-					}
-				}
-				startbit = startindex*32;
-				goto foundblock;
-			}
-			else
-			{
-				// search for a multi-bit gap in a single int
-				// (not dealing with the cases that cross two ints)
-				mask = (1<<needbits)-1;
-				endbit = 32-needbits;
-				bit = endbit;
-				for (index = 0;index < MEMBITINTS;index++)
-				{
-					value = array[index];
-					if (value != 0xFFFFFFFFu)
-					{
-						// there may be room in this one...
-						for (bit = 0;bit < endbit;bit++)
-						{
-							if (!(value & (mask<<bit)))
-							{
-								startbit = index*32+bit;
-								goto foundblock;
-							}
-						}
-					}
-				}
-				goto nofreeblock;
-			}
-foundblock:
-			endbit = startbit + needbits;
-			// mark this range as used
-			// TODO: optimize
-			for (bit = startbit;bit < endbit;bit++)
-				if (clump->bits[bit>>5] & (1<<(bit & 31)))
-					Sys_Error("Clump_AllocBlock: internal error (%i needbits)\n", needbits);
-			for (bit = startbit;bit < endbit;bit++)
-				clump->bits[bit>>5] |= (1<<(bit & 31));
-			clump->blocksinuse += needbits;
-			base = clump->block + startbit * MEMUNIT;
-			if (developer_memorydebug.integer)
-				memset(base, 0xBF, needbits * MEMUNIT);
-			return base;
-nofreeblock:
-			;
-		}
-		// never reached
-		return NULL;
-	}
-	// too big, allocate it directly
-#endif
-#if MEMCLUMPING == 2
-	return NULL;
-#else
 	base = (unsigned char *)attempt_malloc(size);
-	if (base && developer_memorydebug.integer)
-		memset(base, 0xAF, size);
 	return base;
-#endif
 }
+
 static void Clump_FreeBlock(void *base, size_t size)
 {
-#if MEMCLUMPING
-	unsigned int needbits;
-	unsigned int startbit;
-	unsigned int endbit;
-	unsigned int bit;
-	memclump_t **clumpchainpointer;
-	memclump_t *clump;
-	unsigned char *start = (unsigned char *)base;
-	for (clumpchainpointer = &clumpchain;(clump = *clumpchainpointer);clumpchainpointer = &(*clumpchainpointer)->chain)
-	{
-		if (start >= clump->block && start < clump->block + MEMCLUMPSIZE)
-		{
-			if (clump->sentinel1 != MEMHEADER_SENTINEL_FOR_ADDRESS(&clump->sentinel1))
-				Sys_Error("Clump_FreeBlock: trashed sentinel1\n");
-			if (clump->sentinel2 != MEMHEADER_SENTINEL_FOR_ADDRESS(&clump->sentinel2))
-				Sys_Error("Clump_FreeBlock: trashed sentinel2\n");
-			if (start + size > clump->block + MEMCLUMPSIZE)
-				Sys_Error("Clump_FreeBlock: block overrun\n");
-			// the block belongs to this clump, clear the range
-			needbits = (size + MEMUNIT - 1) / MEMUNIT;
-			startbit = (start - clump->block) / MEMUNIT;
-			endbit = startbit + needbits;
-			// first verify all bits are set, otherwise this may be misaligned or a double free
-			for (bit = startbit;bit < endbit;bit++)
-				if ((clump->bits[bit>>5] & (1<<(bit & 31))) == 0)
-					Sys_Error("Clump_FreeBlock: double free\n");
-			for (bit = startbit;bit < endbit;bit++)
-				clump->bits[bit>>5] &= ~(1<<(bit & 31));
-			clump->blocksinuse -= needbits;
-			memset(base, 0xFF, needbits * MEMUNIT);
-			// if all has been freed, free the clump itself
-			if (clump->blocksinuse == 0)
-			{
-				*clumpchainpointer = clump->chain;
-				if (developer_memorydebug.integer)
-					memset(clump, 0xFF, sizeof(*clump));
-#if MEMCLUMPING != 2
-				free(clump);
-#endif
-			}
-			return;
-		}
-	}
-	// does not belong to any known chunk...  assume it was a direct allocation
-#endif
-#if MEMCLUMPING != 2
-	memset(base, 0xFF, size);
 	free(base);
-#endif
 }
 
 void *_Mem_Alloc(mempool_t *pool, void *olddata, size_t size, size_t alignment, const char *filename, int fileline)
@@ -623,23 +337,9 @@ void _Mem_CheckSentinels(void *data, const char *filename, int fileline)
 		Sys_Error("Mem_Free: trashed tail sentinel (alloc at %s:%i, sentinel check at %s:%i)", mem->filename, mem->fileline, filename, fileline);
 }
 
-#if MEMCLUMPING
-static void _Mem_CheckClumpSentinels(memclump_t *clump, const char *filename, int fileline)
-{
-	// this isn't really very useful
-	if (clump->sentinel1 != MEMHEADER_SENTINEL_FOR_ADDRESS(&clump->sentinel1))
-		Sys_Error("Mem_CheckClumpSentinels: trashed sentinel 1 (sentinel check at %s:%i)", filename, fileline);
-	if (clump->sentinel2 != MEMHEADER_SENTINEL_FOR_ADDRESS(&clump->sentinel2))
-		Sys_Error("Mem_CheckClumpSentinels: trashed sentinel 2 (sentinel check at %s:%i)", filename, fileline);
-}
-#endif
-
 void _Mem_CheckSentinelsGlobal(const char *filename, int fileline)
 {
 	memheader_t *mem;
-#if MEMCLUMPING
-	memclump_t *clump;
-#endif
 	mempool_t *pool;
 	for (pool = poolchain;pool;pool = pool->next)
 	{
@@ -651,11 +351,6 @@ void _Mem_CheckSentinelsGlobal(const char *filename, int fileline)
 	for (pool = poolchain;pool;pool = pool->next)
 		for (mem = pool->chain;mem;mem = mem->next)
 			_Mem_CheckSentinels((void *)((unsigned char *) mem + sizeof(memheader_t)), filename, fileline);
-#if MEMCLUMPING
-	for (pool = poolchain;pool;pool = pool->next)
-		for (clump = clumpchain;clump;clump = clump->chain)
-			_Mem_CheckClumpSentinels(clump, filename, fileline);
-#endif
 }
 
 qboolean Mem_IsAllocated(mempool_t *pool, void *data)
