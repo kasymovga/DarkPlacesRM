@@ -489,6 +489,14 @@ extern cvar_t kex_compat;
 #  define DP_ARCH_STR		"x86_64"
 #  define SSE_PRESENT
 #  define SSE2_PRESENT
+# elif defined(__aarch64__) || defined(__arm64__)
+#  define DP_ARCH_STR		"arm64"
+#  define NEON_PRESENT
+# elif defined(__arm__)
+#  define DP_ARCH_STR		"arm"
+#  if defined(__ARM_NEON)
+#   define NEON_PRESENT
+#  endif
 # elif defined(__powerpc__)
 #  define DP_ARCH_STR		"ppc"
 # endif
@@ -499,6 +507,15 @@ extern cvar_t kex_compat;
 #elif defined(WIN32)
 # define DP_ARCH_STR		"x86"
 # define SSE_POSSIBLE
+#endif
+
+#ifdef NEON_PRESENT
+# define NEON_POSSIBLE 1
+#endif
+
+#ifdef NO_NEON
+# undef NEON_PRESENT
+# undef NEON_POSSIBLE
 #endif
 
 #ifdef SSE_PRESENT

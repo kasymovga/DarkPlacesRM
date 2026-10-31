@@ -31,6 +31,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef SSE_POSSIBLE
 #include "mod_skeletal_animatevertices_sse.h"
 #endif
+#ifdef NEON_POSSIBLE
+#include "mod_skeletal_animatevertices_neon.h"
+static qboolean r_skeletal_use_neon_defined = false;
+cvar_t r_skeletal_use_neon = {0, "r_skeletal_use_neon", "1", "use ARM NEON SIMD for skeletal model animation"};
+#endif
 
 #ifdef SSE_POSSIBLE
 static qboolean r_skeletal_use_sse_defined = false;
@@ -185,6 +190,13 @@ static void Mod_Skeletal_AnimateVertices(const dp_model_t * RESTRICT model, cons
 		return;
 	}
 
+#ifdef NEON_POSSIBLE
+	if(r_skeletal_use_neon_defined && r_skeletal_use_neon.integer)
+	{
+		Mod_Skeletal_AnimateVertices_NEON(model, frameblend, skeleton, vertex3f, normal3f, svector3f, tvector3f);
+		return;
+	}
+#endif
 #ifdef SSE_POSSIBLE
 	if(r_skeletal_use_sse_defined)
 		if(r_skeletal_use_sse.integer)
@@ -209,7 +221,11 @@ void Mod_AliasInit (void)
 	Cvar_RegisterVariable(&mod_alias_force_animated);
 	for (i = 0;i < 320;i++)
 		mod_md3_sin[i] = sin(i * M_PI * 2.0f / 256.0);
-#ifdef SSE_POSSIBLE
+#ifdef NEON_POSSIBLE
+	Con_Printf("Skeletal animation uses ARM NEON SIMD code path\n");
+	r_skeletal_use_neon_defined = true;
+	Cvar_RegisterVariable(&r_skeletal_use_neon);
+#elif defined(SSE_POSSIBLE)
 	if(Sys_HaveSSE())
 	{
 		Con_Printf("Skeletal animation uses SSE code path\n");
@@ -219,7 +235,7 @@ void Mod_AliasInit (void)
 	else
 		Con_Printf("Skeletal animation uses generic code path (SSE disabled or not detected)\n");
 #else
-	Con_Printf("Skeletal animation uses generic code path (SSE not compiled in)\n");
+	Con_Printf("Skeletal animation uses generic code path (SIMD not compiled in)\n");
 #endif
 }
 
