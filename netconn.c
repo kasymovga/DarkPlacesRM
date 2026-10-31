@@ -1856,7 +1856,7 @@ static void NetConn_ClientParsePacket_ServerList_ParseDPList(lhnetaddress_t *sen
 
 	// begin or resume serverlist queries
 	serverlist_querysleep = false;
-	serverlist_querywaittime = realtime + 3;
+	serverlist_querywaittime = realtime + 0.25;
 }
 #endif
 
@@ -2162,7 +2162,7 @@ static int NetConn_ClientParsePacket(lhnetsocket_t *mysocket, unsigned char *dat
 			}
 			// begin or resume serverlist queries
 			serverlist_querysleep = false;
-			serverlist_querywaittime = realtime + 3;
+			serverlist_querywaittime = realtime + 0.25;
 			return true;
 		}
 #endif
