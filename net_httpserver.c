@@ -1,9 +1,9 @@
+#include <microhttpd.h>
 #include "net_httpserver.h"
 #ifdef USE_LIBMICROHTTPD
 #include "quakedef.h"
 #include "netconn.h"
 #include "fs.h"
-#include <microhttpd.h>
 static cvar_t net_http_server_host = {0, "net_http_server_host","", "External server address"};
 static cvar_t net_http_server = {0, "net_http_server","1", "Internal http server"};
 
