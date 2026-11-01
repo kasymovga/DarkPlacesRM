@@ -1,4 +1,6 @@
+#ifdef USE_LIBMICROHTTPD
 #include <microhttpd.h>
+#endif
 #include "net_httpserver.h"
 #ifdef USE_LIBMICROHTTPD
 #include "quakedef.h"
