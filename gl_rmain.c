@@ -4832,6 +4832,9 @@ static void R_Water_StartFrame(void)
 		r_fb.water.textureheight = textureheight;
 		r_fb.water.camerawidth = camerawidth;
 		r_fb.water.cameraheight = cameraheight;
+		if (r_fb.water.depthtexture)
+			R_FreeTexture(r_fb.water.depthtexture);
+		r_fb.water.depthtexture = NULL;
 	}
 
 	if (r_fb.water.texturewidth)
