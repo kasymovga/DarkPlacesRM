@@ -967,7 +967,7 @@ void VM_cvar_set(prvm_prog_t *prog)
 		VM_cvar_set_autocvar(MVM_prog, var, string);
 	}
 	#endif
-	watched = (var->flags & CVAR_WATCHED);
+	if (var->flags & CVAR_WATCHED) watched = true;
 finish:
 	Cvar_UnlockThreadMutex();
 	if (watched)

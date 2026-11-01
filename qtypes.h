@@ -5,11 +5,9 @@
 #undef true
 #undef false
 
-#ifndef __cplusplus
-typedef enum qboolean_e {false, true} qboolean;
-#else
-typedef bool qboolean;
-#endif
+typedef unsigned char qboolean;
+#define false 0
+#define true 1
 
 #ifndef NULL
 #define NULL ((void *)0)
