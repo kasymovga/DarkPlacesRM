@@ -222,9 +222,14 @@ void Mod_AliasInit (void)
 	for (i = 0;i < 320;i++)
 		mod_md3_sin[i] = sin(i * M_PI * 2.0f / 256.0);
 #ifdef NEON_POSSIBLE
-	Con_Printf("Skeletal animation uses ARM NEON SIMD code path\n");
-	r_skeletal_use_neon_defined = true;
-	Cvar_RegisterVariable(&r_skeletal_use_neon);
+	if(Sys_HaveNEON())
+	{
+		Con_Printf("Skeletal animation uses ARM NEON SIMD code path\n");
+		r_skeletal_use_neon_defined = true;
+		Cvar_RegisterVariable(&r_skeletal_use_neon);
+	}
+	else
+		Con_Printf("Skeletal animation uses generic code path (ARM NEON SIMD disabled or not detected)\n");
 #elif defined(SSE_POSSIBLE)
 	if(Sys_HaveSSE())
 	{

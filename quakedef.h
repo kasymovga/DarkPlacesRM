@@ -470,9 +470,13 @@ extern cvar_t kex_compat;
 #  define SSE2_PRESENT
 # elif defined(__aarch64__) || defined(__arm64__)
 #  define DP_ARCH_STR		"arm64"
-#  define NEON_PRESENT
+#  define NEON_POSSIBLE
+#  if defined(__ARM_NEON) || defined(__MACH__)
+#   define NEON_PRESENT
+#  endif
 # elif defined(__arm__)
 #  define DP_ARCH_STR		"arm"
+#  define NEON_POSSIBLE
 #  if defined(__ARM_NEON)
 #   define NEON_PRESENT
 #  endif
@@ -488,15 +492,6 @@ extern cvar_t kex_compat;
 # define SSE_POSSIBLE
 #endif
 
-#ifdef NEON_PRESENT
-# define NEON_POSSIBLE 1
-#endif
-
-#ifdef NO_NEON
-# undef NEON_PRESENT
-# undef NEON_POSSIBLE
-#endif
-
 #ifdef SSE_PRESENT
 # define SSE_POSSIBLE
 #endif
@@ -510,10 +505,9 @@ extern cvar_t kex_compat;
 #ifdef SSE_POSSIBLE
 // runtime detection of SSE/SSE2 capabilities for x86
 qboolean Sys_HaveSSE(void);
-qboolean Sys_HaveSSE2(void);
-#else
-#define Sys_HaveSSE() false
-#define Sys_HaveSSE2() false
+#endif
+#ifdef NEON_POSSIBLE
+qboolean Sys_HaveNEON(void);
 #endif
 
 #ifndef CONFIG_SV

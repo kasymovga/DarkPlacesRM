@@ -22,6 +22,17 @@
 # endif
 #endif
 
+#ifdef NEON_POSSIBLE
+#ifdef __ANDROID__
+#include <cpu-features.h>
+#else
+#ifdef __linux__
+#include <sys/auxv.h>
+#include <asm/hwcap.h>
+#endif
+#endif
+#endif
+
 char *Sys_TimeString(const char *timeformat, char *buf, int bufsize)
 {
 	time_t mytime = time(NULL);
@@ -512,21 +523,26 @@ qboolean Sys_HaveSSE(void)
 	return false;
 #endif
 }
+#endif
 
-qboolean Sys_HaveSSE2(void)
+#ifdef ARM_POSSIBLE
+#endif
+
+#ifdef NEON_POSSIBLE
+qboolean Sys_HaveNEON(void)
 {
-	// COMMANDLINEOPTION: SSE2: -nosse2 disables SSE2 support and detection
-	if(COM_CheckParm("-nosse") || COM_CheckParm("-nosse2"))
-		return false;
-#ifdef SSE2_PRESENT
+#ifdef NEON_PRESENT
 	return true;
 #else
-	// COMMANDLINEOPTION: SSE2: -forcesse2 enables SSE2 support and disables detection
-	if(COM_CheckParm("-forcesse2"))
+#ifdef __ANDROID__
+	return (android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_NEON);
+#else
+#ifdef __linux__
+	if (getauxval(AT_HWCAP) & HWCAP_NEON)
 		return true;
-	if((CPUID_Features() & (3 << 25)) == (3 << 25)) // SSE is 1<<25, SSE2 is 1<<26
-		return true;
-	return false;
 #endif
+#endif
+#endif
+	return false;
 }
 #endif
