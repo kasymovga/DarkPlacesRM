@@ -112,6 +112,7 @@ OBJ_COMMON= \
 	matrixlib.o \
 	mdfour.o \
 	mod_skeletal_animatevertices_sse.o \
+	mod_skeletal_animatevertices_neon.o \
 	mod_skeletal_animatevertices_generic.o \
 	model_alias.o \
 	model_brush.o \
@@ -503,6 +504,10 @@ crypto.o: crypto.c
 mod_skeletal_animatevertices_sse.o: mod_skeletal_animatevertices_sse.c
 	$(CHECKLEVEL2)
 	$(DO_CC) $(CFLAGS_SSE)
+
+mod_skeletal_animatevertices_neon.o: mod_skeletal_animatevertices_neon.c
+	$(CHECKLEVEL2)
+	$(DO_CC)
 
 darkplaces.o: %.o : %.rc
 	$(CHECKLEVEL2)
