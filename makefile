@@ -222,6 +222,11 @@ ifeq ($(DP_MAKE_TARGET), mingw)
 		LDFLAGS_WINCOMMON=
 	endif
 endif
+ifeq ($(DP_MAKE_TARGET), macosx)
+ifeq ($(DP_MACHINE), arm64)
+	CPUOPTIMIZATIONS=-mcpu=apple-m1 -flto=thin -fno-math-errno -ffinite-math-only -fno-rounding-math -fno-signaling-nans -fno-trapping-math
+endif
+endif
 
 ifeq ($(DP_LIBMICROHTTPD),static)
 	CFLAGS_LIBMICROHTTPD=-DUSE_LIBMICROHTTPD `pkg-config --cflags libmicrohttpd`
