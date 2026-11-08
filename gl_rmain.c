@@ -8964,7 +8964,7 @@ void RSurf_DrawBatch(void)
 
 static int RSurf_FindWaterPlaneForSurface(const msurface_t *surface, mplane_t *plane, vec_t *mins, vec_t *maxs)
 {
-	int planeindex, bestplaneindex, vertexindex;
+	int planeindex, bestplaneindex, vertexindex, entno;
 	vec3_t normal, center, v, n;
 	vec_t planescore, bestplanescore;
 	r_waterstate_waterplane_t *p;
@@ -9005,9 +9005,10 @@ static int RSurf_FindWaterPlaneForSurface(const msurface_t *surface, mplane_t *p
 	// find a matching plane if there is one
 	bestplaneindex = -1;
 	bestplanescore = 1048576.0f;
+	entno = rsurface.entity->entitynumber >= MAX_EDICTS ? rsurface.entity->entitynumber : 0;
 	for (planeindex = 0, p = r_fb.water.waterplanes;planeindex < r_fb.water.numwaterplanes;planeindex++, p++)
 	{
-		if(p->camera_entity == rsurface.entity->entitynumber && p->texture == rsurface.texture)
+		if(p->camera_entity == entno && p->texture == rsurface.texture)
 		{
 			planescore = 1.0f - DotProduct(plane->normal, p->plane.normal) + fabs(plane->dist - p->plane.dist) * 0.001f;
 			if (bestplaneindex < 0 || bestplanescore > planescore)
