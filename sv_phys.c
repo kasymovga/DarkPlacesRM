@@ -1754,7 +1754,9 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 	static unsigned short moved_edicts[MAX_EDICTS];
 	vec3_t pivot;
 	int pusher_existsonlyfor;
+	vec3_t movenone, moveback;
 
+	VectorClear(movenone);
 	if (!PRVM_serveredictvector(pusher, velocity)[0] && !PRVM_serveredictvector(pusher, velocity)[1] && !PRVM_serveredictvector(pusher, velocity)[2] && !PRVM_serveredictvector(pusher, avelocity)[0] && !PRVM_serveredictvector(pusher, avelocity)[1] && !PRVM_serveredictvector(pusher, avelocity)[2])
 	{
 		PRVM_serveredictfloat(pusher, ltime) += movetime;
@@ -2003,12 +2005,10 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 		Collision_ClipToGenericEntity(&trace, pushermodel, pusher->priv.server->frameblend, &pusher->priv.server->skeleton, pushermins, pushermaxs, SUPERCONTENTS_BODY, &pusherfinalmatrix, &pusherfinalimatrix, checkorigin, checkmins, checkmaxs, checkorigin, checkcontents, 0, collision_extendmovelength.value);
 		if (trace.startsolid)
 		{
-			vec3_t move2;
 			if(SV_NudgeOutOfSolid_PivotIsKnownGood(check, pivot))
 			{
 				// hack to invoke all necessary movement triggers
-				VectorClear(move2);
-				if(!SV_PushEntity(&trace2, check, move2, true))
+				if(!SV_PushEntity(&trace2, check, movenone, true))
 				{
 					// entity "check" got teleported
 					continue;
@@ -2053,6 +2053,11 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 				prog->ExecuteProgram(prog, PRVM_serveredictfunction(pusher, blocked), "QC function self.blocked is missing");
 			}
 			break;
+		}
+		if (!((int)PRVM_serveredictfloat(check, flags) & FL_ONGROUND) || PRVM_PROG_TO_EDICT(PRVM_serveredictedict(check, groundentity)) != pusher)
+		{
+			VectorNegate(move, moveback);
+			SV_PushEntity(&trace2, check, moveback, true);
 		}
 	}
 	PRVM_serveredictvector(pusher, angles)[0] -= 360.0 * floor(PRVM_serveredictvector(pusher, angles)[0] * (1.0 / 360.0));
