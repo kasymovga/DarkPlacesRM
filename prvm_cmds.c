@@ -2542,7 +2542,7 @@ string	substring(string s, float start, float length)
 void VM_substring(prvm_prog_t *prog)
 {
 	int start, length;
-	int u_slength = 0, u_start;
+	int u_slength = -1, u_start;
 	size_t u_length;
 	const char *s;
 	char string[VM_STRINGTEMP_LENGTH];
@@ -2579,14 +2579,6 @@ void VM_substring(prvm_prog_t *prog)
 		start += u_slength;
 		start = bound(0, start, u_slength);
 	}
-
-	if (length < 0) // FTE_STRINGS feature
-	{
-		if (!u_slength) // it's not calculated when it's not needed above
-			u_slength = (int)u8_strlen(s);
-		length += u_slength - start + 1;
-	}
-
 	// positive start, positive length
 	u_start = u8_byteofs(s, start, NULL);
 	if (u_start < 0)
@@ -2594,10 +2586,30 @@ void VM_substring(prvm_prog_t *prog)
 		PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, "");
 		return;
 	}
+	if (length < 0) // FTE_STRINGS feature
+	{
+		if (length == -1)
+		{
+			if (s >= (char *)prog->tempstringsbuf.data && s < (char *)prog->tempstringsbuf.data + prog->tempstringsbuf.maxsize)
+				PRVM_G_INT(OFS_RETURN) = PRVM_SetEngineString(prog, s + u_start);
+			else
+				PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, s + u_start); // source string is not a temp string, no need for extra buffer
+			return;
+		}
+		if (u_slength < 0) // it's not calculated when it's not needed above
+			u_slength = (int)u8_strlen(s);
+		length += u_slength - start + 1;
+	}
 	u_length = u8_bytelen(s + u_start, length);
 	if (u_length >= sizeof(string)-1)
 		u_length = sizeof(string)-1;
 
+	if (!s[u_start + u_length] && s >= (char *)prog->tempstringsbuf.data && s < (char *)prog->tempstringsbuf.data + prog->tempstringsbuf.maxsize)
+	{
+		//We can reuse existing temp string
+		PRVM_G_INT(OFS_RETURN) = PRVM_SetEngineString(prog, s + u_start);
+		return;
+	}
 	memcpy(string, s + u_start, u_length);
 	string[u_length] = 0;
 	PRVM_G_INT(OFS_RETURN) = PRVM_SetTempString(prog, string);
@@ -2617,6 +2629,7 @@ void VM_strreplace(prvm_prog_t *prog)
 	const char *search, *replace, *subject;
 	char string[VM_STRINGTEMP_LENGTH];
 	int search_len, replace_len, subject_len;
+	qboolean modified = false;
 
 	VM_SAFEPARMCOUNT(3,VM_strreplace);
 
@@ -2636,6 +2649,7 @@ void VM_strreplace(prvm_prog_t *prog)
 				break;
 		if (j == search_len)
 		{
+			modified = true;
 			// NOTE: if search_len == 0, we always hit THIS case, and never the other
 			// found it at offset 'i'
 			for (j = 0; j < replace_len && si < (int)sizeof(string) - 1; j++)
@@ -2660,6 +2674,11 @@ void VM_strreplace(prvm_prog_t *prog)
 			if (si < (int)sizeof(string) - 1)
 				string[si++] = subject[i];
 		}
+	}
+	if (!modified && subject >= (char *)prog->tempstringsbuf.data && subject < (char *)prog->tempstringsbuf.data + prog->tempstringsbuf.maxsize)
+	{
+		PRVM_G_INT(OFS_RETURN) = PRVM_G_INT(OFS_PARM2);
+		return;
 	}
 	// remaining chars (these cannot match)
 	for (; i < subject_len; i++)
@@ -2684,6 +2703,7 @@ void VM_strireplace(prvm_prog_t *prog)
 	const char *search, *replace, *subject;
 	char string[VM_STRINGTEMP_LENGTH];
 	int search_len, replace_len, subject_len;
+	qboolean modified = false;
 
 	VM_SAFEPARMCOUNT(3,VM_strreplace);
 
@@ -2703,6 +2723,7 @@ void VM_strireplace(prvm_prog_t *prog)
 				break;
 		if (j == search_len)
 		{
+			modified = true;
 			// NOTE: if search_len == 0, we always hit THIS case, and never the other
 			// found it at offset 'i'
 			for (j = 0; j < replace_len && si < (int)sizeof(string) - 1; j++)
@@ -2727,6 +2748,11 @@ void VM_strireplace(prvm_prog_t *prog)
 			if (si < (int)sizeof(string) - 1)
 				string[si++] = subject[i];
 		}
+	}
+	if (!modified && subject >= (char *)prog->tempstringsbuf.data && subject < (char *)prog->tempstringsbuf.data + prog->tempstringsbuf.maxsize)
+	{
+		PRVM_G_INT(OFS_RETURN) = PRVM_G_INT(OFS_PARM2);
+		return;
 	}
 	// remaining chars (these cannot match)
 	for (; i < subject_len; i++)

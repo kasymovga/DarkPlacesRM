@@ -3293,6 +3293,8 @@ int PRVM_SetTempString(prvm_prog_t *prog, const char *s)
 	char *t;
 	if (!s)
 		return 0;
+	if (!*s && prog->tempstringsbuf.cursize > 0) // for empty string we can just return end of last string
+		return PRVM_SetEngineString(prog, (char *)prog->tempstringsbuf.data + prog->tempstringsbuf.cursize - 1);
 	size = (int)strlen(s) + 1;
 	if (prog->tempstringsbuf.maxsize < prog->tempstringsbuf.cursize + size)
 	{
