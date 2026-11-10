@@ -7355,7 +7355,7 @@ void RSurf_ActiveWorldEntity(void)
 	rsurface.entityskeletaltransform3x4 = NULL;
 	rsurface.entityskeletaltransform3x4buffer = NULL;
 	rsurface.entityskeletaltransform3x4offset = 0;
-	rsurface.entityskeletaltransform3x4size = 0;;
+	rsurface.entityskeletaltransform3x4size = 0;
 	rsurface.entityskeletalnumtransforms = 0;
 	rsurface.modelvertex3f  = model->surfmesh.data_vertex3f;
 	rsurface.modelvertex3f_vertexbuffer = model->surfmesh.vbo_vertexbuffer;
