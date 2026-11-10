@@ -90,7 +90,6 @@ cvar_t cl_maxidlefps = {CVAR_SAVE, "cl_maxidlefps", "20", "maximum fps cap when 
 cvar_t sys_first_run = {CVAR_SAVE, "sys_first_run", "1", "active when the game is run for the first time"};
 cvar_t developer = {CVAR_SAVE, "developer","-1", "shows debugging messages and information (recommended for all developers and level designers); the value -1 also suppresses buffering and logging these messages"};
 cvar_t developer_extra = {0, "developer_extra", "0", "prints additional debugging messages, often very verbose!"};
-cvar_t developer_insane = {0, "developer_insane", "0", "prints huge streams of information about internal workings, entire contents of files being read/written, etc.  Not recommended!"};
 cvar_t developer_loadfile = {0, "developer_loadfile","0", "prints name and size of every file loaded via the FS_LoadFile function (which is almost everything)"};
 cvar_t developer_loading = {0, "developer_loading","0", "prints information about files as they are loaded or unloaded successfully"};
 cvar_t developer_entityparsing = {0, "developer_entityparsing", "0", "prints detailed network entities information each time a packet is received"};
@@ -281,7 +280,6 @@ static void Host_InitLocal (void)
 
 	Cvar_RegisterVariable (&developer);
 	Cvar_RegisterVariable (&developer_extra);
-	Cvar_RegisterVariable (&developer_insane);
 	Cvar_RegisterVariable (&developer_loadfile);
 	Cvar_RegisterVariable (&developer_loading);
 	Cvar_RegisterVariable (&developer_entityparsing);
@@ -1369,8 +1367,6 @@ static void Host_Init (void)
 		developer.string = "1";
 		developer_extra.value = developer_extra.integer = 1;
 		developer_extra.string = "1";
-		developer_insane.value = developer_insane.integer = 1;
-		developer_insane.string = "1";
 		developer_memory.value = developer_memory.integer = 1;
 		developer_memory.string = "1";
 		developer_memorydebug.value = developer_memorydebug.integer = 1;

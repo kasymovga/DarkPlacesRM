@@ -394,7 +394,6 @@ extern cvar_t sys_first_run;
 
 extern cvar_t developer;
 extern cvar_t developer_extra;
-extern cvar_t developer_insane;
 extern cvar_t developer_loadfile;
 extern cvar_t developer_loading;
 

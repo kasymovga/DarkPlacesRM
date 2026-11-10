@@ -3245,8 +3245,6 @@ int PRVM_SetEngineString(prvm_prog_t *prog, const char *s)
 		if (prog->knownstrings[i] == s)
 			return PRVM_KNOWNSTRINGBASE + i;
 	// new unknown engine string
-	if (developer_insane.integer)
-		Con_DPrintf("new engine string %p = \"%s\"\n", s, s);
 	for (i = prog->firstfreeknownstring;i < prog->numknownstrings;i++)
 		if (!prog->knownstrings[i])
 			break;
@@ -3296,8 +3294,6 @@ int PRVM_SetTempString(prvm_prog_t *prog, const char *s)
 	if (!s)
 		return 0;
 	size = (int)strlen(s) + 1;
-	if (developer_insane.integer)
-		Con_DPrintf("PRVM_SetTempString: cursize %i, size %i\n", prog->tempstringsbuf.cursize, size);
 	if (prog->tempstringsbuf.maxsize < prog->tempstringsbuf.cursize + size)
 	{
 		sizebuf_t old = prog->tempstringsbuf;

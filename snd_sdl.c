@@ -64,8 +64,6 @@ static void Buffer_Callback (void *userdata, Uint8 *stream, int len)
 		if (FrameCount < RequestedFrames)
 		{
 			memset(stream, 0, len);
-			if (developer_insane.integer && vid_activewindow)
-				Con_DPrintf("SDL sound: %u sample frames missing\n", RequestedFrames - FrameCount);
 		}
 		StartOffset = snd_renderbuffer->startframe % snd_renderbuffer->maxframes;
 		EndOffset = (snd_renderbuffer->startframe + FrameCount) % snd_renderbuffer->maxframes;

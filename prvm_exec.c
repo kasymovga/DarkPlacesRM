@@ -975,8 +975,6 @@ chooseexecprogram:
 	}
 
 cleanup:
-	if (developer_insane.integer && prog->tempstringsbuf.cursize > restorevm_tempstringsbuf_cursize)
-		Con_DPrintf("MVM_ExecuteProgram: %s used %i bytes of tempstrings\n", PRVM_GetString(prog, prog->functions[fnum].s_name), prog->tempstringsbuf.cursize - restorevm_tempstringsbuf_cursize);
 	// delete tempstrings created by this function
 	prog->tempstringsbuf.cursize = restorevm_tempstringsbuf_cursize;
 
@@ -1082,8 +1080,6 @@ chooseexecprogram:
 	}
 
 cleanup:
-	if (developer_insane.integer && prog->tempstringsbuf.cursize > restorevm_tempstringsbuf_cursize)
-		Con_DPrintf("CLVM_ExecuteProgram: %s used %i bytes of tempstrings\n", PRVM_GetString(prog, prog->functions[fnum].s_name), prog->tempstringsbuf.cursize - restorevm_tempstringsbuf_cursize);
 	// delete tempstrings created by this function
 	prog->tempstringsbuf.cursize = restorevm_tempstringsbuf_cursize;
 
@@ -1193,8 +1189,6 @@ chooseexecprogram:
 	}
 
 cleanup:
-	if (developer_insane.integer && prog->tempstringsbuf.cursize > restorevm_tempstringsbuf_cursize)
-		Con_DPrintf("SVVM_ExecuteProgram: %s used %i bytes of tempstrings\n", PRVM_GetString(prog, prog->functions[fnum].s_name), prog->tempstringsbuf.cursize - restorevm_tempstringsbuf_cursize);
 	// delete tempstrings created by this function
 	prog->tempstringsbuf.cursize = restorevm_tempstringsbuf_cursize;
 

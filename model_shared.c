@@ -1693,13 +1693,6 @@ void Mod_LoadQ3Shaders(void)
 						}
 						//for (j = numparameters;j < TEXTURE_MAXFRAMES + 4;j++)
 						//	parameter[j][0] = 0;
-						if (developer_insane.integer)
-						{
-							Con_DPrintf("%s %i: ", shader.name, shader.numlayers - 1);
-							for (j = 0;j < numparameters;j++)
-								Con_DPrintf(" %s", parameter[j]);
-							Con_DPrint("\n");
-						}
 						if (numparameters >= 2 && !strcasecmp(parameter[0], "blendfunc"))
 						{
 							#ifndef CONFIG_SV
@@ -1958,13 +1951,6 @@ void Mod_LoadQ3Shaders(void)
 				//	parameter[j][0] = 0;
 				if (fileindex == 0 && !strcasecmp(com_token, "}"))
 					break;
-				if (developer_insane.integer)
-				{
-					Con_DPrintf("%s: ", shader.name);
-					for (j = 0;j < numparameters;j++)
-						Con_DPrintf(" %s", parameter[j]);
-					Con_DPrint("\n");
-				}
 				if (numparameters < 1)
 					continue;
 				if (!strcasecmp(parameter[0], "surfaceparm") && numparameters >= 2)
