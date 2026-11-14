@@ -3344,8 +3344,6 @@ void SV_SpawnServer (const char *server)
 		}
 	}
 
-//	SV_LockThreadMutex();
-
 	#ifndef CONFIG_SV
 	if (cls.state != ca_dedicated)
 	{
@@ -3627,7 +3625,9 @@ void SV_SpawnServer (const char *server)
 
 	Con_DPrint("Server spawned.\n");
 	NetConn_Heartbeat (2);
-//	SV_UnlockThreadMutex();
+	SV_UnlockThreadMutex();
+	SV_StartThread();
+	SV_LockThreadMutex();
 }
 
 /////////////////////////////////////////////////////

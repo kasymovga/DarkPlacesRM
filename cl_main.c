@@ -480,14 +480,6 @@ void CL_EstablishConnection(const char *host, int firstarg)
 		M_Update_Return_Reason("No network");
 #endif
 	}
-	if (sv.active && !svs.thread)
-	{
-		SV_StartThread();
-	}
-	else if (svs.thread && !Thread_IsCurrent(svs.thread))
-	{
-		SV_StopThread();
-	}
 }
 
 /*
