@@ -1755,6 +1755,7 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 	vec3_t pivot;
 	int pusher_existsonlyfor;
 	vec3_t movenone, moveback;
+	qboolean onpusher;
 
 	VectorClear(movenone);
 	if (!PRVM_serveredictvector(pusher, velocity)[0] && !PRVM_serveredictvector(pusher, velocity)[1] && !PRVM_serveredictvector(pusher, velocity)[2] && !PRVM_serveredictvector(pusher, avelocity)[0] && !PRVM_serveredictvector(pusher, avelocity)[1] && !PRVM_serveredictvector(pusher, avelocity)[2])
@@ -1990,6 +1991,7 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 		PRVM_serveredictfloat(pusher, solid) = savesolid; // was SOLID_BSP
 		//Con_Printf("%s:%d frac %f startsolid %d bmodelstartsolid %d allsolid %d\n", __FILE__, __LINE__, trace.fraction, trace.startsolid, trace.bmodelstartsolid, trace.allsolid);
 
+		onpusher = (((int)PRVM_serveredictfloat(check, flags) & FL_ONGROUND) && PRVM_PROG_TO_EDICT(PRVM_serveredictedict(check, groundentity)) == pusher);
 		// this trace.fraction < 1 check causes items to fall off of pushers
 		// if they pass under or through a wall
 		// the groundentity check causes items to fall off of ledges
@@ -2054,7 +2056,7 @@ static void SV_PushMove (prvm_edict_t *pusher, float movetime)
 			}
 			break;
 		}
-		if (!((int)PRVM_serveredictfloat(check, flags) & FL_ONGROUND) || PRVM_PROG_TO_EDICT(PRVM_serveredictedict(check, groundentity)) != pusher)
+		if (!onpusher)
 		{
 			VectorNegate(move, moveback);
 			SV_PushEntity(&trace2, check, moveback, true);
