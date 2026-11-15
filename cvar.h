@@ -223,6 +223,11 @@ const char **Cvar_CompleteBuildList (const char *partial);
 // Thanks to Fett erich@heintz.com
 // Thanks to taniwha
 
+int Cvar_CompleteFuzzyCountPossible (const char *partial);
+const char **Cvar_CompleteFuzzyBuildList (const char *partial);
+void Cvar_CompleteFuzzyCvarPrint (const char *partial);
+const char *Cvar_FindBestFuzzyMatch (const char *partial);
+
 /// Prints a list of Cvars including a count of them to the user console
 /// Referenced in cmd.c in Cmd_Init hence it's inclusion here.
 /// Added by EvilTypeGuy eviltypeguy@qeradiant.com

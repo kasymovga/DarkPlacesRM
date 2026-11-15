@@ -127,6 +127,17 @@ const char *Cmd_CompleteAlias (const char *partial);
 
 void Cmd_CompleteAliasPrint (const char *partial);
 
+// Fuzzy command completion and search
+extern cvar_t cmd_fuzzy;
+int Fuzzy_Score (const char *pattern, const char *text);
+int Cmd_CompleteFuzzyCountPossible (const char *partial);
+const char **Cmd_CompleteFuzzyBuildList (const char *partial);
+void Cmd_CompleteFuzzyCommandPrint (const char *partial);
+int Cmd_CompleteAliasFuzzyCountPossible (const char *partial);
+const char **Cmd_CompleteAliasFuzzyBuildList (const char *partial);
+void Cmd_CompleteAliasFuzzyPrint (const char *partial);
+const char *Cmd_FindBestFuzzyMatch (const char *partial);
+
 // Enhanced console completion by Fett erich@heintz.com
 
 // Added by EvilTypeGuy eviltypeguy@qeradiant.com

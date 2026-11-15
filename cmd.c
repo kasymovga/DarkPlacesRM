@@ -40,6 +40,8 @@ static mempool_t *cmd_mempool;
 static char cmd_tokenizebuffer[CMD_TOKENIZELENGTH];
 static int cmd_tokenizebufferpos = 0;
 
+cvar_t cmd_fuzzy = {CVAR_SAVE, "cmd_fuzzy", "1", "enables fuzzy command search and auto-completion fallback"};
+
 //=============================================================================
 
 /*
@@ -1328,6 +1330,198 @@ static void Cmd_ExecuteAlias (cmdalias_t *alias)
 	Cbuf_InsertText( buffer2 );
 }
 
+//=============================================================================
+// Fuzzy string matching & scoring
+
+static int Fuzzy_Levenshtein(const char *s1, const char *s2)
+{
+	int len1 = (int)strlen(s1);
+	int len2 = (int)strlen(s2);
+	int row0[64];
+	int row1[64];
+	int i, j;
+
+	if (len1 > 60 || len2 > 60)
+		return 999;
+
+	for (j = 0; j <= len2; j++)
+		row0[j] = j;
+
+	for (i = 0; i < len1; i++)
+	{
+		row1[0] = i + 1;
+		for (j = 0; j < len2; j++)
+		{
+			int cost = (tolower((unsigned char)s1[i]) == tolower((unsigned char)s2[j])) ? 0 : 1;
+			int val = row0[j + 1] + 1;
+			if (row1[j] + 1 < val)
+				val = row1[j] + 1;
+			if (row0[j] + cost < val)
+				val = row0[j] + cost;
+			row1[j + 1] = val;
+		}
+		for (j = 0; j <= len2; j++)
+			row0[j] = row1[j];
+	}
+	return row0[len2];
+}
+
+static const char *Fuzzy_Strcasestr(const char *haystack, const char *needle)
+{
+	size_t nlen = strlen(needle);
+	if (!nlen)
+		return haystack;
+	while (*haystack)
+	{
+		if (!strncasecmp(haystack, needle, nlen))
+			return haystack;
+		haystack++;
+	}
+	return NULL;
+}
+
+int Fuzzy_Score(const char *pattern, const char *text)
+{
+	int plen, tlen;
+	int subseq_score = 0;
+	int edit_score = 0;
+	int ti, pi;
+	int consecutive = 0;
+	int prev_match = -1;
+	int first_ti = -1;
+	int last_ti = -1;
+	int boundary_matches = 0;
+	qboolean all_matched = true;
+	const char *sub;
+
+	if (!pattern || !text || !pattern[0] || !text[0])
+		return 0;
+
+	plen = (int)strlen(pattern);
+	tlen = (int)strlen(text);
+
+	if (plen > tlen + 2)
+		return 0;
+
+	// Exact match
+	if (plen == tlen && !strcasecmp(pattern, text))
+		return 1000;
+
+	// Prefix match
+	if (!strncasecmp(pattern, text, plen))
+	{
+		int score = 800 - min(tlen - plen, 50);
+		if (plen < tlen && (text[plen] == '_' || text[plen] == '-'))
+			score += 50;
+		return score;
+	}
+
+	// Substring match
+	sub = Fuzzy_Strcasestr(text, pattern);
+	if (sub)
+	{
+		if (sub == text || *(sub - 1) == '_' || *(sub - 1) == '-')
+			return 650 - min(tlen - plen, 50);
+		return 500 - min(tlen - plen, 50);
+	}
+
+	// Subsequence match
+	ti = 0;
+	for (pi = 0; pi < plen; pi++)
+	{
+		char pch = tolower((unsigned char)pattern[pi]);
+		qboolean found = false;
+		while (ti < tlen)
+		{
+			if (tolower((unsigned char)text[ti]) == pch)
+			{
+				found = true;
+				break;
+			}
+			ti++;
+		}
+		if (!found)
+		{
+			all_matched = false;
+			break;
+		}
+
+		if (first_ti == -1)
+			first_ti = ti;
+		last_ti = ti;
+
+		{
+			int char_score = 10;
+			if (ti == prev_match + 1)
+			{
+				consecutive++;
+				char_score += consecutive * 15;
+			}
+			else
+			{
+				consecutive = 0;
+				if (prev_match != -1)
+					char_score -= (ti - prev_match - 1) * 3;
+			}
+			if (ti == 0 || text[ti - 1] == '_' || text[ti - 1] == '-')
+			{
+				char_score += 25;
+				boundary_matches++;
+			}
+			if (pi == 0 && ti == 0)
+				char_score += 30;
+
+			subseq_score += char_score;
+			prev_match = ti;
+			ti++;
+		}
+	}
+
+	if (all_matched)
+	{
+		int span = last_ti - first_ti + 1;
+		if (span <= plen * 2 || boundary_matches == plen)
+		{
+			int span_penalty = (span - plen) * 4;
+			int length_penalty = (tlen - plen) * 2;
+			subseq_score = 250 + subseq_score - span_penalty - length_penalty;
+			if (subseq_score < 100)
+				subseq_score = 0;
+		}
+		else
+			subseq_score = 0;
+	}
+	else
+		subseq_score = 0;
+
+	// Edit distance check for typos
+	if (plen >= 4 && abs(tlen - plen) <= 2)
+	{
+		int dist = Fuzzy_Levenshtein(pattern, text);
+		if (dist == 1)
+			edit_score = 350;
+		else if (dist == 2)
+			edit_score = 220;
+	}
+
+	return max(subseq_score, edit_score);
+}
+
+typedef struct cmd_fuzzy_entry_s {
+	const char *name;
+	const char *description;
+	int score;
+} cmd_fuzzy_entry_t;
+
+static int cmd_fuzzy_cmp(const void *a, const void *b)
+{
+	const cmd_fuzzy_entry_t *ea = (const cmd_fuzzy_entry_t *)a;
+	const cmd_fuzzy_entry_t *eb = (const cmd_fuzzy_entry_t *)b;
+	if (eb->score != ea->score)
+		return eb->score - ea->score;
+	return strcmp(ea->name, eb->name);
+}
+
 /*
 ========
 Cmd_List
@@ -1356,6 +1550,35 @@ static void Cmd_List_f (void)
 		partial = NULL;
 		len = 0;
 		ispattern = false;
+	}
+
+	if (cmd_fuzzy.integer && len && !ispattern)
+	{
+		cmd_fuzzy_entry_t *entries;
+		int total = 0, i;
+		for (cmd = cmd_functions; cmd; cmd = cmd->next)
+			total++;
+
+		entries = (cmd_fuzzy_entry_t *)Mem_Alloc(tempmempool, total * sizeof(cmd_fuzzy_entry_t));
+		count = 0;
+		for (cmd = cmd_functions; cmd; cmd = cmd->next)
+		{
+			int s = Fuzzy_Score(partial, cmd->name);
+			if (s > 0)
+			{
+				entries[count].name = cmd->name;
+				entries[count].description = cmd->description;
+				entries[count].score = s;
+				count++;
+			}
+		}
+		qsort(entries, count, sizeof(cmd_fuzzy_entry_t), cmd_fuzzy_cmp);
+
+		for (i = 0; i < count; i++)
+			Con_Printf("%s : %s\n", entries[i].name, entries[i].description);
+
+		Con_Printf("%i Command%s matching \"%s\"\n\n", count, (count > 1) ? "s" : "", partial);
+		return;
 	}
 
 	count = 0;
@@ -1451,6 +1674,7 @@ void Cmd_Init_Commands (void)
 //
 // register our commands
 //
+	Cvar_RegisterVariable (&cmd_fuzzy);
 	Cmd_AddCommand ("stuffcmds",Cmd_StuffCmds_f, "execute commandline parameters (must be present in quake.rc script)");
 	Cmd_AddCommand ("exec",Cmd_Exec_f, "execute a script file");
 	Cmd_AddCommand ("echo",Cmd_Echo_f, "print a message to the console (useful in scripts)");
@@ -1857,6 +2081,238 @@ const char **Cmd_CompleteAliasBuildList (const char *partial)
 	return buf;
 }
 
+int Cmd_CompleteFuzzyCountPossible (const char *partial)
+{
+	cmd_function_t *cmd;
+	int h = 0;
+
+	if (!partial || !partial[0])
+		return 0;
+
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+	{
+		if (Fuzzy_Score(partial, cmd->name) > 0)
+			h++;
+	}
+	return h;
+}
+
+const char **Cmd_CompleteFuzzyBuildList (const char *partial)
+{
+	cmd_function_t *cmd;
+	int count = Cmd_CompleteFuzzyCountPossible(partial);
+	cmd_fuzzy_entry_t *entries;
+	const char **buf;
+	int i, bpos = 0;
+
+	buf = (const char **)Mem_Alloc(tempmempool, (count + 1) * sizeof(const char *));
+	if (!count)
+	{
+		buf[0] = NULL;
+		return buf;
+	}
+
+	entries = (cmd_fuzzy_entry_t *)Mem_Alloc(tempmempool, count * sizeof(cmd_fuzzy_entry_t));
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+	{
+		int s = Fuzzy_Score(partial, cmd->name);
+		if (s > 0 && bpos < count)
+		{
+			entries[bpos].name = cmd->name;
+			entries[bpos].description = cmd->description;
+			entries[bpos].score = s;
+			bpos++;
+		}
+	}
+	qsort(entries, bpos, sizeof(cmd_fuzzy_entry_t), cmd_fuzzy_cmp);
+
+	for (i = 0; i < bpos; i++)
+		buf[i] = entries[i].name;
+	buf[bpos] = NULL;
+
+	return buf;
+}
+
+void Cmd_CompleteFuzzyCommandPrint (const char *partial)
+{
+	cmd_function_t *cmd;
+	int count = Cmd_CompleteFuzzyCountPossible(partial);
+	cmd_fuzzy_entry_t *entries;
+	int i, bpos = 0;
+	int max_print = 64;
+
+	if (!count)
+		return;
+
+	entries = (cmd_fuzzy_entry_t *)Mem_Alloc(tempmempool, count * sizeof(cmd_fuzzy_entry_t));
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+	{
+		int s = Fuzzy_Score(partial, cmd->name);
+		if (s > 0 && bpos < count)
+		{
+			entries[bpos].name = cmd->name;
+			entries[bpos].description = cmd->description;
+			entries[bpos].score = s;
+			bpos++;
+		}
+	}
+	qsort(entries, bpos, sizeof(cmd_fuzzy_entry_t), cmd_fuzzy_cmp);
+
+	for (i = 0; i < bpos && i < max_print; i++)
+		Con_Printf("^2%s^7: %s\n", entries[i].name, entries[i].description);
+
+	if (bpos > max_print)
+		Con_Printf("... and %i more commands\n", bpos - max_print);
+}
+
+typedef struct alias_fuzzy_entry_s {
+	const char *name;
+	const char *value;
+	int score;
+} alias_fuzzy_entry_t;
+
+static int alias_fuzzy_cmp(const void *a, const void *b)
+{
+	const alias_fuzzy_entry_t *ea = (const alias_fuzzy_entry_t *)a;
+	const alias_fuzzy_entry_t *eb = (const alias_fuzzy_entry_t *)b;
+	if (eb->score != ea->score)
+		return eb->score - ea->score;
+	return strcmp(ea->name, eb->name);
+}
+
+int Cmd_CompleteAliasFuzzyCountPossible (const char *partial)
+{
+	cmdalias_t *alias;
+	int h = 0;
+
+	if (!partial || !partial[0])
+		return 0;
+
+	for (alias = cmd_alias; alias; alias = alias->next)
+	{
+		if (Fuzzy_Score(partial, alias->name) > 0)
+			h++;
+	}
+	return h;
+}
+
+const char **Cmd_CompleteAliasFuzzyBuildList (const char *partial)
+{
+	cmdalias_t *alias;
+	int count = Cmd_CompleteAliasFuzzyCountPossible(partial);
+	alias_fuzzy_entry_t *entries;
+	const char **buf;
+	int i, bpos = 0;
+
+	buf = (const char **)Mem_Alloc(tempmempool, (count + 1) * sizeof(const char *));
+	if (!count)
+	{
+		buf[0] = NULL;
+		return buf;
+	}
+
+	entries = (alias_fuzzy_entry_t *)Mem_Alloc(tempmempool, count * sizeof(alias_fuzzy_entry_t));
+	for (alias = cmd_alias; alias; alias = alias->next)
+	{
+		int s = Fuzzy_Score(partial, alias->name);
+		if (s > 0 && bpos < count)
+		{
+			entries[bpos].name = alias->name;
+			entries[bpos].value = alias->value;
+			entries[bpos].score = s;
+			bpos++;
+		}
+	}
+	qsort(entries, bpos, sizeof(alias_fuzzy_entry_t), alias_fuzzy_cmp);
+
+	for (i = 0; i < bpos; i++)
+		buf[i] = entries[i].name;
+	buf[bpos] = NULL;
+
+	return buf;
+}
+
+void Cmd_CompleteAliasFuzzyPrint (const char *partial)
+{
+	cmdalias_t *alias;
+	int count = Cmd_CompleteAliasFuzzyCountPossible(partial);
+	alias_fuzzy_entry_t *entries;
+	int i, bpos = 0;
+	int max_print = 64;
+
+	if (!count)
+		return;
+
+	entries = (alias_fuzzy_entry_t *)Mem_Alloc(tempmempool, count * sizeof(alias_fuzzy_entry_t));
+	for (alias = cmd_alias; alias; alias = alias->next)
+	{
+		int s = Fuzzy_Score(partial, alias->name);
+		if (s > 0 && bpos < count)
+		{
+			entries[bpos].name = alias->name;
+			entries[bpos].value = alias->value;
+			entries[bpos].score = s;
+			bpos++;
+		}
+	}
+	qsort(entries, bpos, sizeof(alias_fuzzy_entry_t), alias_fuzzy_cmp);
+
+	for (i = 0; i < bpos && i < max_print; i++)
+		Con_Printf("^5%s^7: %s", entries[i].name, entries[i].value);
+
+	if (bpos > max_print)
+		Con_Printf("... and %i more aliases\n", bpos - max_print);
+}
+
+const char *Cmd_FindBestFuzzyMatch (const char *partial)
+{
+	cmd_function_t *cmd;
+	cmdalias_t *alias;
+	const char *cvar_match;
+	const char *best_name = NULL;
+	int best_score = 0;
+	int score;
+
+	if (!partial || !partial[0])
+		return NULL;
+
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+	{
+		score = Fuzzy_Score(partial, cmd->name);
+		if (score > best_score)
+		{
+			best_score = score;
+			best_name = cmd->name;
+		}
+	}
+
+	for (alias = cmd_alias; alias; alias = alias->next)
+	{
+		score = Fuzzy_Score(partial, alias->name);
+		if (score > best_score)
+		{
+			best_score = score;
+			best_name = alias->name;
+		}
+	}
+
+	cvar_match = Cvar_FindBestFuzzyMatch(partial);
+	if (cvar_match)
+	{
+		score = Fuzzy_Score(partial, cvar_match);
+		if (score > best_score)
+		{
+			best_score = score;
+			best_name = cvar_match;
+		}
+	}
+
+	if (best_score >= 200)
+		return best_name;
+
+	return NULL;
+}
+
 void Cmd_ClearCsqcFuncs (void)
 {
 	cmd_function_t *cmd;
@@ -1954,7 +2410,15 @@ command_found:
 
 // check cvars
 	if (!Cvar_Command () && host_framecount > 0)
+	{
 		Con_Printf("Unknown command \"%s\"\n", Cmd_Argv(0));
+		if (cmd_fuzzy.integer)
+		{
+			const char *suggestion = Cmd_FindBestFuzzyMatch(Cmd_Argv(0));
+			if (suggestion)
+				Con_Printf("Did you mean \"%s\"?\n", suggestion);
+		}
+	}
 
 done:
 	cmd_tokenizebufferpos = oldpos;

@@ -336,6 +336,140 @@ void Cvar_CompleteCvarPrint (const char *partial)
 			Con_Printf ("^3%s^7 is \"%s\" [\"%s\"] %s\n", cvar->name, cvar->string, cvar->defstring, cvar->description);
 }
 
+typedef struct cvar_fuzzy_entry_s {
+	const cvar_t *cvar;
+	int score;
+} cvar_fuzzy_entry_t;
+
+static int cvar_fuzzy_cmp(const void *a, const void *b)
+{
+	const cvar_fuzzy_entry_t *ea = (const cvar_fuzzy_entry_t *)a;
+	const cvar_fuzzy_entry_t *eb = (const cvar_fuzzy_entry_t *)b;
+	if (eb->score != ea->score)
+		return eb->score - ea->score;
+	return strcmp(ea->cvar->name, eb->cvar->name);
+}
+
+int Cvar_CompleteFuzzyCountPossible (const char *partial)
+{
+	cvar_t *cvar;
+	int h = 0;
+
+	if (!partial || !partial[0])
+		return 0;
+
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+	for (cvar = cvar_vars; cvar; cvar = cvar->next)
+	{
+		if (Fuzzy_Score(partial, cvar->name) > 0)
+			h++;
+	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+
+	return h;
+}
+
+const char **Cvar_CompleteFuzzyBuildList (const char *partial)
+{
+	cvar_t *cvar;
+	int count = Cvar_CompleteFuzzyCountPossible(partial);
+	cvar_fuzzy_entry_t *entries;
+	const char **buf;
+	int i, bpos = 0;
+
+	buf = (const char **)Mem_Alloc(tempmempool, (count + 1) * sizeof(const char *));
+	if (!count)
+	{
+		buf[0] = NULL;
+		return buf;
+	}
+
+	entries = (cvar_fuzzy_entry_t *)Mem_Alloc(tempmempool, count * sizeof(cvar_fuzzy_entry_t));
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+	for (cvar = cvar_vars; cvar; cvar = cvar->next)
+	{
+		int s = Fuzzy_Score(partial, cvar->name);
+		if (s > 0 && bpos < count)
+		{
+			entries[bpos].cvar = cvar;
+			entries[bpos].score = s;
+			bpos++;
+		}
+	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+	qsort(entries, bpos, sizeof(cvar_fuzzy_entry_t), cvar_fuzzy_cmp);
+
+	for (i = 0; i < bpos; i++)
+		buf[i] = entries[i].cvar->name;
+	buf[bpos] = NULL;
+
+	return buf;
+}
+
+void Cvar_CompleteFuzzyCvarPrint (const char *partial)
+{
+	cvar_t *cvar;
+	int count = Cvar_CompleteFuzzyCountPossible(partial);
+	cvar_fuzzy_entry_t *entries;
+	int i, bpos = 0;
+	int max_print = 64;
+
+	if (!count)
+		return;
+
+	entries = (cvar_fuzzy_entry_t *)Mem_Alloc(tempmempool, count * sizeof(cvar_fuzzy_entry_t));
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+	for (cvar = cvar_vars; cvar; cvar = cvar->next)
+	{
+		int s = Fuzzy_Score(partial, cvar->name);
+		if (s > 0 && bpos < count)
+		{
+			entries[bpos].cvar = cvar;
+			entries[bpos].score = s;
+			bpos++;
+		}
+	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+	qsort(entries, bpos, sizeof(cvar_fuzzy_entry_t), cvar_fuzzy_cmp);
+
+	for (i = 0; i < bpos && i < max_print; i++)
+	{
+		const cvar_t *c = entries[i].cvar;
+		Con_Printf("^3%s^7 is \"%s\" [\"%s\"] %s\n", c->name, c->string, c->defstring, c->description);
+	}
+
+	if (bpos > max_print)
+		Con_Printf("... and %i more variables\n", bpos - max_print);
+}
+
+const char *Cvar_FindBestFuzzyMatch (const char *partial)
+{
+	cvar_t *cvar;
+	const char *best_name = NULL;
+	int best_score = 0;
+	int score;
+
+	if (!partial || !partial[0])
+		return NULL;
+
+	if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+	for (cvar = cvar_vars; cvar; cvar = cvar->next)
+	{
+		score = Fuzzy_Score(partial, cvar->name);
+		if (score > best_score)
+		{
+			best_score = score;
+			best_name = cvar->name;
+		}
+	}
+	if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+
+	if (best_score >= 200)
+		return best_name;
+
+	return NULL;
+}
+
 // check if a cvar is held by some progs
 static qboolean Cvar_IsAutoCvar(cvar_t *var)
 {
@@ -1006,6 +1140,39 @@ void Cvar_List_f (void)
 		partial = NULL;
 		len = 0;
 		ispattern = false;
+	}
+
+	if (cmd_fuzzy.integer && len && !ispattern)
+	{
+		cvar_fuzzy_entry_t *entries;
+		int total = 0, i;
+		if (cvar_mutex) Thread_LockMutex(cvar_mutex);
+		for (cvar = cvar_vars; cvar; cvar = cvar->next)
+			total++;
+
+		entries = (cvar_fuzzy_entry_t *)Mem_Alloc(tempmempool, total * sizeof(cvar_fuzzy_entry_t));
+		count = 0;
+		for (cvar = cvar_vars; cvar; cvar = cvar->next)
+		{
+			int s = Fuzzy_Score(partial, cvar->name);
+			if (s > 0)
+			{
+				entries[count].cvar = cvar;
+				entries[count].score = s;
+				count++;
+			}
+		}
+		if (cvar_mutex) Thread_UnlockMutex(cvar_mutex);
+		qsort(entries, count, sizeof(cvar_fuzzy_entry_t), cvar_fuzzy_cmp);
+
+		for (i = 0; i < count; i++)
+		{
+			const cvar_t *c = entries[i].cvar;
+			Con_Printf("%s is \"%s\" [\"%s\"] %s\n", c->name, ((c->flags & CVAR_PRIVATE) ? "********"/*hunter2*/ : c->string), c->defstring, c->description);
+		}
+
+		Con_Printf("%i cvar%s matching \"%s\"\n", count, (count > 1) ? "s" : "", partial);
+		return;
 	}
 
 	count = 0;
