@@ -2996,6 +2996,59 @@ void Con_CompleteCommandLine (void)
 
 	if (!(c + v + a + n))	// No possible matches
 	{
+		if (cmd_fuzzy.integer && strlen(s) >= 2)
+		{
+			c = Cmd_CompleteFuzzyCountPossible(s);
+			v = Cvar_CompleteFuzzyCountPossible(s);
+			a = Cmd_CompleteAliasFuzzyCountPossible(s);
+
+			if (c + v + a > 0)
+			{
+				if (c)
+				{
+					Con_Printf("\n%i possible fuzzy command%s\n", c, (c > 1) ? "s: " : ":");
+					Cmd_CompleteFuzzyCommandPrint(s);
+				}
+				if (v)
+				{
+					Con_Printf("\n%i possible fuzzy variable%s\n", v, (v > 1) ? "s: " : ":");
+					Cvar_CompleteFuzzyCvarPrint(s);
+				}
+				if (a)
+				{
+					Con_Printf("\n%i possible fuzzy alias%s\n", a, (a > 1) ? "es: " : ":");
+					Cmd_CompleteAliasFuzzyPrint(s);
+				}
+
+				if (c)
+					cmd = *(list[0] = Cmd_CompleteFuzzyBuildList(s));
+				if (v)
+					cmd = *(list[1] = Cvar_CompleteFuzzyBuildList(s));
+				if (a)
+					cmd = *(list[2] = Cmd_CompleteAliasFuzzyBuildList(s));
+
+				if (c + v + a == 1 && cmd)
+				{
+					cmd_len = (int)strlen(cmd);
+					cmd_len = min(cmd_len, (int)sizeof(key_line) - 1 - pos);
+					key_linepos = pos;
+					memcpy(&key_line[key_linepos], cmd, cmd_len);
+					key_linepos += cmd_len;
+					if (key_linepos < (int)sizeof(key_line) - 1)
+						key_line[key_linepos++] = ' ';
+					if (s2[0])
+						strlcpy(&key_line[key_linepos], s2, sizeof(key_line) - key_linepos);
+					else
+						key_line[key_linepos] = 0;
+					return;
+				}
+
+				if (s2[0])
+					strlcpy(&key_line[key_linepos], s2, sizeof(key_line) - key_linepos);
+				return;
+			}
+		}
+
 		if(s2[0])
 			strlcpy(&key_line[key_linepos], s2, sizeof(key_line) - key_linepos);
 		return;
