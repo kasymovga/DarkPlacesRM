@@ -3625,9 +3625,11 @@ void SV_SpawnServer (const char *server)
 
 	Con_DPrint("Server spawned.\n");
 	NetConn_Heartbeat (2);
+	#ifndef CONFIG_SV
 	SV_UnlockThreadMutex();
 	SV_StartThread();
 	SV_LockThreadMutex();
+	#endif
 }
 
 /////////////////////////////////////////////////////
